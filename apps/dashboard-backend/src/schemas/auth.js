@@ -3,23 +3,23 @@ const { z } = require('zod');
 const LoginBody = z
   .object({
     username: z
-      .string({ error: 'Username is required' })
+      .string({ error: 'Der Benutzername fehlt.' })
       .trim()
-      .min(1, 'Username is required')
+      .min(1, 'Der Benutzername fehlt.')
       .max(64),
-    password: z.string({ error: 'Password is required' }).min(1, 'Password is required').max(256),
+    password: z.string({ error: 'Das Passwort fehlt.' }).min(1, 'Das Passwort fehlt.').max(256),
   })
   .strict();
 
 const ChangePasswordBody = z
   .object({
     currentPassword: z
-      .string({ error: 'currentPassword is required' })
-      .min(1, 'currentPassword is required')
+      .string({ error: 'Das aktuelle Passwort fehlt.' })
+      .min(1, 'Das aktuelle Passwort fehlt.')
       .max(256),
     newPassword: z
-      .string({ error: 'newPassword is required' })
-      .min(8, 'Password does not meet complexity requirements (min 8 chars)')
+      .string({ error: 'Das neue Passwort fehlt.' })
+      .min(8, 'Das Passwort ist zu einfach (mindestens 8 Zeichen).')
       .max(256),
   })
   .strict();
@@ -29,15 +29,15 @@ const ChangePasswordBody = z
 const SetupAdminBody = z
   .object({
     username: z
-      .string({ error: 'Username is required' })
+      .string({ error: 'Der Benutzername fehlt.' })
       .trim()
-      .min(1, 'Username is required')
+      .min(1, 'Der Benutzername fehlt.')
       .max(64),
     password: z
-      .string({ error: 'Password is required' })
-      .min(8, 'Password does not meet complexity requirements (min 8 chars)')
+      .string({ error: 'Das Passwort fehlt.' })
+      .min(8, 'Das Passwort ist zu einfach (mindestens 8 Zeichen).')
       .max(256),
-    email: z.string().trim().email('Invalid email').max(255).optional(),
+    email: z.string().trim().email('Die E-Mail-Adresse ist ungültig.').max(255).optional(),
   })
   .strict();
 

@@ -572,7 +572,7 @@ async function pruefeAppGrenze(appId) {
     `Die Lizenz dieses Geräts trägt ${grenze.limit} Apps, es sind ${grenze.current}: ` +
       `${namen.join(', ')}. „${appId}“ kommt nicht dazu. Test und Live zählen zusammen, ` +
       'jede eingespielte App belegt einen Platz. Entfernen Sie eine App (Einstellungen → Apps → ' +
-      'App entfernen) oder erweitern Sie die Lizenz (Einstellungen → Lizenz).',
+      'App entfernen) oder erweitern Sie die Lizenz (Verwaltung → Gerät → Lizenz).',
     { grenze: grenze.limit, belegt: grenze.current, apps: namen, abgewiesen: appId }
   );
 }

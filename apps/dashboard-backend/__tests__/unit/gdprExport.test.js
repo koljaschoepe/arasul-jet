@@ -127,9 +127,9 @@ describe('GET /api/gdpr/export', () => {
     const res = await request(buildApp()).get('/api/gdpr/export');
 
     expect(res.status).toBe(200);
-    expect(res.body.flowRuns.unvollstaendig).toMatch(/file_type/);
+    expect(res.body.flowRuns.unvollstaendig).not.toMatch(/file_type/);
     expect(res.body._meta.unvollstaendig).toEqual([
-      { kategorie: 'laeufe', grund: 'column "file_type" does not exist' },
+      { kategorie: 'laeufe', grund: 'Diese Kategorie konnte nicht gelesen werden.' },
     ]);
     // Eine intakte Kategorie bleibt sauber.
     expect(res.body.loginHistory.unvollstaendig).toBeUndefined();

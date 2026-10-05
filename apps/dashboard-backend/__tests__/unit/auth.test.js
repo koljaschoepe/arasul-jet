@@ -18,7 +18,7 @@ const request = require('supertest');
 jest.mock('../../src/database', () => ({
   query: jest.fn(),
   initialize: jest.fn().mockResolvedValue(true),
-  getPoolStats: jest.fn().mockReturnValue({ total: 10, idle: 5, waiting: 0 })
+  getPoolStats: jest.fn().mockReturnValue({ total: 10, idle: 5, waiting: 0 }),
 }));
 
 // Mock logger
@@ -26,7 +26,7 @@ jest.mock('../../src/utils/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
-  debug: jest.fn()
+  debug: jest.fn(),
 }));
 
 const db = require('../../src/database');
@@ -39,7 +39,7 @@ const {
   setupAuthMocks,
   setupLoginMocks,
   setupLogoutMocks,
-  setupPasswordChangeMocks
+  setupPasswordChangeMocks,
 } = require('../helpers/authMock');
 
 // Valid bcrypt hash for 'TestPassword123!' (generated with cost 12)
@@ -59,24 +59,20 @@ describe('Authentication Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error');
-      expect(response.body.error.message).toContain('required');
+      expect(response.body.error.message).toContain('Benutzername');
       expect(response.body).toHaveProperty('timestamp');
     });
 
     test('should return 400 if password is missing', async () => {
-      const response = await request(app)
-        .post('/api/auth/login')
-        .send({ username: 'admin' });
+      const response = await request(app).post('/api/auth/login').send({ username: 'admin' });
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error');
-      expect(response.body.error.message).toContain('required');
+      expect(response.body.error.message).toContain('Passwort');
     });
 
     test('should return 400 if both username and password are missing', async () => {
-      const response = await request(app)
-        .post('/api/auth/login')
-        .send({});
+      const response = await request(app).post('/api/auth/login').send({});
 
       expect(response.status).toBe(400);
     });
@@ -109,7 +105,7 @@ describe('Authentication Routes', () => {
         .send({ username: 'nonexistent', password: 'TestPassword123!' });
 
       expect(response.status).toBe(401);
-      expect(response.body.error.message).toContain('Invalid');
+      expect(response.body.error.message).toContain('stimmt nicht');
     });
 
     test('should return 403 if user is inactive', async () => {
@@ -119,7 +115,7 @@ describe('Authentication Routes', () => {
       db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
       // Mock inactive user
       db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, is_active: false, password_hash: validPasswordHash }]
+        rows: [{ ...mockUser, is_active: false, password_hash: validPasswordHash }],
       });
 
       const response = await request(app)
@@ -127,7 +123,7 @@ describe('Authentication Routes', () => {
         .send({ username: 'admin', password: 'TestPassword123!' });
 
       expect(response.status).toBe(403);
-      expect(response.body.error.message).toContain('disabled');
+      expect(response.body.error.message).toContain('stillgelegt');
       expect(response.body.error.code).toBe('ACCOUNT_DISABLED');
     });
 
@@ -138,7 +134,7 @@ describe('Authentication Routes', () => {
       db.query.mockResolvedValueOnce({ rows: [{ locked: false }] });
       // Mock user found with password hash that won't match
       db.query.mockResolvedValueOnce({
-        rows: [{ ...mockUser, password_hash: validPasswordHash }]
+        rows: [{ ...mockUser, password_hash: validPasswordHash }],
       });
       // Mock record failed login attempt
       db.query.mockResolvedValueOnce({ rows: [] });
@@ -148,7 +144,7 @@ describe('Authentication Routes', () => {
         .send({ username: 'admin', password: 'WrongPassword123!' });
 
       expect(response.status).toBe(401);
-      expect(response.body.error.message).toContain('Invalid');
+      expect(response.body.error.message).toContain('stimmt nicht');
     });
 
     test('should return token on successful login', async () => {
@@ -173,7 +169,7 @@ describe('Authentication Routes', () => {
      */
     test('sagt, ob das Passwort von jemand anderem gesetzt wurde', async () => {
       setupLoginMocks(db, validPasswordHash, {
-        user: { ...mockUser, passwort_vom_admin: true }
+        user: { ...mockUser, passwort_vom_admin: true },
       });
 
       const response = await request(app)
@@ -224,15 +220,14 @@ describe('Authentication Routes', () => {
     // tot ist. Vorher stand hier zweimal 401 -- und genau das liess nach einem
     // Passwortwechsel (der ALLE Sitzungen entwertet) ein httpOnly-Cookie mit
     // totem Token im Browser stehen, das eine Seite selbst nicht loeschen kann.
-    const raeumtDieCookies = (response) => {
+    const raeumtDieCookies = response => {
       const gesetzt = response.headers['set-cookie'] || [];
       expect(gesetzt.join(' ')).toMatch(/arasul_session=/);
       expect(gesetzt.join(' ')).toMatch(/arasul_csrf=/);
     };
 
     test('raeumt auch ohne Sitzung die Cookies weg', async () => {
-      const response = await request(app)
-        .post('/api/auth/logout');
+      const response = await request(app).post('/api/auth/logout');
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
@@ -277,8 +272,7 @@ describe('Authentication Routes', () => {
   // ============================================================================
   describe('GET /api/auth/me', () => {
     test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/auth/me');
+      const response = await request(app).get('/api/auth/me');
 
       expect(response.status).toBe(401);
     });
@@ -374,12 +368,10 @@ describe('Authentication Routes', () => {
   // ============================================================================
   describe('POST /api/auth/change-password', () => {
     test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/auth/change-password')
-        .send({
-          currentPassword: 'OldPassword123!',
-          newPassword: 'NewPassword456!'
-        });
+      const response = await request(app).post('/api/auth/change-password').send({
+        currentPassword: 'OldPassword123!',
+        newPassword: 'NewPassword456!',
+      });
 
       expect(response.status).toBe(401);
     });
@@ -403,7 +395,7 @@ describe('Authentication Routes', () => {
         .send({ newPassword: 'NewPassword456!' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error.message).toContain('required');
+      expect(response.body.error.message).toContain('Das aktuelle');
     });
 
     test('should return 400 if newPassword is missing', async () => {
@@ -423,7 +415,7 @@ describe('Authentication Routes', () => {
         .send({ currentPassword: 'TestPassword123!' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error.message).toContain('required');
+      expect(response.body.error.message).toContain('Das neue');
     });
 
     test('should return 400 if newPassword does not meet complexity requirements', async () => {
@@ -443,7 +435,7 @@ describe('Authentication Routes', () => {
         .send({ currentPassword: 'TestPassword123!', newPassword: 'abc' });
 
       expect(response.status).toBe(400);
-      expect(response.body.error.message).toContain('complexity');
+      expect(response.body.error.message).toContain('zu einfach');
     });
 
     test('should return 401 if currentPassword is incorrect', async () => {
@@ -463,11 +455,11 @@ describe('Authentication Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({
           currentPassword: 'WrongPassword123!',
-          newPassword: 'NewSecurePassword456!'
+          newPassword: 'NewSecurePassword456!',
         });
 
       expect(response.status).toBe(401);
-      expect(response.body.error.message).toContain('incorrect');
+      expect(response.body.error.message).toContain('stimmt nicht');
     });
 
     test('should return 400 if newPassword is same as currentPassword', async () => {
@@ -487,11 +479,11 @@ describe('Authentication Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({
           currentPassword: 'TestPassword123!',
-          newPassword: 'TestPassword123!'
+          newPassword: 'TestPassword123!',
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error.message).toContain('different');
+      expect(response.body.error.message).toContain('unterscheiden');
     });
   });
 
@@ -500,8 +492,7 @@ describe('Authentication Routes', () => {
   // ============================================================================
   describe('GET /api/auth/sessions', () => {
     test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/auth/sessions');
+      const response = await request(app).get('/api/auth/sessions');
 
       expect(response.status).toBe(401);
     });
@@ -510,12 +501,20 @@ describe('Authentication Routes', () => {
       const token = generateTestToken();
 
       // Mock auth and sessions query
-      db.query.mockImplementation((query) => {
+      db.query.mockImplementation(query => {
         if (query.includes('token_blacklist')) {
           return Promise.resolve({ rows: [] });
         }
-        if (query.includes('active_sessions') && query.includes('SELECT') && !query.includes('ORDER')) {
-          return Promise.resolve({ rows: [{ id: 1, token_jti: 'test-jti-12345', expires_at: new Date(Date.now() + 86400000) }] });
+        if (
+          query.includes('active_sessions') &&
+          query.includes('SELECT') &&
+          !query.includes('ORDER')
+        ) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, token_jti: 'test-jti-12345', expires_at: new Date(Date.now() + 86400000) },
+            ],
+          });
         }
         if (query.includes('update_session_activity')) {
           return Promise.resolve({ rows: [] });
@@ -526,14 +525,16 @@ describe('Authentication Routes', () => {
         // Sessions list query
         if (query.includes('ORDER BY')) {
           return Promise.resolve({
-            rows: [{
-              token_jti: 'test-jti',
-              ip_address: '127.0.0.1',
-              user_agent: 'test-agent',
-              created_at: new Date(),
-              expires_at: new Date(Date.now() + 86400000),
-              last_activity: new Date()
-            }]
+            rows: [
+              {
+                token_jti: 'test-jti',
+                ip_address: '127.0.0.1',
+                user_agent: 'test-agent',
+                created_at: new Date(),
+                expires_at: new Date(Date.now() + 86400000),
+                last_activity: new Date(),
+              },
+            ],
           });
         }
         return Promise.resolve({ rows: [] });
@@ -555,8 +556,7 @@ describe('Authentication Routes', () => {
   // ============================================================================
   describe('GET /api/auth/verify', () => {
     test('should return 401 without token', async () => {
-      const response = await request(app)
-        .get('/api/auth/verify');
+      const response = await request(app).get('/api/auth/verify');
 
       expect(response.status).toBe(401);
     });
@@ -635,8 +635,7 @@ describe('Authentication Routes', () => {
   // ============================================================================
   describe('POST /api/auth/logout-all', () => {
     test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/auth/logout-all');
+      const response = await request(app).post('/api/auth/logout-all');
 
       expect(response.status).toBe(401);
     });
@@ -645,12 +644,16 @@ describe('Authentication Routes', () => {
       const token = generateTestToken();
 
       // Mock auth and logout-all queries
-      db.query.mockImplementation((query) => {
+      db.query.mockImplementation(query => {
         if (query.includes('token_blacklist') && query.includes('SELECT')) {
           return Promise.resolve({ rows: [] });
         }
         if (query.includes('active_sessions') && query.includes('SELECT')) {
-          return Promise.resolve({ rows: [{ id: 1, token_jti: 'test-jti-12345', expires_at: new Date(Date.now() + 86400000) }] });
+          return Promise.resolve({
+            rows: [
+              { id: 1, token_jti: 'test-jti-12345', expires_at: new Date(Date.now() + 86400000) },
+            ],
+          });
         }
         if (query.includes('update_session_activity')) {
           return Promise.resolve({ rows: [] });
@@ -674,7 +677,7 @@ describe('Authentication Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
-      expect(response.body.message).toContain('all sessions');
+      expect(response.body.message).toContain('allen Geräten');
     });
   });
 
@@ -683,9 +686,7 @@ describe('Authentication Routes', () => {
   // ============================================================================
   describe('Error Response Format', () => {
     test('should always include timestamp in error responses', async () => {
-      const response = await request(app)
-        .post('/api/auth/login')
-        .send({ username: 'test' });
+      const response = await request(app).post('/api/auth/login').send({ username: 'test' });
 
       expect(response.body).toHaveProperty('timestamp');
       const timestamp = new Date(response.body.timestamp);
@@ -694,9 +695,7 @@ describe('Authentication Routes', () => {
     });
 
     test('should return JSON content type for errors', async () => {
-      const response = await request(app)
-        .post('/api/auth/login')
-        .send({});
+      const response = await request(app).post('/api/auth/login').send({});
 
       expect(response.headers['content-type']).toMatch(/application\/json/);
     });

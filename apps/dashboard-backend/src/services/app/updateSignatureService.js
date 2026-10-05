@@ -34,7 +34,10 @@ async function verifySignature(updateFilePath, signatureFilePath) {
       await fs.access(publicKeyPath);
     } catch (error) {
       logger.error(`Public key not found at ${publicKeyPath}`);
-      return { valid: false, error: 'Public key not found - update system not configured' };
+      return {
+        valid: false,
+        error: 'Der öffentliche Schlüssel fehlt, die Aktualisierung ist nicht eingerichtet.',
+      };
     }
 
     // Read public key
@@ -45,8 +48,8 @@ async function verifySignature(updateFilePath, signatureFilePath) {
       !publicKey.includes('-----BEGIN PUBLIC KEY-----') &&
       !publicKey.includes('-----BEGIN RSA PUBLIC KEY-----')
     ) {
-      logger.error('Invalid public key format');
-      return { valid: false, error: 'Invalid public key format' };
+      logger.error('Der öffentliche Schlüssel hat ein ungültiges Format.');
+      return { valid: false, error: 'Der öffentliche Schlüssel hat ein ungültiges Format.' };
     }
 
     // Check if signature file exists
@@ -54,7 +57,7 @@ async function verifySignature(updateFilePath, signatureFilePath) {
       await fs.access(signatureFilePath);
     } catch (error) {
       logger.error(`Signature file not found at ${signatureFilePath}`);
-      return { valid: false, error: 'Signature file not found' };
+      return { valid: false, error: 'Die Signaturdatei fehlt.' };
     }
 
     // Read signature

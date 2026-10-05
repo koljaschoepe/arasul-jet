@@ -597,7 +597,8 @@ async function mitDienst(was, tuEs) {
     return null;
   } catch (err) {
     logger.warn(`Firmenordner: ${was} ging nicht -- ${err.roh || err.message}`);
-    return `${was}: ${err.roh || err.message}`.slice(0, 500);
+    // Der technische Text steht im Protokoll, in der Tabelle nur ein Satz.
+    return `${was} ging nicht.`;
   }
 }
 

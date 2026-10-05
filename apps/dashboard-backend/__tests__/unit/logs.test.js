@@ -14,7 +14,7 @@ const request = require('supertest');
 jest.mock('../../src/database', () => ({
   query: jest.fn(),
   initialize: jest.fn().mockResolvedValue(true),
-  getPoolStats: jest.fn().mockReturnValue({ total: 10, idle: 5, waiting: 0 })
+  getPoolStats: jest.fn().mockReturnValue({ total: 10, idle: 5, waiting: 0 }),
 }));
 
 // Mock logger
@@ -22,7 +22,7 @@ jest.mock('../../src/utils/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
-  debug: jest.fn()
+  debug: jest.fn(),
 }));
 
 // Mock fs module - preserve actual fs for bcrypt compatibility
@@ -38,7 +38,7 @@ jest.mock('fs', () => {
   const mockWatcher = {
     close: jest.fn(),
     on: jest.fn(),
-    off: jest.fn()
+    off: jest.fn(),
   };
 
   return {
@@ -49,11 +49,11 @@ jest.mock('fs', () => {
       readFile: jest.fn().mockResolvedValue(mockLogContent),
       stat: jest.fn().mockResolvedValue({
         size: 1024,
-        mtime: new Date('2026-01-25T10:00:00.000Z')
+        mtime: new Date('2026-01-25T10:00:00.000Z'),
       }),
-      watch: jest.fn().mockReturnValue(mockWatcher)
+      watch: jest.fn().mockReturnValue(mockWatcher),
     },
-    createReadStream: jest.fn()
+    createReadStream: jest.fn(),
   };
 });
 
@@ -81,9 +81,7 @@ describe('Logs Routes', () => {
     test('should return log contents with valid token', async () => {
       setupAuthMocks(db);
 
-      const response = await request(app)
-        .get('/api/logs')
-        .set('Authorization', `Bearer ${token}`);
+      const response = await request(app).get('/api/logs').set('Authorization', `Bearer ${token}`);
 
       // May return 404 if log file doesn't exist in test environment
       expect([200, 404]).toContain(response.status);
@@ -202,8 +200,7 @@ describe('Logs Routes', () => {
   // ============================================================================
   describe('GET /api/logs/search', () => {
     test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/logs/search?query=error');
+      const response = await request(app).get('/api/logs/search?query=error');
       expect(response.status).toBe(401);
     });
 
@@ -215,7 +212,7 @@ describe('Logs Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(400);
-      expect(response.body.error.message).toContain('query');
+      expect(response.body.error.message).toContain('Suchbegriff');
     });
 
     test('should search logs with valid query', async () => {

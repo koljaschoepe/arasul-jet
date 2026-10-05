@@ -61,20 +61,20 @@ async function changeDashboardPassword(
 ) {
   // Validate input
   if (!currentPassword || !newPassword) {
-    throw new ValidationError('Current password and new password are required');
+    throw new ValidationError('Das aktuelle und das neue Passwort werden gebraucht.');
   }
 
   // Validate new password complexity
   const validation = validatePasswordComplexity(newPassword);
   if (!validation.valid) {
-    throw new ValidationError('Password does not meet complexity requirements', validation.errors);
+    throw new ValidationError('Das Passwort ist zu einfach.', validation.errors);
   }
 
   // Get user's current password hash
   const result = await db.query('SELECT password_hash FROM admin_users WHERE id = $1', [userId]);
 
   if (result.rows.length === 0) {
-    throw new NotFoundError('User not found');
+    throw new NotFoundError('Dieses Konto gibt es nicht.');
   }
 
   const { password_hash } = result.rows[0];
@@ -83,13 +83,13 @@ async function changeDashboardPassword(
   const passwordValid = await verifyPassword(currentPassword, password_hash);
   if (!passwordValid) {
     logger.warn(`Failed password change attempt for user: ${username || userId}`);
-    throw new UnauthorizedError('Current password is incorrect');
+    throw new UnauthorizedError('Das aktuelle Passwort stimmt nicht.');
   }
 
   // Check if new password is same as current
   const sameAsOld = await verifyPassword(newPassword, password_hash);
   if (sameAsOld) {
-    throw new ValidationError('New password must be different from current password');
+    throw new ValidationError('Das neue Passwort muss sich vom aktuellen unterscheiden.');
   }
 
   // `vomAdmin: false` -- hier waehlt der Mensch sein Passwort selbst. Das ist

@@ -121,7 +121,7 @@ Authorization: Bearer <your-jwt-token>
 
 ```json
 {
-  "error": "Invalid token",
+  "error": "Die Anmeldung ist ungültig.",
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```
@@ -140,7 +140,7 @@ Authorization: Bearer <your-jwt-token>
 
 ```json
 {
-  "error": "Token expired",
+  "error": "Die Anmeldung ist abgelaufen.",
   "timestamp": "2025-11-12T10:30:45.123Z"
 }
 ```

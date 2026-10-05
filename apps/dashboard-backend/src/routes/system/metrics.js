@@ -49,7 +49,9 @@ router.get(
     if (validRanges[range]) {
       hours = validRanges[range];
     } else {
-      throw new ValidationError('Invalid range. Valid values: 1h, 6h, 12h, 24h, 48h, 7d, 30d');
+      throw new ValidationError(
+        'Der Zeitraum ist ungültig. Erlaubt sind 1h, 6h, 12h, 24h, 48h, 7d und 30d.'
+      );
     }
 
     const intervalMinutes = Math.max(1, Math.floor(hours / 100));

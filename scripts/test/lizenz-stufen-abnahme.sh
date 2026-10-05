@@ -262,7 +262,7 @@ done
 lege_konto_an "$STEMPEL-zuviel"
 MELDUNG=$(rumpf | feld error.message)
 pruefe "Das naechste Konto wird abgewiesen (409), $K_BELEGT von $K_GRENZE belegt" "$(ja_wenn "$CODE" 409)" "HTTP $CODE"
-pruefe 'und die Meldung zeigt auf die Lizenz' "$(enthaelt "$MELDUNG" 'Einstellungen -> Lizenz')" "$MELDUNG"
+pruefe 'und die Meldung zeigt auf die Lizenz' "$(enthaelt "$MELDUNG" 'Verwaltung → Gerät → Lizenz')" "$MELDUNG"
 
 n=0
 while [ "$A_BELEGT" -lt "$A_GRENZE" ]; do

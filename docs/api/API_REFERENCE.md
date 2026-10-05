@@ -165,7 +165,7 @@ niemanden abmelden können.
 // Response
 {
   "success": true,
-  "message": "Logged out successfully",
+  "message": "Abgemeldet.",
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
@@ -178,7 +178,7 @@ Invalidates every active session for the current user by blacklisting all their 
 // Response
 {
   "success": true,
-  "message": "Logged out from all sessions successfully",
+  "message": "Auf allen Geräten abgemeldet.",
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
@@ -210,7 +210,7 @@ weiteres Feld ist ein 400):
 // Response 200
 {
   "success": true,
-  "message": "Password changed successfully. Please log in again with your new password.",
+  "message": "Das Passwort wurde geändert. Bitte melden Sie sich mit dem neuen Passwort neu an.",
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
@@ -731,7 +731,7 @@ nicht beide am letzten Platz vorbei.
 {
   "error": {
     "code": "CONFLICT",
-    "message": "Die Lizenz dieses Geraets (community) traegt 3 Konten, aktiv sind 3: admin, mia, tom. ute kommt nicht dazu. Der Administrator zaehlt mit, stillgelegte Konten nicht. Ein Konto stilllegen (Einstellungen -> Mitarbeiter) oder die Lizenz erweitern (Einstellungen -> Lizenz).",
+    "message": "Die Lizenz dieses Geräts (community) trägt 3 Konten, aktiv sind 3: admin, mia, tom. ute kommt nicht dazu. Der Administrator zählt mit, stillgelegte Konten nicht. Ein Konto stilllegen (Verwaltung → Personen) oder die Lizenz erweitern (Verwaltung → Gerät → Lizenz).",
     "details": {
       "grenze": 3,
       "belegt": 3,
@@ -2133,7 +2133,7 @@ der auf die Lizenz zeigt). `professional` ist die bezahlte Stufe, ohne Grenzen;
 `enterprise` nimmt das Gerät weiter an, mit denselben Rechten. `nutzung` nennt
 je Konten und Apps, was belegt ist und was die Lizenz trägt (`-1` unbegrenzt) —
 dieselben Zählungen wie die Riegel und dieselbe Antwort wie
-`scripts/util/lizenz-geraet.sh status`. Die Seite **Einstellungen → Lizenz**
+`scripts/util/lizenz-geraet.sh status`. Die Seite **Verwaltung → Gerät → Lizenz**
 zeigt sie.
 
 **GET /api/license/fingerprint Response:**
@@ -2220,7 +2220,7 @@ Datei ist das kein Fehler (`entfernt: false`). Protokolliert als
 {
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "Der oeffentliche Lizenzschluessel fehlt am Geraet (/arasul/config/public_license_key.pem). Ohne ihn laesst sich keine Lizenz pruefen; das Geraet bleibt community."
+    "message": "Der öffentliche Lizenzschlüssel fehlt am Gerät (/arasul/config/public_license_key.pem). Ohne ihn lässt sich keine Lizenz prüfen; das Gerät bleibt community."
   }
 }
 
@@ -2228,7 +2228,7 @@ Datei ist das kein Fehler (`entfernt: false`). Protokolliert als
 {
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "Die Signatur der Lizenz ist ungueltig: sie stammt nicht vom Lizenzschluessel dieses Produkts. Das Geraet bleibt community."
+    "message": "Die Signatur der Lizenz ist ungültig: sie stammt nicht vom Lizenzschlüssel dieses Produkts. Das Gerät bleibt community."
   }
 }
 ```
@@ -3001,11 +3001,14 @@ Flows are Markdown files with YAML front matter under `data/flows/` (container p
 | POST   | `/api/flows/laeufe/:id/antwort`     | Eine Rückfrage beantworten (`{antwort}`). 404, wenn nichts offen ist                                                                    |
 | POST   | `/api/flows/laeufe/:id/wiederholen` | Retry a **failed** run of a flow with a declared step chain (body `{}`); `202 { runId, uebernommeneSchritte }`                          |
 
-**Starting flows.** A flow runs from the chat (slash command `/name`) or via the
-external HTTP trigger `POST /api/v1/external/flows/:name/run` (API key, scope
-`flow:run` — see the External API section). The former cron/event scheduling
-(`flow_schedules`, `/flows/zeitplaene`, external `events/:name`) was removed on
-2026-07-28; there is no schedule mechanism anymore.
+**Flows starten.** Ein Flow läuft von Hand, über den externen Auslöser
+`POST /api/v1/external/flows/:name/run` (API-Schlüssel, Bereich `flow:run`, siehe
+Externe API), nach Uhrzeit über den **Zeitplaner** des Geräts (Auslöser `zeitplan`
+im Kopf, [FLOWS.md](../features/FLOWS.md#zeitplaner-flows-nach-uhrzeit-m5-04102026))
+oder durch ein **Ereignis der App** (`POST /api/v1/external/ereignisse/:name`,
+Kontrakt 13). Die alte Zeitplanung von 2026-07-28 (`flow_schedules`,
+`/flows/zeitplaene`) gibt es nicht mehr; der heutige Zeitplaner hat eigene Wege
+unter `/api/apps/:id/flows`.
 
 **Prüfschritt & Annahmen-Protokoll (Plan 014, Phase 2).** Bei Dokument-Flows
 (`ausgabe.format ≠ keins`) steht zwischen Entwurf und Ausgabe ein fester

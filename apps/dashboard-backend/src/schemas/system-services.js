@@ -4,9 +4,9 @@ const { z } = require('zod');
 const PullModelBody = z
   .object({
     model_name: z
-      .string({ error: 'Model name is required' })
+      .string({ error: 'Der Modellname fehlt.' })
       .trim()
-      .min(1, 'Model name is required')
+      .min(1, 'Der Modellname fehlt.')
       .max(200),
   })
   .strict();

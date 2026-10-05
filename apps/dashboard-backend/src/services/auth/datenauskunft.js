@@ -25,8 +25,8 @@ const logger = require('../../utils/logger');
  * Verbindungsabbruch oder ein Timeout landet als `unvollstaendig` in der
  * Antwort statt als 500. Das ist so gewollt — eine Auskunft, die zehn von
  * elf Kategorien liefert und die elfte benennt, ist mehr wert als gar
- * keine. Still ist sie dabei nie: der Grund steht in der Antwort und im
- * Protokoll.
+ * keine. Still ist sie dabei nie: dass sie fehlt, steht in der Antwort, der
+ * technische Grund im Protokoll.
  *
  * @param {Array<{kategorie: string, grund: string}>} unvollstaendig
  *   Liste, in die jeder Fehlschlag eingetragen wird
@@ -38,8 +38,10 @@ function kategorieHoler(unvollstaendig) {
       return await db.query(sql, params);
     } catch (err) {
       logger.error(`GDPR-Export: Kategorie "${kategorie}" nicht lesbar: ${err.message}`);
-      unvollstaendig.push({ kategorie, grund: err.message });
-      return { rows: [], fehler: err.message };
+      // Der technische Text bleibt im Protokoll; der Client bekommt einen Satz.
+      const grund = 'Diese Kategorie konnte nicht gelesen werden.';
+      unvollstaendig.push({ kategorie, grund });
+      return { rows: [], fehler: grund };
     }
   };
 }

@@ -174,7 +174,7 @@ describe('/api/benutzer', () => {
     const res = await request(app()).post('/api/benutzer').send(NEU);
     expect(res.status).toBe(409);
     expect(res.body.error.message).toMatch(/Lizenz dieses Geräts \(community\) trägt 3 Konten/);
-    expect(res.body.error.message).toMatch(/Einstellungen → Lizenz/);
+    expect(res.body.error.message).toMatch(/Verwaltung → Gerät → Lizenz/);
     expect(res.body.error.details).toMatchObject({ grenze: 3, belegt: 3, stufe: 'community' });
     // Nichts geschrieben: das INSERT kommt gar nicht erst an.
     expect(db.query).not.toHaveBeenCalled();

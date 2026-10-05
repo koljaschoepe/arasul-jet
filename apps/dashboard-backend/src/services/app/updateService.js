@@ -93,7 +93,7 @@ class UpdateService {
       try {
         await fs.access(signatureFilePath);
       } catch (error) {
-        return { valid: false, error: 'Signature file not found' };
+        return { valid: false, error: 'Die Signaturdatei fehlt.' };
       }
 
       // 2. Verify signature
@@ -448,7 +448,7 @@ class UpdateService {
    */
   async applyUpdate(updateFilePath) {
     if (this.updateInProgress) {
-      return { success: false, error: 'Update already in progress' };
+      return { success: false, error: 'Es läuft schon eine Aktualisierung.' };
     }
 
     // ERST fragen, ob dieser Weg an diesem Geraet ueberhaupt gangbar ist, DANN

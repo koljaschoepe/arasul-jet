@@ -120,7 +120,7 @@ async function generateToken(user, ipAddress, userAgent) {
     };
   } catch (error) {
     logger.error(`Error generating token: ${error.message}`);
-    throw new ServiceUnavailableError('Token generation failed');
+    throw new ServiceUnavailableError('Die Anmeldung konnte nicht erstellt werden.');
   }
 }
 
@@ -161,7 +161,7 @@ async function verifyToken(token) {
 
     if (blacklistCheck.rows.length > 0) {
       verifiedTokenCache.delete(decoded.jti);
-      throw new TokenRevokedError('Token is blacklisted');
+      throw new TokenRevokedError('Diese Anmeldung wurde beendet.');
     }
 
     const sessionCheck = await db.query(
@@ -171,7 +171,7 @@ async function verifyToken(token) {
 
     if (sessionCheck.rows.length === 0) {
       verifiedTokenCache.delete(decoded.jti);
-      throw new InvalidTokenError('Session not found or expired');
+      throw new InvalidTokenError('Die Sitzung gibt es nicht mehr oder sie ist abgelaufen.');
     }
 
     // BH9 FIX: Set timestamp before async DB call to prevent duplicate concurrent updates
@@ -198,9 +198,9 @@ async function verifyToken(token) {
       throw error;
     }
     if (error.name === 'TokenExpiredError') {
-      throw new TokenExpiredError('Token expired');
+      throw new TokenExpiredError('Die Anmeldung ist abgelaufen.');
     } else if (error.name === 'JsonWebTokenError') {
-      throw new InvalidTokenError('Invalid token');
+      throw new InvalidTokenError('Die Anmeldung ist ungültig.');
     } else {
       throw error;
     }
@@ -215,7 +215,7 @@ async function blacklistToken(token) {
     const decoded = jwt.decode(token);
 
     if (!decoded) {
-      throw new InvalidTokenError('Invalid token format');
+      throw new InvalidTokenError('Die Anmeldung ist ungültig.');
     }
 
     const expiresAt = new Date(decoded.exp * 1000);
@@ -242,7 +242,7 @@ async function blacklistToken(token) {
       throw error;
     }
     logger.error(`Error blacklisting token: ${error.message}`);
-    throw new ServiceUnavailableError('Token blacklisting failed');
+    throw new ServiceUnavailableError('Die Anmeldung konnte nicht beendet werden.');
   }
 }
 
@@ -283,7 +283,7 @@ async function blacklistAllUserTokens(userId) {
       throw error;
     }
     logger.error(`Error blacklisting all user tokens: ${error.message}`);
-    throw new ServiceUnavailableError('Mass token blacklisting failed');
+    throw new ServiceUnavailableError('Die Anmeldungen konnten nicht beendet werden.');
   }
 }
 
@@ -309,7 +309,7 @@ async function getUserSessions(userId) {
     return result.rows;
   } catch (error) {
     logger.error(`Error getting user sessions: ${error.message}`);
-    throw new ServiceUnavailableError('Failed to get user sessions');
+    throw new ServiceUnavailableError('Die Sitzungen konnten nicht gelesen werden.');
   }
 }
 

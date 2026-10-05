@@ -302,12 +302,15 @@
    Hex-, `rgb()`- und `hsl()`-Wert in jedem anderen CSS und im TSX. Die Zeilen
    sind unveraendert mitgezogen und stehen NACH den Bloecken oben, damit
    dieselbe Reihenfolge gilt wie vorher, als `index.css` nach dieser Datei kam.
+
+   Die Alpha-Stufen des Primaerblaus (05.10.2026) sind keine Kopien mehr, sondern
+   `color-mix` aus `--primary`: ein Blau, eine Quelle, in beiden Themes.
    ----------------------------------------------------------------------------- */
 :root {
   --primary-hover: #2677b6;
   --primary-active: #185a8c;
   --primary-light: #2677b6;
-  --primary-muted: rgba(30, 106, 164, 0.12);
+  --primary-muted: color-mix(in srgb, var(--primary) 12%, transparent);
   --danger-hover: #a81b1b;
   --danger-light: #fca5a5;
   --status-neutral: #6b6b6b;
@@ -315,8 +318,8 @@
   --status-neutral-border: rgba(107, 107, 107, 0.25);
   --status-critical-bg: rgba(196, 32, 32, 0.12);
   --status-critical-border: rgba(196, 32, 32, 0.25);
-  --status-performance-bg: rgba(30, 106, 164, 0.12);
-  --status-performance-border: rgba(30, 106, 164, 0.25);
+  --status-performance-bg: color-mix(in srgb, var(--primary) 12%, transparent);
+  --status-performance-border: color-mix(in srgb, var(--primary) 25%, transparent);
   --bg-elevated: #ffffff;
   --bg-subtle: #fafafa;
   --text-secondary: #3d3d3d;
@@ -328,20 +331,20 @@
   --gradient-primary: linear-gradient(135deg, #1e6aa4 0%, #185a8c 100%);
   --gradient-card: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
   --bg-table-row-hover: rgba(16, 16, 16, 0.03);
-  --bg-code: rgba(30, 106, 164, 0.05);
+  --bg-code: color-mix(in srgb, var(--primary) 5%, transparent);
   --border-input: rgba(16, 16, 16, 0.14);
   --scrollbar-thumb: rgba(16, 16, 16, 0.18);
   --scrollbar-thumb-hover: rgba(16, 16, 16, 0.32);
-  --primary-alpha-5: rgba(30, 106, 164, 0.05);
-  --primary-alpha-8: rgba(30, 106, 164, 0.08);
-  --primary-alpha-10: rgba(30, 106, 164, 0.1);
-  --primary-alpha-12: rgba(30, 106, 164, 0.12);
-  --primary-alpha-15: rgba(30, 106, 164, 0.15);
-  --primary-alpha-20: rgba(30, 106, 164, 0.2);
-  --primary-alpha-25: rgba(30, 106, 164, 0.25);
-  --primary-alpha-30: rgba(30, 106, 164, 0.3);
-  --primary-alpha-40: rgba(30, 106, 164, 0.4);
-  --primary-alpha-50: rgba(30, 106, 164, 0.5);
+  --primary-alpha-5: color-mix(in srgb, var(--primary) 5%, transparent);
+  --primary-alpha-8: color-mix(in srgb, var(--primary) 8%, transparent);
+  --primary-alpha-10: color-mix(in srgb, var(--primary) 10%, transparent);
+  --primary-alpha-12: color-mix(in srgb, var(--primary) 12%, transparent);
+  --primary-alpha-15: color-mix(in srgb, var(--primary) 15%, transparent);
+  --primary-alpha-20: color-mix(in srgb, var(--primary) 20%, transparent);
+  --primary-alpha-25: color-mix(in srgb, var(--primary) 25%, transparent);
+  --primary-alpha-30: color-mix(in srgb, var(--primary) 30%, transparent);
+  --primary-alpha-40: color-mix(in srgb, var(--primary) 40%, transparent);
+  --primary-alpha-50: color-mix(in srgb, var(--primary) 50%, transparent);
   --danger-alpha-8: rgba(196, 32, 32, 0.08);
   --danger-alpha-10: rgba(196, 32, 32, 0.1);
   --danger-alpha-15: rgba(196, 32, 32, 0.15);
@@ -367,8 +370,8 @@
   --status-critical-bg: rgba(239, 68, 68, 0.15);
   --status-critical-border: rgba(239, 68, 68, 0.3);
   --status-performance: #81a1c1;
-  --status-performance-bg: rgba(129, 161, 193, 0.15);
-  --status-performance-border: rgba(129, 161, 193, 0.3);
+  --status-performance-bg: color-mix(in srgb, var(--primary) 15%, transparent);
+  --status-performance-border: color-mix(in srgb, var(--primary) 30%, transparent);
   --bg-elevated: #242424;
   --bg-subtle: #181818;
   --bg-input: #1c1c1c;
@@ -384,16 +387,16 @@
   --gradient-card: linear-gradient(135deg, #181818 0%, #1c1c1c 100%);
   --scrollbar-thumb: rgba(228, 228, 228, 0.14);
   --scrollbar-thumb-hover: rgba(228, 228, 228, 0.28);
-  --primary-alpha-5: rgba(129, 161, 193, 0.05);
-  --primary-alpha-8: rgba(129, 161, 193, 0.08);
-  --primary-alpha-10: rgba(129, 161, 193, 0.1);
-  --primary-alpha-12: rgba(129, 161, 193, 0.12);
-  --primary-alpha-15: rgba(129, 161, 193, 0.15);
-  --primary-alpha-20: rgba(129, 161, 193, 0.2);
-  --primary-alpha-25: rgba(129, 161, 193, 0.25);
-  --primary-alpha-30: rgba(129, 161, 193, 0.3);
-  --primary-alpha-40: rgba(129, 161, 193, 0.4);
-  --primary-alpha-50: rgba(129, 161, 193, 0.5);
+  --primary-alpha-5: color-mix(in srgb, var(--primary) 5%, transparent);
+  --primary-alpha-8: color-mix(in srgb, var(--primary) 8%, transparent);
+  --primary-alpha-10: color-mix(in srgb, var(--primary) 10%, transparent);
+  --primary-alpha-12: color-mix(in srgb, var(--primary) 12%, transparent);
+  --primary-alpha-15: color-mix(in srgb, var(--primary) 15%, transparent);
+  --primary-alpha-20: color-mix(in srgb, var(--primary) 20%, transparent);
+  --primary-alpha-25: color-mix(in srgb, var(--primary) 25%, transparent);
+  --primary-alpha-30: color-mix(in srgb, var(--primary) 30%, transparent);
+  --primary-alpha-40: color-mix(in srgb, var(--primary) 40%, transparent);
+  --primary-alpha-50: color-mix(in srgb, var(--primary) 50%, transparent);
   --danger-hover: #dc2626;
   --danger-alpha-8: rgba(239, 68, 68, 0.08);
   --danger-alpha-10: rgba(239, 68, 68, 0.1);

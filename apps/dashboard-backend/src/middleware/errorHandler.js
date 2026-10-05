@@ -29,7 +29,7 @@ const notFoundHandler = (req, res, next) => {
   res.status(404).json({
     error: {
       code: 'NOT_FOUND',
-      message: 'Endpoint not found',
+      message: 'Diesen Endpunkt gibt es nicht.',
       details: { path: req.originalUrl, method: req.method },
     },
     timestamp: new Date().toISOString(),
@@ -120,7 +120,7 @@ const errorHandler = (err, req, res, next) => {
   } else if (err.code === 'ECONNREFUSED') {
     // Database/service connection error
     statusCode = 503;
-    message = 'Service temporarily unavailable';
+    message = 'Der Dienst ist gerade nicht erreichbar.';
     code = 'SERVICE_UNAVAILABLE';
     logger.error(`${req.method} ${req.originalUrl}: Connection refused`, {
       ...errorContext,
