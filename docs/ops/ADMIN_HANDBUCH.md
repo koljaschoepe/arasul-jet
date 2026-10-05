@@ -1,4 +1,4 @@
-# Arasul Platform - Administrationshandbuch
+# Arasul Platform: Administrationshandbuch
 
 > Ausführliche Dokumentation aller Funktionen der Arasul Platform.
 > Für die Ersteinrichtung siehe: [Quick-Start-Guide](QUICK_START.md)
@@ -9,7 +9,7 @@
 
 1. [Systemübersicht](#1-systemübersicht)
 2. [System](#2-system)
-3. [Einstellungen](#3-einstellungen)
+3. [Einstellungen und Verwaltung](#3-einstellungen-und-verwaltung)
 4. [Services-Verwaltung](#4-services-verwaltung)
 5. [Datensicherung](#5-datensicherung)
 6. [System-Updates](#6-system-updates)
@@ -62,7 +62,7 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   Teststand trägt einen Punkt und heißt „(Test)". Unten fest:
   **Verwaltung** (nur Administratoren), das **Zahnrad** (die persönlichen
   Einstellungen) und das **eigene Bild** (Name und Abmelden).
-- **Ansicht:** immer genau eine — die Startseite, eine App, die Einstellungen
+- **Ansicht:** immer genau eine: die Startseite, eine App, die Einstellungen
   oder die Verwaltung. Die **Startseite** grüßt mit dem Vornamen (ohne
   Vornamen mit dem Anzeigenamen) und zeigt jedem **Für Sie**: die Freigaben,
   die bei ihm liegen (siehe unten), darunter die eigenen Apps als Kacheln, an
@@ -73,7 +73,8 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   Konten/Apps). Ein Klick führt in den Bereich der Verwaltung. Ist alles gut,
   steht dort nichts.
 - **Verwaltung:** links eine eigene Leiste der Bereiche (Personen, Apps,
-  Firmenordner, Modelle, System, Daten, Gerät), daneben der gewählte Bereich.
+  Läufe, Firmenordner, Modelle, System, Daten, Gerät), daneben der gewählte
+  Bereich.
   Im Bereich **System** steht ein Satz zum Zustand („Alles läuft.“), darunter
   Prozessor, Speicher und Platte als drei Zahlen; Dienste und Selbstheilung
   klappen auf. Im Bereich **Daten** steht alles, was mit den Daten des Geräts
@@ -93,9 +94,9 @@ hat, seine Einstellungen und sein Konto. Die Freigaben, die bei ihm liegen,
 stehen auf seiner Startseite unter „Für Sie" (siehe unten), und an der Kachel
 der App steht höchstens ihre Zahl. Keine Fassung, keine Verbindungsanzeige, keine Zahlen der
 Technik; auch keine Meldung nennt einen Fehlercode oder englischen Text.
-Modelle, Benutzer, Datensicherung und Einstellungen sind für ihn nicht da —
-und zwar nicht nur unsichtbar: das Gerät weist ihn auf jedem dieser Wege ab,
-auch wenn er die Adresse kennt.
+Die Verwaltung (Personen, Apps, Läufe, Firmenordner, Modelle, System, Daten,
+Gerät) ist für ihn nicht da, und zwar nicht nur unsichtbar: das Gerät weist ihn
+auf jedem dieser Wege ab, auch wenn er die Adresse kennt.
 
 ### Eine Freigabe entscheiden
 
@@ -110,20 +111,20 @@ die App beim Vorgang**; entschieden wird dort. Unter der Zeile steht, bei wem
 sie liegt, und **Weitergeben an …**; zugeklappt darunter, was bei anderen
 liegt, mit **Übernehmen**.
 
-- **Bestätigen** — der Lauf läuft ab der angehaltenen Stelle weiter.
-- **Ablehnen** — es klappt ein Feld auf; ohne Begründung geht der Knopf nicht.
+- **Bestätigen**, der Lauf läuft ab der angehaltenen Stelle weiter.
+- **Ablehnen**, es klappt ein Feld auf; ohne Begründung geht der Knopf nicht.
   Der Lauf endet, und die Begründung wird sein Grund.
-- **Nichts tun** — nach Ablauf der Frist endet der Lauf von selbst. Die Frist
+- **Nichts tun**, nach Ablauf der Frist endet der Lauf von selbst. Die Frist
   steht am Flow, in der Regel ein Tag.
 
-**Wer darf entscheiden?** Jeder, dem die App freigegeben ist — Administrator
-und Mitarbeiter gleichermaßen —, außer dem, der den Vorgang eingereicht hat.
+**Wer darf entscheiden?** Jeder, dem die App freigegeben ist, Administrator
+und Mitarbeiter gleichermaßen, außer dem, der den Vorgang eingereicht hat.
 Freigeben ist Arbeit, keine Verwaltung. Der Flow nennt keine Person; er
 beschreibt die Sache.
 
 **Bei wem liegt sie?** Ein Flow kann seine Freigaben in benannten Stufen
 anfordern, etwa „Prüfung" und dann „Leitung". Für jede Stufe setzen Sie unter
-**Verwaltung > Apps > (die App) > Freigabestufen** eine **Standardperson**:
+**Verwaltung → Apps → (die App) → Freigabestufen** eine **Standardperson**:
 jede neue Freigabe der Stufe liegt zuerst bei ihr. Jeder mit Zugang zur App
 kann sie übernehmen oder an einen anderen mit Zugang weitergeben, etwa wenn
 die Standardperson im Urlaub ist; entscheiden kann nur, bei dem sie gerade
@@ -135,20 +136,20 @@ Zugang zur App; verliert die Standardperson den Zugang, fällt die Stufe auf
 **Ein Feld korrigieren statt ablehnen.** Hat ein Flow etwas erkannt, etwa einen
 Beleg gelesen, und war er sich bei einem Feld nicht sicher, steht auf der Karte
 **Prüfen** statt Bestätigen. Prüfen öffnet die Freigabe ganz: links das
-Original (Bild oder PDF, mit Vergrössern und Verkleinern), rechts die erkannten
+Original (Bild oder PDF, mit Vergrößern und Verkleinern), rechts die erkannten
 Felder, was zu prüfen ist oben mit dem Zeichen **prüfen**. Felder, die die App
 zum Ändern freigibt, sind Eingabefelder mit dem Vorschlag der KI darin; ändern
 Sie den Wert und bestätigen Sie, der Lauf arbeitet mit Ihrem Wert weiter. Oben
 steht in einem Satz, was bisher geschah, etwa welche Stufe schon bestätigt hat;
 die früheren Stufen klappen auf. Gespeichert wird beides, der Vorschlag der KI
 und Ihre Änderung mit Ihrem Namen und der Zeit. Der Administrator liest es
-unter **Verwaltung > Apps > (die App) > Läufe > (der Lauf)**: „Erkannte Felder
+unter **Verwaltung → Läufe → (der Lauf)**: „Erkannte Felder
 und Änderungen". Nach der Entscheidung steht wieder die Liste da.
 
 **Nicht übergeben.** Nennt der Flow einer App eine Abschluss-Route, übergibt das
 Gerät sein Ergebnis nach der letzten Stufe an die App; fertig ist der Lauf erst,
 wenn die App den Empfang bestätigt hat. Antwortet sie nicht oder mit einem
-Fehler, steht der Lauf unter **Verwaltung > Apps > (die App) > Läufe** auf
+Fehler, steht der Lauf unter **Verwaltung → Läufe** auf
 **nicht übergeben**, mit dem Grund, und daneben der Knopf **erneut** (auch im
 Lauf selbst). „Erneut" schickt dasselbe Ergebnis noch einmal, ohne dass die
 Schritte neu laufen, sobald die App wieder antwortet. Der Zustand hält über
@@ -161,25 +162,25 @@ der Lauf nicht mehr fortgesetzt wird, wurde das Gerät zwischendurch neu
 gestartet: die Entscheidung ist festgehalten, den Lauf muss jemand neu
 anstoßen.
 
-- **Modelle (nur Administrator):** **Verwaltung → Modelle**. Ganz oben eine
-  Zeile **Speicher für KI** (belegt, Reserve, frei). Darunter eine Zeile je
-  Modell am Gerät: Name, Größe, **Fähigkeiten** (Text, Bild, Werkzeuge,
-  Kontext), **warm: ja** oder **nein** (liegt es gerade im Speicher) und die
-  **Flows, die es nutzen** (Name und App). Laden und Entladen von Hand gibt es
-  nicht: das Gerät hält ein Modell eine Weile nach der Nutzung und lädt es bei
-  Bedarf selbst. Die Fähigkeiten stimmen Katalog und Ollama ab; bei
-  Widerspruch gilt, was Ollama aus den Gewichten liest.
-  **Entfernen** ist gesperrt, solange ein Flow das Modell nutzt oder es das
-  Standardmodell ist; die Zeile nennt die Flows. Zum Entfernen erst die Flows
-  auf ein anderes Modell umstellen (App → Flow → Schritt) oder ein anderes
-  Modell zum Standard machen. **Modell hinzufügen** geht aus der geprüften
-  Liste (die Modelle der Kurzliste, die noch nicht am Gerät liegen) oder per
-  Name aus der Ollama-Bibliothek (`mistral:7b`) oder von Hugging Face
-  (`hf.co/nutzer/repo:quant`). Vorher prüft das Gerät, ob Speicher und Platte
-  reichen, und weist sonst mit zwei Sätzen ab. Was nicht in der Kurzliste
-  steht, trägt die Kennzeichnung **ungemessen**.
-- Die Shell ist die einzige Ansicht: `/` landet nach dem Login immer auf
-  `/workspace`.
+### Modelle
+
+**Verwaltung → Modelle** (nur Administrator). Ganz oben eine
+Zeile **Speicher für KI** (belegt, Reserve, frei). Darunter eine Zeile je
+Modell am Gerät: Name, Größe, **Fähigkeiten** (Text, Bild, Werkzeuge,
+Kontext), **warm: ja** oder **nein** (liegt es gerade im Speicher) und die
+**Flows, die es nutzen** (Name und App). Laden und Entladen von Hand gibt es
+nicht: das Gerät hält ein Modell eine Weile nach der Nutzung und lädt es bei
+Bedarf selbst. Die Fähigkeiten stimmen Katalog und Ollama ab; bei
+Widerspruch gilt, was Ollama aus den Gewichten liest.
+**Entfernen** ist gesperrt, solange ein Flow das Modell nutzt oder es das
+Standardmodell ist; die Zeile nennt die Flows. Zum Entfernen erst die Flows
+auf ein anderes Modell umstellen (Verwaltung → Apps → (die App) → Flows) oder ein anderes
+Modell zum Standard machen. **Modell hinzufügen** geht aus der geprüften
+Liste (die Modelle der Kurzliste, die noch nicht am Gerät liegen) oder per
+Name aus der Ollama-Bibliothek (`mistral:7b`) oder von Hugging Face
+(`hf.co/nutzer/repo:quant`). Vorher prüft das Gerät, ob Speicher und Platte
+reichen, und weist sonst mit zwei Sätzen ab. Was nicht in der Kurzliste
+steht, trägt die Kennzeichnung **ungemessen**.
 
 ---
 
@@ -198,25 +199,28 @@ hat, und wann) auf.
 
 ---
 
-## 3. Einstellungen
+## 3. Einstellungen und Verwaltung
 
 Die **Einstellungen** (Zahnrad unten in der Leiste) sind für alle gleich und
 nur persönlich: Profil, Passwort, angemeldete Rechner, Erscheinungsbild. Was
-das Gerät betrifft, steht in der **Verwaltung** (nur Administrator), in sieben
+das Gerät betrifft, steht in der **Verwaltung** (nur Administrator), in acht
 Bereichen:
 
 | Bereich          | Inhalt                                                                                                      |
 | ---------------- | ----------------------------------------------------------------------------------------------------------- |
 | **Personen**     | Anlegen (Name, E-Mail), Startpasswort einmal, sperren, Schalter „Verwaltung“, Freigaben für Apps und Ordner |
-| **Apps**         | Eine Seite je App: Zustand, Test und Live, Personen, Flows, Verbindungen                                    |
-| **Firmenordner** | Ordnerbaum, Rechte je Person                                                                                |
+| **Apps**         | Eine Seite je App: Zustand, Test und Live, Personen, Freigabestufen, Flows, Verbindungen                    |
+| **Läufe**        | Was auf dem Gerät gelaufen ist, über alle Apps, mit Filtern; jeder Lauf hat eine Adresse                    |
+| **Firmenordner** | Ordnerbaum, Rechte je Person, Platz und Papierkorb je Ordner                                                |
 | **Modelle**      | Modelle am Gerät, hinzufügen und entfernen                                                                  |
 | **System**       | Ein Satz zum Zustand, drei Zahlen, Dienste und Selbstheilung (Abschnitt 2)                                  |
 | **Daten**        | Sicherung, DSGVO-Auskunft und Export je Person, abgesetzt Person löschen und Werksreset                     |
 | **Gerät**        | Unternehmen, Aktualisierung, Lizenz, Fernzugriff, „Über Arasul“                                             |
 
 Die Bereiche Allgemein, KI, Sicherheit, Lizenz und Fernzugriff gibt es seit
-dem 04.10.2026 nicht mehr; ihre Inhalte stehen im Bereich Gerät. Den Bereich
+dem 04.10.2026 nicht mehr; ihre Inhalte stehen im Bereich Gerät. Die
+Einstellungen der Person haben vier Abschnitte: **Profil**, **Passwort**,
+**Angemeldete Rechner** und **Erscheinungsbild**. Den Bereich
 **KI** mit den Standardwerten der Sprachmodelle und dem Basis-Prompt gibt es
 gar nicht mehr: der Administrator ändert keine Prompts, und Laden und Entladen
 der Modelle regelt das Gerät selbst nach Nutzung.
@@ -260,7 +264,7 @@ der Modelle regelt das Gerät selbst nach Nutzung.
 
 ### Dienste anzeigen
 
-1. Navigieren Sie zu **Einstellungen → System → Dienste**
+1. Navigieren Sie zu **Verwaltung → System → Dienste**
 2. Alle Dienste werden mit Status angezeigt (manueller Refresh-Button oben rechts)
 
 ### Dienst-Aktionen
@@ -277,7 +281,7 @@ Das System überwacht alle Dienste automatisch:
 
 - Abgestürzte Dienste werden automatisch neu gestartet
 - Bei Ressourcen-Engpässen werden Maßnahmen ergriffen
-- Alle Ereignisse stehen unter **Einstellungen → System → Selbstheilung**:
+- Alle Ereignisse stehen unter **Verwaltung → System → Selbstheilung**:
   vorn, was geschah und an welchem Dienst, darunter unter „Technische
   Angaben" Meldung und Maßnahme im Wortlaut. Seit dem 26.09.2026 schreibt die
   Selbstheilung diese Sätze deutsch; ältere Einträge bleiben englisch, bis
@@ -298,10 +302,10 @@ Das Gerät sichert jede Nacht um 02:00 Uhr **vier** Dinge (dazu die Datenbanken 
 | Flow-Dateien    | Was jemand am Gerät selbst geschrieben hat                                                         |
 | Konfiguration   | Ohne sie fährt auf einem leeren Gerät kein Container hoch                                          |
 
-**Eine Kopie außerhalb des Geräts:** SSD oder Stick einfach anstecken --
+**Eine Kopie außerhalb des Geräts:** SSD oder Stick einfach anstecken,
 ohne Einrichtung. Das Gerät erkennt den Datenträger, hängt ihn ein und legt
-dort jede Nacht (und bei „Jetzt sichern“) die Sicherung ab, **außchließlich
-verschlüsselt**: wer den Stick findet, kann nichts lesen. Unter **Einstellungen
+dort jede Nacht (und bei „Jetzt sichern“) die Sicherung ab, **ausschließlich
+verschlüsselt**: wer den Stick findet, kann nichts lesen. Unter **Verwaltung
 → Daten → Sicherung** stehen Name und freier Platz des Datenträgers. Das
 Gerät formatiert nie etwas; ein neuer Datenträger sollte ext4 oder exFAT
 haben. Kein Cloud-Ziel: die Daten bleiben im Haus.
@@ -310,7 +314,7 @@ haben. Kein Cloud-Ziel: die Daten bleiben im Haus.
 einen Code (`ABCD-EFGH-…`, acht Gruppen zu vier Zeichen). Er ist der Schlüssel
 der Sicherungen. **Aufschreiben und außerhalb des Geräts aufbewahren** (Safe).
 Ohne ihn ist nach einem Werksreset oder bei Geräteverlust jede Sicherung
-Papier; mit ihm nicht -- er wird beim Neu-Einrichten eingegeben
+Papier; mit ihm nicht, er wird beim Neu-Einrichten eingegeben
 (`./install.sh --wiederherstellungscode …`) oder beim Zurückholen in der
 Oberfläche. Der Werksreset fragt vor dem Löschen danach. Vergessen? Am
 Gerät: `bash scripts/util/wiederherstellungscode.sh`.
@@ -322,14 +326,14 @@ oben auf der Seite Sicherung, und der Administrator bekommt eine Mitteilung.
 
 **Verwaltung → Daten → Sicherung → Jetzt sichern.** Die Sicherung läuft
 sofort und braucht am Gerät einige Minuten; danach steht die Meldung, dass sie
-fertig ist, und die Liste darunter zeigt die neue Datei mit Datum und Grösse.
+fertig ist, und die Liste darunter zeigt die neue Datei mit Datum und Größe.
 Solange sie läuft, lässt das Gerät nichts Zweites zu.
 
 Auf derselben Seite steht außerdem:
 
 - **Zustand:** ob das Gerät wirklich sichert (nicht „könnte", sondern „hat"),
   wann zuletzt und wie groß.
-- **Kopie außerhalb:** Datum und Grösse der letzten Kopie AUSSER HAUS. Steht
+- **Kopie außerhalb:** Datum und Größe der letzten Kopie AUSSER HAUS. Steht
   dort „noch nie", liegt jede Sicherung nur auf diesem Gerät und überlebt es
   nicht.
 - **Wiederherstellungstest:** ein Knopf, der die neueste Sicherung in eine
@@ -378,10 +382,10 @@ Ein Bericht bleibt stehen und nennt jeden Schritt.
 Per Befehlszeile:
 
 ```bash
-# Erst schauen, ob sich die neueste Sicherung lesen laesst — ohne etwas anzufassen:
+# Erst schauen, ob sich die neueste Sicherung lesen lässt, ohne etwas anzufassen:
 docker exec backup-service /usr/local/bin/wiederherstellen.sh --probe
 
-# Zurueckspielen: Datenbank, Pakete der Apps, Flow-Dateien (--quelle extern: vom Datentraeger)
+# Zurückspielen: Datenbank, Pakete der Apps, Flow-Dateien (--quelle extern: vom Datenträger)
 docker exec backup-service /usr/local/bin/wiederherstellen.sh
 
 # Eine bestimmte Sicherung:
@@ -529,8 +533,8 @@ cd /home/arasul/arasul-<neue Fassung>
 ```
 
 `install.sh` sucht sich das vorhandene Gerät selbst, zieht seinen Zustand
-herüber -- Geheimnisse, Geräte-CA, Datenbankzugang, Apps, Flows, Sicherungen,
-Protokolle -- und fährt danach von hier. **Es wird nichts kopiert:** danach
+herüber, Geheimnisse, Geräte-CA, Datenbankzugang, Apps, Flows, Sicherungen,
+Protokolle, und fährt danach von hier. **Es wird nichts kopiert:** danach
 gibt es das Gerät genau einmal, das alte Verzeichnis trägt `ABGEGEBEN.txt`
 und darf weg, sobald die neue Fassung läuft.
 
@@ -540,15 +544,15 @@ Fassung.
 
 Die Images werden gebaut, **während das Gerät noch läuft**; abgeschaltet
 wird erst danach, und der Wechsel kostet ein paar Minuten. Findet `install.sh`
-etwas Zweideutiges -- Daten ohne auffindbares Gerät, oder zwei Verzeichnisse,
-die beide das Gerät sein könnten --, hält es an und sagt, was zu tun ist.
+etwas Zweideutiges, Daten ohne auffindbares Gerät, oder zwei Verzeichnisse,
+die beide das Gerät sein könnten, hält es an und sagt, was zu tun ist.
 Es installiert dann lieber nicht, als eine Datenbank unbrauchbar zu machen.
 
 ### Paket einspielen (wenn der Weg offen ist)
 
 1. Stecken Sie den USB-Stick mit dem Paket ein, oder wählen Sie die
    `.araupdate`-Datei und die zugehörige `.sig` von Hand
-2. **Hochladen und prüfen** — Signatur und Manifest werden geprüft
+2. **Hochladen und prüfen**, Signatur und Manifest werden geprüft
 3. **Einspielen**, und die Seite offen lassen: das Gerät startet sich dabei
    selbst neu, und die Verbindung bricht kurz weg. Das ist erwartbar.
 
@@ -589,7 +593,7 @@ machen Sie frei, indem Sie ein Konto stilllegen oder eine App entfernen.
 Mit einer gekauften Lizenz (**Professional**) gibt es keine Grenze. Die Lizenz
 ist eine Zeile Text; „Einspielen“ öffnet einen Dialog mit einem Feld dafür,
 und sie wird geprüft, bevor sie gilt. Ist sie an ein Gerät gebunden, braucht
-der Aussteller dessen **Fingerabdruck** — er steht aufgeklappt unter
+der Aussteller dessen **Fingerabdruck**, er steht aufgeklappt unter
 „Fingerabdruck und Apps“ zum Kopieren.
 
 Ohne Anmeldung, per SSH am Gerät (so spielt das Ara-Kit sie ein):
@@ -639,12 +643,12 @@ curl -sk -X PUT https://<geraet>/api/benutzer/<id>/passwort \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"password":"Neues-Startpasswort1"}'
 
-# stilllegen, spaeter wieder zulassen
+# stilllegen, später wieder zulassen
 curl -sk -X PUT https://<geraet>/api/benutzer/<id>/aktiv \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"aktiv":false}'
 
-# loeschen (samt Flow-Laeufen, API-Schluesseln, Freigaben und Sitzungen)
+# löschen (samt Flow-Läufen, API-Schlüsseln, Freigaben und Sitzungen)
 curl -sk -X DELETE https://<geraet>/api/benutzer/<id> -H "authorization: Bearer $TOKEN"
 ```
 
@@ -670,9 +674,9 @@ Ein Mitarbeiter sieht nur, was ihm freigegeben ist. Eine Freigabe ist ein Paar
 aus App-Kennung und Mitarbeiter.
 
 **In der Oberfläche: Verwaltung → Personen, Abschnitt „Freigaben: Apps".**
-Eine Zeile je Mensch, eine Spalte je App, in der Zelle ein Häckchen. Setzen
+Eine Zeile je Mensch, eine Spalte je App, in der Zelle ein Häkchen. Setzen
 heißt freigeben, wegnehmen heißt zurücknehmen; beides wirkt sofort, ohne
-Speichern-Knopf. Unter einem gesetzten Häckchen steht der Stand: „Live" ist
+Speichern-Knopf. Unter einem gesetzten Häkchen steht der Stand: „Live" ist
 der Normalfall, ein Klick darauf macht den Menschen zum **Tester** („Test", er
 sieht dann zusätzlich den Teststand), ein weiterer Klick zurück.
 
@@ -691,7 +695,7 @@ curl -sk -X POST https://<geraet>/api/freigaben \
 # sehen, wer welche App hat
 curl -sk "https://<geraet>/api/freigaben?benutzer_id=7" -H "authorization: Bearer $TOKEN"
 
-# zuruecknehmen
+# zurücknehmen
 curl -sk -X DELETE https://<geraet>/api/freigaben/urlaub/7 -H "authorization: Bearer $TOKEN"
 ```
 
@@ -705,7 +709,7 @@ nicht gibt, lässt sich nicht freigeben.
 `/apps/<id>/test/`. Mit `"stand":"live"` wird er wieder normaler Nutzer; eine
 zweite Freigabe entsteht dabei nicht.
 
-Was ein Mitarbeiter selbst sieht, steht unter `GET /api/apps/meine` — das ist
+Was ein Mitarbeiter selbst sieht, steht unter `GET /api/apps/meine`, das ist
 die einzige App-Auskunft, die er selbst abrufen darf.
 
 ### Apps am Gerät
@@ -720,7 +724,7 @@ Stand. Es gibt zwei je App:
 | `test` | nur benannte Tester | `https://<geraet>/apps/<id>/test/` |
 
 ```bash
-# was am Geraet liegt
+# was am Gerät liegt
 curl -sk https://<geraet>/api/apps -H "authorization: Bearer $TOKEN"
 
 # eine Version in den Teststand (ohne "stand" ist es der Teststand)
@@ -728,7 +732,7 @@ curl -sk -X POST https://<geraet>/api/apps/urlaub/einspielen \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"version":"1.2.0","stand":"test"}'
 
-# spaeter die Version aus dem Teststand live -- vorher gesichert, mit Rueckfall
+# später die Version aus dem Teststand live, vorher gesichert, mit Rückfall
 curl -sk -X POST https://<geraet>/api/apps/urlaub/schalten \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"ziel":"live"}'
@@ -737,13 +741,13 @@ curl -sk -X POST https://<geraet>/api/apps/urlaub/schalten \
 curl -sk "https://<geraet>/api/apps/urlaub/logs?stand=live&zeilen=100" \
   -H "authorization: Bearer $TOKEN"
 
-# App entfernen (beide Staende, beide Container, alle Freigaben)
+# App entfernen (beide Stände, beide Container, alle Freigaben)
 curl -sk -X DELETE https://<geraet>/api/apps/urlaub -H "authorization: Bearer $TOKEN"
 ```
 
 `GET /api/apps/<id>` sagt Ihnen auch, was die App verlangt und was davon da ist:
 welche Sprachmodelle sie braucht und welche Flows. Fehlt eines, läuft die App
-trotzdem an — das Gerät installiert nichts von allein nach.
+trotzdem an, das Gerät installiert nichts von allein nach.
 
 #### Dasselbe im Browser
 
@@ -804,7 +808,7 @@ Bringt die neue Fassung eine Änderung an ihrer Datenbank mit, die scheitert,
 startet sie nicht. Dann schaltet Arasul **selbst zurück**: auf die Fassung
 von vorher und auf die Daten von vorher, so wie sie vor dem Klick waren. In der
 Karte **Livefassung** steht danach ein Satz, was geschah, und ein zweiter, was Sie
-tun können — meist: die **Technischen Angaben** (aufklappen) an den
+tun können, meist: die **Technischen Angaben** (aufklappen) an den
 Entwickler geben und die korrigierte Fassung abwarten. Der Teststand läuft
 dabei weiter und bekommt nie Daten aus dem Livestand. Lässt sich vorher nichts
 sichern, wird gar nicht erst geschaltet; die Karte sagt das ebenso.
@@ -813,8 +817,8 @@ Die **KI-Aufrufe** beantworten
 das auch für Vorschläge, die kein Flow sind. Das Gerät schreibt die Zeile
 selbst, bevor es das Modell fragt; die App muss dafür nichts tun, sie nennt nur
 den Menschen (Kopfzeile `X-Arasul-User`). Gespeichert werden weder Dateiname
-noch Text noch Antwort, nur Art und Grösse der Datei, die Nummer des Auftrags
-und der sha256 der Antwort — hat die App den Vorschlag aufbewahrt, lässt er
+noch Text noch Antwort, nur Art und Größe der Datei, die Nummer des Auftrags
+und der sha256 der Antwort, hat die App den Vorschlag aufbewahrt, lässt er
 sich damit genau diesem Aufruf zuordnen. Das Protokoll bleibt, auch wenn die
 App entfernt wird, und geht erst mit dem Auslieferungszustand.
 
@@ -828,22 +832,22 @@ gegebenenfalls einen Schlüssel.
 > **Der Prompt dieses Flows verlässt dann das Haus.** Alles andere an Arasul
 > läuft lokal; ein Flow mit einem externen Modell ist die eine Ausnahme, und
 > Sie treffen sie bewusst, je Flow. Wer sie zurücknehmen will, wählt wieder
-> „Aus dem Paket" — das räumt auch den hinterlegten Schlüssel weg.
+> „Aus dem Paket", das räumt auch den hinterlegten Schlüssel weg.
 
 Der Schlüssel wird verschlüsselt abgelegt und danach nie wieder angezeigt;
 sichtbar bleiben nur seine letzten vier Zeichen. Wollen Sie nur den Modellnamen
-ändern, lassen Sie das Schlüsselfeld leer — der hinterlegte bleibt stehen.
+ändern, lassen Sie das Schlüsselfeld leer, der hinterlegte bleibt stehen.
 
 ### Firmenordner: Papierkorb und Adresse
 
 Was ein Mitarbeiter im Firmenordner löscht, liegt im **Papierkorb** des
-Hauptordners oder Bereichs, bis Sie ihn leeren. Unter **Einstellungen →
+Hauptordners oder Bereichs, bis Sie ihn leeren. Unter **Verwaltung →
 Firmenordner** steht in der Spalte **Papierkorb** je Hauptordner und Bereich
 die Zahl der Einträge; ein Klick öffnet ihn. Je Eintrag können Sie
 
-- **zurückholen** — er liegt danach wieder an seiner alten Stelle. Liegt dort
+- **zurückholen**, er liegt danach wieder an seiner alten Stelle. Liegt dort
   inzwischen etwas anderes, sagt das Gerät es und überschreibt nichts;
-- **endgültig entfernen** — nach einer Rückfrage.
+- **endgültig entfernen**, nach einer Rückfrage.
 
 **Papierkorb leeren** nimmt nach einer Rückfrage alles darin endgültig vom
 Gerät. Zurück kommt es dann nur aus einer Sicherung, die älter ist. Jeder
@@ -855,28 +859,28 @@ Ein Projekt hat keinen eigenen Papierkorb; was darin gelöscht wird, liegt im
 Papierkorb seines Bereichs, mit dem Projekt im Ort.
 
 Über der Ordnerliste steht, **unter welcher Adresse** der Firmenordner zu
-erreichen ist — zuerst die, unter der Sie das Gerät gerade erreichen, dahinter
+erreichen ist, zuerst die, unter der Sie das Gerät gerade erreichen, dahinter
 die weiteren im Netz der Firma (etwa `https://arasul.local:8443`). Löst
 `https://arasul:8443` auf einem Rechner nicht auf, nimmt er eine der anderen.
 
 ### Firmenordner: wie viel ein Bereich aufnimmt
 
 Jeder Hauptordner und jeder Bereich hat eine **Grenze**, wie viel er
-aufnimmt. Unter **Einstellungen → Firmenordner** steht sie in der Spalte
+aufnimmt. Unter **Verwaltung → Firmenordner** steht sie in der Spalte
 **Platz**: belegt, Grenze und ein Balken, dazu „fast voll" ab 90 % der Grenze
 oder wenn auf dem Gerät weniger als 10 GB frei sind, und „voll", wenn nichts
-mehr hineinpasst. Dann steht über der Ordnerliste auch eine Warnung — ein
+mehr hineinpasst. Dann steht über der Ordnerliste auch eine Warnung, ein
 Abgleich, der mehr bringt, wird abgewiesen.
 
 Ein Klick auf **Platz** stellt die Grenze ein: eine Zahl mit MB, GB oder TB,
-oder **ohne Grenze** — dann nimmt der Bereich auf, bis das Gerät voll ist.
+oder **ohne Grenze**, dann nimmt der Bereich auf, bis das Gerät voll ist.
 Unter das, was schon darin liegt, lässt sie sich nicht setzen. Ein Projekt
 teilt sich die Grenze seines Bereichs.
 
 **Neue Bereiche bekommen 100 GB.** Das reicht für den gewachsenen
 Aktenbestand eines Büros und verhindert, dass ein einzelner Bereich, in den
 versehentlich etwas sehr Großes gezogen wird, das Gerät vollschreibt.
-Bereiche, die vor dem 28.09.2026 angelegt wurden, haben noch 1 GB — sehen Sie
+Bereiche, die vor dem 28.09.2026 angelegt wurden, haben noch 1 GB, sehen Sie
 dort nach und heben Sie die Grenze an, wo es nötig ist.
 
 ### Anmelden
@@ -891,7 +895,7 @@ bekommt eine Meldung, die das sagt, und wartet eine Viertelstunde.
 
 **Verwaltung → Personen → Person anlegen**: Vorname, Nachname, E-Mail und der
 Schalter „Verwaltung“ (macht zum Administrator). Das Gerät erzeugt das
-**Startpasswort** und zeigt es **einmal** — zum Kopieren oder als Zettel zum
+**Startpasswort** und zeigt es **einmal**, zum Kopieren oder als Zettel zum
 Drucken. Danach steht es nirgends mehr; ein neues erzeugt der Schlüssel in der
 Zeile. Angemeldet wird mit der E-Mail. Der letzte Administrator behält das
 Recht „Verwaltung“; das Gerät weist es ab, auch wenn er selbst klickt.
@@ -903,7 +907,7 @@ nicht der erste.
 Wenn Sie einer Person ein Startpasswort **geben** (beim Anlegen oder über den
 Schlüssel in der Zeile), kennen zwei Menschen es: die Person und Sie. Das
 Gerät merkt sich das. Bei der nächsten Anmeldung kommt sie deshalb nicht in
-die Oberfläche, sondern auf eine Seite, die ein neues Passwort verlangt — ohne
+die Oberfläche, sondern auf eine Seite, die ein neues Passwort verlangt, ohne
 „Später"; der einzige Weg daneben ist Abmelden. Dort sieht sie auch Name und
 Bild zum Prüfen. Danach kennt das Passwort nur noch sie.
 
