@@ -535,6 +535,9 @@ jobs:
       - name: index.css ohne Ballast (M5)
         run: python3 scripts/test/css-ballast.py --wurzel .
 
+      - name: Wege im Admin-Handbuch (M5)
+        run: python3 scripts/test/handbuch-wege.py --wurzel .
+
       - name: Design-System (Farben, Variablen)
         run: node scripts/test/check-design-system.js
 

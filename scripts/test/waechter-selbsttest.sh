@@ -1459,6 +1459,54 @@ BEISPIEL
 pruefe "Ballast: eine Keyframe ohne Verwender ist rot" 1 \
   python3 "$WURZEL/scripts/test/css-ballast.py" --wurzel "$CB"
 
+# --- handbuch-wege.py (M5) ----------------------------------------------------
+# Ein Weg in die Verwaltung muss einen ihrer Bereiche nennen, ein Weg in die
+# Einstellungen einen der vier persoenlichen Abschnitte; ein `>` als Trenner
+# ist ein alter Weg, und ein Bereich, den das Handbuch nie nennt, ist rot.
+HW="$TMP/handbuch-wege"
+mkdir -p "$HW/docs/ops" "$HW/scripts/test"
+cat > "$HW/scripts/test/ansichten.mjs" <<'BEISPIEL'
+export const VERWALTUNG = [
+  ['Verwaltung · Personen', 'a', '/a', 'x'],
+  ['Verwaltung · Daten', 'b', '/b', 'x'],
+];
+BEISPIEL
+cat > "$HW/docs/ops/ADMIN_HANDBUCH.md" <<'BEISPIEL'
+Unter **Verwaltung → Personen** und **Verwaltung → Daten → Sicherung**
+steht es; das Passwort unter **Einstellungen →
+Passwort**.
+BEISPIEL
+pruefe "Handbuch-Wege: gueltige Wege sind gruen" 0 \
+  python3 "$WURZEL/scripts/test/handbuch-wege.py" --wurzel "$HW"
+
+echo 'Siehe **Einstellungen → Daten → Sicherung**.' >> "$HW/docs/ops/ADMIN_HANDBUCH.md"
+pruefe "Handbuch-Wege: ein alter Weg unter Einstellungen ist rot" 1 \
+  python3 "$WURZEL/scripts/test/handbuch-wege.py" --wurzel "$HW"
+
+cat > "$HW/docs/ops/ADMIN_HANDBUCH.md" <<'BEISPIEL'
+**Verwaltung → Personen**, **Verwaltung → Daten** und **Verwaltung → Lizenz**.
+BEISPIEL
+pruefe "Handbuch-Wege: ein unbekannter Bereich ist rot" 1 \
+  python3 "$WURZEL/scripts/test/handbuch-wege.py" --wurzel "$HW"
+
+cat > "$HW/docs/ops/ADMIN_HANDBUCH.md" <<'BEISPIEL'
+**Verwaltung → Personen**, **Verwaltung → Daten → Zurückholen**.
+BEISPIEL
+pruefe "Handbuch-Wege: ein unbekannter Abschnitt ist rot" 1 \
+  python3 "$WURZEL/scripts/test/handbuch-wege.py" --wurzel "$HW"
+
+cat > "$HW/docs/ops/ADMIN_HANDBUCH.md" <<'BEISPIEL'
+**Verwaltung > Personen** und **Verwaltung → Daten**.
+BEISPIEL
+pruefe "Handbuch-Wege: ein Spitzklammer-Trenner ist rot" 1 \
+  python3 "$WURZEL/scripts/test/handbuch-wege.py" --wurzel "$HW"
+
+cat > "$HW/docs/ops/ADMIN_HANDBUCH.md" <<'BEISPIEL'
+**Verwaltung → Personen**.
+BEISPIEL
+pruefe "Handbuch-Wege: ein nie genannter Bereich ist rot" 1 \
+  python3 "$WURZEL/scripts/test/handbuch-wege.py" --wurzel "$HW"
+
 cat > "$CB/apps/dashboard-frontend/src/index.css" <<'BEISPIEL'
 @layer components {
   .flex { display: flex; }

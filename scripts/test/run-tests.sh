@@ -152,6 +152,20 @@ run_css_ballast_check() {
   fi
 }
 
+# Funktion: Wege im Admin-Handbuch (M5)
+# Laeuft immer mit. Das Handbuch schickte am 05.10.2026 noch nach
+# "Einstellungen -> System", "Einstellungen -> Daten" und "Einstellungen ->
+# Firmenordner"; diese Orte gibt es seit dem Umbau nicht mehr.
+run_handbuch_wege_check() {
+  echo ""
+  echo "-> Pruefe die Wege im Admin-Handbuch..."
+  if python3 "${PROJECT_ROOT}/scripts/test/handbuch-wege.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Der Faden (hoechstens ein Plan in docs/plans/active/)
 # Laeuft immer mit. Am 20.08.2026 lagen dort vier Eintraege, drei aus der Zeit
 # vor dem laufenden Plan, und CLAUDE.md nannte als "den einen Faden" eine Seite,
@@ -666,6 +680,7 @@ run_quality_gates() {
 run_totercode_check
 run_gedankenstrich_check
 run_css_ballast_check
+run_handbuch_wege_check
 run_bausteine_check
 run_marken_check
 run_modellnamen_check
