@@ -33,6 +33,7 @@ const NACHTS = {
     beginn: '2026-10-05T00:00:00.000Z',
     ende: '2026-10-05T02:00:00.000Z',
     laeuftGerade: false,
+    laufendBis: null,
   },
   letzter: null,
   hinweis: null,
@@ -207,6 +208,23 @@ describe('Aktualisierung', () => {
       render(<Aktualisierung />, { wrapper: huelle() });
       expect(await screen.findByTestId('nachts-fenster')).toHaveTextContent(
         /Nächstes Fenster: Montag, 5\. Oktober, 02:00 bis 04:00 Uhr/
+      );
+    });
+
+    it('im Fenster: läuft gerade, und das nächste Fenster ist das der folgenden Nacht', async () => {
+      mit({
+        aktiv: true,
+        fenster: {
+          ...NACHTS.fenster,
+          beginn: '2026-10-06T00:00:00.000Z',
+          ende: '2026-10-06T02:00:00.000Z',
+          laeuftGerade: true,
+          laufendBis: '2026-10-05T02:00:00.000Z',
+        },
+      });
+      render(<Aktualisierung />, { wrapper: huelle() });
+      expect(await screen.findByTestId('nachts-fenster')).toHaveTextContent(
+        /gerade offen\. Nächstes Fenster: Dienstag, 6\. Oktober/
       );
     });
 

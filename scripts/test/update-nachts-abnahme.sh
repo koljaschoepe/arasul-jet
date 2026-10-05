@@ -8,7 +8,9 @@
 #   SCHALTER     aus als Vorgabe; an und wieder aus; ein Wert, der kein
 #                Wahrheitswert ist, wird abgewiesen; ohne Anmeldung 401.
 #   FENSTER      02:00 bis 04:00 in der Zeitzone des Geraets; der naechste
-#                Beginn liegt in der Zukunft und zeigt in dieser Zeitzone 02:00.
+#                Beginn liegt in der Zukunft und zeigt in dieser Zeitzone 02:00;
+#                mitten im Fenster ist es der der naechsten Nacht und
+#                `laeuftGerade` ist wahr (`laufendBis` nennt das Ende).
 #   TROCKENLAUF  prueft und berichtet; danach laeuft nichts, es gibt keinen
 #                Hilfscontainer, keine neue Zeile einer echten Nacht und keine
 #                Sicherung (Zahl der Staende bleibt).
@@ -151,7 +153,13 @@ PY
 )"
 LOKAL="${RECHNUNG%%|*}"; REST="${RECHNUNG#*|}"; MINUTEN="${REST%%|*}"; TAG="${REST#*|}"
 pruefe "naechster Beginn zeigt in der Zeitzone des Geraets 02:00" "$(ja_wenn "$LOKAL" 02:00)" "$BEGINN_ISO = $LOKAL am $TAG"
-pruefe "naechster Beginn liegt in der Zukunft" "$([ "$OFFEN" = false ] && [ "$MINUTEN" -gt 0 ] && echo ja || echo nein)" "in $MINUTEN min"
+# Auch im Fenster: dann laeuft es gerade (laeuftGerade), und der Beginn ist der der naechsten Nacht.
+pruefe "naechster Beginn liegt in der Zukunft" "$([ "$MINUTEN" -gt 0 ] && echo ja || echo nein)" "in $MINUTEN min"
+pruefe "laeuftGerade ist ein Wahrheitswert" "$([ "$OFFEN" = true ] || [ "$OFFEN" = false ] && echo ja || echo nein)" "laeuftGerade=$OFFEN"
+if [ "$OFFEN" = true ]; then
+  BIS_ISO="$(rumpf | feld data.fenster.laufendBis)"
+  pruefe "im Fenster: es nennt, bis wann es laeuft" "$([ -n "$BIS_ISO" ] && echo ja || echo nein)" "laufendBis=$BIS_ISO"
+fi
 
 # ---------------------------------------------------------------------------
 # Schalter an und aus -- nur mit Abstand zum Fenster
