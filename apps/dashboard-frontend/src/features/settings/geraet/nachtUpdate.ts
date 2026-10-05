@@ -36,6 +36,8 @@ export interface NachtStand {
     beginn: string;
     ende: string;
     laeuftGerade: boolean;
+    /** Ende des laufenden Fensters, sonst `null`. */
+    laufendBis: string | null;
   };
   letzter: NachtLauf | null;
   hinweis: NachtLauf | null;

@@ -877,9 +877,11 @@ rufen `services/betrieb/fassungsdienst.js`. Ablauf, Rückweg und Grenzen:
 
 **Aktualisierung nachts (M5, update-nachts).** Alle vier `fassung/nachts`-Wege
 verlangen **Admin**. `GET` antwortet
-`{ data: { aktiv, fenster: { von: "02:00", bis: "04:00", zeitzone, beginn, ende, laeuftGerade }, letzter, hinweis } }`:
-`beginn` und `ende` (ISO) sind das nächste oder laufende Fenster, gerechnet in
-der Zeitzone des Geräts (`TZ`, Vorgabe `Europe/Berlin`). `letzter` ist die
+`{ data: { aktiv, fenster: { von: "02:00", bis: "04:00", zeitzone, beginn, ende, laeuftGerade, laufendBis }, letzter, hinweis } }`:
+`beginn` und `ende` (ISO) sind das nächste Fenster, das noch nicht begonnen hat,
+nie eine vergangene Zeit; mitten im Fenster ist `laeuftGerade` wahr, `laufendBis`
+nennt dessen Ende und `beginn` ist der der folgenden Nacht (sonst `laufendBis: null`),
+gerechnet in der Zeitzone des Geräts (`TZ`, Vorgabe `Europe/Berlin`). `letzter` ist die
 jüngste Zeile des Protokolls (`update_nacht_laeufe`), `hinweis` das jüngste
 Ergebnis einer echten Nacht, das noch nicht gelesen ist (`null`, wenn keins).
 `ergebnis` ist einer von `laeuft`, `eingespielt`, `zurueckgefallen`,

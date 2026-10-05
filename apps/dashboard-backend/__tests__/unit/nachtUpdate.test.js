@@ -121,6 +121,61 @@ describe('das Fenster', () => {
   });
 });
 
+describe('die Beschreibung des Fensters (nächster Beginn)', () => {
+  const beschreibe = iso => nacht.fensterBeschreibung(Date.parse(iso));
+
+  it('vor dem Fenster (01:00 Berlin): heute 02:00, läuft nicht', () => {
+    const b = beschreibe('2026-10-04T23:00:00Z');
+    expect(b.beginn).toBe('2026-10-05T00:00:00.000Z');
+    expect(b.laeuftGerade).toBe(false);
+    expect(b.laufendBis).toBeNull();
+  });
+
+  it('im Fenster (03:10 Berlin): läuft gerade, der Beginn ist der der folgenden Nacht', () => {
+    const b = beschreibe('2026-10-05T01:10:00Z');
+    expect(b.laeuftGerade).toBe(true);
+    expect(b.laufendBis).toBe('2026-10-05T02:00:00.000Z');
+    expect(b.beginn).toBe('2026-10-06T00:00:00.000Z');
+    expect(b.ende).toBe('2026-10-06T02:00:00.000Z');
+    expect(Date.parse(b.beginn)).toBeGreaterThan(IM_FENSTER);
+  });
+
+  it('am ersten und am letzten Augenblick des Fensters', () => {
+    const erster = beschreibe('2026-10-05T00:00:00Z'); // 02:00
+    expect(erster.laeuftGerade).toBe(true);
+    expect(erster.beginn).toBe('2026-10-06T00:00:00.000Z');
+    const danach = beschreibe('2026-10-05T02:00:00Z'); // 04:00
+    expect(danach.laeuftGerade).toBe(false);
+    expect(danach.laufendBis).toBeNull();
+    expect(danach.beginn).toBe('2026-10-06T00:00:00.000Z');
+  });
+
+  it('nach dem Fenster (nachmittags): die folgende Nacht', () => {
+    const b = beschreibe('2026-10-05T14:00:00Z');
+    expect(b.laeuftGerade).toBe(false);
+    expect(b.beginn).toBe('2026-10-06T00:00:00.000Z');
+  });
+
+  it('an der Zeitumstellung auf Winterzeit (25.10.2026): nie in der Vergangenheit', () => {
+    // Im Fenster der Umstellungsnacht (02:30 MESZ = 00:30 UTC)
+    const im = Date.parse('2026-10-25T00:30:00Z');
+    const b = nacht.fensterBeschreibung(im);
+    expect(b.laeuftGerade).toBe(true);
+    expect(Date.parse(b.beginn)).toBeGreaterThan(im);
+    expect(Date.parse(b.laufendBis)).toBeGreaterThan(im);
+    expect(b.beginn).toBe('2026-10-26T01:00:00.000Z'); // 02:00 MEZ
+  });
+
+  it('an der Zeitumstellung auf Sommerzeit (29.03.2026): nie in der Vergangenheit', () => {
+    // 03:30 MESZ nach dem Sprung von 02:00 auf 03:00 (01:30 UTC)
+    const im = Date.parse('2026-03-29T01:30:00Z');
+    const b = nacht.fensterBeschreibung(im);
+    expect(Date.parse(b.beginn)).toBeGreaterThan(im);
+    const vor = nacht.fensterBeschreibung(Date.parse('2026-03-28T12:00:00Z'));
+    expect(Date.parse(vor.beginn)).toBeGreaterThan(Date.parse('2026-03-28T12:00:00Z'));
+  });
+});
+
 describe('takt', () => {
   it('tut bei ausgeschaltetem Schalter nichts, auch im Fenster', async () => {
     const db = datenbank({ an: false });

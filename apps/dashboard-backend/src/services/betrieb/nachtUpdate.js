@@ -83,16 +83,26 @@ function naechstesFenster(ab = Date.now(), zone = ZEITZONE) {
   return { beginn: t, ende };
 }
 
-/** Die Beschreibung des Fensters, wie die Oberfläche sie zeigt. */
+/**
+ * Die Beschreibung des Fensters, wie die Oberfläche sie zeigt. `beginn` und
+ * `ende` sind IMMER das nächste Fenster, das noch nicht begonnen hat, nie eine
+ * Zeit in der Vergangenheit (am 05.10.2026 um 03:02 stand dort 02:00 desselben
+ * Tages). Mitten im Fenster ist `laeuftGerade` wahr und `laufendBis` das Ende
+ * des laufenden Fensters: der Admin muss wissen, dass JETZT eingespielt werden
+ * könnte, und wann es wieder ruhig ist; das folgende Fenster steht daneben.
+ */
 function fensterBeschreibung(jetzt = Date.now()) {
-  const n = naechstesFenster(jetzt);
+  const aktuell = naechstesFenster(jetzt);
+  const laeuft = aktuell.beginn <= jetzt;
+  const n = laeuft ? naechstesFenster(aktuell.ende) : aktuell;
   return {
     von: `${zwei(BEGINN_STUNDE)}:00`,
     bis: `${zwei(ENDE_STUNDE)}:00`,
     zeitzone: ZEITZONE,
     beginn: new Date(n.beginn).toISOString(),
     ende: new Date(n.ende).toISOString(),
-    laeuftGerade: n.beginn <= jetzt,
+    laeuftGerade: laeuft,
+    laufendBis: laeuft ? new Date(aktuell.ende).toISOString() : null,
   };
 }
 
@@ -392,6 +402,7 @@ module.exports = {
   // fuer Tests
   fensterVon,
   naechstesFenster,
+  fensterBeschreibung,
   ergebnisAusLauf,
   schliesseOffeneAb,
   BEGINN_STUNDE,

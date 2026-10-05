@@ -393,7 +393,7 @@ function NachtsEinspielen() {
       <p className="text-sm text-muted-foreground" data-testid="nachts-fenster">
         {nachts.aktiv
           ? nachts.fenster.laeuftGerade
-            ? 'Das Fenster ist gerade offen.'
+            ? `Das Fenster ist gerade offen. Nächstes Fenster: ${wann}, ${nachts.fenster.von} bis ${nachts.fenster.bis} Uhr.`
             : `Nächstes Fenster: ${wann}, ${nachts.fenster.von} bis ${nachts.fenster.bis} Uhr.`
           : 'Aus. Das Gerät spielt nichts von selbst ein.'}
       </p>
