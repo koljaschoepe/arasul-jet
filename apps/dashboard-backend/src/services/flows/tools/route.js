@@ -148,9 +148,29 @@ function kuerze(text, max) {
   return text.length > max ? `${text.slice(0, max)}\n[gekürzt, ${text.length} Zeichen]` : text;
 }
 
-/** Der Aufruf selbst. Wirft bei allem ausser 2xx. */
+/**
+ * Der Aufruf selbst. Wirft bei allem ausser 2xx.
+ *
+ * Zwei Grenzen: `timeout` am Socket greift nur, solange NICHTS kommt; eine App,
+ * die alle paar Sekunden ein Byte schickt, hielte den Lauf damit ewig fest.
+ * Darum gilt dieselbe Frist auch fuer den ganzen Aufruf. Und ist die Obergrenze
+ * der Antwort erreicht, endet das Lesen dort: der Rest wuerde ohnehin gekuerzt.
+ */
 function rufe({ host, port, methode, pfad, koerper, koepfe }, anfrage = http.request) {
-  return new Promise((fertig, scheitert) => {
+  return new Promise((fertigRoh, scheitertRoh) => {
+    let frist = null;
+    const fertig = wert => {
+      clearTimeout(frist);
+      fertigRoh(wert);
+    };
+    const scheitert = fehler => {
+      clearTimeout(frist);
+      scheitertRoh(fehler);
+    };
+    const zuLange = () =>
+      new ServiceUnavailableError(
+        `Die App hat nicht innerhalb von ${Math.round(TIMEOUT_MS / 1000)} Sekunden geantwortet`
+      );
     const req = anfrage(
       {
         host,
@@ -172,9 +192,14 @@ function rufe({ host, port, methode, pfad, koerper, koepfe }, anfrage = http.req
         const stuecke = [];
         let laenge = 0;
         res.on('data', c => {
-          if (laenge < MAX_ANTWORT_ZEICHEN * 4) {
-            stuecke.push(c);
-            laenge += c.length;
+          if (laenge >= MAX_ANTWORT_ZEICHEN * 4) {
+            return;
+          }
+          stuecke.push(c);
+          laenge += c.length;
+          if (laenge >= MAX_ANTWORT_ZEICHEN * 4) {
+            fertig({ code: res.statusCode, text: Buffer.concat(stuecke).toString('utf8') });
+            res.destroy();
           }
         });
         res.on('end', () =>
@@ -183,14 +208,13 @@ function rufe({ host, port, methode, pfad, koerper, koepfe }, anfrage = http.req
         res.on('error', scheitert);
       }
     );
-    req.on('timeout', () => {
-      req.destroy(
-        new ServiceUnavailableError(
-          `Die App hat nicht innerhalb von ${Math.round(TIMEOUT_MS / 1000)} Sekunden geantwortet`
-        )
-      );
-    });
+    req.on('timeout', () => req.destroy(zuLange()));
     req.on('error', scheitert);
+    frist = setTimeout(() => {
+      const fehler = zuLange();
+      req.destroy(fehler);
+      scheitert(fehler);
+    }, TIMEOUT_MS);
     req.end(koerper ?? undefined);
   });
 }

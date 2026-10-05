@@ -209,8 +209,25 @@ describe('takt', () => {
     expect(await nacht.takt({ jetzt: IM_FENSTER, datenbank: db })).toBe('laeuft');
     expect(await nacht.takt({ jetzt: IM_FENSTER + MIN, datenbank: db })).toBeNull();
     expect(mockFassung.spieleEin).toHaveBeenCalledTimes(1);
-    expect(mockFassung.spieleEin).toHaveBeenCalledWith({ fassung: '0.8.15', durch: 'nachts' });
+    expect(mockFassung.spieleEin).toHaveBeenCalledWith({
+      fassung: '0.8.15',
+      durch: 'nachts',
+      lauf: expect.any(String),
+    });
     expect(db.zeilen[0]).toMatchObject({ lauf: 'l1', von: '0.8.14', nach: '0.8.15' });
+  });
+
+  it('die Kennung des Laufs steht in der Zeile, bevor er startet', async () => {
+    const db = datenbank();
+    let beimStart = null;
+    mockFassung.spieleEin.mockImplementation(async ({ lauf }) => {
+      beimStart = { gegeben: lauf, inDerZeile: db.zeilen[0].lauf };
+      return { lauf, von: '0.8.14', nach: '0.8.15' };
+    });
+    expect(await nacht.takt({ jetzt: IM_FENSTER, datenbank: db })).toBe('laeuft');
+    expect(beimStart.gegeben).toEqual(expect.any(String));
+    expect(beimStart.inDerZeile).toBe(beimStart.gegeben);
+    expect(db.zeilen[0].lauf).toBe(beimStart.gegeben);
   });
 
   it('ist die Fassung nicht neuer, ist nichts zu tun, und nichts wird eingespielt', async () => {
@@ -317,11 +334,14 @@ describe('trockenlauf', () => {
     return db;
   };
 
+  /** Die Parameter des INSERT (der Trockenlauf raeumt vorher alte weg). */
+  const eintrag = db => db.query.mock.calls.find(c => /INSERT INTO/.test(c[0]));
+
   it('prüft und berichtet, spielt nichts ein', async () => {
     const db = eintragen();
     await nacht.trockenlauf({ datenbank: db });
     expect(mockFassung.spieleEin).not.toHaveBeenCalled();
-    const [sql, params] = db.query.mock.calls[0];
+    const [sql, params] = eintrag(db);
     expect(sql).toMatch(/INSERT INTO public\.update_nacht_laeufe/);
     expect(params[0]).toBe('trockenlauf');
     expect(params[1]).toMatch(/Es wurde nichts verändert/);
@@ -337,7 +357,7 @@ describe('trockenlauf', () => {
     });
     const db = eintragen();
     await nacht.trockenlauf({ datenbank: db });
-    const [ergebnis, grund] = db.query.mock.calls[0][1];
+    const [ergebnis, grund] = eintrag(db)[1];
     expect(ergebnis).toBe('trockenlauf');
     expect(grund).toMatch(/letzte Sicherung ist nicht gelungen/);
   });
@@ -349,6 +369,19 @@ describe('trockenlauf', () => {
     });
     const db = eintragen();
     await nacht.trockenlauf({ datenbank: db });
-    expect(db.query.mock.calls[0][1][0]).toBe('uebersprungen');
+    expect(eintrag(db)[1][0]).toBe('uebersprungen');
+  });
+
+  // Befund 9 der zweiten Pruefung (05.10.2026): `CURRENT_DATE` rechnet in der
+  // Zone der Datenbank; um 01:30 deutscher Zeit ist das in UTC noch gestern.
+  it('trägt den Tag in der Zeit des Geräts ein und räumt alte Trockenläufe weg', async () => {
+    const db = eintragen();
+    await nacht.trockenlauf({ jetzt: Date.parse('2026-10-05T23:30:00Z'), datenbank: db });
+    const [sql, params] = eintrag(db);
+    expect(sql).not.toMatch(/CURRENT_DATE/);
+    expect(params[4]).toBe('2026-10-06');
+    expect(
+      db.query.mock.calls.some(c => /DELETE FROM public\.update_nacht_laeufe/.test(c[0]))
+    ).toBe(true);
   });
 });

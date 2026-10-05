@@ -203,6 +203,57 @@ describe('RouteAufrufenTool.execute', () => {
     expect(zugang).not.toHaveBeenCalled();
   });
 
+  // Befund 5 der zweiten Pruefung (05.10.2026): nur der Leerlauf hatte eine
+  // Frist. Eine App, die tropfenweise antwortet, hielt den Lauf ewig fest.
+  describe('Grenzen des Aufrufs', () => {
+    /** Ein http.request, dessen Antwort beginnt und nie endet. */
+    function tropfend(stueck = 'x') {
+      const req = new EventEmitter();
+      const res = new EventEmitter();
+      res.statusCode = 200;
+      res.destroy = jest.fn();
+      req.destroy = jest.fn(fehler => fehler && req.emit('error', fehler));
+      const anfrage = jest.fn((_o, rueckruf) => {
+        req.end = () => {
+          rueckruf(res);
+          res.emit('data', Buffer.from(stueck));
+        };
+        return req;
+      });
+      return { anfrage, req, res };
+    }
+    const aufruf = anfrage =>
+      tool.execute({ methode: 'GET', pfad: '/info' }, KONTEXT, {
+        datenbank: datenbank(),
+        zugang: async () => ({}),
+        port: async () => 8080,
+        anfrage,
+      });
+
+    afterEach(() => jest.useRealTimers());
+
+    it('bricht nach der Frist ab, auch wenn die App zwischendurch tropft', async () => {
+      jest.useFakeTimers();
+      const { anfrage, req } = tropfend();
+      const ergebnis = aufruf(anfrage).catch(e => e);
+      await jest.advanceTimersByTimeAsync(31000);
+      const fehler = await Promise.race([ergebnis, Promise.resolve('haengt')]);
+      expect(fehler).toBeInstanceOf(Error);
+      expect(fehler.message).toMatch(/nicht innerhalb von 30 Sekunden/);
+      expect(req.destroy).toHaveBeenCalled();
+    });
+
+    it('liest nach der Obergrenze nicht weiter und schliesst die Antwort', async () => {
+      const { anfrage, res } = tropfend('y'.repeat(40000));
+      const antwort = await Promise.race([
+        aufruf(anfrage),
+        new Promise(r => setTimeout(() => r('haengt'), 200)),
+      ]);
+      expect(antwort).toMatch(/^y+\n\[gekürzt, 40000 Zeichen\]$/);
+      expect(res.destroy).toHaveBeenCalled();
+    });
+  });
+
   it('macht aus einer Antwort ausser 2xx einen Fehler mit Grund', async () => {
     const { anfrage } = anfrageMit(403, '{"fehler":"nur Leitung"}');
     await expect(

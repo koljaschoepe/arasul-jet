@@ -15,11 +15,22 @@
  *   Befund 3  Ein Zeitplan-Lauf gehoert nie einem stillgelegten Konto: der
  *             Besitzer des Livestand-Schluessels zaehlt nur, solange er aktiv
  *             ist; sonst der aelteste aktive Admin.
+ *   Befund 9  Der Trockenlauf der Nacht traegt den Tag in der Zeit des Geraets
+ *             ein und raeumt Trockenlaeufe nach 30 Tagen weg.
  *
  * Aufruf wie die Nachbardatei (`npm run test:pg` mit `ARASUL_PG_TEST_URL`).
  * Diese Datei legt nur eigene Zeilen an (Praefix `jpz-`) und raeumt sie weg;
  * sie leert keine Tabelle. Ohne `ARASUL_PG_TEST_URL` ueberspringt sie sich.
  */
+
+// Der Trockenlauf prueft Fassung und Sicherung ueber Dienste am Host; hier
+// zaehlt nur, dass seine SQL gegen das echte Schema laeuft.
+jest.mock('../../src/services/betrieb/fassungsdienst', () => ({
+  vorpruefung: jest.fn(async () => ({ aktuell: '0.8.14', ziel: '0.8.15' })),
+}));
+jest.mock('../../src/services/betrieb/sicherungsdienst', () => ({
+  status: jest.fn(async () => ({ laeuftGerade: null, letzteSicherung: { status: 'failed' } })),
+}));
 
 const fs = require('fs');
 const path = require('path');
@@ -88,6 +99,28 @@ beschreibe('Zeitplaner und Modelle gegen echtes Postgres', () => {
       await aufraeumen();
       await db.close?.();
     }
+  });
+
+  describe('Befund 8 und 9: Trockenlauf der Nacht', () => {
+    it('Tag in der Zeit des Geräts, alte Trockenläufe gehen, Warnung statt übersprungen', async () => {
+      const nacht = require('../../src/services/betrieb/nachtUpdate');
+      await db.query(
+        `INSERT INTO public.update_nacht_laeufe (fenster, trocken, ergebnis, grund, gestartet)
+         VALUES ('2026-01-01', true, 'trockenlauf', 'jpz-alt', NOW() - interval '40 days')`
+      );
+      const zeile = await nacht.trockenlauf({ jetzt: Date.parse('2026-10-05T23:30:00Z') });
+      expect(zeile).toMatchObject({
+        fenster: '2026-10-06',
+        trocken: true,
+        ergebnis: 'trockenlauf',
+      });
+      expect(zeile.grund).toMatch(/letzte Sicherung ist nicht gelungen/);
+      const { rows } = await db.query(
+        `SELECT count(*)::int AS n FROM public.update_nacht_laeufe WHERE grund = 'jpz-alt'`
+      );
+      expect(rows[0].n).toBe(0);
+      await db.query('DELETE FROM public.update_nacht_laeufe WHERE id = $1', [zeile.id]);
+    });
   });
 
   describe('Befund 3: Besitzer eines Zeitplan-Laufs', () => {
