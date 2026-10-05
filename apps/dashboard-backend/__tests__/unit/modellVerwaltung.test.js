@@ -33,10 +33,11 @@ const MODELLE = [
   { id: 'frei', name: 'Frei', ollama_name: 'frei:1b', faehigkeiten: { text: true } },
 ];
 
-function flowsLesen({ flows = [], wahlen = [] }) {
+function flowsLesen({ flows = [], wahlen = [], einstellungen = [] }) {
   db.query.mockImplementation(async sql => {
     if (sql.includes('FROM public.app_flows')) return { rows: flows };
     if (sql.includes('flow_schritt_modelle')) return { rows: wahlen };
+    if (sql.includes('FROM public.flow_settings')) return { rows: einstellungen };
     return { rows: [] };
   });
 }
@@ -105,6 +106,33 @@ describe('modellVerwaltung', () => {
       expect(fehler.statusCode).toBe(409);
       expect(fehler.message).toContain('„beleg" (Probe)');
       expect(fehler.details.grund).toBe('IN_NUTZUNG');
+    });
+
+    // Befund 2 der zweiten Pruefung (05.10.2026): die Wahl des Admins fuer den
+    // ganzen Flow (`flow_settings.modell`) gewinnt beim Lauf ueber den Kopf,
+    // die Sperre las sie nicht -- das Modell liess sich entfernen.
+    test('ein Modell, das der Admin fuer einen Flow gesetzt hat, ist gesperrt', async () => {
+      flowsLesen({
+        flows: [{ app_id: 'a', app_name: 'Probe', name: 'beleg', definition: {} }],
+        einstellungen: [{ app_id: 'a', flow_name: 'beleg', modell: 'frei:1b' }],
+      });
+
+      const fehler = await verwaltung.entfernenPruefen('frei').catch(e => e);
+
+      expect(fehler.statusCode).toBe(409);
+      expect(fehler.message).toContain('„beleg" (Probe)');
+    });
+
+    test('mit gesetztem Modell rechnet der Flow nicht mit dem Standard', async () => {
+      flowsLesen({
+        flows: [{ app_id: 'a', app_name: 'Probe', name: 'beleg', definition: {} }],
+        einstellungen: [{ app_id: 'a', flow_name: 'beleg', modell: 'frei' }],
+      });
+
+      const wo = await verwaltung.nutzung(MODELLE, 'gross');
+
+      expect(wo.get('frei').map(f => f.flow)).toEqual(['beleg']);
+      expect(wo.get('gross')).toBeUndefined();
     });
 
     test('das Standardmodell ist gesperrt, auch ohne nutzenden Flow', async () => {

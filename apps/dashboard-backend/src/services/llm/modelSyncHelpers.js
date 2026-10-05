@@ -110,7 +110,13 @@ function createSyncHelpers({
       const bytes = Number(tag.size) || 0;
       const embedding = faehigkeiten.includes('embedding');
       const bild = steckbrief.supportsVision === true;
-      const aufgabe = embedding ? 'embedding' : bild ? 'vision' : 'text';
+      // Bild heisst nicht „kein Text“: gemma4 liest Bilder UND beantwortet
+      // Prompts. Ein Modell mit `completion` ist ein Textmodell, das Bild steht
+      // in `supports_vision_input`. Die Aufgabe `vision` schliesst es von
+      // Textschritten und vom Standard aus (`schrittModelle.faehigkeitenVon`),
+      // darum nur, wenn Ollama ausdruecklich kein `completion` meldet.
+      const nurBild = bild && !faehigkeiten.includes('completion');
+      const aufgabe = embedding ? 'embedding' : nurBild ? 'vision' : 'text';
       const gb = bytes / GB;
 
       const ergebnis = await database.query(
@@ -134,7 +140,7 @@ function createSyncHelpers({
           Math.max(1, Math.ceil(gb * 1.15 || 1)),
           kategorie(gb),
           JSON.stringify(embedding ? ['embedding'] : []),
-          embedding ? 'embedding' : bild ? 'vision' : 'llm',
+          embedding ? 'embedding' : nurBild ? 'vision' : 'llm',
           aufgabe,
           embedding ? 'embed' : 'balanced',
           faehigkeiten.includes('thinking'),

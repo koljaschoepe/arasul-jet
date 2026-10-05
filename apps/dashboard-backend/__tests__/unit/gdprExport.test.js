@@ -170,6 +170,22 @@ describe('GET /api/gdpr/export?benutzer=', () => {
     const res = await request(buildApp()).get('/api/gdpr/export?benutzer=abc');
     expect(res.status).toBe(400);
   });
+
+  // Befund 12 der zweiten Pruefung (05.10.2026): von Hand geprueft statt mit
+  // `validateQuery`; `Number('0x7')` ist 7 und ging als Person 7 durch.
+  test('die Angabe prueft Zod: Fehler mit Quelle query, keine Hex- oder Exponentenzahl', async () => {
+    for (const roh of ['abc', '0x7', '1e1', '0', '-3']) {
+      const res = await request(buildApp()).get(`/api/gdpr/export?benutzer=${roh}`);
+      expect(res.status).toBe(400);
+      expect(res.body.error.details.source).toBe('query');
+    }
+  });
+
+  test('leer ist der Aufrufer selbst', async () => {
+    const res = await request(buildApp()).get('/api/gdpr/export?benutzer=');
+    expect(res.status).toBe(200);
+    expect(res.body._meta.fremd ?? false).toBe(false);
+  });
 });
 
 describe('GET /api/gdpr/categories', () => {

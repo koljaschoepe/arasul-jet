@@ -155,6 +155,30 @@ describe('Der Abgleich traegt Modelle nach, die nur bei Ollama liegen (M5)', () 
     expect(insert.params).toEqual(expect.arrayContaining([true, 262144, 'Q4_K_M']));
   });
 
+  test('ein Modell mit Bild UND completion wird ein Textmodell, das Bilder liest', async () => {
+    const deps = bauen([]);
+    const helpers = createSyncHelpers(deps);
+
+    await helpers.traegNachModelle([{ name: 'gemma4:26b', size: 18e9 }]);
+
+    const insert = deps.queries.find(q => /INSERT INTO llm_model_catalog/i.test(q.sql));
+    // $8 model_type, $9 task, $12 supports_vision_input
+    expect(insert.params[7]).toBe('llm');
+    expect(insert.params[8]).toBe('text');
+    expect(insert.params[11]).toBe(true);
+  });
+
+  test('nur wenn Ollama kein completion meldet, wird es ein Bildmodell', async () => {
+    const deps = bauen([], { ...steckbrief, capabilities: ['vision'] });
+    const helpers = createSyncHelpers(deps);
+
+    await helpers.traegNachModelle([{ name: 'nur-bild:1b', size: 1e9 }]);
+
+    const insert = deps.queries.find(q => /INSERT INTO llm_model_catalog/i.test(q.sql));
+    expect(insert.params[7]).toBe('vision');
+    expect(insert.params[8]).toBe('vision');
+  });
+
   test('bekannte Zeile (auch als :latest) wird nicht angefasst', async () => {
     const deps = bauen(['nomic-embed-text']);
     const helpers = createSyncHelpers(deps);

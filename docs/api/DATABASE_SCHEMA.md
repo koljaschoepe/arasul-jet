@@ -719,6 +719,10 @@ startet den Lauf; ein zweiter Takt oder ein Neustart findet sie vor. Einträge
 
 Aus dem Abstand zu jetzt ergibt sich nach einem Ausfall, was verpasst wurde.
 Die Zeile entsteht mit dem ersten Takt; ohne sie gibt es nichts nachzuholen.
+Scheitert in einem Takt ein Flow, bevor sein Termin eingetragen ist (etwa weil
+die Datenbank kurz weg war), rückt `geprueft_bis` nicht vor: der nächste Takt
+sieht denselben Zeitraum noch einmal, statt den Termin ohne Eintrag zu
+verlieren.
 
 ---
 
@@ -2173,12 +2177,14 @@ Ollama und keine Selbstheilung.
 > Werkzeug-Schleife, aus einer Rolle oder aus einer Wiederholung); ein solcher
 > Lauf endet beim Neustart wie jeder laufende als `fehler`.
 
-> `ausloeser` (Migration 203, M5): wodurch der Lauf entstand, `hand` (ein
-> Mensch oder die App stieß ihn an, jeder Lauf bis dahin) oder `zeitplan` (der
-> Zeitplaner des Geräts; dann ohne `einreicher_id`). `CHECK` auf beide Werte.
-> Seit Migration 204 auch `ereignis`: die App meldete ein Ereignis
-> (`POST /api/v1/external/ereignisse/:name`), sein Name steht in `ereignis`
-> (sonst `NULL`), seine Daten als Argumente in `arguments`.
+> `ausloeser` (Migrationen 203 und 204, M5): wodurch der Lauf entstand, mit
+> `CHECK` auf drei Werte. `hand`: ein Mensch oder die App stieß ihn an (jeder
+> Lauf vor 203, die Vorgabe). `zeitplan`: der Zeitplaner des Geräts, ohne
+> `einreicher_id`; `user_id` ist der Besitzer des Livestand-Schlüssels, solange
+> sein Konto aktiv ist, sonst der älteste aktive Admin. `ereignis`: die App
+> meldete ein Ereignis (`POST /api/v1/external/ereignisse/:name`); sein Name
+> steht in `ereignis` (bei den anderen beiden `NULL`), seine Daten als
+> Argumente in `arguments`.
 
 > `abschluss` (Migration 198, M5, Kontrakt 11): die Übergabe des Ergebnisses an
 > die Abschluss-Route der App — `{route, versuche, letzter_versuch, status_code,
@@ -2481,19 +2487,19 @@ fehler, uebergeben_am}`. Die Zeile entsteht **vor** dem ersten Aufruf
 
 > Was in jeder Nacht mit der Aktualisierung nachts geschah (M5, Migration 208); zugleich der Hinweis am Morgen. `system_settings.update_nachts` ist der Schalter (aus als Vorgabe).
 
-| Column       | Type                     | Nullable | Default                                            |
-| ------------ | ------------------------ | -------- | -------------------------------------------------- |
+| Column       | Type                     | Nullable | Default                                           |
+| ------------ | ------------------------ | -------- | ------------------------------------------------- |
 | `id`         | bigint                   | ⛔       | `nextval('update_nacht_laeufe_id_seq'::regclass)` |
-| `fenster`    | date                     | ⛔       |                                                    |
-| `trocken`    | boolean                  | ⛔       | `false`                                            |
-| `ergebnis`   | text                     | ⛔       |                                                    |
-| `grund`      | text                     | ✅       |                                                    |
-| `von`        | text                     | ✅       |                                                    |
-| `nach`       | text                     | ✅       |                                                    |
-| `lauf`       | text                     | ✅       |                                                    |
-| `gestartet`  | timestamp with time zone | ⛔       | `now()`                                            |
-| `beendet`    | timestamp with time zone | ✅       |                                                    |
-| `gesehen_am` | timestamp with time zone | ✅       |                                                    |
+| `fenster`    | date                     | ⛔       |                                                   |
+| `trocken`    | boolean                  | ⛔       | `false`                                           |
+| `ergebnis`   | text                     | ⛔       |                                                   |
+| `grund`      | text                     | ✅       |                                                   |
+| `von`        | text                     | ✅       |                                                   |
+| `nach`       | text                     | ✅       |                                                   |
+| `lauf`       | text                     | ✅       |                                                   |
+| `gestartet`  | timestamp with time zone | ⛔       | `now()`                                           |
+| `beendet`    | timestamp with time zone | ✅       |                                                   |
+| `gesehen_am` | timestamp with time zone | ✅       |                                                   |
 
 **Primary key:** `id`
 

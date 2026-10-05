@@ -8,9 +8,11 @@
  * Nutzung (`modelLifecycleService`) und laedt es bei Bedarf selbst.
  *
  * WER EIN MODELL NUTZT. Ein Flow nutzt jedes Modell, das er nennt (Kopf, Rolle,
- * Schritt) und das der Admin je Schritt gewaehlt hat (`flow_schritt_modelle`,
- * Migration 205), ueber alle Staende. Nennt ein Flow im Kopf keines, rechnet er
- * mit dem Standardmodell und nutzt dieses. Das ist absichtlich eine
+ * Schritt), das der Admin je Schritt gewaehlt hat (`flow_schritt_modelle`,
+ * Migration 205) und das er fuer den ganzen Flow gesetzt hat
+ * (`flow_settings.modell`, gewinnt in `appFlows.lade` ueber den Kopf), ueber
+ * alle Staende. Nennt ein Flow weder im Kopf noch in den Einstellungen eines,
+ * rechnet er mit dem Standardmodell und nutzt dieses. Das ist absichtlich eine
  * Obermenge dessen, was ein Lauf gerade waehlt: gesperrt wird lieber ein
  * Modell zu viel als eines, das ein Flow morgen braucht.
  */
@@ -37,6 +39,9 @@ async function nutzung(modelle, standardId) {
   );
   const { rows: wahlen } = await db.query(
     'SELECT app_id, flow_name, modell FROM public.flow_schritt_modelle'
+  );
+  const { rows: einstellungen } = await db.query(
+    'SELECT app_id, flow_name, modell FROM public.flow_settings WHERE modell IS NOT NULL'
   );
 
   const proFlow = new Map();
@@ -69,6 +74,15 @@ async function nutzung(modelle, standardId) {
   for (const w of wahlen) {
     const e = proFlow.get(`${w.app_id}\u0000${w.flow_name}`);
     if (e) {
+      e.namen.add(w.modell);
+    }
+  }
+  for (const w of einstellungen) {
+    const e = proFlow.get(`${w.app_id}\u0000${w.flow_name}`);
+    if (e) {
+      // Die Wahl des Admins ersetzt das Modell des Kopfes: der Flow rechnet
+      // dann nicht mit dem Standardmodell.
+      e.kopfModell = true;
       e.namen.add(w.modell);
     }
   }

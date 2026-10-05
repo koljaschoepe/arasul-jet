@@ -184,6 +184,18 @@ describe('takt', () => {
     expect(db.zeilen).toHaveLength(0);
   });
 
+  // Befund 6 der zweiten Pruefung (05.10.2026): der Kopf versprach, dass spaet
+  // im Fenster nichts mehr startet; der Code startete bis 03:59.
+  it('startet ab 03:30 nichts mehr, bis 03:29 schon', async () => {
+    const spaet = Date.parse('2026-10-05T01:30:00Z'); // 03:30 Berlin
+    const db = datenbank();
+    expect(await nacht.takt({ jetzt: spaet, datenbank: db })).toBeNull();
+    expect(await nacht.takt({ jetzt: spaet + 25 * MIN, datenbank: db })).toBeNull(); // 03:55
+    expect(mockFassung.spieleEin).not.toHaveBeenCalled();
+    expect(db.zeilen).toHaveLength(0);
+    expect(await nacht.takt({ jetzt: spaet - MIN, datenbank: db })).toBe('laeuft'); // 03:29
+  });
+
   it('tut außerhalb des Fensters nichts', async () => {
     const db = datenbank();
     expect(
@@ -315,10 +327,25 @@ describe('trockenlauf', () => {
     expect(params[1]).toMatch(/Es wurde nichts verändert/);
   });
 
-  it('meldet, wenn die letzte Sicherung nicht gelang: dann wäre vorher keine sicher', async () => {
+  // Befund 8 der zweiten Pruefung (05.10.2026): die Nacht sichert frisch und
+  // fragt nach der letzten Sicherung nicht. Der Trockenlauf sagte bei einer
+  // alten misslungenen „uebersprungen“ -- eine falsche Vorhersage.
+  it('eine misslungene letzte Sicherung ist eine Warnung, kein Grund zum Überspringen', async () => {
     mockSicherung.status.mockResolvedValue({
       laeuftGerade: null,
       letzteSicherung: { status: 'failed' },
+    });
+    const db = eintragen();
+    await nacht.trockenlauf({ datenbank: db });
+    const [ergebnis, grund] = db.query.mock.calls[0][1];
+    expect(ergebnis).toBe('trockenlauf');
+    expect(grund).toMatch(/letzte Sicherung ist nicht gelungen/);
+  });
+
+  it('läuft gerade eine Sicherung, käme die vorher nicht an die Reihe: übersprungen', async () => {
+    mockSicherung.status.mockResolvedValue({
+      laeuftGerade: 'sicherung',
+      letzteSicherung: { status: 'completed' },
     });
     const db = eintragen();
     await nacht.trockenlauf({ datenbank: db });
