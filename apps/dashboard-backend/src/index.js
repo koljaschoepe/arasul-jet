@@ -109,7 +109,7 @@ app.use((req, res, next) => {
   res.setTimeout(fristFuer(req.path), () => {
     if (!res.headersSent) {
       res.status(408).json({
-        error: { code: 'REQUEST_TIMEOUT', message: 'Request timeout' },
+        error: { code: 'REQUEST_TIMEOUT', message: 'Die Anfrage hat zu lange gedauert.' },
         timestamp: new Date().toISOString(),
       });
     }
@@ -139,7 +139,7 @@ const corsOptions = {
       const { ForbiddenError } = require('./utils/errors');
       // ApiError → global errorHandler serializes this as 403/FORBIDDEN with a
       // clear message, instead of a generic 500 from a plain Error.
-      callback(new ForbiddenError('Origin not allowed by CORS policy', 'ORIGIN_NOT_ALLOWED'));
+      callback(new ForbiddenError('Dieser Ursprung ist nicht erlaubt.', 'ORIGIN_NOT_ALLOWED'));
     }
   },
   credentials: true,

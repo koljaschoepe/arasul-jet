@@ -165,7 +165,7 @@ describe('UpdateService', () => {
       const result = await updateService.verifySignature(updatePath, sigPath);
 
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('Public key not found');
+      expect(result.error).toContain('öffentliche Schlüssel fehlt');
     });
 
     it('should return invalid for bad public key format', async () => {
@@ -175,7 +175,7 @@ describe('UpdateService', () => {
       const result = await updateService.verifySignature(updatePath, sigPath);
 
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('Invalid public key format');
+      expect(result.error).toContain('Der öffentliche Schlüssel hat ein ungültiges Format.');
     });
 
     it('should return invalid when signature file not found', async () => {
@@ -189,7 +189,7 @@ describe('UpdateService', () => {
       const result = await updateService.verifySignature(updatePath, sigPath);
 
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('Signature file not found');
+      expect(result.error).toContain('Die Signaturdatei fehlt.');
     });
 
     it('should return invalid for empty signature file', async () => {
@@ -384,7 +384,7 @@ describe('UpdateService', () => {
       const result = await updateService.applyUpdate('/tmp/update.araupdate');
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Update already in progress');
+      expect(result.error).toBe('Es läuft schon eine Aktualisierung.');
     });
 
     it('should reject if validation fails', async () => {

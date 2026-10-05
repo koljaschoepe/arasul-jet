@@ -63,7 +63,7 @@ router.get(
 
     if (!resolvedPath.startsWith(resolvedLogDir)) {
       logger.warn(`Path traversal attempt detected: ${service} -> ${resolvedPath}`);
-      throw new ForbiddenError('Access denied: Invalid log file path');
+      throw new ForbiddenError('Zugriff verweigert: Der Pfad der Logdatei ist ungültig.');
     }
 
     // Check if log file exists
@@ -241,7 +241,7 @@ router.get(
     const { service = 'system', query, lines = 100, case_sensitive = 'false' } = req.query;
 
     if (!query) {
-      throw new ValidationError('Search query is required');
+      throw new ValidationError('Der Suchbegriff fehlt.');
     }
 
     // Validate service parameter

@@ -22,45 +22,63 @@
  * WAS FOTOGRAFIERT WIRD
  *
  *   - die Anmeldung (ohne Sitzung)
- *   - der Startpasswort-Wechsel (ein Wegwerf-Mitarbeiter, EINE Anmeldung)
- *   - die Uebersicht, die Notizen, eine App im Rahmen
- *   - die acht Einstellungs-Sektionen und die fuenf System-Unterseiten
- *   - die Modelle
- *   - eine App im Einzelnen (Staende, Tester, Flows, Laeufe)
+ *   - die Startseite und eine App im Rahmen
+ *   - die acht Bereiche der Verwaltung (`ansichten.mjs`)
+ *   - eine App im Einzelnen (Stände, Tester, Flows, Läufe)
  *   - die Schauseite der Bibliothek
  *
  * je zweimal (hell, dunkel) und je dreimal (390, 1024, 1440 px).
  *
- * DIE ANMELDESEITE HAT KEIN THEME, und der Startpasswort-Wechsel auch nicht:
- * das Theme gehoert einem Menschen (H1), und vor der ersten eigenen
- * Entscheidung steht die Vorgabe. Ihr dunkles Bild entsteht deshalb mit
- * AUFGEZWUNGENEM Attribut -- es beantwortet die andere Frage, ob die Seite in
- * beiden Themes ueberhaupt lesbar ist. Dieselbe Regel wie in
- * `theme-abnahme.mjs`, und im `BILDER.md` steht sie dabei.
+ * NEU GESCHNITTEN AM 05.10.2026 (M5), wie `oberflaeche-abnahme.mjs`. Vorher
+ * legte der Bogen einen Wegwerf-Mitarbeiter über eine Schnittstelle an, die es
+ * so nicht mehr gibt, fotografierte Notizen und Hamburger-Menü, die mit dem
+ * Handy-Auftrag vom 04.10.2026 gefallen sind, nahm die erste App mit Livestand
+ * und konnte sich mit dem Konto `admin` anmelden. Seither:
  *
- * KOSTET EINE ANMELDUNG. Der Administrator kommt ueber `$ARASUL_TOKEN` oder
- * die abgelegte Datei; die eine gehoert dem Wegwerf-Mitarbeiter, dessen
- * Startpasswort-Schirm sonst nicht zu fotografieren waere. Ohne einen
- * gueltigen Token kostet er eine zweite.
+ *   - Das Konto nur aus der Umgebung und nur ein vorhandenes Probekonto
+ *     (probe-admin). Kein Konto wird angelegt, nie `admin`. Der
+ *     Startpasswort-Wechsel ist deshalb nicht mehr dabei: er bräuchte ein
+ *     Konto, dessen Passwort der Administrator setzt.
+ *   - Fotografiert wird eine eigene Probe-App mit Stempel,
+ *     `probe-bilderbogen-<STEMPEL>` aus `tests/probe-leiste`. Der Bogen rollt
+ *     sie über einen Wegwerf-Schlüssel aus, schaltet sie live, gibt sie dem
+ *     Probekonto frei und entfernt am Ende alles wieder, auch nach einem
+ *     Fehler. An einer anderen App fotografiert er nie.
+ *   - Das Theme des Probekontos steht am Ende wieder so, wie es war.
+ *
+ * DIE ANMELDESEITE HAT KEIN THEME. Das Theme gehört einem Menschen (H1), und
+ * vor der ersten eigenen Entscheidung steht die Vorgabe. Ihr dunkles Bild
+ * entsteht deshalb mit AUFGEZWUNGENEM Attribut -- es beantwortet die andere
+ * Frage, ob die Seite in beiden Themes überhaupt lesbar ist. Dieselbe Regel
+ * wie in `theme-abnahme.mjs`, und im `BILDER.md` steht sie dabei.
+ *
+ * VORAUSSETZUNG: `playwright` steht in keinem Lockfile dieses Repos:
+ * `npm i --no-save playwright` im Wurzelordner ODER
+ * ARASUL_PLAYWRIGHT=<Ordner mit node_modules/playwright>; Chromium über
+ * `npx playwright install chromium` oder ARASUL_CHROMIUM=<Datei>.
  *
  * Aufruf (SSH-Tunnel auf 8443 vorausgesetzt):
- *   ARASUL_PASSWORT=... node scripts/test/bilderbogen.mjs --stand vorher
- *   ARASUL_PASSWORT=... node scripts/test/bilderbogen.mjs --stand nachher
+ *   ARASUL_BENUTZER=probe-admin \
+ *   ARASUL_PASSWORT="$(geheim get 'Arasul Jet Dashboard, probe-admin (Orin)')" \
+ *   node scripts/test/bilderbogen.mjs --stand vorher
+ *   (… --stand nachher; `--nur uebersicht,verwaltung-geraet` fotografiert nur diese)
  *
- * Die Bilder landen unter `docs/plans/audits/<datum>-h5-<stand>/`, dazu ein
- * `BILDER.md`, das sie als Tabelle Ansicht mal Theme mal Breite auffuehrt.
+ * Die Bilder landen unter `docs/plans/audits/<datum>-bilderbogen-<stand>/`,
+ * dazu ein `BILDER.md`, das sie als Tabelle Ansicht mal Theme mal Breite
+ * aufführt. Passwörter nur aus der Umgebung, nie in eine Datei.
  *
- * Umgebung: ARASUL_URL, ARASUL_BENUTZER, ARASUL_PASSWORT, ARASUL_TOKEN,
- * ARASUL_TOKEN_DATEI, ARASUL_TAG, ARASUL_APP.
+ * Umgebung: ARASUL_URL, ARASUL_BENUTZER, ARASUL_PASSWORT, ARASUL_STEMPEL,
+ * ARASUL_TAG, ARASUL_CHROMIUM.
  *
- * Rueckgabe 0, wenn jede Ansicht dastand, sonst 1.
+ * Rückgabe 0, wenn jede Ansicht dastand, sonst 1; 2, wenn das Konto fehlt.
  */
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { chromium, request as pwRequest } from 'playwright';
 import {
   drosselAbwarten,
   drosselBilanz,
@@ -72,25 +90,47 @@ import {
 import { BREITEN, VERWALTUNG } from './ansichten.mjs';
 import { zugangAusUmgebung } from './anmeldung.mjs';
 
+async function ladePlaywright() {
+  try {
+    return await import('playwright');
+  } catch {
+    const ort = process.env.ARASUL_PLAYWRIGHT;
+    if (!ort) {
+      console.log(
+        'ROT    playwright fehlt: `npm i --no-save playwright` im Wurzelordner oder ARASUL_PLAYWRIGHT=<Ordner mit node_modules/playwright>.'
+      );
+      process.exit(1);
+    }
+    return createRequire(path.join(ort, 'x.js'))('playwright');
+  }
+}
+const { chromium, request: pwRequest } = await ladePlaywright();
+
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const { benutzer: BENUTZER, passwort: PASSWORT } = zugangAusUmgebung();
-const TAG = process.env.ARASUL_TAG || new Date().toISOString().slice(0, 10);
-const TOKEN_DATEI =
-  process.env.ARASUL_TOKEN_DATEI || path.join(os.tmpdir(), 'arasul-abnahme-token');
+const TAG = process.env.ARASUL_TAG || new Date().toLocaleDateString('sv-SE');
 const gastgeber = new globalThis.URL(URL).hostname;
 
 const standIndex = process.argv.indexOf('--stand');
 const STAND = standIndex > -1 ? process.argv[standIndex + 1] : 'vorher';
-/** `--nur uebersicht,notizen` fotografiert nur diese Dateinamen (Nacharbeit). */
+/** `--nur uebersicht,verwaltung-geraet` fotografiert nur diese Dateinamen (Nacharbeit). */
 const nurIndex = process.argv.indexOf('--nur');
 const NUR = nurIndex > -1 ? (process.argv[nurIndex + 1] || '').split(',').filter(Boolean) : [];
 const gefragt = dateiname => NUR.length === 0 || NUR.includes(dateiname);
-const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-h5-${STAND}`);
+const ZIEL = path.join(WURZEL, 'docs/plans/audits', `${TAG}-bilderbogen-${STAND}`);
 
-const STEMPEL = Date.now();
-const MITARB = `bilderbogen-${STEMPEL}`;
-const PASS_START = `Start-${STEMPEL}`;
+const STEMPEL = process.env.ARASUL_STEMPEL || String(Date.now());
+/**
+ * Die Probe-App dieses Laufs. Die Kennung ist kein Parameter: an einer echten
+ * App des Geräts fotografiert dieser Bogen nie.
+ */
+const APP = `probe-bilderbogen-${STEMPEL}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+const QUELLE = path.join(WURZEL, 'tests/probe-leiste');
+const chromiumOptionen = {
+  headless: true,
+  ...(process.env.ARASUL_CHROMIUM ? { executablePath: process.env.ARASUL_CHROMIUM } : {}),
+};
 
 /**
  * Die zwei Themes. `attribut` ist, was am `<html>` steht: im Hellen NICHTS,
@@ -123,18 +163,6 @@ async function apiKanal(token) {
   });
 }
 
-async function tokenGilt(token) {
-  if (!token) return false;
-  const kanal = await apiKanal(token);
-  try {
-    return (await kanal.get('/api/auth/me')).status() === 200;
-  } catch {
-    return false;
-  } finally {
-    await kanal.dispose();
-  }
-}
-
 let anmeldungen = 0;
 
 async function anmelden(benutzer, passwort) {
@@ -163,18 +191,39 @@ async function anmelden(benutzer, passwort) {
 }
 
 async function adminToken() {
-  if (process.env.ARASUL_TOKEN) return process.env.ARASUL_TOKEN;
-  const abgelegt = fs.existsSync(TOKEN_DATEI) ? fs.readFileSync(TOKEN_DATEI, 'utf-8').trim() : '';
-  if (await tokenGilt(abgelegt)) return abgelegt;
-  const { token } = await anmelden(BENUTZER, PASSWORT);
-  if (token) fs.writeFileSync(TOKEN_DATEI, token, { mode: 0o600 });
-  return token;
+  return (await anmelden(BENUTZER, PASSWORT)).token;
+}
+
+/** Das Paket der Probe-App: `tests/probe-leiste` mit eigener Kennung und eigenem Namen. */
+function paketBauen(arbeit) {
+  const ordner = path.join(arbeit, 'paket');
+  fs.mkdirSync(ordner, { recursive: true });
+  fs.cpSync(path.join(QUELLE, 'frontend'), path.join(ordner, 'frontend'), { recursive: true });
+  const manifest = JSON.parse(fs.readFileSync(path.join(QUELLE, 'app.json'), 'utf-8'));
+  manifest.id = APP;
+  manifest.name = `Probe Bilderbogen ${STEMPEL}`;
+  manifest.beschreibung = 'Kamera für scripts/test/bilderbogen.mjs, wird am Ende entfernt.';
+  fs.writeFileSync(path.join(ordner, 'app.json'), JSON.stringify(manifest, null, 2));
+  const datei = path.join(arbeit, 'paket.tgz');
+  execFileSync('tar', ['czf', datei, '-C', ordner, '.'], {
+    env: { ...process.env, COPYFILE_DISABLE: '1' },
+  });
+  return datei;
 }
 
 async function fensterMitToken(browser, token) {
   const ctx = await browser.newContext({
     ignoreHTTPSErrors: true,
     viewport: { width: 1440, height: 900 },
+    locale: 'de-DE',
+  });
+  // Der Einrichtungs-Hinweis verdeckte sonst die erste Ansicht.
+  await ctx.addInitScript(() => {
+    try {
+      localStorage.setItem('arasul-onboarding-seen-v1', '1');
+    } catch {
+      /* Speicher gesperrt, stört nur die Sicht */
+    }
   });
   if (token) {
     await ctx.addCookies([
@@ -206,43 +255,6 @@ async function steht(seite, waehler, grenze = 30000) {
 }
 
 /**
- * Wegraeumen, was im schmalen Aufbau obenauf liegt -- dieselbe Sache wie in
- * der Reihe. Ohne das zeigt jedes Bild unter 900 px die Notizen oder das
- * Menue statt der Ansicht.
- */
-async function wegRaeumen(seite) {
-  const schmal = await seite
-    .locator("[data-testid='workspace-shell'][data-shell-aufbau='schmal']")
-    .count()
-    .catch(() => 0);
-  if (!schmal) return;
-  if (
-    await seite
-      .locator("[data-testid='workspace-schmal-menue']")
-      .count()
-      .catch(() => 0)
-  ) {
-    await seite
-      .locator('[aria-label="Menü schließen"]')
-      .first()
-      .click({ timeout: 5000 })
-      .catch(() => {});
-  }
-  if (
-    await seite
-      .locator("[data-panel]#right[data-shell-hidden='false']")
-      .count()
-      .catch(() => 0)
-  ) {
-    await seite
-      .locator('[aria-label="Notizen ausblenden"]')
-      .first()
-      .click({ timeout: 5000 })
-      .catch(() => {});
-  }
-}
-
-/**
  * Warten, bis die Flaeche wirklich die des Themes ist.
  *
  * `body` traegt `transition: background-color` (0,3 s), und ein Bild aus der
@@ -271,13 +283,9 @@ async function flaecheSteht(seite, erwartet, grenze = 4000) {
  * Bild trotzdem, denn ein Bild von dem, was statt dessen dasteht, ist die
  * brauchbarere Auskunft als eine Zeile „nicht da".
  */
-async function schuss(
-  seite,
-  { name, dateiname, theme, breite, oeffnen, kennzeichen, notizenLassen = false }
-) {
+async function schuss(seite, { name, dateiname, theme, breite, oeffnen, kennzeichen }) {
   await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
   await oeffnen();
-  if (!notizenLassen) await wegRaeumen(seite);
   const da = await steht(seite, kennzeichen, 30000);
   // Die Ansicht holt ihre Listen; ohne diese Ruhe zeigt das Bild ein Skelett.
   await seite.waitForTimeout(1500);
@@ -294,16 +302,12 @@ async function schuss(
 }
 
 /** Eine Ansicht in beiden Themes und allen drei Breiten. */
-async function bogen(
-  seite,
-  themaSetzen,
-  { name, dateiname, oeffnen, kennzeichen, notizenLassen = false }
-) {
+async function bogen(seite, themaSetzen, { name, dateiname, oeffnen, kennzeichen }) {
   if (!gefragt(dateiname)) return;
   for (const theme of THEMES) {
     await themaSetzen(theme);
     for (const breite of BREITEN) {
-      await schuss(seite, { name, dateiname, theme, breite, oeffnen, kennzeichen, notizenLassen });
+      await schuss(seite, { name, dateiname, theme, breite, oeffnen, kennzeichen });
     }
   }
 }
@@ -316,18 +320,30 @@ async function main() {
   fs.mkdirSync(ZIEL, { recursive: true });
   const token = await adminToken();
   if (!token) {
-    console.error('Kein Token fuer den Administrator -- der Bogen bleibt leer.');
+    console.error(`Keine Anmeldung für ${BENUTZER} -- der Bogen bleibt leer.`);
     return 1;
   }
   const kanal = await apiKanal(token);
-  const browser = await chromium.launch();
+  const arbeit = fs.mkdtempSync(path.join(os.tmpdir(), 'arasul-bilderbogen-'));
+  const browser = await chromium.launch(chromiumOptionen);
 
-  // Das Theme des Administrators steht am Ende wieder auf hell, auch wenn
-  // unterwegs etwas schiefging -- sonst faende der naechste Lauf ein Geraet,
-  // das dieser umgestellt hat.
+  // Das Theme des Probekontos steht am Ende wieder so, wie es war, auch wenn
+  // unterwegs etwas schiefging -- sonst fände der nächste Lauf ein Konto, das
+  // dieser umgestellt hat.
+  const ich = await kanal
+    .get('/api/auth/me')
+    .then(a => (a.status() === 200 ? a.json() : null))
+    .catch(() => null);
+  const meineId = ich?.user?.id ?? null;
+  const themaVorher = ich?.user?.theme === 'dark' ? 'dark' : 'light';
   const themaZurueck = async () => {
-    await kanal.put('/api/darstellung', { data: { theme: 'light' } }).catch(() => {});
+    await kanal.put('/api/darstellung', { data: { theme: themaVorher } }).catch(() => {});
   };
+
+  let schluessel = '';
+  let schluesselId = '';
+  let ausgerollt = false;
+  let freigegeben = false;
 
   try {
     // --- Die Anmeldung, ohne Sitzung -------------------------------------
@@ -366,70 +382,55 @@ async function main() {
       await ctx.close();
     }
 
-    // --- Der Startpasswort-Wechsel ----------------------------------------
-    // Ein Wegwerf-Mitarbeiter, dessen Passwort der Administrator gesetzt hat.
-    // Kostet die eine Anmeldung des Laufs.
-    let angelegt = null;
-    if (gefragt('startpasswort')) {
-      // `rolle`, nicht `role`: `CreateBenutzerBody` ist `.strict()`, und der
-      // englische Name kostete die D5-Abnahme einen Lauf.
-      const antwort = await kanal.post('/api/benutzer', {
-        data: {
-          username: MITARB,
-          email: `${MITARB}@bilderbogen.local`,
-          password: PASS_START,
-          rolle: 'mitarbeiter',
-        },
+    // --- Die Probe-App: ausrollen, live schalten, dem Probekonto freigeben ---
+    const neu = await kanal.post('/api/v1/external/api-keys', {
+      data: { name: `Bilderbogen (${STEMPEL})`, allowed_endpoints: ['app:deploy'] },
+    });
+    const rumpf = neu.ok() ? await neu.json() : {};
+    schluessel = rumpf.api_key ?? rumpf.data?.api_key ?? '';
+    schluesselId = rumpf.key_id ?? rumpf.data?.key_id ?? '';
+    if (!schluessel) {
+      fehlend.push(`Probe-App: kein Wegwerf-Schlüssel (HTTP ${neu.status()})`);
+    } else {
+      const schluesselApi = await pwRequest.newContext({
+        baseURL: URL,
+        ignoreHTTPSErrors: true,
+        extraHTTPHeaders: { 'x-api-key': schluessel },
       });
-      if (antwort.status() === 201) {
-        angelegt = (await antwort.json())?.data?.id ?? null;
-        const { token: mitarbToken, code } = await anmelden(MITARB, PASS_START);
-        if (mitarbToken) {
-          const ctx = await fensterMitToken(browser, mitarbToken);
-          const seite = await ctx.newPage();
-          for (const theme of THEMES) {
-            for (const breite of BREITEN) {
-              await seite.setViewportSize({ width: breite.px, height: breite.hoehe });
-              await laden(seite, `${URL}/workspace`);
-              const da = await steht(seite, '[data-testid="passwort-wechseln"]', 30000);
-              await seite.evaluate(wert => {
-                if (wert) document.documentElement.setAttribute('data-theme', wert);
-                else document.documentElement.removeAttribute('data-theme');
-              }, theme.attribut);
-              await seite.waitForTimeout(600);
-              const flaeche = await flaecheSteht(seite, theme.flaeche);
-              const datei = `startpasswort-${theme.name}-${breite.px}.png`;
-              await seite.screenshot({ path: path.join(ZIEL, datei) }).catch(() => {});
-              bilder.push({
-                name: 'Startpasswort',
-                dateiname: 'startpasswort',
-                theme: theme.name,
-                breite: breite.px,
-                datei,
-                da,
-                flaeche,
-                hinweis: 'Theme aufgezwungen: der Mensch hat noch keines gewaehlt',
-              });
-              console.log(
-                `${da ? 'Bild ' : 'LEER '} Startpasswort · ${theme.name} · ${breite.px} px`
-              );
-              if (!da) fehlend.push(`Startpasswort · ${theme.name} · ${breite.px} px`);
-            }
-          }
-          await ctx.close();
-        } else {
-          fehlend.push(`Startpasswort: der Wegwerf-Mitarbeiter kam nicht an (HTTP ${code})`);
-        }
-      } else {
-        fehlend.push(`Startpasswort: Mitarbeiter nicht angelegt (HTTP ${antwort.status()})`);
+      const rollout = await schluesselApi.post('/api/v1/external/apps', {
+        multipart: {
+          paket: {
+            name: 'paket.tgz',
+            mimeType: 'application/gzip',
+            buffer: fs.readFileSync(paketBauen(arbeit)),
+          },
+        },
+        timeout: 900000,
+      });
+      ausgerollt = rollout.status() === 201;
+      if (!ausgerollt) fehlend.push(`Probe-App ${APP}: Ausrollen HTTP ${rollout.status()}`);
+      if (ausgerollt) {
+        const live = await schluesselApi.post(`/api/v1/external/apps/${APP}/schalten`, {
+          data: { ziel: 'live' },
+          timeout: 300000,
+        });
+        if (live.status() !== 200) fehlend.push(`Probe-App ${APP}: live HTTP ${live.status()}`);
       }
+      await schluesselApi.dispose();
+    }
+    if (ausgerollt && meineId != null) {
+      const frei = await kanal.post('/api/freigaben', {
+        data: { app_id: APP, benutzer_id: meineId, stand: 'live' },
+      });
+      freigegeben = frei.status() === 201;
+      if (!freigegeben) fehlend.push(`Probe-App ${APP}: Freigabe HTTP ${frei.status()}`);
     }
 
     // --- Die Shell, als Administrator --------------------------------------
     const ctx = await fensterMitToken(browser, token);
     const seite = await ctx.newPage();
 
-    /** Das Theme des Menschen umstellen -- ueber den Weg, den die Shell geht. */
+    /** Das Theme des Menschen umstellen -- über den Weg, den die Shell geht. */
     const themaSetzen = async theme => {
       const antwort = await kanal.put('/api/darstellung', { data: { theme: theme.wert } });
       if (antwort.status() !== 200) {
@@ -437,104 +438,20 @@ async function main() {
       }
     };
 
-    // Welche App im Rahmen und im Einzelnen zu sehen ist.
-    const apps = await kanal
-      .get('/api/apps')
-      .then(a => (a.status() === 200 ? a.json() : null))
-      .catch(() => null);
-    const liste = apps?.data ?? apps?.apps ?? [];
-    const wunsch = process.env.ARASUL_APP || '';
-    const lieferbar = a => a?.staende?.live?.lieferbar || a?.staende?.test?.lieferbar;
-    const app =
-      liste.find(a => a.id === wunsch) ||
-      liste.find(a => a.id === 'beispielapp' && lieferbar(a)) ||
-      liste.find(lieferbar) ||
-      null;
-
-    // DIE APP MUSS DEM FOTOGRAFEN FREIGEGEBEN SEIN. Der erste Lauf am Orin
-    // (29.08.2026) hat sechs leere Zellen geliefert und dabei die Wahrheit
-    // gezeigt: der Rahmen sagte „beispielapp ist dir nicht freigegeben".
-    // Eine Freigabe ist der Zustand, in dem ein Mensch die App ueberhaupt
-    // sieht (C2) -- also stellt der Bogen ihn her und nimmt ihn am Ende
-    // zurueck, so wie die Reihe ihren Wegwerf-Mitarbeiter wieder abraeumt.
-    let freigabeZurueck = null;
-    if (app) {
-      const ich = await kanal
-        .get('/api/auth/me')
-        .then(a => (a.status() === 200 ? a.json() : null))
-        .catch(() => null);
-      const meineId = ich?.user?.id ?? ich?.data?.id ?? ich?.id ?? null;
-      const stand = app?.staende?.live?.lieferbar ? 'live' : 'test';
-      if (meineId != null) {
-        const antwort = await kanal.post('/api/freigaben', {
-          data: { app_id: app.id, benutzer_id: meineId, stand },
-        });
-        // 200 heisst: die Freigabe gab es schon. Dann bleibt sie auch stehen.
-        if (antwort.status() === 201) {
-          freigabeZurueck = `/api/freigaben/${app.id}/${meineId}`;
-        } else if (antwort.status() >= 400) {
-          console.log(`  (POST /api/freigaben → HTTP ${antwort.status()})`);
-        }
-      }
-    }
-
     const ANSICHTEN = [
       {
-        name: 'Übersicht',
-        dateiname: 'uebersicht',
+        name: 'Startseite',
+        dateiname: 'startseite',
         kennzeichen: '[data-testid="uebersicht-seite"]',
-        oeffnen: () => laden(seite, `${URL}/workspace`),
+        oeffnen: () => laden(seite, `${URL}/workspace/dashboard`),
       },
-      {
-        name: 'Notizen',
-        dateiname: 'notizen',
-        kennzeichen: '#notizen-feld',
-        // UNTER 900 PX SIND DIE NOTIZEN EINE EIGENE ANSICHT (D7), und der Weg
-        // dorthin fuehrt durch das Hamburger-Menue -- nicht ueber den Knopf
-        // der Kopfleiste, den es dort nicht gibt. Der erste Lauf am Orin hat
-        // genau das gezeigt: zwei leere Zellen bei 390 px.
-        oeffnen: async () => {
-          await laden(seite, `${URL}/workspace`);
-          await steht(seite, '[data-testid="uebersicht-seite"]', 30000);
-          if (
-            await seite
-              .locator('#notizen-feld')
-              .isVisible()
-              .catch(() => false)
-          )
-            return;
-          const schmal = await seite
-            .locator("[data-testid='workspace-shell'][data-shell-aufbau='schmal']")
-            .count()
-            .catch(() => 0);
-          if (schmal) {
-            await seite
-              .locator('[aria-label="Menü öffnen"]')
-              .first()
-              .click({ timeout: 10000 })
-              .catch(() => {});
-            await seite
-              .locator('[data-testid="menue-notizen"]')
-              .first()
-              .click({ timeout: 10000 })
-              .catch(() => {});
-            return;
-          }
-          const knopf = seite.locator('[aria-label="Notizen einblenden"]').first();
-          if (await knopf.count()) await knopf.click({ timeout: 10000 }).catch(() => {});
-        },
-        // Diese eine Zelle will die Notizen aufgeschlagen haben.
-        notizenLassen: true,
-      },
-      ...(app
+      ...(ausgerollt
         ? [
             {
               name: 'App im Rahmen',
               dateiname: 'app-rahmen',
-              kennzeichen: `[data-testid="app-rahmen-${app.id}"]`,
-              oeffnen: async () => {
-                await laden(seite, `${URL}/workspace/app/${app.id}`);
-              },
+              kennzeichen: `[data-testid="app-rahmen-${APP}"]`,
+              oeffnen: () => laden(seite, `${URL}/workspace/app/${APP}`),
             },
           ]
         : []),
@@ -556,24 +473,20 @@ async function main() {
       await bogen(seite, themaSetzen, ansicht);
     }
 
-    // --- Eine App im Einzelnen (Staende, Tester, Flows, Laeufe) -------------
-    if (app) {
-      // DAS KENNZEICHEN IST DIE EINZELANSICHT UND NICHT DIE LISTE. Der erste
-      // Lauf am Orin fragte nach `apps-seite` -- dem Kennzeichen der LISTE --
-      // und bekam bei 1024 und 1440 px vier leere Zellen: dort hatte der
-      // Klick funktioniert, und genau deshalb war die Liste weg. Bei 390 px
-      // kam er nicht durch, und die Zelle war „gruen". Ein Kennzeichen, das
-      // beim Misserfolg dasteht und beim Erfolg nicht, misst das Gegenteil.
+    // --- Eine App im Einzelnen (Stände, Tester, Flows, Läufe) ----------------
+    // DAS KENNZEICHEN IST DIE EINZELANSICHT UND NICHT DIE LISTE: ein
+    // Kennzeichen, das beim Misserfolg dasteht und beim Erfolg nicht, misst
+    // das Gegenteil (erster Lauf am Orin, 29.08.2026).
+    if (ausgerollt) {
       await bogen(seite, themaSetzen, {
         name: 'App im Einzelnen',
         dateiname: 'app-einzeln',
-        kennzeichen: `[data-testid="app-ansicht-${app.id}"]`,
+        kennzeichen: `[data-testid="app-ansicht-${APP}"]`,
         oeffnen: async () => {
-          await laden(seite, `${URL}/workspace/settings?tab=apps`);
+          await laden(seite, `${URL}/workspace/verwaltung/apps`);
           await steht(seite, '[data-testid="apps-seite"]', 30000);
-          await wegRaeumen(seite);
           await seite
-            .locator(`[data-testid="app-oeffnen-${app.id}"]`)
+            .locator(`[data-testid="app-oeffnen-${APP}"]`)
             .first()
             .click({ timeout: 15000 })
             .catch(() => {});
@@ -583,26 +496,34 @@ async function main() {
     }
 
     await ctx.close();
-
-    // --- Aufraeumen --------------------------------------------------------
-    if (freigabeZurueck) {
-      const weg = await kanal.delete(freigabeZurueck).catch(() => null);
-      if (!weg || weg.status() >= 300) {
-        console.log(`  (die Freigabe auf ${freigabeZurueck} steht noch)`);
-      }
-    }
-    if (angelegt) {
-      const weg = await kanal
-        .delete(`/api/benutzer/${encodeURIComponent(String(angelegt))}`)
-        .catch(() => null);
-      if (!weg || weg.status() >= 300) {
-        console.log(`  (der Wegwerf-Mitarbeiter ${MITARB} steht noch am Geraet)`);
-      }
-    }
   } finally {
+    // --- Aufräumen, auch nach einem Fehler -----------------------------------
     await themaZurueck();
     await browser.close();
+    if (freigegeben && meineId != null) {
+      await kanal.delete(`/api/freigaben/${APP}/${meineId}`).catch(() => null);
+    }
+    if (ausgerollt && schluessel) {
+      const sApi = await pwRequest.newContext({
+        baseURL: URL,
+        ignoreHTTPSErrors: true,
+        extraHTTPHeaders: { 'x-api-key': schluessel },
+      });
+      const weg = await sApi
+        .delete(`/api/v1/external/apps/${APP}?bestaetigung=${APP}&dateien=true`, {
+          timeout: 300000,
+        })
+        .catch(() => null);
+      console.log(`aufgeräumt  ${APP} entfernt (HTTP ${weg?.status() ?? '-'})`);
+      await sApi.dispose();
+    }
+    if (schluesselId) {
+      const weg = await kanal.delete(`/api/v1/external/api-keys/${schluesselId}`).catch(() => null);
+      console.log(`aufgeräumt  Schlüssel widerrufen (HTTP ${weg?.status() ?? '-'})`);
+    }
+    await kanal.post('/api/auth/logout').catch(() => null);
     await kanal.dispose();
+    fs.rmSync(arbeit, { recursive: true, force: true });
   }
 
   // --- Das Verzeichnis der Bilder ------------------------------------------
@@ -612,7 +533,7 @@ async function main() {
     '',
     `${bilder.length} Bilder, ${ansichten.length} Ansichten mal zwei Themes mal drei Breiten.`,
     '',
-    'Die Anmeldung und der Startpasswort-Wechsel tragen ihr Theme AUFGEZWUNGEN:',
+    'Die Anmeldung trägt ihr Theme AUFGEZWUNGEN:',
     'das Theme gehoert einem Menschen (H1), und vor der ersten eigenen',
     'Entscheidung steht die Vorgabe. Ihr dunkles Bild beantwortet die andere',
     'Frage — ob die Seite in beiden Themes ueberhaupt lesbar ist.',

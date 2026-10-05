@@ -78,7 +78,7 @@ router.post(
   asyncHandler(async (req, res) => {
     // BUG-002 FIX: Check req.files.file instead of req.file
     if (!req.files || !req.files.file || !req.files.file[0]) {
-      throw new ValidationError('No update file uploaded');
+      throw new ValidationError('Es wurde keine Update-Datei hochgeladen.');
     }
 
     const uploadedFile = req.files.file[0];
@@ -93,7 +93,7 @@ router.post(
       logger.warn('Signature file not uploaded');
       // fire-and-forget: best-effort cleanup, file may not exist
       await fs.unlink(filePath).catch(() => {});
-      throw new ValidationError('Signature file is required for update validation');
+      throw new ValidationError('Zum Prüfen des Updates fehlt die Signaturdatei.');
     }
 
     const signatureFile = req.files.signature[0];
@@ -140,7 +140,7 @@ router.post(
       components: manifest.components,
       requires_reboot: manifest.requires_reboot || false,
       timestamp: new Date().toISOString(),
-      message: 'Update package validated successfully. Use /api/update/apply to install.',
+      message: 'Das Update-Paket ist geprüft. Mit /api/update/apply wird es eingespielt.',
       file_path: permanentPath,
     });
   })
@@ -162,7 +162,7 @@ router.post(
       resolvedPath.startsWith(path.resolve(dir) + path.sep)
     );
     if (!isAllowed) {
-      throw new ValidationError('Update file must be within the updates directory');
+      throw new ValidationError('Die Update-Datei muss im Update-Ordner liegen.');
     }
     const file_path = resolvedPath;
 
@@ -178,7 +178,7 @@ router.post(
     // Check if update is already in progress
     const currentState = await updateService.getUpdateState();
     if (currentState && currentState.status === 'in_progress') {
-      throw new ConflictError('Update already in progress');
+      throw new ConflictError('Es läuft schon eine Aktualisierung.');
     }
 
     // Verify file exists
@@ -198,7 +198,7 @@ router.post(
     // Return immediately and process update in background
     res.json({
       status: 'started',
-      message: 'Update process started. Use /api/update/status to monitor progress.',
+      message: 'Die Aktualisierung läuft. Den Stand zeigt /api/update/status.',
       timestamp: new Date().toISOString(),
     });
 
@@ -263,7 +263,7 @@ router.get(
     if (!state) {
       return res.json({
         status: 'idle',
-        message: 'No update in progress',
+        message: 'Es läuft keine Aktualisierung.',
         fassung,
         einspielenMoeglich: weg.moeglich,
         einspielenGrund: weg.grund,
@@ -323,7 +323,9 @@ router.post(
 
     // Security: Only allow files from /media/ or /mnt/
     if (!file_path.startsWith('/media/') && !file_path.startsWith('/mnt/')) {
-      throw new ValidationError('Only files from USB devices (/media/ or /mnt/) are allowed');
+      throw new ValidationError(
+        'Erlaubt sind nur Dateien von USB-Datenträgern (/media/ oder /mnt/).'
+      );
     }
 
     if (!file_path.endsWith('.araupdate')) {
@@ -418,7 +420,7 @@ router.post(
     res.json({
       status: 'downloading',
       version,
-      message: 'Download started. Use /api/update/status to monitor progress.',
+      message: 'Der Download läuft. Den Stand zeigt /api/update/status.',
       timestamp: new Date().toISOString(),
     });
 

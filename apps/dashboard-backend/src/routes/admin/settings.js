@@ -71,7 +71,7 @@ router.post(
 
     res.json({
       success: true,
-      message: 'Dashboard password changed successfully',
+      message: 'Das Passwort wurde geändert.',
       requireRelogin: true,
       timestamp: new Date().toISOString(),
     });

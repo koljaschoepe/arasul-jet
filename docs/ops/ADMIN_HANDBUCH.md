@@ -606,13 +606,12 @@ danach steht es auf Community (Stand 25.09.2026).
 
 ### Benutzer anlegen, sperren und löschen
 
-**In der Oberfläche: Einstellungen > Mitarbeiter.** Das Zahnrad unten in der
-Aktivitätsleiste links, dann in der Sektionsliste „Mitarbeiter". Die Seite
-zeigt jeden Menschen am Gerät mit Rolle, Zustand und der letzten Anmeldung.
-Rechts an jeder Zeile stehen zwei Handgriffe: Startpasswort setzen, stilllegen
-oder wieder zulassen. Löschen steht nicht hier, sondern unter **Verwaltung →
-Daten → Person löschen** (Namen eintippen); stilllegen kommt vor löschen. Oben rechts legt „Menschen anlegen" einen
-neuen an.
+**In der Oberfläche: Verwaltung → Personen.** In der
+Aktivitätsleiste links „Verwaltung", dann „Personen". Die Seite zeigt jeden Menschen am
+Gerät mit Rolle, Zustand und der letzten Anmeldung. An jeder Zeile stehen zwei
+Handgriffe: neues Startpasswort, stilllegen oder wieder zulassen. Löschen steht
+nicht hier, sondern unter **Verwaltung → Daten → Person löschen** (Namen
+eintippen); stilllegen kommt vor löschen. „Person anlegen" legt einen neuen an.
 
 Die Spalte **Passwort** sagt „Startpasswort", solange das aktuelle Passwort von
 einem Administrator gesetzt wurde. Der Mensch wechselt es beim nächsten
@@ -670,7 +669,7 @@ niemand stilllegen.
 Ein Mitarbeiter sieht nur, was ihm freigegeben ist. Eine Freigabe ist ein Paar
 aus App-Kennung und Mitarbeiter.
 
-**In der Oberfläche: Einstellungen > Mitarbeiter, Abschnitt „Freigaben".**
+**In der Oberfläche: Verwaltung → Personen, Abschnitt „Freigaben: Apps".**
 Eine Zeile je Mensch, eine Spalte je App, in der Zelle ein Häckchen. Setzen
 heißt freigeben, wegnehmen heißt zurücknehmen; beides wirkt sofort, ohne
 Speichern-Knopf. Unter einem gesetzten Häckchen steht der Stand: „Live" ist
@@ -890,7 +889,7 @@ bekommt eine Meldung, die das sagt, und wartet eine Viertelstunde.
 
 ### Personen anlegen, Startpasswort, sperren
 
-**Einstellungen > Personen > Person anlegen**: Vorname, Nachname, E-Mail und der
+**Verwaltung → Personen → Person anlegen**: Vorname, Nachname, E-Mail und der
 Schalter „Verwaltung“ (macht zum Administrator). Das Gerät erzeugt das
 **Startpasswort** und zeigt es **einmal** — zum Kopieren oder als Zettel zum
 Drucken. Danach steht es nirgends mehr; ein neues erzeugt der Schlüssel in der

@@ -48,11 +48,13 @@ async function einbetten(inputs) {
     );
   } catch (err) {
     logger.warn(`[OpenAI compat] embedding service error: ${err.message}`);
-    throw new ServiceUnavailableError('Embedding service unavailable');
+    throw new ServiceUnavailableError('Der Einbettungsdienst ist nicht erreichbar.');
   }
   const ergebnis = response.data.vectors || response.data.embeddings || [];
   if (!Array.isArray(ergebnis) || ergebnis.length !== inputs.length) {
-    throw new ServiceUnavailableError('Embedding service returned malformed payload');
+    throw new ServiceUnavailableError(
+      'Der Einbettungsdienst hat eine unlesbare Antwort geliefert.'
+    );
   }
   return ergebnis;
 }

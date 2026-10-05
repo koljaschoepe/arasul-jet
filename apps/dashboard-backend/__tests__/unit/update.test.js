@@ -3,54 +3,54 @@ const express = require('express');
 
 // Mock dependencies
 jest.mock('../../src/database', () => ({
-    query: jest.fn()
+  query: jest.fn(),
 }));
 
 jest.mock('../../src/utils/logger', () => ({
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
 }));
 
 jest.mock('../../src/services/betrieb/fassungsdienst', () => ({}));
 jest.mock('../../src/services/betrieb/nachtUpdate', () => ({}));
 jest.mock('../../src/services/app/updateService', () => ({
-    validateUpdate: jest.fn(),
-    getUpdateState: jest.fn(),
-    applyUpdate: jest.fn(),
-    // Seit Phase C9 fragt die Route VOR jeder Antwort, ob dieses Geraet ein
-    // Paket ueberhaupt einspielen kann. Voreinstellung hier: ja -- die Tests,
-    // die den anderen Fall messen, setzen es selbst.
-    wegPruefen: jest.fn().mockResolvedValue({ moeglich: true, grund: null })
+  validateUpdate: jest.fn(),
+  getUpdateState: jest.fn(),
+  applyUpdate: jest.fn(),
+  // Seit Phase C9 fragt die Route VOR jeder Antwort, ob dieses Geraet ein
+  // Paket ueberhaupt einspielen kann. Voreinstellung hier: ja -- die Tests,
+  // die den anderen Fall messen, setzen es selbst.
+  wegPruefen: jest.fn().mockResolvedValue({ moeglich: true, grund: null }),
 }));
 
 jest.mock('../../src/middleware/auth', () => ({
-    requireAuth: (req, res, next) => {
-        req.user = { id: 1, username: 'admin', role: 'admin' };
-        next();
-    },
-    requireRole: () => (req, res, next) => next(),
-    ROLLEN: ['admin', 'mitarbeiter'],
+  requireAuth: (req, res, next) => {
+    req.user = { id: 1, username: 'admin', role: 'admin' };
+    next();
+  },
+  requireRole: () => (req, res, next) => next(),
+  ROLLEN: ['admin', 'mitarbeiter'],
   optionalAuth: (req, res, next) => next(),
 }));
 
 // Mock multer to bypass actual file handling
 jest.mock('multer', () => {
-    const multer = () => ({
-        fields: () => (req, res, next) => next()
-    });
-    multer.diskStorage = () => { };
-    return multer;
+  const multer = () => ({
+    fields: () => (req, res, next) => next(),
+  });
+  multer.diskStorage = () => {};
+  return multer;
 });
 
 // Mock fs.promises
 jest.mock('fs', () => ({
-    promises: {
-        mkdir: jest.fn().mockResolvedValue(undefined),
-        rename: jest.fn().mockResolvedValue(undefined),
-        unlink: jest.fn().mockResolvedValue(undefined),
-        access: jest.fn().mockResolvedValue(undefined)
-    }
+  promises: {
+    mkdir: jest.fn().mockResolvedValue(undefined),
+    rename: jest.fn().mockResolvedValue(undefined),
+    unlink: jest.fn().mockResolvedValue(undefined),
+    access: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 
 // Import dependencies after mocking
@@ -63,10 +63,10 @@ app.use(express.json());
 
 // Test middleware to inject req.files
 app.use((req, res, next) => {
-    if (req.headers['x-test-files']) {
-        req.files = JSON.parse(req.headers['x-test-files']);
-    }
-    next();
+  if (req.headers['x-test-files']) {
+    req.files = JSON.parse(req.headers['x-test-files']);
+  }
+  next();
 });
 
 app.use('/api/update', updateRouter);
@@ -75,137 +75,138 @@ app.use('/api/update', updateRouter);
 app.use(errorHandler);
 
 describe('Update API Routes', () => {
-    const validFiles = {
-        file: [{
-            fieldname: 'file',
-            originalname: 'update.araupdate',
-            destination: '/tmp/updates',
-            filename: 'update.araupdate',
-            path: '/tmp/updates/update.araupdate',
-            size: 1024
-        }],
-        signature: [{
-            fieldname: 'signature',
-            originalname: 'update.araupdate.sig',
-            destination: '/tmp/updates',
-            filename: 'update.araupdate.sig',
-            path: '/tmp/updates/update.araupdate.sig',
-            size: 128
-        }]
-    };
+  const validFiles = {
+    file: [
+      {
+        fieldname: 'file',
+        originalname: 'update.araupdate',
+        destination: '/tmp/updates',
+        filename: 'update.araupdate',
+        path: '/tmp/updates/update.araupdate',
+        size: 1024,
+      },
+    ],
+    signature: [
+      {
+        fieldname: 'signature',
+        originalname: 'update.araupdate.sig',
+        destination: '/tmp/updates',
+        filename: 'update.araupdate.sig',
+        path: '/tmp/updates/update.araupdate.sig',
+        size: 128,
+      },
+    ],
+  };
 
-    beforeEach(() => {
-        jest.clearAllMocks();
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('POST /api/update/upload', () => {
+    it('should reject if no file is uploaded', async () => {
+      const response = await request(app).post('/api/update/upload');
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toBe('Es wurde keine Update-Datei hochgeladen.');
     });
 
-    describe('POST /api/update/upload', () => {
-        it('should reject if no file is uploaded', async () => {
-            const response = await request(app)
-                .post('/api/update/upload');
+    it('should reject if signature is missing', async () => {
+      const files = { ...validFiles };
+      delete files.signature;
 
-            expect(response.status).toBe(400);
-            expect(response.body.error.message).toBe('No update file uploaded');
-        });
+      const response = await request(app)
+        .post('/api/update/upload')
+        .set('x-test-files', JSON.stringify(files));
 
-        it('should reject if signature is missing', async () => {
-            const files = { ...validFiles };
-            delete files.signature;
-
-            const response = await request(app)
-                .post('/api/update/upload')
-                .set('x-test-files', JSON.stringify(files));
-
-            expect(response.status).toBe(400);
-            expect(response.body.error.message).toBe('Signature file is required for update validation');
-        });
-
-        it('should accept valid update and signature files', async () => {
-            updateService.validateUpdate.mockResolvedValue({
-                valid: true,
-                manifest: {
-                    version: '1.1.0',
-                    components: []
-                }
-            });
-
-            const response = await request(app)
-                .post('/api/update/upload')
-                .set('x-test-files', JSON.stringify(validFiles));
-
-            expect(response.status).toBe(200);
-            expect(response.body.status).toBe('validated');
-            expect(response.body.version).toBe('1.1.0');
-        });
-
-        it('should handle validation failure', async () => {
-            updateService.validateUpdate.mockResolvedValue({
-                valid: false,
-                error: 'Invalid signature'
-            });
-
-            const response = await request(app)
-                .post('/api/update/upload')
-                .set('x-test-files', JSON.stringify(validFiles));
-
-            expect(response.status).toBe(400);
-            expect(response.body.error.message).toBe('Invalid signature');
-        });
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toBe('Zum Prüfen des Updates fehlt die Signaturdatei.');
     });
 
-    describe('POST /api/update/apply', () => {
-        it('should start update if valid', async () => {
-            updateService.getUpdateState.mockResolvedValue({ status: 'idle' });
-            updateService.applyUpdate.mockResolvedValue({ success: true });
+    it('should accept valid update and signature files', async () => {
+      updateService.validateUpdate.mockResolvedValue({
+        valid: true,
+        manifest: {
+          version: '1.1.0',
+          components: [],
+        },
+      });
 
-            const response = await request(app)
-                .post('/api/update/apply')
-                .send({ file_path: '/arasul/updates/update.araupdate' });
+      const response = await request(app)
+        .post('/api/update/upload')
+        .set('x-test-files', JSON.stringify(validFiles));
 
-            expect(response.status).toBe(200);
-            expect(response.body.status).toBe('started');
-            expect(updateService.applyUpdate).toHaveBeenCalledWith('/arasul/updates/update.araupdate');
-        });
-
-        it('should reject if update already in progress', async () => {
-            updateService.getUpdateState.mockResolvedValue({
-                status: 'in_progress',
-                currentStep: 'backup'
-            });
-
-            const response = await request(app)
-                .post('/api/update/apply')
-                .send({ file_path: '/arasul/updates/update.araupdate' });
-
-            expect(response.status).toBe(409);
-            expect(response.body.error.message).toBe('Update already in progress');
-        });
-
-        it('sagt vorher, wenn dieses Geraet gar nicht einspielen kann', async () => {
-            // Bis zum 27.08.2026 antwortete dieser Endpunkt IMMER `started` und
-            // der Ablauf scheiterte danach still an einem `docker`, das es im
-            // Backend-Container nicht gibt. Wer `started` liest, wartet auf ein
-            // Ende, das nie kommt.
-            updateService.wegPruefen.mockResolvedValueOnce({
-                moeglich: false,
-                grund: 'im Backend-Container gibt es kein `docker`-Programm'
-            });
-
-            const response = await request(app)
-                .post('/api/update/apply')
-                .send({ file_path: '/arasul/updates/update.araupdate' });
-
-            expect(response.status).toBe(503);
-            expect(response.body.error.message).toMatch(/docker/);
-            expect(updateService.applyUpdate).not.toHaveBeenCalled();
-        });
-
-        it('should reject if file path missing', async () => {
-            const response = await request(app)
-                .post('/api/update/apply')
-                .send({});
-
-            expect(response.status).toBe(400);
-            expect(response.body.error.message).toContain('Update file path is required');
-        });
+      expect(response.status).toBe(200);
+      expect(response.body.status).toBe('validated');
+      expect(response.body.version).toBe('1.1.0');
     });
+
+    it('should handle validation failure', async () => {
+      updateService.validateUpdate.mockResolvedValue({
+        valid: false,
+        error: 'Invalid signature',
+      });
+
+      const response = await request(app)
+        .post('/api/update/upload')
+        .set('x-test-files', JSON.stringify(validFiles));
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toBe('Invalid signature');
+    });
+  });
+
+  describe('POST /api/update/apply', () => {
+    it('should start update if valid', async () => {
+      updateService.getUpdateState.mockResolvedValue({ status: 'idle' });
+      updateService.applyUpdate.mockResolvedValue({ success: true });
+
+      const response = await request(app)
+        .post('/api/update/apply')
+        .send({ file_path: '/arasul/updates/update.araupdate' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.status).toBe('started');
+      expect(updateService.applyUpdate).toHaveBeenCalledWith('/arasul/updates/update.araupdate');
+    });
+
+    it('should reject if update already in progress', async () => {
+      updateService.getUpdateState.mockResolvedValue({
+        status: 'in_progress',
+        currentStep: 'backup',
+      });
+
+      const response = await request(app)
+        .post('/api/update/apply')
+        .send({ file_path: '/arasul/updates/update.araupdate' });
+
+      expect(response.status).toBe(409);
+      expect(response.body.error.message).toBe('Es läuft schon eine Aktualisierung.');
+    });
+
+    it('sagt vorher, wenn dieses Geraet gar nicht einspielen kann', async () => {
+      // Bis zum 27.08.2026 antwortete dieser Endpunkt IMMER `started` und
+      // der Ablauf scheiterte danach still an einem `docker`, das es im
+      // Backend-Container nicht gibt. Wer `started` liest, wartet auf ein
+      // Ende, das nie kommt.
+      updateService.wegPruefen.mockResolvedValueOnce({
+        moeglich: false,
+        grund: 'im Backend-Container gibt es kein `docker`-Programm',
+      });
+
+      const response = await request(app)
+        .post('/api/update/apply')
+        .send({ file_path: '/arasul/updates/update.araupdate' });
+
+      expect(response.status).toBe(503);
+      expect(response.body.error.message).toMatch(/docker/);
+      expect(updateService.applyUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should reject if file path missing', async () => {
+      const response = await request(app).post('/api/update/apply').send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toContain('Der Pfad der Update-Datei fehlt.');
+    });
+  });
 });

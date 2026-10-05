@@ -24,7 +24,7 @@ async function holeHeartbeat() {
       seconds_since_heartbeat: null,
       check_count: 0,
       last_action: null,
-      error: 'Unable to reach heartbeat server',
+      error: 'Der Herzschlag-Dienst ist nicht erreichbar.',
     };
   }
 }

@@ -105,8 +105,8 @@ async function pruefeKontenGrenze(client, wer) {
   throw new ConflictError(
     `Die Lizenz dieses Geräts (${tier}) trägt ${grenze.limit} Konten, aktiv sind ` +
       `${grenze.current}: ${namen.join(', ')}. ${wer} kommt nicht dazu. Der Administrator ` +
-      'zählt mit, stillgelegte Konten nicht. Ein Konto stilllegen (Einstellungen → ' +
-      'Mitarbeiter) oder die Lizenz erweitern (Einstellungen → Lizenz).',
+      'zählt mit, stillgelegte Konten nicht. Ein Konto stilllegen (Verwaltung → ' +
+      'Personen) oder die Lizenz erweitern (Verwaltung → Gerät → Lizenz).',
     { grenze: grenze.limit, belegt: grenze.current, stufe: tier, konten: namen, abgewiesen: wer }
   );
 }

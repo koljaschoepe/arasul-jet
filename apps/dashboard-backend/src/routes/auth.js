@@ -87,7 +87,7 @@ router.post(
 
       logger.warn(`Login attempt for non-existent user: ${username} from ${ipAddress}`);
 
-      throw new UnauthorizedError('Invalid username or password');
+      throw new UnauthorizedError('Benutzername oder Passwort stimmt nicht.');
     }
 
     const user = result.rows[0];
@@ -95,7 +95,7 @@ router.post(
     // Check if user is active
     if (!user.is_active) {
       logger.warn(`Login attempt for inactive account: ${username} from ${ipAddress}`);
-      throw new ForbiddenError('Account is disabled', 'ACCOUNT_DISABLED');
+      throw new ForbiddenError('Dieses Konto ist stillgelegt.', 'ACCOUNT_DISABLED');
     }
 
     // Verify password
@@ -112,7 +112,7 @@ router.post(
 
       logger.warn(`Failed login attempt for user: ${username} from ${ipAddress}`);
 
-      throw new UnauthorizedError('Invalid username or password');
+      throw new UnauthorizedError('Benutzername oder Passwort stimmt nicht.');
     }
 
     // Der Firmenordner bekommt das Passwort, wenn er es noch nicht hat
@@ -350,7 +350,7 @@ router.post(
 
     res.json({
       success: true,
-      message: 'Logged out successfully',
+      message: 'Abgemeldet.',
       timestamp: new Date().toISOString(),
     });
   })
@@ -376,7 +376,7 @@ router.post(
 
     res.json({
       success: true,
-      message: 'Logged out from all sessions successfully',
+      message: 'Auf allen Geräten abgemeldet.',
       timestamp: new Date().toISOString(),
     });
   })
@@ -418,7 +418,7 @@ router.post(
 
     res.json({
       success: true,
-      message: 'Password changed successfully. Please log in again with your new password.',
+      message: 'Das Passwort wurde geändert. Bitte melden Sie sich mit dem neuen Passwort neu an.',
       timestamp: new Date().toISOString(),
     });
   })
@@ -556,7 +556,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1] || req.cookies?.arasul_session;
     if (!token) {
-      throw new UnauthorizedError('No token available to refresh cookie');
+      throw new UnauthorizedError('Es gibt keine Anmeldung, die erneuert werden könnte.');
     }
 
     res.cookie('arasul_session', token, {
@@ -603,7 +603,7 @@ router.get(
 
     if (!decoded) {
       logger.debug('Forward auth: Token verification failed');
-      return res.status(401).send('Invalid token');
+      return res.status(401).send('Die Anmeldung ist ungültig.');
     }
 
     // Get user info
@@ -614,7 +614,7 @@ router.get(
 
     if (result.rows.length === 0) {
       logger.debug('Forward auth: User not found or inactive');
-      return res.status(401).send('User not found');
+      return res.status(401).send('Dieses Konto gibt es nicht.');
     }
 
     const user = result.rows[0];

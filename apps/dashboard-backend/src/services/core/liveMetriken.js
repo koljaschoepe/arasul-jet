@@ -56,7 +56,7 @@ async function holeLiveMetriken() {
     };
   } catch (dbError) {
     logger.error(`Database fallback also failed: ${dbError.message}`);
-    throw new ServiceUnavailableError('Metrics service unavailable');
+    throw new ServiceUnavailableError('Der Messwertdienst ist nicht erreichbar.');
   }
 }
 

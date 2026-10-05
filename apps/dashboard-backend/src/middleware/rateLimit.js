@@ -140,7 +140,7 @@ function createUserRateLimiter(maxRequests, windowMs) {
     if (recentRequests.length >= maxRequests) {
       logger.warn(`User rate limit exceeded for user: ${req.user.username}`);
       return res.status(429).json({
-        error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' },
+        error: { code: 'RATE_LIMITED', message: 'Zu viele Anfragen, bitte später noch einmal.' },
         timestamp: new Date().toISOString(),
       });
     }
@@ -189,7 +189,7 @@ const generalAuthLimiter = createLimiter(
   'GeneralAuth',
   60 * 1000,
   30,
-  'Too many requests, please try again later'
+  'Zu viele Anfragen, bitte später noch einmal.'
 );
 
 /**
@@ -222,7 +222,7 @@ const probeLimiter = createLimiter(
   'Probe',
   60 * 1000,
   120,
-  'Too many requests, please try again later'
+  'Zu viele Anfragen, bitte später noch einmal.'
 );
 
 /** Tailscale rate limiter - 5 requests per minute (install/connect are heavy) */

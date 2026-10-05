@@ -369,7 +369,7 @@ router.post(
         stdout: stdout.slice(-500),
         stderr: stderr.slice(-500),
       });
-      throw new ServiceUnavailableError('Diagnostics collection failed, no result');
+      throw new ServiceUnavailableError('Die Diagnose lieferte kein Ergebnis.');
     }
 
     const result = JSON.parse(jsonMatch[1]);
@@ -387,7 +387,10 @@ router.post(
       logger.error('Diagnostics file stream error:', err);
       if (!res.headersSent) {
         res.status(500).json({
-          error: { code: 'INTERNAL_ERROR', message: 'Failed to stream diagnostics archive' },
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Das Diagnosepaket konnte nicht übertragen werden.',
+          },
           timestamp: new Date().toISOString(),
         });
       }

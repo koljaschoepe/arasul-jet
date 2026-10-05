@@ -42,19 +42,19 @@ class ValidationError extends ApiError {
 }
 
 class UnauthorizedError extends ApiError {
-  constructor(message = 'Authentication required') {
+  constructor(message = 'Bitte melden Sie sich an.') {
     super(message, { statusCode: 401, code: 'UNAUTHORIZED' });
   }
 }
 
 class TokenExpiredError extends ApiError {
-  constructor(message = 'Token expired') {
+  constructor(message = 'Die Anmeldung ist abgelaufen.') {
     super(message, { statusCode: 401, code: 'TOKEN_EXPIRED' });
   }
 }
 
 class InvalidTokenError extends ApiError {
-  constructor(message = 'Invalid token') {
+  constructor(message = 'Die Anmeldung ist ungültig.') {
     super(message, { statusCode: 401, code: 'INVALID_TOKEN' });
   }
 }
@@ -158,7 +158,7 @@ class ServiceUnavailableError extends ApiError {
    *   customize the error code (e.g. `'OLLAMA_UNAVAILABLE'`) while
    *   keeping the 503 status.
    */
-  constructor(message = 'Service temporarily unavailable', serviceOrOptions = null) {
+  constructor(message = 'Der Dienst ist gerade nicht erreichbar.', serviceOrOptions = null) {
     if (serviceOrOptions === null || typeof serviceOrOptions === 'string') {
       super(message, {
         statusCode: 503,

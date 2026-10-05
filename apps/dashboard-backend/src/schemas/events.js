@@ -4,9 +4,9 @@ const { z } = require('zod');
 const SelfHealingWebhookBody = z
   .object({
     action_type: z
-      .string({ error: 'Missing required field: action_type' })
+      .string({ error: 'Das Feld action_type fehlt.' })
       .trim()
-      .min(1, 'Missing required field: action_type')
+      .min(1, 'Das Feld action_type fehlt.')
       .max(100),
     service_name: z.string().max(200).optional().nullable(),
     reason: z.string().max(5000).optional().nullable(),
@@ -23,7 +23,7 @@ const ManualEventBody = z
     event_category: z.string().max(100).optional(),
     source_service: z.string().max(200).optional().nullable(),
     severity: z.string().max(50).optional(),
-    title: z.string({ error: 'Title is required' }).trim().min(1, 'Title is required').max(500),
+    title: z.string({ error: 'Der Titel fehlt.' }).trim().min(1, 'Der Titel fehlt.').max(500),
     message: z.string().max(20000).optional().nullable(),
   })
   .strict();

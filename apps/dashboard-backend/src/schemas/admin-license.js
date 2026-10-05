@@ -4,8 +4,8 @@ const { z } = require('zod');
 const ActivateLicenseBody = z
   .object({
     licenseKey: z
-      .string({ error: 'A valid license key is required' })
-      .min(10, 'A valid license key is required')
+      .string({ error: 'Der Lizenzschlüssel fehlt oder ist ungültig.' })
+      .min(10, 'Der Lizenzschlüssel fehlt oder ist ungültig.')
       .max(4096),
   })
   .strict();

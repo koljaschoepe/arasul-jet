@@ -4,9 +4,9 @@ const { z } = require('zod');
 const ApplyUpdateBody = z
   .object({
     file_path: z
-      .string({ error: 'Update file path is required' })
+      .string({ error: 'Der Pfad der Update-Datei fehlt.' })
       .trim()
-      .min(1, 'Update file path is required')
+      .min(1, 'Der Pfad der Update-Datei fehlt.')
       .max(4096),
   })
   .strict();
@@ -15,9 +15,9 @@ const ApplyUpdateBody = z
 const InstallFromUsbBody = z
   .object({
     file_path: z
-      .string({ error: 'File path is required' })
+      .string({ error: 'Der Dateipfad fehlt.' })
       .trim()
-      .min(1, 'File path is required')
+      .min(1, 'Der Dateipfad fehlt.')
       .max(4096),
   })
   .strict();

@@ -182,7 +182,7 @@ router.post(
     res.json({
       status: 'started',
       model: model_name,
-      message: 'Model download started. This may take several minutes depending on model size.',
+      message: 'Der Download des Modells läuft. Je nach Größe dauert er einige Minuten.',
       timestamp: new Date().toISOString(),
     });
 

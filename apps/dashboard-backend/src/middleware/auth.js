@@ -59,7 +59,7 @@ async function requireAuth(req, res, next) {
 
   if (!token) {
     return res.status(401).json({
-      error: { code: 'UNAUTHORIZED', message: 'No authentication token provided' },
+      error: { code: 'UNAUTHORIZED', message: 'Es ist niemand angemeldet.' },
       timestamp: new Date().toISOString(),
     });
   }
@@ -103,14 +103,14 @@ async function requireAuth(req, res, next) {
         stack: dbError.stack,
       });
       return res.status(503).json({
-        error: { code: 'SERVICE_UNAVAILABLE', message: 'Service temporarily unavailable' },
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'Der Dienst ist gerade nicht erreichbar.' },
         timestamp: new Date().toISOString(),
       });
     }
 
     if (result.rows.length === 0) {
       return res.status(401).json({
-        error: { code: 'UNAUTHORIZED', message: 'User not found' },
+        error: { code: 'UNAUTHORIZED', message: 'Dieses Konto gibt es nicht.' },
         timestamp: new Date().toISOString(),
       });
     }
@@ -149,7 +149,7 @@ async function requireAuth(req, res, next) {
   if (!user.is_active) {
     userCache.delete(schluessel(decoded.userId));
     return res.status(403).json({
-      error: { code: 'FORBIDDEN', message: 'User account is disabled' },
+      error: { code: 'FORBIDDEN', message: 'Dieses Konto ist stillgelegt.' },
       timestamp: new Date().toISOString(),
     });
   }
@@ -246,7 +246,7 @@ function requireRole(...rollen) {
   return function rollenPruefung(req, res, next) {
     if (!req.user) {
       return res.status(401).json({
-        error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        error: { code: 'UNAUTHORIZED', message: 'Bitte melden Sie sich an.' },
         timestamp: new Date().toISOString(),
       });
     }

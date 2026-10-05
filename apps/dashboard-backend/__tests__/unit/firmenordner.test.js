@@ -269,7 +269,7 @@ describe('Der Dienst darf ausfallen', () => {
     expect(update).toBeDefined();
     // `passwort_gespiegelt` falsch, und der Grund steht als Satz daneben.
     expect(update[1][1]).toBe(false);
-    expect(update[1][2]).toMatch(/ECONNREFUSED/);
+    expect(update[1][2]).toMatch(/ging nicht/);
   });
 });
 
