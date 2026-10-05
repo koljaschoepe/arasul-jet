@@ -31,7 +31,7 @@
 
 const db = require('../../database');
 const logger = require('../../utils/logger');
-const { ValidationError } = require('../../utils/errors');
+const { ApiError, ValidationError } = require('../../utils/errors');
 
 /** Hoechstens so viele Flows startet ein Ereignis (ein Paket hat hoechstens 50). */
 const MAX_LAEUFE_JE_EREIGNIS = 50;
@@ -96,7 +96,19 @@ async function melde(
       });
       laeufe.push({ flow: flow.name, run_id: runId });
     } catch (err) {
-      nichtGestartet.push({ flow: flow.name, grund: err.message });
+      // An die App geht nur ein Satz, den das Geraet selbst formuliert hat
+      // (`ApiError`: Argument fehlt, Flow ausgeschaltet, Grenze erreicht). Ein
+      // unerwarteter Fehler kann Interna tragen (Adresse der Datenbank, SQL);
+      // der steht im Protokoll des Geraets, die App liest einen festen Satz.
+      if (err instanceof ApiError) {
+        nichtGestartet.push({ flow: flow.name, grund: err.message });
+      } else {
+        logger.error(`Ereignis "${name}": ${appId}/${flow.name} startete nicht: ${err.message}`);
+        nichtGestartet.push({
+          flow: flow.name,
+          grund: 'Der Lauf startete nicht. Das Protokoll des Geräts nennt den Grund.',
+        });
+      }
     }
   }
   logger.info(

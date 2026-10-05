@@ -94,6 +94,18 @@ describe('Umstellung auf Sommerzeit, 29.03.2026: 02:00 springt auf 03:00', () =>
   it('03:30 bleibt, wo es ist', () => {
     expect(faellig('30 3 * * *', von, bis)).toEqual(['2026-03-29T01:30:00.000Z']);
   });
+
+  // Befund 10 der zweiten Pruefung (05.10.2026) meinte, die Luecke werde fuer
+  // die Gesamtmenge der Plaene nachgeholt statt je Plan, und ein Plan in der
+  // Luecke ginge verloren, wenn ein anderer die erste Minute danach trifft.
+  // Nachgeprueft: `faellige` liefert Zeitpunkte EINES Flows, und beide Plaene
+  // landen auf derselben Minute. Je Plan gerechnet kaeme dasselbe heraus.
+  it('zwei Plaene, einer in der Luecke, einer danach: ein Termin, keiner verloren', () => {
+    const plaene = ['30 2 * * *', '0 3 * * *'].map(a => zeitplan.lese(a));
+    expect(zeitplan.faellige(plaene, Date.parse(von), Date.parse(bis), BERLIN).map(iso)).toEqual([
+      '2026-03-29T01:00:00.000Z',
+    ]);
+  });
 });
 
 describe('Umstellung auf Winterzeit, 25.10.2026: 03:00 springt auf 02:00', () => {

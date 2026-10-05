@@ -49,6 +49,8 @@ const LETZTER_START = 3 * 60 + 30;
 const KEIN_ERGEBNIS_MS = 3 * 60 * MIN;
 /** So lange steht ein Ergebnis als Hinweis auf der Startseite. */
 const HINWEIS_TAGE = 3;
+/** So lange bleiben Trockenläufe im Protokoll. */
+const TROCKEN_TAGE = 30;
 
 const zwei = n => String(n).padStart(2, '0');
 
@@ -237,14 +239,32 @@ async function pruefeAblauf() {
   };
 }
 
-/** Ein Trockenlauf auf Wunsch, im Protokoll mit dem Vermerk `trocken`. */
-async function trockenlauf({ datenbank = db } = {}) {
+/**
+ * Ein Trockenlauf auf Wunsch, im Protokoll mit dem Vermerk `trocken`. Sein
+ * `fenster` ist der Tag in der Zeit des Geräts, wie bei einer echten Nacht --
+ * nicht `CURRENT_DATE` der Datenbank, die in UTC rechnen kann. Trockenläufe
+ * älter als `TROCKEN_TAGE` gehen dabei weg: jeder Klick schreibt eine Zeile,
+ * und in fünf Jahren sammelte sich sonst, was niemand mehr liest.
+ */
+async function trockenlauf({ jetzt = Date.now(), datenbank = db } = {}) {
   const r = await pruefeAblauf();
+  await datenbank.query(
+    `DELETE FROM public.update_nacht_laeufe
+      WHERE trocken AND gestartet < NOW() - ($1 || ' days')::interval`,
+    [String(TROCKEN_TAGE)]
+  );
+  const w = zeitplan.wand(jetzt);
   const { rows } = await datenbank.query(
     `INSERT INTO public.update_nacht_laeufe (fenster, trocken, ergebnis, grund, von, nach, beendet)
-     VALUES (CURRENT_DATE, true, $1, $2, $3, $4, NOW())
+     VALUES ($5::date, true, $1, $2, $3, $4, NOW())
      RETURNING ${SPALTEN}`,
-    [r.ergebnis, r.grund, r.von ?? null, r.nach ?? null]
+    [
+      r.ergebnis,
+      r.grund,
+      r.von ?? null,
+      r.nach ?? null,
+      `${w.jahr}-${zwei(w.monat)}-${zwei(w.tag)}`,
+    ]
   );
   return rows[0];
 }
@@ -268,12 +288,25 @@ async function fuehreAus(id, datenbank = db) {
     await schliesse(id, r, datenbank);
     return r.ergebnis;
   }
-  try {
-    const gestartet = await fassungsdienst.spieleEin({ fassung: vor.ziel, durch: 'nachts' });
-    await datenbank.query(
+  // Die Kennung des Laufs steht in der Zeile, BEVOR er startet. Sonst laege
+  // zwischen Start und Eintrag ein Spalt: scheiterte der Eintrag, wuesste das
+  // Backend nach dem Umschalten nicht, welcher Lauf der seine war, und die
+  // Nacht hiesse nach 30 Minuten „nicht zu Ende geführt“, obwohl sie eingespielt
+  // hat (Befund 7 der zweiten Prüfung, 05.10.2026).
+  const kennung = Date.now().toString(36);
+  const merke = (lauf, von, nach) =>
+    datenbank.query(
       'UPDATE public.update_nacht_laeufe SET lauf = $2, von = $3, nach = $4 WHERE id = $1',
-      [id, gestartet.lauf, gestartet.von, gestartet.nach]
+      [id, lauf, von, nach]
     );
+  try {
+    await merke(kennung, vor.aktuell, vor.ziel);
+    const gestartet = await fassungsdienst.spieleEin({
+      fassung: vor.ziel,
+      durch: 'nachts',
+      lauf: kennung,
+    });
+    await merke(gestartet.lauf, gestartet.von, gestartet.nach);
     logger.info(`Aktualisierung nachts: ${gestartet.von} -> ${gestartet.nach} gestartet`);
     return 'laeuft';
   } catch (fehler) {
@@ -324,7 +357,8 @@ async function schliesseOffeneAb({ jetzt = Date.now(), datenbank = db } = {}) {
   for (const zeile of rows) {
     const alt = jetzt - new Date(zeile.gestartet).getTime();
     if (!zeile.lauf) {
-      // Der Aufruf, der den Lauf startet, schreibt die Kennung gleich danach.
+      // Die Kennung steht vor dem Start in der Zeile (`fuehreAus`); fehlt sie,
+      // ist der Takt vorher stehen geblieben.
       if (alt > 30 * MIN) {
         await schliesse(
           zeile.id,

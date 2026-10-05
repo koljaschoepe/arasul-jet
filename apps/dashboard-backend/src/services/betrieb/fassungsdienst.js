@@ -476,10 +476,13 @@ async function vorpruefung({ fassung = null } = {}) {
  *
  * @param {{fassung?: string, durch?: string}} optionen
  */
-async function spieleEin({ fassung = null, durch = null } = {}) {
+async function spieleEin({ fassung = null, durch = null, lauf: vorgegeben = null } = {}) {
   const { weg, aktuell, ziel } = await vorpruefung({ fassung });
 
-  const lauf = `${Date.now().toString(36)}`;
+  // Die Nacht vergibt die Kennung selbst und schreibt sie VOR dem Start in ihr
+  // Protokoll (`nachtUpdate.fuehreAus`): so findet das Backend nach dem
+  // Umschalten den Lauf, auch wenn die Zeile danach nicht mehr geschrieben wurde.
+  const lauf = vorgegeben || `${Date.now().toString(36)}`;
   imProzess = lauf;
   await fs.rm(LOG_DATEI, { force: true });
   await schreibeStatus({

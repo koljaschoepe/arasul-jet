@@ -100,6 +100,20 @@ describe('ereignisse.melde', () => {
     expect(ergebnis.nicht_gestartet[0].grund).toMatch(/ausgeschaltet/);
   });
 
+  // Befund 17 der zweiten Pruefung (05.10.2026): ein unerwarteter Fehler ging
+  // mit seinem Text (hier Adresse und Nutzer der Datenbank) an die App.
+  it('gibt einen unerwarteten Fehler nicht im Wortlaut an die App', async () => {
+    const starten = jest.fn(async () => {
+      throw new Error('connect ECONNREFUSED 172.30.0.5:5432 user=arasul');
+    });
+    const ergebnis = await ereignisse.melde(
+      { appId: 'belege', stand: 'live', name: 'x', daten: { nummer: '1' }, userId: 1 },
+      { datenbank: datenbank([BELEG]), starten, argumente: resolveArguments }
+    );
+    expect(ergebnis.nicht_gestartet[0].grund).not.toMatch(/ECONNREFUSED|172\.30|arasul/);
+    expect(ergebnis.nicht_gestartet[0].grund).toMatch(/Protokoll des Geräts/);
+  });
+
   it('startet nichts, wenn kein Flow hoert', async () => {
     const starten = jest.fn();
     const ergebnis = await ereignisse.melde(
