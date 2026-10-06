@@ -207,38 +207,6 @@ Returned when API rate limits are exceeded.
 
 ---
 
-#### LLM API Rate Limit
-
-```json
-{
-  "error": "Rate limit exceeded for LLM API",
-  "details": "Limit: 10 requests per second",
-  "timestamp": "2025-11-12T10:30:45.123Z"
-}
-```
-
-**Limit**: 10 requests per second
-**Endpoints**: `/api/v1/external/llm/*`, `/api/embeddings`
-**Solution**: Reduce request frequency or implement client-side queueing
-
----
-
-#### Metrics API Rate Limit
-
-```json
-{
-  "error": "Rate limit exceeded for Metrics API",
-  "details": "Limit: 20 requests per second",
-  "timestamp": "2025-11-12T10:30:45.123Z"
-}
-```
-
-**Limit**: 20 requests per second
-**Endpoints**: `/api/metrics/*`
-**Solution**: Use WebSocket endpoint for real-time data instead
-
----
-
 #### General API Rate Limit
 
 ```json
@@ -330,20 +298,6 @@ Geraet ist kaputt".
 
 ---
 
-#### Invalid Query Parameters
-
-```json
-{
-  "error": "Invalid query parameter: range",
-  "details": "Valid values: 1h, 6h, 24h, 7d, 30d",
-  "timestamp": "2025-11-12T10:30:45.123Z"
-}
-```
-
-**Common Endpoints**: `GET /api/metrics/history`, `GET /api/logs`
-
----
-
 ## Resource Not Found Errors
 
 ### 404 Not Found
@@ -378,22 +332,6 @@ Returned when a requested resource doesn't exist.
 **Common Endpoints**: Service management endpoints
 
 **Solution**: Verify resource ID/name
-
----
-
-#### Log File Not Found
-
-```json
-{
-  "error": "Log file not found",
-  "details": "File 'system.log.20251112' does not exist",
-  "timestamp": "2025-11-12T10:30:45.123Z"
-}
-```
-
-**Endpoint**: `GET /api/logs`
-
-**Solution**: Check available log files via `GET /api/logs/list`
 
 ---
 
@@ -452,22 +390,6 @@ Returned when a dependent service is unavailable.
 **Cause**: LLM service not ready or crashed
 
 **Solution**: Wait for service to become healthy, check `/api/system/status`
-
----
-
-#### Database Unhealthy
-
-```json
-{
-  "error": "Database health check failed",
-  "details": "Connection pool exhausted",
-  "timestamp": "2025-11-12T10:30:45.123Z"
-}
-```
-
-**Cause**: Database connection pool saturated
-
-**Solution**: Check database pool stats via `GET /api/database/pool`
 
 ---
 
@@ -606,12 +528,12 @@ async function apiCall(endpoint) {
 
 ```javascript
 try {
-  const response = await apiCall('/api/metrics/live');
+  const response = await apiCall('/api/system/status');
   const data = await response.json();
 } catch (error) {
   console.error('Failed to fetch metrics', {
     error: error.message,
-    endpoint: '/api/metrics/live',
+    endpoint: '/api/system/status',
     timestamp: new Date().toISOString(),
     stack: error.stack,
   });
@@ -657,5 +579,5 @@ For additional help with API errors:
 
 - Check system logs: `./arasul logs dashboard-backend`
 - View system status: `GET /api/system/status`
-- Check service health: `GET /api/services`
+- Check service health: `GET /api/services/all`
 - Review self-healing events: `GET /api/self-healing/events`

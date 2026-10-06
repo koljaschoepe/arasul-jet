@@ -73,7 +73,7 @@ and developer-facing messages are English (per `CONTRIBUTING.md`).
 - **Self-healing**: services declared in compose with healthchecks are
   auto-recovered. New services that don't have a healthcheck are
   invisible to the agent.
-- **Update path**: `update_events` + the Update System docs. Never push
+- **Update path**: `/api/update/fassung` (J39), see `docs/ops/AUSLIEFERUNG.md`. Never push
   schema-incompatible changes to a release without a forward-only migration.
 
 ## When you add a feature that touches user data

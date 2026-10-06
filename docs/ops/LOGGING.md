@@ -12,7 +12,6 @@ All logs are stored in `/arasul/logs/` with the following structure:
 /arasul/logs/
 ├── system.log              # General system events (Dashboard, API, DB)
 ├── self_healing.log        # Self-healing events (JSON format)
-├── update.log              # System update events
 ├── service/                # Per-service logs
 │   ├── dashboard-backend.log
 │   ├── metrics-collector.log
@@ -140,29 +139,13 @@ jq 'select(.event_type=="service_restart")' /arasul/logs/self_healing.log | tail
 jq 'select(.event_type | contains("cpu"))' /arasul/logs/self_healing.log
 ```
 
-## Update Log (`update.log`)
+## Update Log
 
-System update events including upload, validation, application, and rollback.
-
-**Format:** Human-readable with source tags
-
-```
-[2025-01-11T11:00:00.000Z] [INFO] [upload] Update upload started: update-1.2.0.araupdate (52428800 bytes)
-[2025-01-11T11:00:15.123Z] [INFO] [validation] Validation passed: update-1.2.0.araupdate (version 1.2.0)
-[2025-01-11T11:00:20.456Z] [INFO] [apply] Applying update to version 1.2.0
-[2025-01-11T11:05:30.789Z] [INFO] [apply] Update completed: version 1.2.0 (310333ms)
-```
-
-**Usage:**
-
-```javascript
-const logger = require('./utils/logger');
-
-logger.info('Update upload started: update-1.2.0.araupdate (52428800 bytes)');
-logger.info('Validation passed: update-1.2.0.araupdate (version 1.2.0)');
-logger.info('Applying update to version 1.2.0');
-logger.info('Update completed: version 1.2.0 (310333ms)');
-```
+Den Offline-Weg über ein `.araupdate`-Paket (Hochladen, USB-Stick), der in
+`update.log` schrieb, gibt es seit dem 06.10.2026 nicht mehr. Die
+Aktualisierung über `/api/update/fassung` (J39) schreibt ihr Protokoll nach
+`/arasul/updates/fassung/lauf.log` im Backend-Container; die letzten Zeilen
+liefert `GET /api/update/fassung` unter `data.lauf.protokoll`.
 
 ## Service Logs (`service/*.log`)
 
@@ -173,7 +156,7 @@ Per-service logs for detailed debugging.
 ```javascript
 const logger = require('./utils/logger');
 
-logger.info('WebSocket connection established', { client_id: '123' });
+logger.info('Request handled', { request_id: '123' });
 logger.warn('High memory usage', { memory_mb: 512 });
 logger.error('Database query failed', { query: 'SELECT ...', error: 'timeout' });
 ```
@@ -242,9 +225,6 @@ tail -f /arasul/logs/system.log
 
 # Self-healing events
 tail -f /arasul/logs/self_healing.log | jq .
-
-# Updates
-tail -f /arasul/logs/update.log
 
 # All logs
 tail -f /arasul/logs/*.log

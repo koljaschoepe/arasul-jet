@@ -1,6 +1,6 @@
 # Dashboard Backend
 
-REST API + WebSocket + SSE backend for the Arasul Platform dashboard.
+REST API + SSE backend for the Arasul Platform dashboard.
 
 ## Overview
 
@@ -21,53 +21,32 @@ src/
 ├── database.js           # PostgreSQL connection pool with monitoring
 ├── config/
 │   └── services.js       # Service discovery & URLs
-├── routes/               # API route handlers (28 files)
+├── routes/               # API route handlers
 │   ├── auth.js           # JWT login, logout, token validation
-│   ├── chats.js          # Multi-conversation chat management
-│   ├── llm.js            # LLM chat with queue support & SSE streaming
 │   ├── settings.js       # Password management (Dashboard)
-│   ├── metrics.js        # Live & historical metrics
 │   ├── services.js       # Container status & health
 │   ├── system.js         # System info & network status
 │   ├── selfhealing.js    # Self-healing event history
 │   ├── update.js         # System update management
-│   ├── embeddings.js     # Text embedding service proxy
-│   ├── logs.js           # Log file retrieval & streaming
-│   ├── database.js       # Database health & pool metrics
 │   ├── docs.js           # OpenAPI/Swagger documentation
 │   ├── models.js         # LLM model management (catalog, download, admin view)
 │   ├── store/apps.js     # Apps am Geraet: Staende einspielen, entfernen, Logs
-│   ├── workspaces.js     # Claude workspaces CRUD
-│   ├── alerts.js         # Alert configuration & thresholds
-│   ├── audit.js          # Audit log history & statistics
-│   ├── events.js         # Event management & webhooks
-│   ├── telegram.js       # Telegram bot configuration
-│   ├── telegramApp.js    # Telegram app (15 endpoints, Zero-Config)
-│   ├── telegramBots.js   # Bot CRUD, Webhook, Commands (23 endpoints)
 │   ├── externalApi.js    # External API for automations
 │   └── index.js          # Route registration
-├── middleware/           # 5 middleware components
+├── middleware/           # middleware components
 │   ├── auth.js           # JWT authentication + token blacklist
 │   ├── apiKeyAuth.js     # API key authentication
 │   ├── rateLimit.js      # Per-user rate limiting
 │   ├── audit.js          # Request/response audit logging
 │   └── errorHandler.js   # Centralized error handling
-├── services/             # 17 business logic services
+├── services/             # business logic services
 │   ├── llmJobService.js  # LLM job persistence
 │   ├── llmQueueService.js# Sequential queue with priority & burst
 │   ├── modelService.js   # Model download, sync, activation
 │   ├── alertEngine.js    # Threshold monitoring & webhooks
-│   ├── appService.js     # App marketplace operations
-│   ├── updateService.js  # Update package handling
 │   ├── eventListenerService.js  # Event notification system
-│   ├── telegramNotificationService.js # Telegram messages
-│   ├── telegramOrchestratorService.js # Telegram commands
-│   ├── telegramWebSocketService.js    # NEW: WebSocket for Zero-Config
-│   ├── telegramWebhookService.js      # NEW: Bot webhook handling
-│   ├── contextInjectionService.js     # LLM context injection
 │   ├── docker.js         # Docker container API
-│   ├── ollamaReadiness.js# Ollama health checks
-│   └── cryptoService.js  # Encryption utilities
+│   └── ollamaReadiness.js# Ollama health checks
 └── utils/
     ├── logger.js         # Winston logger
     ├── jwt.js            # JWT token utilities
@@ -139,119 +118,35 @@ ihrem Container; Traefik gibt ihm `/apps/<id>/api/`. Alles dazu in
 [`docs/features/APPS.md`](../../docs/features/APPS.md); gegen das Geraet misst
 `scripts/test/apps-abnahme.sh`.
 
-### System & Metrics (Auth Required)
+### System (Auth Required)
 
-| Method | Path                       | Description                         |
-| ------ | -------------------------- | ----------------------------------- |
-| GET    | `/api/system/status`       | System health (OK/WARNING/CRITICAL) |
-| GET    | `/api/system/info`         | Version, build hash, uptime         |
-| GET    | `/api/system/network`      | IP addresses, mDNS, connectivity    |
-| GET    | `/api/system/thresholds`   | Resource thresholds                 |
-| GET    | `/api/metrics/live`        | Current CPU, RAM, GPU, temp, disk   |
-| GET    | `/api/metrics/history`     | Historical metrics (?range=24h)     |
-| WS     | `/api/metrics/live-stream` | WebSocket stream (5s interval)      |
+| Method | Path                  | Description                         |
+| ------ | --------------------- | ----------------------------------- |
+| GET    | `/api/system/status`  | System health (OK/WARNING/CRITICAL) |
+| GET    | `/api/system/info`    | Version, build hash, uptime         |
+| GET    | `/api/system/network` | IP addresses, mDNS, connectivity    |
 
 ### AI (Auth Required)
 
 Der Oberflächen-Chat (`/api/llm/*`, `/api/chats/*`) ist mit Phase B6
 (26.08.2026) gefallen; Sprachmodell-Aufträge laufen über die externe API
 (`/api/v1/external/llm/*`, API-Schlüssel) und `/v1/chat/completions`.
-
-| Method | Path              | Description              |
-| ------ | ----------------- | ------------------------ |
-| POST   | `/api/embeddings` | Generate text embeddings |
+Einbettungen gibt es über `/v1/embeddings` (API-Schlüssel); `POST /api/embeddings`
+ist am 06.10.2026 gefallen.
 
 ### Models (Auth Required)
 
-| Method | Path                              | Description                    |
-| ------ | --------------------------------- | ------------------------------ |
-| GET    | `/api/models/catalog`             | Curated model catalog          |
-| GET    | `/api/models/installed`           | Installed models list          |
-| GET    | `/api/models/status`              | Current status (loaded, queue) |
-| GET    | `/api/models/loaded`              | Currently loaded model         |
-| POST   | `/api/models/download`            | Download model (SSE progress)  |
-| DELETE | `/api/models/:modelId`            | Delete a model                 |
-| GET    | `/api/models/verwaltung`          | Rows of the admin view         |
-| POST   | `/api/models/pruefen`             | Does a model fit the device?   |
-| POST   | `/api/models/default`             | Set default model              |
-| GET    | `/api/models/default`             | Get default model              |
-| POST   | `/api/models/sync`                | Sync with Ollama               |
-
-### Alerts (Auth Required)
-
-| Method | Path                           | Description                          |
-| ------ | ------------------------------ | ------------------------------------ |
-| GET    | `/api/alerts/settings`         | Global alert settings                |
-| PUT    | `/api/alerts/settings`         | Update settings                      |
-| GET    | `/api/alerts/thresholds`       | All threshold configs                |
-| PUT    | `/api/alerts/thresholds/:type` | Update threshold (cpu/ram/disk/temp) |
-| GET    | `/api/alerts/quiet-hours`      | Quiet hours config                   |
-| PUT    | `/api/alerts/quiet-hours`      | Update quiet hours                   |
-| GET    | `/api/alerts/history`          | Alert history                        |
-| GET    | `/api/alerts/webhooks`         | Webhook configurations               |
-| POST   | `/api/alerts/webhooks`         | Add webhook                          |
-| DELETE | `/api/alerts/webhooks/:id`     | Remove webhook                       |
-
-### Telegram (Auth Required)
-
-| Method | Path                       | Description         |
-| ------ | -------------------------- | ------------------- |
-| GET    | `/api/telegram/config`     | Get Telegram config |
-| PUT    | `/api/telegram/config`     | Update config       |
-| POST   | `/api/telegram/test`       | Send test message   |
-| GET    | `/api/telegram/audit-logs` | Bot audit logs      |
-
-### Telegram App (Auth Required, 15 Endpoints)
-
-| Method | Path                                      | Description         |
-| ------ | ----------------------------------------- | ------------------- |
-| POST   | `/api/telegram-app/zero-config/init`      | Start setup session |
-| POST   | `/api/telegram-app/zero-config/token`     | Validate bot token  |
-| POST   | `/api/telegram-app/zero-config/detect`    | Detect chat ID      |
-| POST   | `/api/telegram-app/zero-config/complete`  | Complete setup      |
-| GET    | `/api/telegram-app/rules`                 | Notification rules  |
-| POST   | `/api/telegram-app/rules`                 | Create rule         |
-| PUT    | `/api/telegram-app/rules/:id`             | Update rule         |
-| DELETE | `/api/telegram-app/rules/:id`             | Delete rule         |
-| GET    | `/api/telegram-app/commands`              | Available commands  |
-| POST   | `/api/telegram-app/commands/:cmd`         | Execute command     |
-| GET    | `/api/telegram-app/orchestrator/thinking` | AI thinking log     |
-| POST   | `/api/telegram-app/orchestrator/config`   | Update orchestrator |
-| GET    | `/api/telegram-app/stats`                 | Usage statistics    |
-| POST   | `/api/telegram-app/send`                  | Send message        |
-| GET    | `/api/telegram-app/status`                | Bot status          |
-
-### App Store (Auth Required)
-
-| Method | Path                      | Description       |
-| ------ | ------------------------- | ----------------- |
-| GET    | `/api/apps`               | List all apps     |
-| GET    | `/api/apps/categories`    | App categories    |
-| GET    | `/api/apps/:id`           | App details       |
-| POST   | `/api/apps/:id/install`   | Install app       |
-| POST   | `/api/apps/:id/uninstall` | Uninstall app     |
-| POST   | `/api/apps/:id/start`     | Start app         |
-| POST   | `/api/apps/:id/stop`      | Stop app          |
-| GET    | `/api/apps/:id/config`    | App configuration |
-| PUT    | `/api/apps/:id/config`    | Update app config |
-
-### Audit (Auth Required)
-
-| Method | Path                         | Description             |
-| ------ | ---------------------------- | ----------------------- |
-| GET    | `/api/audit/logs`            | Audit log history       |
-| GET    | `/api/audit/stats/daily`     | Daily statistics        |
-| GET    | `/api/audit/stats/users`     | Per-user statistics     |
-| GET    | `/api/audit/stats/endpoints` | Per-endpoint statistics |
-
-### Events (Auth Required)
-
-| Method | Path                        | Description         |
-| ------ | --------------------------- | ------------------- |
-| GET    | `/api/events`               | List events         |
-| POST   | `/api/events/webhook/:type` | Trigger webhook     |
-| GET    | `/api/events/subscriptions` | Event subscriptions |
-| POST   | `/api/events/subscriptions` | Subscribe to events |
+| Method | Path                     | Description                    |
+| ------ | ------------------------ | ------------------------------ |
+| GET    | `/api/models/catalog`    | Curated model catalog          |
+| GET    | `/api/models/installed`  | Installed models list          |
+| GET    | `/api/models/status`     | Current status (loaded, queue) |
+| POST   | `/api/models/download`   | Download model (SSE progress)  |
+| DELETE | `/api/models/:modelId`   | Delete a model                 |
+| GET    | `/api/models/verwaltung` | Rows of the admin view         |
+| POST   | `/api/models/pruefen`    | Does a model fit the device?   |
+| POST   | `/api/models/default`    | Set default model              |
+| GET    | `/api/models/default`    | Get default model              |
 
 ### External API (API Key Auth)
 
@@ -265,20 +160,10 @@ Der Oberflächen-Chat (`/api/llm/*`, `/api/chats/*`) ist mit Phase B6
 
 ### Services & Operations (Auth Required)
 
-| Method | Path                          | Description               |
-| ------ | ----------------------------- | ------------------------- |
-| GET    | `/api/services`               | Status of all containers  |
-| GET    | `/api/services/ai`            | AI services with GPU load |
-| POST   | `/api/services/:name/restart` | Restart container         |
-| GET    | `/api/workflows/stats`        | Detailed statistics       |
-| GET    | `/api/selfhealing/events`     | Self-healing history      |
-| GET    | `/api/selfhealing/status`     | Current status            |
-| POST   | `/api/update/upload`          | Upload .araupdate file    |
-| GET    | `/api/update/history`         | Update history            |
-| GET    | `/api/logs/list`              | Available log files       |
-| GET    | `/api/logs/:service`          | Stream service logs       |
-| GET    | `/api/database/health`        | Database health           |
-| GET    | `/api/database/pool`          | Pool statistics           |
+| Method | Path                          | Description          |
+| ------ | ----------------------------- | -------------------- |
+| POST   | `/api/services/restart/:name` | Restart container    |
+| GET    | `/api/self-healing/events`    | Self-healing history |
 
 ### Settings (Auth Required, Rate Limited)
 
@@ -289,20 +174,11 @@ Der Oberflächen-Chat (`/api/llm/*`, `/api/chats/*`) ist mit Phase B6
 
 ### Documentation
 
-| Method | Path                     | Description       |
-| ------ | ------------------------ | ----------------- |
-| GET    | `/api/docs`              | Swagger UI        |
-| GET    | `/api/docs/openapi.json` | OpenAPI JSON spec |
-| GET    | `/api/docs/openapi.yaml` | OpenAPI YAML spec |
+| Method | Path        | Description |
+| ------ | ----------- | ----------- |
+| GET    | `/api/docs` | Swagger UI  |
 
 ## Key Features
-
-### WebSocket Metrics Streaming
-
-- Path: `ws://host:3001/api/metrics/live-stream`
-- Interval: 5 seconds
-- Auto-reconnection handled by frontend
-- Fallback to HTTP polling on failure
 
 ### SSE Streaming (LLM)
 
@@ -342,13 +218,10 @@ Der Oberflächen-Chat (`/api/llm/*`, `/api/chats/*`) ist mit Phase B6
 
 ### Rate Limiting
 
-| Endpoint Category | Limit               |
-| ----------------- | ------------------- |
-| Password changes  | 3 per 15 minutes    |
-| LLM API           | 10 requests/second  |
-| Metrics API       | 20 requests/second  |
-| Auth API          | 30 per minute       |
-| General API       | 100 requests/second |
+| Endpoint Category | Limit            |
+| ----------------- | ---------------- |
+| Password changes  | 3 per 15 minutes |
+| Auth API          | 30 per minute    |
 
 ### Database Connection Pool
 
@@ -455,13 +328,6 @@ npm run test:integration
 | Integration | 4     | API endpoints        |
 | Security    | 1     | Auth, rate limiting  |
 
-### Telegram Tests
-
-| File                                     | Tests | Coverage                  |
-| ---------------------------------------- | ----- | ------------------------- |
-| `unit/telegramWebSocket.test.js`         | 28    | WebSocket service methods |
-| `integration/telegramZeroConfig.test.js` | 14    | Zero-Config API flow      |
-
 ## Error Handling
 
 All routes use `asyncHandler` for consistent error handling:
@@ -495,7 +361,6 @@ const { ValidationError, NotFoundError, ForbiddenError } = require('../utils/err
 
 - express (4.18.2) - Web framework
 - pg (8.11.3) - PostgreSQL client
-- ws (8.16.0) - WebSocket server
 - jsonwebtoken (9.0.2) - JWT handling
 - bcrypt (5.1.1) - Password hashing
 - dockerode (4.0.2) - Docker API client

@@ -44,7 +44,10 @@ ersten 3 Seiten. Nichts wird gespeichert.
 ```
 
 `400` für keine Datei, kein PDF, ein verschlüsseltes oder kaputtes PDF; `413`
-über `DOCUMENT_MAX_SIZE_MB`.
+über `DOCUMENT_MAX_SIZE_MB`. Gegen PDF-Bomben (seit 06.10.2026): trägt eine
+Seite eingebettete Bilder über 50 Megapixel, oder braucht das Rendern länger
+als 30 Sekunden (es läuft in einem eigenen Prozess, der dann beendet wird),
+antwortet der Weg ebenfalls `400` mit dem Grund.
 
 ### `POST /extract-text`
 

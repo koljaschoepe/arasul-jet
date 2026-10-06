@@ -107,7 +107,7 @@ Migrationskette ist. Gemockt ist an der Datenbank nichts.
 Sie deckt ab: Einrichtung des ersten Administrators, Anmeldung mit Name und
 E-Mail, Fehlversuche (`record_login_attempt`) bis zur Sperre
 (`is_user_locked`), Sitzung und Token (`active_sessions`, `token_blacklist`),
-`/api/auth/session`, `/api/auth/me`, `/api/auth/sessions`, `/api/auth/verify`,
+`/api/auth/session`, `/api/auth/me`, `/api/auth/verify`,
 Abmelden; das eigene Profil (`/api/profil`, Bild, `/api/darstellung`,
 Passwortwechsel samt `password_history`); die Personen in der Verwaltung
 (`/api/benutzer`: anlegen, auflisten, Passwort setzen, Verwaltung schalten,
@@ -136,7 +136,6 @@ nur gegen eine Wegwerf-Datenbank richten, nie gegen ein Gerät.
 
 - **JavaScript/Node.js**: Jest + Supertest
 - **Python**: pytest + pytest-cov + pytest-mock
-- **API Testing**: Newman (Postman CLI)
 - **Security**: Trivy
 
 ---
@@ -164,9 +163,6 @@ nur gegen eine Wegwerf-Datenbank richten, nie gegen ein Gerät.
 │   └── self-healing-agent/
 │       └── tests/
 │           └── test_healing.py              # pytest tests
-├── tests/
-│   └── api/
-│       └── arasul-api.postman_collection.json   # API tests
 └── scripts/
     └── validate/
         └── validate-dependencies.sh         # Dependency validation
@@ -245,23 +241,6 @@ pip install pytest pytest-cov pytest-mock
 pytest --cov=. --cov-report=html
 ```
 
-### API Tests (Newman/Postman)
-
-```bash
-# Install Newman globally
-npm install -g newman newman-reporter-htmlextra
-
-# Run API test collection
-newman run tests/api/arasul-api.postman_collection.json \
-  --env-var "base_url=http://localhost/api" \
-  --env-var "admin_password=your_password" \
-  --reporters cli,htmlextra \
-  --reporter-htmlextra-export newman-report.html
-
-# View HTML report
-open newman-report.html
-```
-
 ### Docker Compose Dependency Validation
 
 ```bash
@@ -290,10 +269,6 @@ cd services/metrics-collector && pytest && cd ../..
 
 # Self-healing tests
 cd services/self-healing-agent && pytest && cd ../..
-
-# API tests (requires full stack running)
-docker compose up -d
-newman run tests/api/arasul-api.postman_collection.json
 
 # Cleanup
 docker compose down
@@ -342,17 +317,11 @@ Test multiple components working together.
 
 ### 3. API Tests
 
-End-to-end testing of REST API endpoints.
-
-**Test Collections**:
-
-- Authentication (login, token validation)
-- System status and health checks
-- Metrics (live, historical)
-- Service management
-- Database pool monitoring
-- Self-healing events
-- Logs retrieval
+End-to-end testing of REST API endpoints against the device: the acceptance
+scripts under `scripts/test/*-abnahme.sh` (run together by
+`scripts/test/abnahmen.sh`) and `scripts/test/endpunkte-live.py`. The Postman
+collection that stood here was removed on 2026-10-06; it mostly called routes
+that no longer exist.
 
 **Characteristics**:
 
@@ -497,23 +466,7 @@ File: `.github/workflows/test.yml`
 
 **Duration**: ~2 minutes
 
-#### 4. API Tests
-
-- Runs on: Ubuntu Latest
-- Full Docker Compose stack
-- Steps:
-  1. Checkout code
-  2. Setup Node.js 22
-  3. Install Newman globally
-  4. Start Docker Compose services
-  5. Wait for services (30s)
-  6. Run Newman API tests
-  7. Upload HTML report as artifact
-  8. Stop Docker Compose
-
-**Duration**: ~5 minutes
-
-#### 5. Docker Build Tests
+#### 4. Docker Build Tests
 
 - Runs on: Ubuntu Latest
 - Matrix strategy (4 services)
@@ -525,7 +478,7 @@ File: `.github/workflows/test.yml`
 
 **Duration**: ~8 minutes (parallel)
 
-#### 6. Dependency Validation
+#### 5. Dependency Validation
 
 - Runs on: Ubuntu Latest
 - Steps:
@@ -536,7 +489,7 @@ File: `.github/workflows/test.yml`
 
 **Duration**: ~1 minute
 
-#### 7. Security Scan
+#### 6. Security Scan
 
 - Runs on: Ubuntu Latest
 - Steps:
@@ -546,7 +499,7 @@ File: `.github/workflows/test.yml`
 
 **Duration**: ~3 minutes
 
-#### 8. Test Summary
+#### 7. Test Summary
 
 - Runs after all other jobs
 - Aggregates results
@@ -560,7 +513,7 @@ File: `.github/workflows/test.yml`
 2. Click "Actions" tab
 3. Select latest workflow run
 4. View individual job logs
-5. Download artifacts (Newman reports, coverage)
+5. Download artifacts (coverage)
 
 ### Local CI/CD Simulation
 
@@ -720,49 +673,6 @@ describe('API Integration', () => {
 });
 ```
 
-### API Test Best Practices (Postman)
-
-```json
-{
-  "name": "Endpoint Test",
-  "event": [
-    {
-      "listen": "test",
-      "script": {
-        "exec": [
-          "// Status code check",
-          "pm.test('Status code is 200', function () {",
-          "    pm.response.to.have.status(200);",
-          "});",
-          "",
-          "// Response structure check",
-          "pm.test('Response has required fields', function () {",
-          "    const json = pm.response.json();",
-          "    pm.expect(json).to.have.property('field1');",
-          "    pm.expect(json).to.have.property('field2');",
-          "});",
-          "",
-          "// Data validation",
-          "pm.test('Field values are valid', function () {",
-          "    const json = pm.response.json();",
-          "    pm.expect(json.field1).to.be.a('string');",
-          "    pm.expect(json.field2).to.be.within(0, 100);",
-          "});",
-          "",
-          "// Save data for next request",
-          "pm.environment.set('savedValue', pm.response.json().field1);"
-        ]
-      }
-    }
-  ],
-  "request": {
-    "method": "GET",
-    "header": [],
-    "url": "{{base_url}}/endpoint"
-  }
-}
-```
-
 ---
 
 ## Troubleshooting
@@ -840,19 +750,7 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)
 pytest
 ```
 
-#### 5. Newman Tests Fail with 401 Unauthorized
-
-**Cause**: Admin password not set or incorrect
-
-**Solution**:
-
-```bash
-# Ensure environment variable is set correctly
-newman run tests/api/arasul-api.postman_collection.json \
-  --env-var "admin_password=your_correct_password"
-```
-
-#### 6. Coverage Thresholds Not Met
+#### 5. Coverage Thresholds Not Met
 
 **Cause**: New code not covered by tests
 
@@ -909,15 +807,6 @@ pytest -vv
 pytest -s
 ```
 
-#### Newman Verbose Mode
-
-```bash
-newman run collection.json \
-  --verbose \
-  --reporter-cli-no-summary \
-  --reporter-cli-no-failures
-```
-
 ---
 
 ## Test Maintenance
@@ -951,14 +840,12 @@ newman run collection.json \
 
 - [Jest Documentation](https://jestjs.io/docs/getting-started)
 - [pytest Documentation](https://docs.pytest.org/)
-- [Newman Documentation](https://learning.postman.com/docs/running-collections/using-newman-cli/command-line-integration-with-newman/)
 - [Supertest Documentation](https://github.com/visionmedia/supertest)
 
 ### Tools
 
 - [Jest VSCode Extension](https://marketplace.visualstudio.com/items?itemName=Orta.vscode-jest)
 - [Python Test Explorer](https://marketplace.visualstudio.com/items?itemName=LittleFoxTeam.vscode-python-test-adapter)
-- [Postman](https://www.postman.com/downloads/)
 
 ### Best Practices
 
@@ -983,15 +870,14 @@ newman run collection.json \
 
 ### Test Execution Times
 
-| Test Suite          | Duration | Tests   |
-| ------------------- | -------- | ------- |
-| Backend Unit        | 2.5s     | 25      |
-| Backend Integration | 12s      | 20      |
-| Metrics Collector   | 3s       | 12      |
-| Self-Healing Agent  | 4s       | 8       |
-| API Tests (Newman)  | 45s      | 32      |
-| Docker Build Tests  | 120s     | 4       |
-| **Total**           | **186s** | **101** |
+| Test Suite          | Duration | Tests  |
+| ------------------- | -------- | ------ |
+| Backend Unit        | 2.5s     | 25     |
+| Backend Integration | 12s      | 20     |
+| Metrics Collector   | 3s       | 12     |
+| Self-Healing Agent  | 4s       | 8      |
+| Docker Build Tests  | 120s     | 4      |
+| **Total**           | **141s** | **69** |
 
 ---
 

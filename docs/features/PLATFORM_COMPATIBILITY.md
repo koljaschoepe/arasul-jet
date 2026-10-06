@@ -550,7 +550,6 @@ The metrics-collector runs a GPU monitor (`gpu_monitor.py`, NVML-based) with Jet
 
 - `services/metrics-collector/gpu_monitor.py` - GPU monitoring module
 - `services/self-healing-agent/gpu_recovery.py` - Recovery actions
-- `apps/dashboard-backend/src/routes/system/services.js` - `/api/services/ai` endpoint
 
 ## Related Documentation
 

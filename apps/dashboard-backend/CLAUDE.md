@@ -12,7 +12,7 @@
 ## Stack
 
 Node.js 22 (LTS, see root `.nvmrc`) · Express 4 · PostgreSQL 16 (`pg` pool) ·
-WebSocket (`ws`) · SSE · Zod (validation) · Jest (tests) · ESLint.
+SSE · Zod (validation) · Jest (tests) · ESLint.
 
 Entry: `src/index.js` → `src/server.js` → `src/routes/index.js`.
 
@@ -97,18 +97,14 @@ get typed, trimmed, defaulted data.
 
 `middleware/rateLimit.js` exports ready-made limiters; use them, don't roll your own:
 
-| Limiter                          | Use for                               | Window / max |
-| -------------------------------- | ------------------------------------- | ------------ |
-| `loginLimiter`                   | `/auth/login` (failures only)         | 15 min / 30  |
-| `probeLimiter`                   | `/auth/session`, `/auth/needs-setup`  | 1 min / 120  |
-| `generalAuthLimiter`             | `/auth/logout`                        | 1 min / 30   |
-| `apiLimiter`                     | default, per-IP                       | 1 min / 100  |
-| `llmLimiter`                     | `/embeddings`, Flow-Läufe (expensive) | 1 sec / 10   |
-| `metricsLimiter`                 | high-frequency polling endpoints      | 1 sec / 20   |
-| `webhookLimiter`                 | inbound webhooks (self-healing agent) | 1 min / 100  |
-| `uploadLimiter`                  | multipart uploads                     | 1 min / 20   |
-| `tailscaleLimiter`               | tailscale orchestration               | (per-domain) |
-| `createUserRateLimiter(max, ms)` | user-scoped (after auth)              | factory      |
+| Limiter                          | Use for                              | Window / max |
+| -------------------------------- | ------------------------------------ | ------------ |
+| `loginLimiter`                   | `/auth/login` (failures only)        | 15 min / 30  |
+| `probeLimiter`                   | `/auth/session`, `/auth/needs-setup` | 1 min / 120  |
+| `generalAuthLimiter`             | `/auth/logout`                       | 1 min / 30   |
+| `uploadLimiter`                  | multipart uploads                    | 1 min / 20   |
+| `tailscaleLimiter`               | tailscale orchestration              | (per-domain) |
+| `createUserRateLimiter(max, ms)` | user-scoped (after auth)             | factory      |
 
 `loginLimiter` carries `skipSuccessfulRequests`: a login that succeeds costs
 nothing. The sharp lock is per account — five failed attempts lock it for
@@ -131,14 +127,14 @@ Add the prefix to `API_ROUTE_GROUPS` so it surfaces in `GET /api/_meta`.
 Group choice (`core | system | admin | ai | store | external`)
 is documented at the top of `routes/index.js`.
 
-### 7. SSE / WebSocket
+### 7. SSE
 
 For SSE use `utils/sseHelper.js`. For LLM streaming, the global error handler
 is a no-op once headers are sent — flush an error frame yourself before
-closing. WebSocket auth (`/api/metrics/live-stream`, `src/index.js`): the
-token comes from the `arasul_session` cookie or an `Authorization: Bearer`
-header, **never** from the query string — a `?token=` lands in Traefik's
-access log.
+closing. Der Backend-Prozess hat keinen WebSocket mehr: der einzige,
+`/api/metrics/live-stream`, ist mit der Totcode-Prüfung vom 06.10.2026
+gefallen, und mit ihm das Paket `ws`. Ein Token gehört nie in die
+Abfrage einer Adresse: ein `?token=` landet im Zugriffsprotokoll von Traefik.
 
 ### 8. Logging
 
@@ -160,8 +156,8 @@ is preferred so `errorHandler` keeps structured fields.
 ## Werkzeug-Schleife (Plan 008 / 011)
 
 Der Agenten- und Fluss-Layer ist mit Plan 011 entfernt; an seine Stelle treten
-**Flows** (Markdown-Dateien unter `data/flows/`, gestartet über
-`POST /api/flows/laeufe` oder extern per API-Schlüssel). Der Flow-Layer lebt vollständig in `services/flows/` und bringt
+**Flows** (Markdown-Dateien unter `data/flows/`, gestartet extern per
+API-Schlüssel, vom Zeitplaner oder von einem Ereignis der App). Der Flow-Layer lebt vollständig in `services/flows/` und bringt
 seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 
 - `runFlow.js` — der Runner (Schritt 10): lädt den Flow, setzt Argumente ein,
@@ -176,7 +172,7 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
   direkte Werkzeuge, mit Iteration), threadet die Ausgaben und lässt danach den
   Rumpf-Prompt synthetisieren. `runFlow` verzweigt hierher, wenn ein Flow
   `schritte` deklariert — sonst bleibt es beim modellgetriebenen `toolLoop`.
-- Flows werden über `POST /api/flows/laeufe` (Anmeldung) oder extern per
+- Flows werden extern per
   HTTP-Trigger (`POST /api/v1/external/flows/:name/run`, API-Key mit Scope
   `flow:run`) gestartet, oder vom **Zeitplaner** (`zeitplaner.js`, Rechnung in
   `zeitplan.js`): ein Flow mit `ausloeser: zeitplan` läuft im Livestand zur
@@ -195,12 +191,11 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 - `pathSafe.js` — symlink-sichere Pfad-Sperre über mehrere erlaubte Ordner;
   schließt das TOCTOU-Fenster über Dateideskriptoren. **Jeder** Dateizugriff
   läuft hierdurch.
-- `flowFile.js` — Parser/Serializer für Markdown + YAML-Frontmatter, plus
+- `flowFile.js` — Parser für Markdown + YAML-Frontmatter, plus
   Platzhalter (`{{argument}}`).
 - `toolRegistry.js` — setzt die Werkzeug-Freigabe durch; `tools/` enthält
   `dateien` (lesen/schreiben/bearbeiten/anhängen getrennt, plus `dateien_suchen`),
-  `symbol_suche`, `frage` (`frage_nutzer`, nur in der Betriebsart
-  `rueckfragen`) und `route` (`route_aufrufen`: nur Routen aus `routen` im
+  `symbol_suche`, `freigabe` (`freigabe_anfordern`) und `route` (`route_aufrufen`: nur Routen aus `routen` im
   Kopf, nur mit Zugang des Menschen des Laufs zur Ziel-App, Kontrakt 13). `subagent.js` liegt eine Ebene höher. Es gibt keine
   Web-Werkzeuge; ein Flow arbeitet auf dem Gerät.
 

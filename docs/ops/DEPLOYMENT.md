@@ -295,7 +295,6 @@ Apply changes: `./arasul restart`. Full reference: [`ENVIRONMENT_VARIABLES.md`](
 
 - [ ] `data/backups/` directory exists.
 - [ ] Test backup created and verified.
-- [ ] Update keys present in `config/update-keys/`.
 
 ### Tests
 

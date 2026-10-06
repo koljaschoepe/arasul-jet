@@ -15,6 +15,7 @@ Autonomous service monitoring and recovery engine.
 
 ```
 self-healing-agent/
+├── start.sh                  # Entry point: starts healing_engine.py, nothing else
 ├── healing_engine.py         # Main recovery engine
 ├── gpu_recovery.py           # NVIDIA GPU error handling
 ├── heartbeat.py              # Service health checks
@@ -118,11 +119,11 @@ System-level emergency.
 | DISK_CLEANUP_PERCENT        | 90      | Disk cleanup threshold   |
 | DISK_CRITICAL_PERCENT       | 95      | Disk critical threshold  |
 | DISK_REBOOT_PERCENT         | 97      | Disk reboot threshold    |
-| CPU_CRITICAL_PERCENT        | 90      | CPU critical threshold   |
-| RAM_CRITICAL_PERCENT        | 90      | RAM critical threshold   |
-| GPU_CRITICAL_PERCENT        | 95      | GPU critical threshold   |
-| TEMP_THROTTLE_CELSIUS       | 83      | Temperature throttle     |
-| TEMP_RESTART_CELSIUS        | 85      | Temperature restart      |
+| CPU_OVERLOAD_THRESHOLD      | 90      | CPU critical threshold   |
+| RAM_OVERLOAD_THRESHOLD      | 90      | RAM critical threshold   |
+| GPU_OVERLOAD_THRESHOLD      | 95      | GPU critical threshold   |
+| TEMP_THROTTLE_THRESHOLD     | 83      | Temperature throttle     |
+| TEMP_RESTART_THRESHOLD      | 85      | Temperature restart      |
 
 ## Event Logging
 

@@ -15,7 +15,7 @@
 6. [Speicherplatz voll](#6-speicherplatz-voll)
 7. [System ist langsam](#7-system-ist-langsam)
 8. [Backup/Restore Probleme](#8-backuprestore-probleme)
-9. [USB-Update schlaegt fehl](#9-usb-update-schlaegt-fehl)
+9. [Aktualisierung ohne Netz](#9-aktualisierung-ohne-netz)
 10. [Support kontaktieren](#10-support-kontaktieren)
 
 ---
@@ -369,44 +369,13 @@ formatiert nie etwas. Mit ext4 oder exFAT formatieren und neu anstecken.
 
 ---
 
-## 9. USB-Update schlaegt fehl
+## 9. Aktualisierung ohne Netz
 
-### Symptom
-
-Update wird nicht erkannt oder bricht ab.
-
-### Loesung
-
-**Schritt 1: USB-Stick pruefen**
-
-```bash
-lsblk
-# USB-Geraet sollte als /dev/sda1 o.ae. erscheinen
-
-# Manuell mounten:
-sudo mount /dev/sda1 /mnt/usb
-ls /mnt/usb/
-```
-
-**Schritt 2: Update-Paket pruefen**
-
-- Das Update-Paket muss eine `.tar.gz`-Datei mit gueltigter Signatur sein
-- Dateiname: `arasul-update-*.tar.gz`
-
-**Schritt 3: Signatur pruefen**
-
-```bash
-# Ist der oeffentliche Schluessel vorhanden?
-ls config/update-keys/public_key.pem
-```
-
-**Schritt 4: Manuelles Update**
-
-```bash
-# Update manuell anwenden:
-cp /mnt/usb/arasul-update-*.tar.gz updates/
-# Dann ueber die Web-Oberflaeche installieren
-```
+Ein Update vom USB-Stick (`.araupdate`-Paket) gibt es seit dem 06.10.2026
+nicht mehr: der Weg brauchte ein `docker`-Programm im Backend-Container und
+lief an keinem Geraet. Mit Netz spielt das Geraet eine neue Fassung selbst ein
+(Verwaltung, `/api/update/fassung`); ohne Netz kommt sie als Artefakt aufs
+Geraet, siehe [`AUSLIEFERUNG.md`](AUSLIEFERUNG.md).
 
 ---
 
