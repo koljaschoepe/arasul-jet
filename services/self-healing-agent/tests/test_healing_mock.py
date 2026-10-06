@@ -406,6 +406,87 @@ class TestSelfHealingEngine(unittest.TestCase):
         finally:
             os.unlink(name)
 
+    def _statusdatei(self, stand):
+        import json as _json
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.json', mode='w', delete=False) as datei:
+            _json.dump(stand, datei)
+            return datei.name
+
+    def _hilfscontainer(self, laeuft):
+        hilfe = MagicMock()
+        hilfe.name = 'arasul-aktualisierung'
+        hilfe.labels = {'arasul.aktualisierung': '1'}
+        self.mock_client.containers.list.return_value = [hilfe] if laeuft else []
+
+    def test_laufendes_update_sperrt_kategorie_a_ueber_den_hilfscontainer(self):
+        """J39: waehrend `fassung-einspielen` laeuft, greift die Selbstheilung nicht ein.
+
+        Bis zum 06.10.2026 pruefte sie nur `update_state.json` des USB-Weges,
+        und den gibt es nicht mehr; der heutige Weg setzt kein Wartungsfenster.
+        """
+        self._hilfscontainer(True)
+        with patch('healing_engine.UPDATE_STATUSDATEI', '/gibt/es/nicht.json'), \
+             patch('healing_engine.WARTUNGSDATEI', '/gibt/es/nicht.aktiv'):
+            self.assertIn('arasul-aktualisierung', self.engine.aktualisierung_laeuft())
+            self.assertTrue(self.engine.wartung_laeuft())
+
+    def test_laufendes_update_sperrt_ueber_die_statusdatei(self):
+        """Der Agent, der waehrend des Laufs neu gebaut wird, liest status.json."""
+        self._hilfscontainer(False)
+        from datetime import datetime, timezone
+        name = self._statusdatei({
+            'status': 'laeuft', 'schritt': 'installieren', 'nach': '0.9.1',
+            'gestartet': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        })
+        try:
+            with patch('healing_engine.UPDATE_STATUSDATEI', name), \
+                 patch('healing_engine.WARTUNGSDATEI', '/gibt/es/nicht.aktiv'):
+                grund = self.engine.aktualisierung_laeuft()
+                self.assertIn('0.9.1', grund)
+                self.assertIn('installieren', grund)
+                self.assertTrue(self.engine.wartung_laeuft())
+        finally:
+            os.unlink(name)
+
+    def test_fertiges_oder_abgerissenes_update_sperrt_nicht(self):
+        """`fertig` sperrt nicht, und ein `laeuft` ueber dem Deckel auch nicht."""
+        self._hilfscontainer(False)
+        fertig = self._statusdatei({'status': 'fertig', 'gestartet': '2026-10-06T10:00:00Z'})
+        alt = self._statusdatei({'status': 'laeuft', 'gestartet': '2026-10-01T10:00:00Z'})
+        try:
+            with patch('healing_engine.WARTUNGSDATEI', '/gibt/es/nicht.aktiv'), \
+                 patch('healing_engine.WARTUNG_NACHLAUF_SEKUNDEN', 0):
+                with patch('healing_engine.UPDATE_STATUSDATEI', fertig):
+                    self.assertEqual(self.engine.aktualisierung_laeuft(), '')
+                    self.assertFalse(self.engine.wartung_laeuft())
+                with patch('healing_engine.UPDATE_STATUSDATEI', alt), \
+                     patch('healing_engine.UPDATE_MAX_MINUTEN', 180):
+                    self.assertEqual(self.engine.aktualisierung_laeuft(), '')
+        finally:
+            os.unlink(fertig)
+            os.unlink(alt)
+
+    def test_kein_neustart_des_geraets_waehrend_eines_updates(self):
+        """Die Sicherheitspruefung vor dem Neustart haelt bei einem laufenden Update an."""
+        self._hilfscontainer(True)
+        self.engine.log_event = MagicMock()
+        with patch('healing_engine.UPDATE_STATUSDATEI', '/gibt/es/nicht.json'):
+            self.assertFalse(self.engine.perform_reboot_safety_checks('Test'))
+        self.assertTrue(any(
+            aufruf.args and aufruf.args[0] == 'reboot_safety_check_failed'
+            for aufruf in self.engine.log_event.call_args_list
+        ))
+
+    def test_ein_wackliger_docker_proxy_ist_kein_update(self):
+        """Ein Fehler beim Fragen legt die Selbstheilung nicht schlafen."""
+        self.mock_client.containers.list.side_effect = RuntimeError('proxy weg')
+        try:
+            with patch('healing_engine.UPDATE_STATUSDATEI', '/gibt/es/nicht.json'):
+                self.assertEqual(self.engine.aktualisierung_laeuft(), '')
+        finally:
+            self.mock_client.containers.list.side_effect = None
+
     def test_ohne_ende_gilt_das_fenster_als_offen(self):
         """Eine Datei ohne `ende=` heisst: die Wartung laeuft noch."""
         import tempfile

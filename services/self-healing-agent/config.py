@@ -132,6 +132,24 @@ WARTUNG_MAX_MINUTEN = int(os.getenv('SELFHEAL_WARTUNG_MAX_MINUTEN', '30'))
 # unbemerkt bleibt. Der Deckel aus WARTUNG_MAX_MINUTEN gilt unabhaengig davon.
 WARTUNG_NACHLAUF_SEKUNDEN = int(os.getenv('SELFHEAL_WARTUNG_NACHLAUF_SEKUNDEN', '300'))
 
+# Ein laufendes Update der Plattform (J39, `fassung-einspielen`) sperrt
+# Kategorie A und jeden Neustart des Geraets (Auftrag app-protokoll-abrufen,
+# 06.10.2026). Bis zum 06.10.2026 pruefte die Selbstheilung vor einem Neustart
+# nur `update_state.json` des USB-Weges, und der ist gefallen; der heutige Weg
+# setzt kein Wartungsfenster. Zwei Zeichen, eines genuegt:
+#
+#   1. der Hilfscontainer mit dem Etikett `arasul.aktualisierung=1` laeuft
+#      (er traegt den Lauf am Host und ist danach weg, `AutoRemove`);
+#   2. `status.json` des Laufs sagt `"status": "laeuft"` -- fuer den Agenten,
+#      der waehrend des Laufs selbst neu gebaut wird und den Container noch
+#      nicht sieht.
+#
+# Der Deckel gilt fuer das zweite: ein Lauf, den ein Stromausfall abgerissen
+# hat, laesst `laeuft` stehen, und eine Sperre ohne Deckel waere ein
+# Ausschalter, den niemand zurueckdreht.
+UPDATE_STATUSDATEI = os.getenv('SELFHEAL_UPDATE_STATUSDATEI', '/arasul/updates/fassung/status.json')
+UPDATE_MAX_MINUTEN = int(os.getenv('SELFHEAL_UPDATE_MAX_MINUTEN', '180'))
+
 # External heartbeat / Dead Man's Switch
 # If set, POST to this URL every HEARTBEAT_INTERVAL_CYCLES cycles
 # External monitoring service alerts operator if heartbeat stops
