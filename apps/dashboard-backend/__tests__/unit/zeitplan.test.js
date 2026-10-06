@@ -157,6 +157,38 @@ describe('naechster', () => {
     expect(naechster('30 2 * * *', '2026-10-25T00:30:00Z')).toBe('2026-10-26T01:30:00.000Z');
   });
 
+  // Befund 11 der zweiten Pruefung (05.10.2026): in der ZWEITEN 02:xx-Stunde
+  // (01:00 bis 02:00 UTC am 25.10.2026) fiel die Wanduhr 02:30 auf ihren
+  // frueheren, laengst vergangenen Zeitpunkt, und die Anzeige sagte "in einer
+  // Minute". Ein fester Plan laeuft dort nicht, `faellige` laesst ihn aus.
+  it('in der zweiten 02:xx-Stunde: ein fester Plan erst am naechsten Tag', () => {
+    expect(naechster('30 2 * * *', '2026-10-25T01:10:00Z')).toBe('2026-10-26T01:30:00.000Z');
+    expect(naechster('30 2 * * *', '2026-10-25T01:40:00Z')).toBe('2026-10-26T01:30:00.000Z');
+  });
+
+  it('in der zweiten 02:xx-Stunde: ein Plan mit Stern laeuft dort weiter', () => {
+    expect(naechster('*/15 2 * * *', '2026-10-25T01:10:00Z')).toBe('2026-10-25T01:15:00.000Z');
+    expect(naechster('*/15 2 * * *', '2026-10-25T00:50:00Z')).toBe('2026-10-25T01:00:00.000Z');
+  });
+
+  it('Anzeige und Zeitplaner sagen in der Nacht dasselbe', () => {
+    // Was `naechster` nennt, muss `faellige` auch ausloesen, und nichts davor.
+    const naechte = [
+      ['2026-10-24T23:00:00Z', '2026-10-25T02:30:00Z'],
+      ['2026-03-28T23:00:00Z', '2026-03-29T02:30:00Z'],
+    ];
+    for (const [von, bis] of naechte) {
+      for (const ausdruck of ['30 2 * * *', '*/15 2 * * *', '0 3 * * *', '45 1 * * *']) {
+        const plaene = [zeitplan.lese(ausdruck)];
+        for (let ab = Date.parse(von); ab <= Date.parse(bis); ab += 5 * 60000) {
+          const t = zeitplan.naechster(plaene, ab, BERLIN);
+          const erster = zeitplan.faellige(plaene, ab, t, BERLIN)[0];
+          expect([ausdruck, iso(ab), iso(erster)]).toEqual([ausdruck, iso(ab), iso(t)]);
+        }
+      }
+    }
+  });
+
   it('der fruehere von mehreren Ausdruecken', () => {
     const plaene = [zeitplan.lese('0 18 * * *'), zeitplan.lese('0 6 * * *')];
     expect(iso(zeitplan.naechster(plaene, Date.parse('2026-10-05T00:00:00Z'), BERLIN))).toBe(
