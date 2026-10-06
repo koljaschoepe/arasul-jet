@@ -83,6 +83,17 @@ pruefe() {
   fi
 }
 ja_wenn() { if [ "$1" = "$2" ]; then echo ja; else echo nein; fi; }
+
+# Seit #929 (Kontrakt 14) steht der Titel des Laufs vorn an jeder Freigabe:
+# „<Titel> – <Grund>". Bei einem erkennenden Flow kommt der Titel aus den
+# erkannten Feldern (die ersten drei Werte), also aus der Antwort des Modells;
+# gemessen wird deshalb der Grund am Ende und DASS ein Titel davorsteht.
+mit_lauftitel() { # titel grund
+  case "$1" in
+    ?*" – $2") echo ja ;;
+    *) echo nein ;;
+  esac
+}
 # Mindestens: eine Kontraktfassung zaehlt hoch, ein fester Wert wird mit jeder
 # neuen Fassung rot, ohne dass etwas kaputt waere. Eine Zahl, die kleiner ist
 # oder fehlt, ist der Fehler.
@@ -463,7 +474,8 @@ art_setzen beleg ergebnis_bestaetigen
 if starten 'flow=beleg&datum=02.10.2026'; then
   warte_status wartend
   warte_auf_anfrage "$TOK_B"
-  pruefe 'Der Lauf wartet auf die Bestaetigung des Ergebnisses' "$(ja_wenn "$TITEL" 'Ergebnis bestätigen: beleg')" "titel=${TITEL:-—}"
+  # Seit #929 ist das die eine Pruefung der Erkennung, mit dem Titel des Laufs davor.
+  pruefe 'Der Lauf wartet auf die Bestaetigung des Ergebnisses' "$(mit_lauftitel "$TITEL" 'Ergebnis bestätigen: beleg')" "titel=${TITEL:-—}"
   pruefe 'Davor hat die App nichts bekommen' "$([ "$(empfangen_feld aufrufe)" = 0 ] && echo ja || echo nein)"
   ruf "$TOK_B" POST "/api/freigabe-anfragen/$ANFRAGE/bestaetigen" '{}'
   warte_status 'fertig|nicht_uebergeben|fehler' "$LAUF_GEDULD"

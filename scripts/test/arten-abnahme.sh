@@ -76,6 +76,17 @@ pruefe() {
 }
 ja_wenn() { if [ "$1" = "$2" ]; then echo ja; else echo nein; fi; }
 
+# Seit #929 (Kontrakt 14) steht der Titel des Laufs vorn an jeder Freigabe:
+# „<Titel> – <Grund>". Bei einem erkennenden Flow kommt der Titel aus den
+# erkannten Feldern (die ersten drei Werte), also aus der Antwort des Modells;
+# gemessen wird deshalb der Grund am Ende und DASS ein Titel davorsteht.
+mit_lauftitel() { # titel grund
+  case "$1" in
+    ?*" – $2") echo ja ;;
+    *) echo nein ;;
+  esac
+}
+
 if [ -z "$A" ] || [ -z "$A_PASS" ] || [ -z "$B" ] || [ -z "$B_PASS" ]; then
   echo "ARASUL_A, ARASUL_A_PASSWORT, ARASUL_B, ARASUL_B_PASSWORT fehlen (vorhandene Probekonten)."
   exit 1
@@ -415,7 +426,7 @@ if starten 'flow=beleg&datum=&unsicher='; then
   warte_status wartend
   pruefe 'beleg, autonom, Datum fehlt: der Lauf haelt an' "$(ja_wenn "$STATUS" wartend)" "lauf=$LAUF status=${STATUS:-—}"
   warte_auf_anfrage "$TOK_B"
-  pruefe 'Grund: "Erkennung unsicher: Feld datum"' "$(ja_wenn "$TITEL" 'Erkennung unsicher: Feld datum')" "titel=${TITEL:-—}"
+  pruefe 'Lauftitel, dann Grund: "… – Erkennung unsicher: Feld datum"' "$(mit_lauftitel "$TITEL" 'Erkennung unsicher: Feld datum')" "titel=${TITEL:-—}"
   bilder erkennung
   ruf "$TOK_B" POST "/api/freigabe-anfragen/$ANFRAGE/bestaetigen" '{}'
   pruefe "$B bestaetigt, der Lauf geht weiter" "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
@@ -427,7 +438,7 @@ fi
 if starten 'flow=beleg&datum=01.10.2026&unsicher=%22betrag%22'; then
   warte_status wartend
   warte_auf_anfrage "$TOK_B"
-  pruefe 'Ein als unsicher gemeldetes Feld: "Erkennung unsicher: Feld betrag"' "$(ja_wenn "$TITEL" 'Erkennung unsicher: Feld betrag')" "titel=${TITEL:-—}"
+  pruefe 'Ein als unsicher gemeldetes Feld: "… – Erkennung unsicher: Feld betrag"' "$(mit_lauftitel "$TITEL" 'Erkennung unsicher: Feld betrag')" "titel=${TITEL:-—}"
   ruf "$TOK_B" POST "/api/freigabe-anfragen/$ANFRAGE/bestaetigen" '{}'
   warte_status fertig "$LAUF_GEDULD"
 fi
@@ -436,12 +447,21 @@ if starten 'flow=beleg&datum=01.10.2026&unsicher='; then
   pruefe 'Alles erkannt, autonom: fertig ohne Freigabe' "$(ja_wenn "$STATUS" fertig)" "status=${STATUS:-—}"
 fi
 
-# --- 7. Erkennung und Ergebnis bestaetigen: beide Freigaben nacheinander ----------
+# --- 7. Erkennung und Ergebnis bestaetigen: genau EINE Pruefung (Kontrakt 14) -----
+# Seit #929 ist die Freigabe der Erkennung DIE Bestaetigung: sie kommt immer,
+# auch wenn alles sicher erkannt ist, traegt die Felder, und am Ende kommt keine
+# zweite. Bis dahin kam hier nur eine Freigabe am Ende, ohne Felder.
 art_setzen beleg ergebnis_bestaetigen
 if starten 'flow=beleg&datum=01.10.2026&unsicher='; then
   warte_status wartend
   warte_auf_anfrage "$TOK_B"
-  pruefe 'beleg, bestaetigen, alles erkannt: nur die Freigabe am Ende' "$(ja_wenn "$TITEL" 'Ergebnis bestätigen: beleg')" "titel=${TITEL:-—}"
+  pruefe 'beleg, bestaetigen, alles erkannt: die eine Pruefung "… – Ergebnis bestätigen: beleg"' "$(mit_lauftitel "$TITEL" 'Ergebnis bestätigen: beleg')" "titel=${TITEL:-—}"
+  ruf "$TOK_B" GET /api/freigabe-anfragen
+  pruefe 'und sie traegt die erkannten Felder' \
+    "$(rumpf | anfrage_zu_lauf "$LAUF" | python3 -c 'import sys,json
+try: f = json.load(sys.stdin).get("felder")
+except Exception: f = None
+print("ja" if f else "nein")' 2>/dev/null)"
   ruf "$TOK_B" POST "/api/freigabe-anfragen/$ANFRAGE/bestaetigen" '{}'
   warte_status fertig "$LAUF_GEDULD"
   pruefe 'beleg endet nach der Bestaetigung fertig' "$(ja_wenn "$STATUS" fertig)" "status=${STATUS:-—}"
