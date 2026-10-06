@@ -278,7 +278,7 @@ pruefe 'Ein offenes Modell ausserhalb der Kurzliste gilt als ladbar (nur Vorprue
 sitzungs_ruf GET /api/models/catalog
 NACHHER=$(rumpf | ids_aus models)
 pruefe 'und die Vorpruefung hat es nicht in den Katalog gelegt' \
-  "$(printf '%s\n' "$NACHHER" | grep -qxF 'tinyllama:1.1b' && ! printf '%s\n' "$KATALOG" | grep -qxF 'tinyllama:1.1b' && echo nein || echo ja)"
+  "$(grep -qxF 'tinyllama:1.1b' <<<"$NACHHER" && ! grep -qxF 'tinyllama:1.1b' <<<"$KATALOG" && echo nein || echo ja)"
 
 sitzungs_ruf POST /api/models/katalog '{"quelle":"llama3.2:3b"}'
 pruefe 'Den Weg „Modell ueber einen Link hinzufuegen" gibt es nicht mehr' \

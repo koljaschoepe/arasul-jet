@@ -172,7 +172,7 @@ pruefe 'der Container läuft' "$(ja_wenn "$(feld data.laeuft <"$ARBEIT/antwort")
   "container=$(feld data.container <"$ARBEIT/antwort") neustarts=$(feld data.neustarts <"$ARBEIT/antwort")"
 ERSTE=$(python3 -c 'import sys,json; print(json.load(open(sys.argv[1]))["data"]["zeilen"][0][:30])' "$ARBEIT/antwort" 2>/dev/null)
 pruefe 'jede Zeile beginnt mit einem Zeitstempel' \
-  "$(printf '%s' "$ERSTE" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' && echo ja || echo nein)" "$ERSTE"
+  "$(grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' <<<"$ERSTE" && echo ja || echo nein)" "$ERSTE"
 
 # --- GEHEIM ------------------------------------------------------------------
 pruefe 'der eigene Wert aus backend.umgebung ist geschwärzt' \
@@ -220,7 +220,7 @@ PY
 )
   IFS='|' read -r GEPRUEFT IM_ROH GELECKT <<<"$LECK"
   pruefe 'das rohe Protokoll am Gerät enthält die Geheimnisse (sonst misst die Prüfung nichts)' \
-    "$(printf '%s' "$IM_ROH" | grep -q ARASUL_API_SCHLUESSEL && printf '%s' "$IM_ROH" | grep -q ARASUL_DB_URL && echo ja || echo nein)" \
+    "$(grep -q ARASUL_API_SCHLUESSEL <<<"$IM_ROH" && grep -q ARASUL_DB_URL <<<"$IM_ROH" && echo ja || echo nein)" \
     "im Rohtext: ${IM_ROH:-keines}"
   pruefe 'kein Wert aus der echten Umgebung (docker inspect) steht in der Antwort' \
     "$([ -n "$GEPRUEFT" ] && [ "$GEPRUEFT" -gt 0 ] && [ -z "$GELECKT" ] && echo ja || echo nein)" \
