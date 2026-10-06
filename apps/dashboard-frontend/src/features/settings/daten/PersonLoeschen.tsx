@@ -24,8 +24,40 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { fehlertext } from '@/utils/fehlertext';
-import { anzeigeName, useBenutzer, useBenutzerLoeschen } from '../personen/usePersonen';
+import {
+  anzeigeName,
+  useBenutzer,
+  useBenutzerLoeschen,
+  type LoeschSumme,
+} from '../personen/usePersonen';
 import { personBezeichnung } from './Auskunft';
+
+/**
+ * Die Meldung nach dem Löschen. Schlüssel nennt sie nur, wenn es welche gab:
+ * die der Apps bleiben und gehören jetzt dem Admin, die eigenen der Person
+ * (etwa der des Kits) sind weg, und wer mit ihnen Apps einspielte, braucht
+ * einen neuen.
+ */
+export function loeschMeldung(name: string, summe: LoeschSumme | undefined): string {
+  const teile = [`${name} gelöscht`];
+  const uebernommen = summe?.api_keys_uebernommen ?? 0;
+  const eigene = summe?.api_keys ?? 0;
+  if (uebernommen > 0) {
+    teile.push(
+      uebernommen === 1
+        ? 'Der Schlüssel einer App gehört jetzt Ihnen, die App läuft weiter'
+        : `${uebernommen} Schlüssel von Apps gehören jetzt Ihnen, die Apps laufen weiter`
+    );
+  }
+  if (eigene > 0) {
+    teile.push(
+      `${eigene === 1 ? 'Ein eigener Schlüssel' : `${eigene} eigene Schlüssel`} der Person ${
+        eigene === 1 ? 'ist' : 'sind'
+      } mit gelöscht; wer damit Apps einspielte, braucht einen neuen`
+    );
+  }
+  return teile.length === 1 ? `${name} gelöscht` : `${teile.join('. ')}.`;
+}
 
 export function PersonLoeschen() {
   const { user } = useAuth();
@@ -49,8 +81,9 @@ export function PersonLoeschen() {
   const ausfuehren = () => {
     if (!person || !stimmt) return;
     loeschen.mutate(person.id, {
-      onSuccess: () => {
-        toast.success(`${name} gelöscht`);
+      onSuccess: antwort => {
+        const meldung = loeschMeldung(name, antwort?.summary);
+        toast.success(meldung, meldung === `${name} gelöscht` ? undefined : 10000);
         setGewaehlt(null);
         schliessen();
       },
@@ -62,7 +95,7 @@ export function PersonLoeschen() {
     <Feldgruppe
       titel="Person löschen"
       symbol={<Trash2 className="text-destructive" />}
-      beschreibung="Das Konto, die Läufe, die Schlüssel und die Freigaben der Person werden gelöscht, und das ist nicht umkehrbar. Protokolle bleiben ohne Namen stehen. Wer nur aussperren will, sperrt unter Personen."
+      beschreibung="Das Konto, die Läufe, die eigenen Schlüssel und die Freigaben der Person werden gelöscht, und das ist nicht umkehrbar. Die Schlüssel der Apps, die sie eingespielt hat, bleiben und gehören danach Ihnen. Protokolle bleiben ohne Namen stehen. Wer nur aussperren will, sperrt unter Personen."
     >
       <div className="flex flex-col gap-3" data-testid="person-loeschen">
         <div className="flex flex-col gap-1.5">

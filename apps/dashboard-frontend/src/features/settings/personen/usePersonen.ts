@@ -171,6 +171,16 @@ export function useAktivSetzen() {
 }
 
 /**
+ * Was eine Löschung mitnahm, so weit die Oberfläche es nennt: die eigenen
+ * Schlüssel der Person (`api_keys`) gingen mit, die Schlüssel der Apps, die sie
+ * eingespielt hat (`api_keys_uebernommen`), gehören jetzt dem, der löscht.
+ */
+export interface LoeschSumme {
+  api_keys?: number;
+  api_keys_uebernommen?: number;
+}
+
+/**
  * Löschen.
  *
  * Entwertet auch die Freigaben-Abfrage: `app_members` hängt am Benutzer, und
@@ -182,7 +192,9 @@ export function useBenutzerLoeschen() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: BenutzerId) => {
-      return api.del<{ deleted: boolean; zugangBleibt: boolean }>(`/benutzer/${id}`);
+      return api.del<{ deleted: boolean; zugangBleibt: boolean; summary?: LoeschSumme }>(
+        `/benutzer/${id}`
+      );
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: BENUTZER_KEY });

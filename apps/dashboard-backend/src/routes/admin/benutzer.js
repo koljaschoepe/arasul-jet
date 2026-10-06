@@ -229,6 +229,7 @@ router.delete(
       userId: ziel.id,
       username: ziel.username,
       role: ziel.role,
+      uebernehmer: req.user.id,
     });
     logSecurityEvent({
       userId: req.user.id,

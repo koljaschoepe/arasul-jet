@@ -370,9 +370,20 @@ async function setzeAktiv({ userId, aktiv }) {
  * Mit einem Zugang je Geraet war er sonst immer der letzte, und Art. 17 lief
  * grundsaetzlich in einen 403.
  *
+ * DIE SCHLUESSEL DER APPS BLEIBEN (Befund 18 der zweiten Pruefung,
+ * 05.10.2026). Wer eine App einspielt, legt ihre Schluessel an (`created_by`).
+ * Bis zum 07.10.2026 gingen sie mit der Person, und die App verlor mitten im
+ * Betrieb den Zugang zum Geraet, bis jemand sie neu einspielte. Ein Geraet
+ * muss eine Uebergabe ueberleben: die Schluessel gehoeren der App, nicht dem
+ * Menschen. Sie bleiben und gehen auf `uebernehmer` ueber (den Admin, der
+ * loescht), sonst auf den aeltesten aktiven Admin. Die EIGENEN Schluessel der
+ * Person (ohne App, etwa der des Kits) gehen mit; die Zusammenfassung nennt
+ * beide Zahlen, damit der Admin weiss, dass ein Kit einen neuen braucht.
+ *
+ * @param {{userId: number, username: string, role: string, uebernehmer?: number|null}} p
  * @returns {Promise<{summary: object, zugangBleibt: boolean}>}
  */
-async function loescheBenutzer({ userId, username, role }) {
+async function loescheBenutzer({ userId, username, role, uebernehmer = null }) {
   const letzterAdmin = await istLetzterAktiverAdmin(role);
 
   logger.warn(`[benutzer-löschung] ${username} (id=${userId}) wird gelöscht`);
@@ -410,10 +421,41 @@ async function loescheBenutzer({ userId, username, role }) {
     //    163 und 165 gefallen.
     await del('flow_runs', `DELETE FROM flow_runs WHERE user_id = $1`, [userId]);
 
-    // 2) Seine API-Schluessel. Der FK stuende sonst auf NULL (037), und ein
-    //    Schluessel ohne Eigentuemer oeffnete die externe API weiter, obwohl
-    //    der Mensch dahinter weg ist.
-    await del('api_keys', `DELETE FROM api_keys WHERE created_by = $1`, [userId]);
+    // 2) Seine eigenen API-Schluessel (ohne App). Der FK stuende sonst auf
+    //    NULL (037), und ein Schluessel ohne Eigentuemer oeffnete die externe
+    //    API weiter, obwohl der Mensch dahinter weg ist.
+    await del('api_keys', `DELETE FROM api_keys WHERE created_by = $1 AND app_id IS NULL`, [
+      userId,
+    ]);
+
+    // 2a) Die Schluessel der Apps, die er eingespielt hat, bleiben und gehen
+    //     auf einen aktiven Admin ueber (siehe oben). Bleibt seine Zeile
+    //     stehen (letzter Admin), bleiben sie ohnehin bei ihr.
+    if (!letzterAdmin) {
+      const neu =
+        uebernehmer ??
+        (
+          await client.query(
+            `SELECT id FROM admin_users
+              WHERE role = 'admin' AND is_active = TRUE AND id <> $1
+              ORDER BY id ASC LIMIT 1`,
+            [userId]
+          )
+        ).rows[0]?.id ??
+        null;
+      const uebernommen = await client.query(
+        `UPDATE api_keys SET created_by = $2 WHERE created_by = $1 AND app_id IS NOT NULL`,
+        [userId, neu]
+      );
+      counts.api_keys_uebernommen = uebernommen.rowCount || 0;
+      if (counts.api_keys_uebernommen > 0 && neu === null) {
+        logger.warn(
+          `[benutzer-löschung] ${counts.api_keys_uebernommen} App-Schlüssel ohne aktiven Admin, der sie übernimmt`
+        );
+      }
+    } else {
+      counts.api_keys_uebernommen = 0;
+    }
 
     // 3) Seine Freigaben (Phase C2). `app_members.user_id` haengt per
     //    ON DELETE CASCADE an der Zeile in admin_users, waere also auch ohne
