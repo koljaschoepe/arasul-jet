@@ -354,8 +354,10 @@ def _im_kindprozess(pdf_bytes: bytes, max_pages: int, max_edge: int, speicher: i
         rohr.send(('ungueltig', str(e)))
     except Exception as e:  # noqa: BLE001 - der Elternprozess meldet es als 500
         # MuPDF meldet fehlenden Speicher als eigenen Fehler ("malloc (...)
-        # failed"), nicht als MemoryError. Am Orin gemessen am 06.10.2026.
-        if 'malloc' in str(e) or 'memory' in str(e).lower():
+        # failed", am Orin gemessen am 06.10.2026; "calloc (...) failed" in
+        # der CI), nicht als MemoryError.
+        text = str(e)
+        if 'alloc (' in text or 'memory' in text.lower():
             rohr.send(('zu_aufwendig', ('zu_gross', 'PDF braucht zum Rendern zu viel Speicher')))
         else:
             rohr.send(('fehler', str(e)))
