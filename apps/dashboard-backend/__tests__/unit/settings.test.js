@@ -54,7 +54,6 @@ jest.mock('axios');
 // Mock services that have side effects at module load time
 jest.mock('../../src/services/core/eventListenerService', () => ({
   getStatus: jest.fn(),
-  getRecentEvents: jest.fn().mockResolvedValue([]),
   sendTestNotification: jest.fn(),
 }));
 

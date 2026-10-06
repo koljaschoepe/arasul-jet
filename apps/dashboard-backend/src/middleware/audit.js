@@ -9,11 +9,7 @@ const logger = require('../utils/logger');
 // Endpoints to exclude from audit logging (high-frequency, low-value)
 const EXCLUDED_ENDPOINTS = [
   '/api/health',
-  '/api/metrics/live',
-  '/api/metrics/live-stream',
   '/api/models/status', // Polled every few seconds by chat UI
-  '/api/models/loaded', // Polled frequently by chat top bar
-  '/api/store/info', // Cached system info
   '/api/system/status', // Health monitoring
   '/api/chats', // Chat list polling (GET only excluded below)
 ];
@@ -175,8 +171,7 @@ function createAuditMiddleware() {
     // Skip GET requests to polling endpoints (only mutations are interesting)
     if (
       req.method === 'GET' &&
-      (req.path.startsWith('/api/store/recommendations') ||
-        req.path.startsWith('/api/models/catalog') ||
+      (req.path.startsWith('/api/models/catalog') ||
         req.path.startsWith('/api/models/installed') ||
         req.path.startsWith('/api/models/default'))
     ) {

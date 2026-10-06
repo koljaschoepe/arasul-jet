@@ -45,7 +45,6 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const http = require('http');
 const crypto = require('crypto');
-const WebSocket = require('ws');
 const { monitorEventLoopDelay } = require('perf_hooks');
 
 const helmet = require('helmet');
@@ -267,18 +266,12 @@ app.use(notFoundHandler);
 // Global error handler (must be last middleware)
 app.use(errorHandler);
 
-// HIGH-001 FIX: WebSocket server for live metrics streaming
-// Use noServer to keep upgrade handling explicit per path. Bis Phase B4
-// (26.08.2026) lief hier ein zweiter Server fuer das Sandbox-Terminal.
-const wss = new WebSocket.Server({ noServer: true });
-
 const axios = require('axios');
 // TIMEOUT-002: Global safety-net timeout (prevents hanging requests if per-call timeout is missing)
 if (axios.defaults) {
   axios.defaults.timeout = 30000; // 30s
 }
 const logger = require('./utils/logger');
-const services = require('./config/services');
 const llmJobService = require('./services/llm/llmJobService');
 const llmQueueService = require('./services/llm/llmQueueService');
 const modelService = require('./services/llm/modelService');
@@ -288,72 +281,6 @@ const eventListenerService = require('./services/core/eventListenerService');
 const { cacheService } = require('./services/core/cacheService');
 const { bootstrap } = require('./bootstrap');
 const pool = require('./database');
-
-wss.on('connection', ws => {
-  logger.info('WebSocket client connected to /api/metrics/live-stream');
-
-  let intervalId = null;
-
-  // Register client for Docker/system event broadcasting
-  eventListenerService.registerWsClient(ws);
-
-  // WS-001: Heartbeat to detect dead connections
-  ws.isAlive = true;
-  ws.on('pong', () => {
-    ws.isAlive = true;
-  });
-
-  const sendMetrics = async () => {
-    try {
-      // Get live metrics from metrics collector
-      const response = await axios.get(services.metrics.metricsEndpoint, { timeout: 2000 });
-
-      // WS-BACKPRESSURE: Skip send if client can't keep up (>64KB buffered)
-      if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) {
-        ws.send(
-          JSON.stringify({
-            ...response.data,
-            timestamp: new Date().toISOString(),
-          })
-        );
-      } else if (ws.bufferedAmount >= 65536) {
-        logger.debug('WebSocket backpressure: skipping metrics send');
-      }
-    } catch (error) {
-      logger.error(`Error sending metrics via WebSocket: ${error.message}`);
-
-      // Fallback: send error state
-      if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) {
-        ws.send(
-          JSON.stringify({
-            error: 'Metrics temporarily unavailable',
-            timestamp: new Date().toISOString(),
-          })
-        );
-      }
-    }
-  };
-
-  // Send initial metrics immediately
-  sendMetrics();
-
-  // Then send every 5 seconds (per CLAUDE.md specification)
-  intervalId = setInterval(sendMetrics, 5000);
-
-  ws.on('close', () => {
-    logger.info('WebSocket client disconnected from /api/metrics/live-stream');
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
-  });
-
-  ws.on('error', error => {
-    logger.error(`WebSocket error: ${error.message}`);
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
-  });
-});
 
 /**
  * Prozessweite Vorkehrungen gehören dem laufenden Server, nicht jeder Datei,
@@ -366,31 +293,12 @@ wss.on('connection', ws => {
  */
 const alsServerGestartet = require.main === module;
 
-if (alsServerGestartet) {
-  // WS-001: Heartbeat interval to detect and clean up dead metrics WS connections
-  // LEAK-001: Reduced from 30s to 15s for faster zombie detection
-  const metricsHeartbeat = setInterval(() => {
-    wss.clients.forEach(ws => {
-      if (ws.isAlive === false) {
-        logger.debug('Terminating dead metrics WebSocket connection');
-        return ws.terminate();
-      }
-      ws.isAlive = false;
-      ws.ping();
-    });
-  }, 15000);
-
-  wss.on('close', () => {
-    clearInterval(metricsHeartbeat);
-  });
-}
-
 // LEAK-001: Track all intervals/timeouts for graceful shutdown
 const globalIntervals = [];
 const globalTimeouts = [];
 
 // Export app and server for testing
-module.exports = { app, server, wss };
+module.exports = { app, server };
 
 // ROBUST-001: Uncaught exception and unhandled rejection handlers
 // Nur der laufende Server darf den Prozess beenden. Unter Jest wuerde dieser
@@ -444,24 +352,13 @@ async function gracefulShutdown(signal) {
     logger.info('HTTP server closed');
   });
 
-  // 2. Close WebSocket connections
-  try {
-    wss.clients.forEach(client => {
-      client.close(1001, 'Server shutting down');
-    });
-    wss.close();
-    logger.info('WebSocket server closed');
-  } catch (err) {
-    logger.warn(`WebSocket cleanup error: ${err.message}`);
-  }
-
-  // 3. Clear all tracked intervals and timeouts (LEAK-001)
+  // 2. Clear all tracked intervals and timeouts (LEAK-001)
   globalIntervals.forEach(id => clearInterval(id));
   globalTimeouts.forEach(id => clearTimeout(id));
   globalIntervals.length = 0;
   globalTimeouts.length = 0;
 
-  // 4. Stop services
+  // 3. Stop services
   try {
     eventListenerService.stop();
   } catch (e) {
@@ -489,7 +386,7 @@ async function gracefulShutdown(signal) {
   } catch (e) {
     /* ignore */
   }
-  // 5. Close database pool
+  // 4. Close database pool
   try {
     await pool.close();
     logger.info('Database pool closed');
@@ -512,7 +409,6 @@ if (alsServerGestartet) {
 if (alsServerGestartet) {
   server.listen(PORT, '0.0.0.0', async () => {
     logger.info(`ARASUL DASHBOARD BACKEND - Port ${PORT}`);
-    logger.info(`WebSocket server ready at ws://0.0.0.0:${PORT}/api/metrics/live-stream`);
 
     // Bootstrap: run migrations + ensure admin user (critical for fresh deploys)
     try {
@@ -520,61 +416,6 @@ if (alsServerGestartet) {
     } catch (err) {
       logger.error(`Bootstrap failed: ${err.message}`);
     }
-
-    // Central upgrade handler - routes WebSocket connections by path
-    const MAX_WS_CONNECTIONS = 100;
-    server.on('upgrade', (request, socket, head) => {
-      const { pathname } = new URL(request.url, `http://${request.headers.host}`);
-
-      // Connection limit guard — prevent resource exhaustion
-      const totalConnections = wss.clients.size;
-      if (totalConnections >= MAX_WS_CONNECTIONS) {
-        logger.warn(
-          `WebSocket connection limit reached (${totalConnections}/${MAX_WS_CONNECTIONS}), rejecting upgrade`
-        );
-        socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n');
-        socket.destroy();
-        return;
-      }
-
-      if (pathname === '/api/metrics/live-stream') {
-        // SEC (P8-1): Verify JWT before allowing WebSocket upgrade. The token is
-        // NOT read from the query string — that leaks the JWT into Traefik access
-        // logs. Authenticate from the httpOnly session cookie or Bearer header only.
-        const { verifyToken } = require('./utils/jwt');
-        const authHeader = request.headers['authorization'];
-        const cookieHeader = request.headers['cookie'];
-        let token = null;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          token = authHeader.slice(7);
-        }
-        if (!token && cookieHeader) {
-          const match = cookieHeader.match(/arasul_session=([^;]+)/);
-          if (match) {
-            token = match[1];
-          }
-        }
-        if (!token) {
-          logger.warn('WebSocket upgrade rejected: no auth token');
-          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-          socket.destroy();
-          return;
-        }
-        verifyToken(token)
-          .then(() => {
-            wss.handleUpgrade(request, socket, head, ws => {
-              wss.emit('connection', ws, request);
-            });
-          })
-          .catch(err => {
-            logger.warn(`WebSocket upgrade rejected: ${err.message}`);
-            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-            socket.destroy();
-          });
-      } else {
-        socket.destroy();
-      }
-    });
 
     // Initialize Ollama Readiness Service (handles waiting for Ollama + periodic sync)
     try {
@@ -718,21 +559,10 @@ if (alsServerGestartet) {
     globalTimeouts.push(dbCleanupTimeout);
     globalIntervals.push(setInterval(runDbCleanup, DB_CLEANUP_INTERVAL));
 
-    // Initialize Alert Engine with WebSocket broadcast support
+    // Alert-Engine: prueft die Schwellen und schreibt `alert_history`, das
+    // `GET /api/ops/overview` liest.
     try {
-      // Create broadcast function for alert notifications
-      const broadcastAlert = data => {
-        wss.clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(data));
-          }
-        });
-      };
-
-      await alertEngine.initialize({
-        broadcast: broadcastAlert,
-        checkIntervalMs: 30000, // Check every 30 seconds
-      });
+      await alertEngine.initialize({ checkIntervalMs: 30000 });
       logger.info('Alert Engine initialized successfully');
     } catch (err) {
       logger.error(`Failed to initialize Alert Engine: ${err.message}`);

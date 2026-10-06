@@ -90,11 +90,6 @@ const llmLimiter = createLimiter(
   'LLM request rate limit exceeded, please slow down'
 );
 
-/** Metrics API rate limiter - 20 requests per second per IP */
-const metricsLimiter = createLimiter('Metrics', 1000, 20, 'Metrics request rate limit exceeded', {
-  skipSuccessfulRequests: true,
-});
-
 /** Webhook rate limiter (self-healing agent) - 100 requests per minute */
 const webhookLimiter = createLimiter('Webhook', 60 * 1000, 100, 'Webhook rate limit exceeded');
 
@@ -240,7 +235,6 @@ module.exports = {
   loginLimiter,
   apiLimiter,
   llmLimiter,
-  metricsLimiter,
   webhookLimiter,
   generalAuthLimiter,
   probeLimiter,

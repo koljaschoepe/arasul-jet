@@ -3,11 +3,11 @@
  *
  * Central route registry for the entire backend.
  * Routes are organized into subdirectories by domain:
- *   system/    - Services, metrics, logs, database
- *   admin/     - Settings, audit, updates, self-healing
- *   ai/        - Models, embeddings
- *   store/     - Apps am Geraet, Modellkatalog
- *   external/  - External API, events, alerts
+ *   system/    - System, services, tailscale
+ *   admin/     - Settings, updates, self-healing
+ *   ai/        - Models
+ *   store/     - Apps am Geraet
+ *   external/  - External API
  *
  * Core routes (auth, docs) stay at the top level. Der Oberflaechen-Chat
  * (/chats, /llm) ist mit Phase B6 (26.08.2026) gefallen; Sprachmodell-Auftraege
@@ -19,7 +19,7 @@ const express = require('express');
 const router = express.Router();
 
 // Rate limiters
-const { metricsLimiter, llmLimiter, tailscaleLimiter } = require('../middleware/rateLimit');
+const { tailscaleLimiter } = require('../middleware/rateLimit');
 
 // --- Discovery (public, no auth) ---
 // GET /api/_meta — API surface discovery for clients
@@ -29,14 +29,10 @@ const API_ROUTE_GROUPS = [
   { prefix: '/auth', group: 'core' },
   { prefix: '/system', group: 'system' },
   { prefix: '/services', group: 'system' },
-  { prefix: '/metrics', group: 'system' },
-  { prefix: '/logs', group: 'system' },
-  { prefix: '/database', group: 'system' },
   { prefix: '/tailscale', group: 'system' },
   { prefix: '/benutzer', group: 'admin' },
   { prefix: '/freigaben', group: 'admin' },
   { prefix: '/settings', group: 'admin' },
-  { prefix: '/audit', group: 'admin' },
   { prefix: '/update', group: 'admin' },
   { prefix: '/self-healing', group: 'admin' },
   { prefix: '/license', group: 'admin' },
@@ -47,7 +43,6 @@ const API_ROUTE_GROUPS = [
   { prefix: '/werksreset', group: 'admin' },
   { prefix: '/laeufe', group: 'admin' },
   { prefix: '/models', group: 'ai' },
-  { prefix: '/embeddings', group: 'ai' },
   { prefix: '/flows', group: 'ai' },
   { prefix: '/freigabe-anfragen', group: 'ai' },
   { prefix: '/darstellung', group: 'core' },
@@ -55,10 +50,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/ausweise', group: 'core' },
   { prefix: '/firmenordner', group: 'core' },
   { prefix: '/apps', group: 'store' },
-  { prefix: '/store', group: 'store' },
   { prefix: '/v1/external', group: 'external' },
-  { prefix: '/events', group: 'external' },
-  { prefix: '/alerts', group: 'external' },
   { prefix: '/docs', group: 'core', description: 'Static API documentation' },
 ];
 
@@ -106,16 +98,12 @@ router.use('/firmenordner', require('./firmenordner'));
 // --- System ---
 router.use('/system', require('./system/system'));
 router.use('/services', require('./system/services'));
-router.use('/metrics', metricsLimiter, require('./system/metrics'));
-router.use('/logs', require('./system/logs'));
-router.use('/database', require('./system/database'));
 router.use('/tailscale', tailscaleLimiter, require('./system/tailscale'));
 
 // --- Admin ---
 router.use('/benutzer', require('./admin/benutzer'));
 router.use('/freigaben', require('./admin/freigaben'));
 router.use('/settings', require('./admin/settings'));
-router.use('/audit', require('./admin/audit'));
 router.use('/update', require('./admin/update'));
 router.use('/self-healing', require('./admin/selfhealing'));
 router.use('/license', require('./admin/license'));
@@ -130,7 +118,6 @@ router.use('/laeufe', require('./admin/laeufe'));
 
 // --- AI ---
 router.use('/models', require('./ai/models'));
-router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
 router.use('/flows', require('./flows'));
 // Die Freigaben, die ein Flow anfordert (Phase C7). Bei den Flows und nicht
 // bei den Admin-Wegen: hier entscheidet ein MITARBEITER ueber einen Lauf,
@@ -140,7 +127,6 @@ router.use('/freigabe-anfragen', require('./freigabeAnfragen'));
 
 // --- Store ---
 router.use('/apps', require('./store/apps'));
-router.use('/store', require('./store/store'));
 
 // --- External ---
 // Zwei Router auf demselben Praefix, und das ist Absicht: `deploy` ist der Weg
@@ -150,7 +136,5 @@ router.use('/store', require('./store/store'));
 // einer Datei zu haben, deren Rechte sich gerade NICHT decken.
 router.use('/v1/external', require('./external/deploy'));
 router.use('/v1/external', require('./external/externalApi'));
-router.use('/events', require('./external/events'));
-router.use('/alerts', require('./external/alerts'));
 
 module.exports = router;

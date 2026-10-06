@@ -41,14 +41,6 @@ class EventListenerService {
     this.isListening = false;
     this.startTime = Date.now();
     this.bootDetected = false;
-    this.eventCounts = {
-      docker: 0,
-      boot: 0,
-      selfHealing: 0,
-    };
-
-    // WebSocket clients for broadcasting
-    this.wsClients = new Set();
 
     // WS-003: Reconnect backoff state
     this.reconnectAttempts = 0;
@@ -188,8 +180,6 @@ class EventListenerService {
         return;
       }
 
-      this.eventCounts.docker++;
-
       // Determine severity
       let severity = STATUS_SEVERITY[action] || 'info';
 
@@ -230,16 +220,6 @@ class EventListenerService {
           new_status: statusChange?.new_status,
           timestamp: new Date().toISOString(),
         },
-      });
-
-      // Broadcast to WebSocket clients
-      this.broadcastEvent({
-        type: 'docker_event',
-        service: containerName,
-        action,
-        severity,
-        title,
-        timestamp: new Date().toISOString(),
       });
 
       logger.info(`Docker event processed: ${containerName} ${action}`);
@@ -423,7 +403,6 @@ class EventListenerService {
   async recordSystemBoot() {
     try {
       this.bootDetected = true;
-      this.eventCounts.boot++;
 
       // Get current services status
       const servicesStatus = await this.getServicesStatusSnapshot();
@@ -451,13 +430,6 @@ class EventListenerService {
           services_count: Object.keys(servicesStatus).length,
           timestamp: new Date().toISOString(),
         },
-      });
-
-      // Broadcast to WebSocket clients
-      this.broadcastEvent({
-        type: 'system_boot',
-        boot_id: bootId,
-        timestamp: new Date().toISOString(),
       });
 
       return { success: true, bootId };
@@ -491,157 +463,6 @@ class EventListenerService {
     } catch (error) {
       logger.error(`Failed to get services snapshot: ${error.message}`);
       return {};
-    }
-  }
-
-  /**
-   * Handle self-healing event (called from self-healing-agent webhook)
-   */
-  async handleSelfHealingEvent(eventData) {
-    try {
-      this.eventCounts.selfHealing++;
-
-      const { action_type, service_name, reason, success, duration_ms, error_message } = eventData;
-
-      const severity = success ? 'info' : 'error';
-      const category = success ? 'recovery' : 'failure';
-
-      const title = success
-        ? `Self-Healing: ${this.formatActionType(action_type)}`
-        : `Self-Healing fehlgeschlagen: ${this.formatActionType(action_type)}`;
-
-      const serviceFriendlyName = SERVICE_NAMES[service_name] || service_name;
-
-      const message = success
-        ? `Self-Healing hat erfolgreich "${this.formatActionType(action_type)}" auf ${serviceFriendlyName} ausgeführt.`
-        : `Self-Healing konnte "${this.formatActionType(action_type)}" auf ${serviceFriendlyName} nicht ausführen.`;
-
-      await notificationService.queueNotification({
-        event_type: 'self_healing',
-        event_category: category,
-        source_service: service_name,
-        severity,
-        title,
-        message,
-        metadata: {
-          action_type,
-          service_name,
-          reason,
-          success,
-          duration_ms,
-          error: error_message,
-        },
-      });
-
-      // Broadcast to WebSocket clients
-      this.broadcastEvent({
-        type: 'self_healing',
-        action: action_type,
-        service: service_name,
-        success,
-        timestamp: new Date().toISOString(),
-      });
-
-      logger.info(
-        `Self-healing event processed: ${action_type} on ${service_name} - ${success ? 'success' : 'failed'}`
-      );
-
-      return { success: true };
-    } catch (error) {
-      logger.error(`Failed to handle self-healing event: ${error.message}`);
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Format action type for display
-   */
-  formatActionType(actionType) {
-    const actionMap = {
-      service_restart: 'Service-Neustart',
-      llm_cache_clear: 'LLM-Cache geleert',
-      gpu_session_reset: 'GPU-Session zurückgesetzt',
-      gpu_throttle: 'GPU gedrosselt',
-      gpu_reset: 'GPU zurückgesetzt',
-      disk_cleanup: 'Festplatten-Bereinigung',
-      db_vacuum: 'Datenbank-Optimierung',
-    };
-    return actionMap[actionType] || actionType;
-  }
-
-  /**
-   * Register WebSocket client for event broadcasting
-   */
-  registerWsClient(ws) {
-    this.wsClients.add(ws);
-    logger.debug(`WebSocket client registered (total: ${this.wsClients.size})`);
-
-    ws.on('close', () => {
-      this.wsClients.delete(ws);
-      logger.debug(`WebSocket client unregistered (total: ${this.wsClients.size})`);
-    });
-  }
-
-  /**
-   * Broadcast event to all WebSocket clients
-   * WS-003: Prune dead clients during broadcast
-   */
-  broadcastEvent(event) {
-    const message = JSON.stringify(event);
-
-    for (const client of this.wsClients) {
-      try {
-        if (client.readyState === 1) {
-          // WebSocket.OPEN
-          client.send(message);
-        } else {
-          this.wsClients.delete(client);
-        }
-      } catch (error) {
-        logger.error(`Failed to broadcast to client: ${error.message}`);
-        this.wsClients.delete(client);
-      }
-    }
-  }
-
-  /**
-   * Get service statistics
-   */
-  getStats() {
-    return {
-      isListening: this.isListening,
-      startTime: new Date(this.startTime).toISOString(),
-      uptimeSeconds: Math.floor((Date.now() - this.startTime) / 1000),
-      eventCounts: this.eventCounts,
-      wsClients: this.wsClients.size,
-      bootDetected: this.bootDetected,
-    };
-  }
-
-  /**
-   * Get recent events from database
-   */
-  async getRecentEvents(limit = 50, eventType = null) {
-    try {
-      let query = `
-                SELECT * FROM notification_events
-                WHERE created_at > NOW() - INTERVAL '24 hours'
-            `;
-      const params = [];
-
-      if (eventType) {
-        query += ` AND event_type = $1`;
-        params.push(eventType);
-      }
-
-      query += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
-      params.push(limit);
-
-      const result = await db.query(query, params);
-      return result.rows;
-    } catch (error) {
-      logger.error(`Failed to get recent events: ${error.message}`);
-      return [];
     }
   }
 }
