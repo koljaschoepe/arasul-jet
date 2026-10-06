@@ -601,6 +601,12 @@ const ENDPUNKTE = Object.freeze(
       was: 'Was das Gerät über diese App weiß, beide Stände',
     },
     {
+      verb: 'GET',
+      pfad: '/api/v1/external/apps/:id/protokoll?stand=<test|live>&zeilen=<1..1000>',
+      bereich: 'app:deploy',
+      was: 'Die letzten Zeilen des Containers einer App (Vorgabe: Teststand, 200 Zeilen, höchstens 1000), mit Zeitstempel, dazu ob er läuft, Neustarts und Rückgabewert. Jeder Wert aus seiner Umgebung ab 8 Zeichen steht als `[geschwärzt]` da; `geschwaerzt` zählt die Stellen. 404, wenn es den Container nicht gibt (App ohne `backend`, Bau gescheitert)',
+    },
+    {
       verb: 'DELETE',
       pfad: '/api/v1/external/apps/:id?bestaetigung=<id>&dateien=<true|false>',
       bereich: 'app:deploy',

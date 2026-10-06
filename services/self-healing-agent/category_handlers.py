@@ -781,6 +781,18 @@ class CategoryHandlersMixin:
         """Perform safety checks before initiating reboot"""
         logger.info("Performing reboot safety checks...")
 
+        # Check 0: kein Update der Plattform im Gang (J39). Ein Neustart mitten
+        # in `install.sh` laesst das Geraet zwischen zwei Fassungen stehen.
+        update = self.aktualisierung_laeuft()
+        if update:
+            logger.error(f"Safety check failed: {update}")
+            self.log_event(
+                'reboot_safety_check_failed', 'CRITICAL',
+                f'Neustart nicht ausgeführt: {update}',
+                'Neustart abgebrochen, die Aktualisierung läuft weiter', None, False
+            )
+            return False
+
         # Check 1: Too frequent reboots
         try:
             conn = None

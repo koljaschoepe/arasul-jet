@@ -24,7 +24,7 @@ from config import (
     FAILURE_WINDOW_MINUTES, MAX_FAILURES_IN_WINDOW, CRITICAL_WINDOW_MINUTES,
     METRICS_COLLECTOR_URL, HEARTBEAT_URL, HEARTBEAT_INTERVAL_CYCLES,
     COMPOSE_PROJECT, WARTUNGSDATEI, WARTUNG_MAX_MINUTEN,
-    WARTUNG_NACHLAUF_SEKUNDEN, logger
+    WARTUNG_NACHLAUF_SEKUNDEN, UPDATE_STATUSDATEI, UPDATE_MAX_MINUTEN, logger
 )
 from db import DatabaseMixin
 from sprache import komma, tausender
@@ -79,6 +79,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         self._wartung_gemeldet = False
         self._wartung_abgelaufen_gemeldet = False
         self._wartung_endete_um = 0.0
+        self._update_gemeldet = ''
 
         # MEM-TREND: Per-container memory samples for leak detection
         # Key: container_name, Value: list of (timestamp, rss_mb) tuples
@@ -169,6 +170,62 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             logger.info(f"Selbstheilung ueberwacht das Compose-Projekt: {self._projekt}")
         return self._projekt
 
+    def aktualisierung_laeuft(self) -> str:
+        """Der Grund, wenn gerade ein Update der Plattform laeuft, sonst ''.
+
+        Siehe `UPDATE_STATUSDATEI` in config.py: der Hilfscontainer des Laufs
+        oder `status.json` mit `laeuft`, jung genug. Ein Fehler beim Fragen
+        ist KEIN laufendes Update -- sonst legte ein wackliger Docker-Proxy
+        die Selbstheilung schlafen.
+        """
+        grund = ''
+        try:
+            # Das Etikett noch einmal selbst geprueft: ein Proxy, der den
+            # Filter nicht durchreicht, gaebe sonst JEDEN Container zurueck.
+            hilfe = [
+                c for c in self.docker_client.containers.list(
+                    filters={'label': 'arasul.aktualisierung=1', 'status': 'running'}
+                )
+                if (c.labels or {}).get('arasul.aktualisierung') == '1'
+            ]
+            if hilfe:
+                grund = f'Aktualisierung läuft (Hilfscontainer {hilfe[0].name})'
+        except Exception as e:
+            logger.debug(f"Hilfscontainer der Aktualisierung nicht abfragbar: {e}")
+
+        if not grund:
+            try:
+                with open(UPDATE_STATUSDATEI, 'r') as f:
+                    stand = json.load(f)
+                if isinstance(stand, dict) and stand.get('status') == 'laeuft':
+                    try:
+                        beginn = datetime.fromisoformat(
+                            str(stand.get('gestartet', '')).replace('Z', '+00:00')
+                        ).timestamp()
+                    except ValueError:
+                        beginn = os.path.getmtime(UPDATE_STATUSDATEI)
+                    alter = time.time() - beginn
+                    if alter <= UPDATE_MAX_MINUTEN * 60:
+                        grund = (f"Aktualisierung auf {stand.get('nach') or '?'} läuft "
+                                 f"(Schritt {stand.get('schritt') or '?'})")
+                    elif self._update_gemeldet != 'abgelaufen':
+                        logger.warning(
+                            f"{UPDATE_STATUSDATEI} sagt seit {int(alter / 60)} min „laeuft“ "
+                            f"(Deckel: {UPDATE_MAX_MINUTEN} min), ich behandle den Lauf als "
+                            f"abgerissen und greife wieder ein"
+                        )
+                        self._update_gemeldet = 'abgelaufen'
+            except (OSError, ValueError):
+                pass
+
+        if grund and self._update_gemeldet != grund:
+            logger.info(f"Aktualisierung erkannt: {grund}. Kategorie A und Neustarts ruhen")
+            self._update_gemeldet = grund
+        elif not grund and self._update_gemeldet not in ('', 'abgelaufen'):
+            logger.info("Aktualisierung vorbei, die Selbstheilung greift wieder ein")
+            self._update_gemeldet = ''
+        return grund
+
     def wartung_laeuft(self) -> bool:
         """True, solange ein Deploy laeuft.
 
@@ -194,6 +251,12 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         # sonst verpasst: dauert ein Vorgang weniger als einen Takt, hat er das
         # Fenster nie offen gesehen, und ohne diesen Wert gaebe es keinen
         # Nachlauf (24.08.2026, siehe scripts/lib/wartungsfenster.sh).
+        # Ein laufendes Update der Plattform ist auch eine Wartung, nur ohne
+        # Wartungsdatei (J39). Sein eigener Nachlauf: der Agent, der danach
+        # startet, ist neu und sieht die Dienste ohnehin erst gesund werden.
+        if self.aktualisierung_laeuft():
+            return True
+
         ende = self._wartungsende()
         if ende is not None:
             seit = time.time() - ende
@@ -846,7 +909,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                 if self.metrics_down_since is None:
                     self.metrics_down_since = time.time()
                     logger.warning("Metrics collection failed - entering warning state")
-                elif time.time() - self.metrics_down_since > 60:
+                elif time.time() - self.metrics_down_since > 60 and not self.aktualisierung_laeuft():
                     logger.error("Metrics collector down for > 1 minute - attempting restart")
                     try:
                         container = self.docker_client.containers.get('metrics-collector')

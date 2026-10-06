@@ -23,8 +23,11 @@
 # Administrator braucht eine Freigabe; "Admins sehen alles" gibt es nicht
 # (Entscheidung aus C2).
 #
-# Voraussetzung: die Beispielapp ist eingespielt.
-#   bash scripts/test/beispielapp.sh einspielen     (auf dem Geraet)
+# Die Beispielapp spielt sich die Abnahme seit dem 06.10.2026 SELBST ein, als
+# `probe-beispiel-<STEMPEL>` ueber den Weg des Kits (Teststand, dann live), und
+# entfernt sie am Ende samt Image und Ordnern (`beispielapp-probe.sh`). Am Orin
+# war `beispielapp` nicht eingespielt, und die Abnahme meldete den Messaufbau.
+# Eine schon eingespielte App misst sie mit `ARASUL_BEISPIELAPP=<id>`.
 #
 # Aufruf vom Arbeitsrechner ueber einen SSH-Tunnel:
 #   ssh -f -N -L 8443:localhost:443 jetson
@@ -38,9 +41,11 @@ set -uo pipefail
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=scripts/test/anmeldung.sh
 source "$WURZEL/scripts/test/anmeldung.sh"
+# shellcheck source=scripts/test/beispielapp-probe.sh
+source "$WURZEL/scripts/test/beispielapp-probe.sh"
 
 BASIS="$ARASUL_URL"
-APP="${ARASUL_BEISPIELAPP:-beispielapp}"
+APP=""
 
 gruen=0
 rot=0
@@ -117,6 +122,12 @@ pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" 
 [ -z "$TOK" ] && { echo; echo "Ohne Anmeldung gibt es nichts zu messen."; exit 1; }
 
 # --- 1. Die App steht in der Verwaltung --------------------------------------
+trap 'rm -f "$RUMPF_DATEI"; beispielapp_wegraeumen "$TOK"' EXIT
+beispielapp_bereitstellen "$TOK"
+APP="$BEISPIEL_APP"
+pruefe 'Die Beispielapp steht am Geraet' "$([ -n "$APP" ] && echo ja || echo nein)" "${APP:-nicht eingespielt}"
+[ -z "$APP" ] && exit 1
+
 # Erst die eigene Nummer, dann die Freigabe. Wer sie schon hatte, behaelt sie:
 # das Aufraeumen nimmt nur zurueck, was dieser Lauf gegeben hat.
 ICH=$(curl -sk --max-time 20 -H "authorization: Bearer $TOK" "$BASIS/api/auth/me" |
@@ -130,12 +141,14 @@ try: print("ja" if json.load(sys.stdin).get("data") else "nein")
 except Exception: print("nein")' 2>/dev/null)
 aufraeumen() {
   rm -f "$RUMPF_DATEI"
-  [ "$HATTE_FREIGABE" = "ja" ] && return
-  [ -z "$ICH" ] && return
-  local code
-  code=$(curl -sk -o /dev/null -w '%{http_code}' -X DELETE \
-    -H "authorization: Bearer $TOK" "$BASIS/api/freigaben/$APP/$ICH")
-  printf 'aufgeraeumt  Freigabe von %s zurueckgenommen (HTTP %s)\n' "$APP" "$code"
+  if [ "$HATTE_FREIGABE" != "ja" ] && [ -n "$ICH" ]; then
+    local code
+    code=$(curl -sk -o /dev/null -w '%{http_code}' -X DELETE \
+      -H "authorization: Bearer $TOK" "$BASIS/api/freigaben/$APP/$ICH")
+    printf 'aufgeraeumt  Freigabe von %s zurueckgenommen (HTTP %s)\n' "$APP" "$code"
+  fi
+  # Nach der Freigabe: eine entfernte App nimmt ihre Freigaben ohnehin mit.
+  beispielapp_wegraeumen "$TOK"
 }
 trap aufraeumen EXIT
 FREI=$(curl -sk -o /dev/null -w '%{http_code}' -X POST --max-time 20 \
@@ -149,8 +162,7 @@ hole "/api/apps/$APP"
 pruefe "GET /api/apps/$APP" "$([ "$CODE" = "200" ] && echo ja || echo nein)" "HTTP $CODE"
 if [ "$CODE" != "200" ]; then
   echo
-  echo "Die Beispielapp ist nicht eingespielt. Auf dem Geraet:"
-  echo "  bash scripts/test/beispielapp.sh einspielen"
+  echo "Die Beispielapp $APP steht nicht in der Verwaltung."
   exit 1
 fi
 

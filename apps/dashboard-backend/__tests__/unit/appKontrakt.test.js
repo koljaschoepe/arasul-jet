@@ -376,7 +376,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // und keine Vorlage nennt es. Die Liste wird enger, nicht weiter: ein Kit
     // auf Fassung 14 weist nichts ab, was das Geraet annimmt, und eine hoehere
     // Nummer hielte jedes Kit an. Die Zahl bleibt bei 14.
-    expect(abdruck).toBe('ea40edf5758903b35c1b5a93fd322f276afe29ae73b2144609d272a2e2b694f0');
+    //
+    // 06.10.2026 (M5, Auftrag app-protokoll-abrufen): ein Endpunkt dazu,
+    // `GET apps/:id/protokoll` mit `app:deploy`. Kein Feld, kein Name, nichts
+    // wird enger: ein Kit, das ihn nicht kennt, spielt ein wie bisher, und
+    // `app.mjs --logs` fragt nach dem Eintrag unter `endpunkte`, nicht nach
+    // der Nummer. Eine hoehere hielte jedes Kit an. Die Zahl bleibt bei 14.
+    expect(abdruck).toBe('17db6e6d963a7882724f60dd5e3868fffa64359542f52565475657775562a913');
   });
 
   /**

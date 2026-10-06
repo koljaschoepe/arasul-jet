@@ -110,10 +110,15 @@ services:
       - /sys:/host/sys:ro
       - /proc:/host/proc:ro
       - ${BACKUP_PATH:-${DATA_PATH:-../data}/backups}:/arasul/backups
+      # Der Stand eines laufenden Updates (J39, `status.json`), NUR LESEND: steht
+      # dort `laeuft`, ruhen Kategorie A und jeder Neustart des Geraets
+      # (SELFHEAL_UPDATE_STATUSDATEI). Derselbe Ordner wie im Backend.
+      - ${DATA_PATH:-../data}/updates:/arasul/updates:ro
     # Kein `devices: /dev/bus/usb` (J41): wo /dev/bus/usb fehlt (VM, Geraet ohne
     # USB-Controller), lehnt Docker den Container sonst ab, und die
-    # Selbstheilung startet nie. /media, /mnt und /arasul/updates waren nur fuer
-    # den USB-Monitor eingehaengt, der am 06.10.2026 gefallen ist.
+    # Selbstheilung startet nie. /media und /mnt waren nur fuer den USB-Monitor
+    # eingehaengt, der am 06.10.2026 gefallen ist; /arasul/updates ist seit
+    # demselben Tag wieder da, lesend, fuer die Sperre waehrend eines Updates.
     cap_drop:
       - ALL
     cap_add:
