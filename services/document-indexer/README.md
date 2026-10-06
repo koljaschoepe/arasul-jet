@@ -31,6 +31,21 @@ war, nicht, ob das Tesseract-Binary läuft.
 }
 ```
 
+### `POST /pdf-seiten`
+
+`multipart/form-data`, Feld `file` (ein PDF) und `seiten` (1 bis 4). Gibt die
+ersten Seiten als PNG zurück, die lange Kante höchstens 1600 Pixel. Das Backend
+ruft den Weg, wenn ein erkennender Flow-Schritt ein PDF als Original nennt
+(Kontrakt 14, `docs/features/FLOWS.md`, „Das Original lesen"); es nimmt die
+ersten 3 Seiten. Nichts wird gespeichert.
+
+```json
+{ "seiten": ["iVBORw0KGgo…", "iVBORw0KGgo…"], "gesamt": 7 }
+```
+
+`400` für keine Datei, kein PDF, ein verschlüsseltes oder kaputtes PDF; `413`
+über `DOCUMENT_MAX_SIZE_MB`.
+
 ### `POST /extract-text`
 
 `multipart/form-data`, Feld `file`. Ein JSON-Body wird nicht angenommen.
@@ -101,7 +116,7 @@ Sonst nichts. Keine Zugangsdaten, keine Verbindungsdaten.
 
 ```
 document-indexer/
-├── api_server.py          # Flask: /health, /extract-text, 413-Handler
+├── api_server.py          # Flask: /health, /extract-text, /pdf-seiten, 413-Handler
 ├── document_parsers.py    # Parser je Format, PARSERS, parse_document, strip_nul
 ├── ocr_service.py         # lokales Tesseract, OCR-Rückfall für Bild-PDFs
 ├── metadata_extractor.py  # Titel, Seitenzahl, Sprache

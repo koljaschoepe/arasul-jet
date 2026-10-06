@@ -26,6 +26,7 @@
  */
 
 const http = require('http');
+const BELEG_PNG = require('fs').readFileSync(require('path').join(__dirname, 'beleg.png'));
 
 const PORT = Number(process.env.PORT || 8080);
 const VERSION = process.env.PROBE_VERSION || '?';
@@ -97,7 +98,18 @@ function lies(anfrage) {
 function festeAntwort(nachrichten) {
   const auftraege = (Array.isArray(nachrichten) ? nachrichten : [])
     .filter(n => n && n.role === 'user')
-    .map(n => (typeof n.content === 'string' ? n.content : JSON.stringify(n.content)));
+    // Mit einem Bild (Kontrakt 14) ist `content` eine Liste von Teilen; der
+    // Auftrag steht im Textteil.
+    .map(n =>
+      typeof n.content === 'string'
+        ? n.content
+        : Array.isArray(n.content)
+          ? n.content
+              .filter(t => t && t.type === 'text')
+              .map(t => t.text)
+              .join('\n')
+          : JSON.stringify(n.content)
+    );
   const letzter = auftraege[auftraege.length - 1] || '';
   const treffer = /<<<([\s\S]*?)>>>/.exec(letzter);
   if (treffer) {
@@ -176,6 +188,16 @@ const server = http.createServer(async (anfrage, antwort) => {
         },
       ],
     });
+    return;
+  }
+
+  // Seit Kontrakt 14 liest das Geraet das Original und gibt es dem Modell: ein
+  // SVG liest kein Bildmodell. Dasselbe Blatt als PNG (gerendert aus dem SVG
+  // darunter, Beleg 4711); das SVG bleibt fuer die Ansicht.
+  if (/^\/belege\/[A-Za-z0-9-]{1,40}\.png$/.test(pfad)) {
+    antwort.setHeader('content-type', 'image/png');
+    antwort.statusCode = 200;
+    antwort.end(BELEG_PNG);
     return;
   }
 

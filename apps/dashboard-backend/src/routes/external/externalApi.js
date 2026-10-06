@@ -1005,7 +1005,7 @@ router.get(
 /**
  * POST /api/v1/external/flows/:name/run - Einen Flow auslösen.
  *
- * Body: { args?, wait_for_result?=true, timeout_seconds?=300 }
+ * Body: { args?, wait_for_result?=true, timeout_seconds?=300, einreicher?, freigabe?, titel? }
  * Bei wait_for_result=false kommt sofort die Lauf-ID zurück; sonst wird bis zum
  * Ende (oder Timeout) gewartet und das Ergebnis mitgegeben.
  */
@@ -1049,6 +1049,7 @@ router.post(
       stand,
       einreicherId,
       freigabeRegel: regel,
+      titel: req.body.titel ?? null,
     });
 
     logger.info(
@@ -1098,7 +1099,7 @@ router.post(
  * POST /api/v1/external/ereignisse/:name - Eine App meldet ein Ereignis (M5,
  * Kontrakt 13).
  *
- * Body: { daten?, einreicher? }. Das Geraet startet jeden Flow DIESER App in
+ * Body: { daten?, einreicher?, titel? }. Das Geraet startet jeden Flow DIESER App in
  * DIESEM Stand, dessen Kopf `ausloeser: [{typ: ereignis, ereignis: <name>}]`
  * nennt, mit `daten` als Argumenten und dem Ausloeser `ereignis` am Lauf.
  * Gewartet wird nicht: die Antwort nennt die gestarteten Laeufe, die App liest
@@ -1132,6 +1133,7 @@ router.post(
       daten: req.body.daten || {},
       userId,
       einreicherId,
+      titel: req.body.titel ?? null,
     });
     res.status(ergebnis.laeufe.length > 0 ? 202 : 200).json({
       success: true,
@@ -1182,6 +1184,8 @@ router.get(
       // Ereignis sein Name (Kontrakt 13).
       ausloeser: run.ausloeser ?? 'hand',
       ereignis: run.ereignis ?? null,
+      // Der kurze Titel des Laufs (Kontrakt 14): von der App oder aus den erkannten Feldern.
+      titel: run.titel ?? null,
       steps_used: run.steps_used ?? null,
       // Die Kette selbst (Phase H7): `steps_used` ist ihre Laenge, `schritte`
       // ist sie. Der Kontrakt verspricht sie seit C5.

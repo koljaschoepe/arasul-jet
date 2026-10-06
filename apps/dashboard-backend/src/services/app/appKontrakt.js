@@ -42,6 +42,7 @@ const { VORGABE_ENDPUNKTE, ALLE_ENDPUNKTE } = require('../../config/apiBereiche'
 const { KOPF_BENUTZER, KOPF_ROLLE } = require('./appZugang');
 const appPaket = require('./appPaket');
 const appFlows = require('./appFlows');
+const originalDienst = require('../flows/original');
 
 /**
  * Die Kontraktversion.
@@ -60,7 +61,7 @@ const appFlows = require('./appFlows');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 13;
+const KONTRAKT_VERSION = 14;
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -305,6 +306,35 @@ const KONTRAKT_VERSION = 13;
  * `X-Arasul-User` wie bei jedem Aufruf ueber Traefik.
  */
 
+/*
+ * Fassung 14 (M5, 06.10.2026, Auftrag erkennung-liest-das-original): die
+ * Erkennung liest das Original. Gefunden im Fremdtest vom 06.10.2026: das
+ * Modell eines erkennenden Schritts bekam nur den Auftrag als Text und
+ * antwortete „Fehlt Beleg"; Felder gab es nur bei „unsicher", und mit
+ * `ergebnis_bestaetigen` kamen zwei Freigaben.
+ *
+ *   1. `original` ist keine Anzeige mehr allein: das Geraet holt die Datei
+ *      ueber die Adresse der App und gibt sie dem Bildmodell als Bild (ein PDF
+ *      als seine ersten Seiten). Fehlt sie oder ist sie zu gross, haelt der
+ *      Lauf mit einer Freigabe und dem Grund an, statt ohne Bild zu raten.
+ *   2. Ein erkennender Flow in der Art `ergebnis_bestaetigen` hat genau EINE
+ *      Pruefung: die Freigabe der Erkennung, immer mit den Feldern.
+ *   3. Ein Lauf traegt einen kurzen `titel` (beim Start, sonst aus den
+ *      erkannten Feldern); er steht vorn an jeder Freigabe des Laufs.
+ *
+ * FREIWILLIG, jedes Paket von Fassung 13 bleibt gueltig: ohne `original`
+ * laeuft ein erkennender Schritt wie bisher mit dem Auftrag als Text, und
+ * `titel` beim Start darf fehlen. Die Zahl geht mit, weil sich ein Verhalten
+ * aendert, auf das sich ein Kit verlassen hat (eine Vorlage, die `--felder`
+ * mit einem eigenen Schritt `entscheiden` baut, bekaeme jetzt zwei Pruefungen
+ * nur noch, wenn sie diesen Schritt behaelt), und weil der Start `.strict()`
+ * ist: ein Kit, das gegen 13 prueft, wiese `titel` als unbekannt ab.
+ *
+ * FOLGE FUER DAS KIT: `KIT_CONTRACT_VERSIONS` in `.ara/tools/lib/contract.mjs`
+ * muss 14 kennen; Wissen (`app.md`), Geruest und `--new --felder` ziehen nach
+ * (eine eigene Kit-Karte).
+ */
+
 /**
  * Die Bibliothek zur Laufzeit (Kontrakt 9): wo sie liegt, wie eine App sie
  * holt und wann sich die Adresse aendert.
@@ -352,7 +382,7 @@ const MANIFEST_REGELN = Object.freeze([
   'AUSGELIEFERT wird das Feld von der APP, unter `GET agent` an ihrer Schnittstelle, samt `id`, `name` und Version. Das Gerät hält keine zweite Kopie bereit: es nimmt das Feld an und gibt es nicht aus.',
   '`verbindungen` ist die Liste der Hostnamen, zu denen die App von sich aus ins Internet will (seit Kontrakt 7, freiwillig). Nur Namen, kleingeschrieben, ohne Schema, Port, Pfad, Platzhalter oder IP-Adresse; höchstens 20, keiner doppelt. Das Feld ist die FREIGABE: der Ausgangs-Proxy des Geräts lässt für diese App genau diese Namen durch und weist jeden anderen ab; der Administrator sieht je App, was eingetragen ist, was genutzt und was abgewiesen wurde -- siehe `netz`.',
   '`symbol` ist das Bild der App in der Aktivitätsleiste (seit Kontrakt 8, freiwillig): ein Name aus dem Lucide-Satz (klein, mit Bindestrichen, z. B. `file-text`) ODER ein Kürzel aus 1 bis 3 Großbuchstaben oder Ziffern (z. B. `BE`). Das Gerät prüft die Form, nicht den Satz: kennt die Shell den Namen nicht, zeigt sie das Kürzel aus dem Namen der App. Ohne `symbol` gilt dasselbe Kürzel.',
-  '`zeigt_freigaben` erklärt, dass die App ihre Freigaben selbst zeigt (seit Kontrakt 12, freiwillig): sie liest `?freigabe=<nummer>` aus ihrer Adresse und zeigt die Ansicht der Freigabe. Dann öffnet ein Klick in „Für Sie" die App beim Vorgang (Tieflink). Ohne das Feld, oder mit `false`, gilt „zeigt nicht selbst": das Gerät öffnet die Freigabe in Arasul, mit demselben Baustein und denselben Regeln.',
+  '`zeigt_freigaben` erklärt, dass die App ihre Freigaben selbst zeigt (seit Kontrakt 12, freiwillig): sie liest `?freigabe=<nummer>` aus ihrer Adresse und zeigt die Ansicht der Freigabe. Dann öffnet ein Klick in „Für Sie" die App beim Vorgang (Tieflink). Ohne das Feld, oder mit `false`, gilt „zeigt nicht selbst": das Gerät öffnet die Freigabe in Arasul, mit demselben Baustein und denselben Regeln. Wo sie gezeigt wird, ändert nicht, wer entscheiden darf: siehe `freigaben`.',
   'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Gerät legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an. Was bleibt und was nicht, steht unter `daten`.',
 ]);
 
@@ -430,8 +460,10 @@ const FREIGABE_REGELN = Object.freeze([
   '`freigabe.entscheider` nennt ENTWEDER `{"rolle":"admin"}` ODER `{"konten":["name",…]}`. Nur diese Menschen sehen und entscheiden die Anfrage; jeder andere sieht sie nicht und bekommt beim Entscheiden 403. Jedes Konto muss die App freigegeben haben, sonst 400.',
   'Bleibt nach der Regel niemand, der entscheiden könnte, weist das Gerät den Start mit 400 ab -- statt eine Freigabe anzulegen, die in ihre Frist läuft.',
   'Die Regel gilt für jede Freigabe dieses Laufs. `GET /freigaben` nennt je Anfrage `einreicher`, `ohne_einreicher`, `entscheider` (Rolle oder Konten) und `kreis`.',
-  '`GET /flows/runs/:id` nennt unter `freigabe`, wer eingereicht hat und wer entscheidet: `einreicher`, `ohne_einreicher`, `entscheider`, `kreis` (die Konten, die JETZT entscheiden können), `liegt_bei` (bei wem die offene Anfrage liegt, null = bei allen im Kreis), `wo` und `adresse` (entschieden wird in Arasul, nie in der App), `offen` (die wartende Anfrage mit ihrer `stufe`, oder null) und `satz` -- ein fertiger Satz für den Menschen, der eingereicht hat. Ohne App ist `freigabe` null.',
+  '`GET /flows/runs/:id` nennt unter `freigabe`, wer eingereicht hat und wer entscheidet: `einreicher`, `ohne_einreicher`, `entscheider`, `kreis` (die Konten, die JETZT entscheiden können), `liegt_bei` (bei wem die offene Anfrage liegt, null = bei allen im Kreis), `wo` und `adresse` (wo der Mensch entscheidet: in der App, in der die Freigabe entstand, oder unter „Für Sie" in Arasul), `offen` (die wartende Anfrage mit ihrer `stufe`, oder null) und `satz` -- ein fertiger Satz für den Menschen, der eingereicht hat. Ohne App ist `freigabe` null.',
   'Felder einer Freigabe (seit Kontrakt 10): `GET /freigaben` nennt je Anfrage `felder` (je Feld `name`, `vorschlag` der KI, `unsicher`, `fehlend`, `aenderbar`; null ohne Erkennung), `felder_schritt`, `original` (Adresse gleicher Herkunft oder null) und nach der Bestätigung `korrekturen` (je Feld `feld`, `vorschlag`, `wert`, `von`, `am`; null = nichts geändert). Änderbar ist, was die Rolle unter `ergebnis.aenderbar` nennt.',
+  'WO ENTSCHIEDEN WIRD UND WER: die Entscheidung trifft immer ein Mensch mit seiner Sitzung, nie die App mit ihrem Schlüssel und nie der Flow. Gezeigt wird die Freigabe in der App (mit `zeigt_freigaben`) oder unter „Für Sie" in Arasul; in beiden Fällen geht die Entscheidung an das Gerät (`POST /api/freigabe-anfragen/:id/bestaetigen` oder `…/ablehnen`), und das Gerät prüft die Regeln dieses Abschnitts: Kreis, Einreicher, `liegt_bei`.',
+  'Der kurze Titel des Laufs (seit Kontrakt 14): `titel` beim Start (höchstens 120 Zeichen, freiwillig), sonst bildet das Gerät ihn bei einer Erkennung aus den ersten drei erkannten Werten in der Reihenfolge von `ergebnis.felder`. Er steht vorn an jeder Freigabe des Laufs (`<titel> – <Grund>`), damit zwei Karten zu unterscheiden sind; `GET /flows/runs/:id` nennt ihn als `titel`. Was die App beim Start nannte, überschreibt das Gerät nicht.',
   'Bei wem eine Freigabe liegt, setzt NIE die App und nie der Flow: eine neue Anfrage liegt bei der Standardperson ihrer Stufe, die der Administrator je App und Stufe in der Verwaltung setzt; ohne sie bei allen im Kreis. Jeder im Kreis kann sie übernehmen oder an einen anderen im Kreis weitergeben; entscheiden kann nur, bei dem sie liegt. `GET /freigaben` nennt je offener Anfrage `liegt_bei`.',
 ]);
 
@@ -656,13 +688,13 @@ const ENDPUNKTE = Object.freeze(
       verb: 'POST',
       pfad: '/api/v1/external/flows/:name/run',
       bereich: 'flow:run',
-      was: 'Einen Flow anstoßen. Gesucht wird im Namensraum des Schlüssels. Optional `einreicher` und `freigabe` (siehe `freigaben`)',
+      was: 'Einen Flow anstoßen. Gesucht wird im Namensraum des Schlüssels. Optional `einreicher` und `freigabe` (siehe `freigaben`) und `titel` (seit Kontrakt 14, ein kurzer Titel für die Freigabekarten)',
     },
     {
       verb: 'POST',
       pfad: '/api/v1/external/ereignisse/:name',
       bereich: 'flow:run',
-      was: 'Ein Ereignis der App melden (seit Kontrakt 13): startet jeden Flow dieser App in diesem Stand, der unter `ausloeser` auf den Namen hört, mit `daten` als Argumenten. Optional `einreicher`. 202 mit `laeufe`, ohne zu warten',
+      was: 'Ein Ereignis der App melden (seit Kontrakt 13): startet jeden Flow dieser App in diesem Stand, der unter `ausloeser` auf den Namen hört, mit `daten` als Argumenten. Optional `einreicher` und `titel` (seit Kontrakt 14, Titel jedes gestarteten Laufs). 202 mit `laeufe`, ohne zu warten',
     },
     {
       verb: 'GET',
@@ -724,15 +756,16 @@ function kontrakt() {
         `Höchstens ${appFlows.MAX_FLOWS} Flows je Paket.`,
         'Der Namensraum ist die App: zwei Apps dürfen denselben Flow-Namen tragen.',
         'Das Werkzeug `freigabe_anfordern` hält den Lauf an, bis ein Mensch bestätigt (Status `wartend`). Ablehnung beendet ihn als `abgebrochen`, Fristablauf als `abgelaufen`.',
-        'Entscheiden darf, wem die App freigegeben ist. Die Flow-Datei nennt dafür keine Person und keine Rolle; den Kreis enger ziehen kann die APP beim Start des Laufs (`freigaben`, seit 25.09.2026).',
+        'Wer entscheidet, nennt die Flow-Datei nicht, weder Person noch Rolle. Es gelten die Regeln unter `freigaben`: der Kreis ist, wem die App freigegeben ist, die App kann ihn beim Start enger ziehen, wer eingereicht hat entscheidet nie, und entscheiden kann nur, bei wem die Anfrage liegt.',
         'Die Frist steht als `frist_minuten` in den `parameter` des Schritts; ohne Angabe gilt die Vorgabe des Geräts.',
-        '`arten` nennt, welche Arten der Flow kann (seit Kontrakt 8, freiwillig): `autonom` und `ergebnis_bestaetigen`, mindestens eine, keine doppelt. Der Administrator wählt je Flow zwischen den genannten, sie gilt ab dem nächsten Lauf. `ergebnis_bestaetigen` hält den Lauf am Ende an und legt eine Freigabe mit dem Ergebnis an (in der letzten Stufe des Flows, sonst ohne Stufe); `autonom` legt keine an. Ohne Angabe gilt die erste genannte Art, ohne `arten` `autonom`. Ein Flow, der erzeugt (kein Schritt mit `faehigkeiten.bild`), läuft autonom oder mit Freigabe von Anfang an, nie mit stillem Rückfall. Ein Flow, der erkennt (mindestens ein `subagent`-Schritt mit `faehigkeiten.bild: true`), legt bei fehlender oder unsicherer Erkennung auch in `autonom` eine Freigabe mit dem Grund `Erkennung unsicher: Feld X` an: ein deklariertes Feld der Rolle ohne Wert, oder eines, das die Rolle im JSON unter `unsicher` (Liste von Feldnamen) nennt; kam kein JSON, gelten alle Felder als unsicher.',
+        '`arten` nennt, welche Arten der Flow kann (seit Kontrakt 8, freiwillig): `autonom` und `ergebnis_bestaetigen`, mindestens eine, keine doppelt. Der Administrator wählt je Flow zwischen den genannten, sie gilt ab dem nächsten Lauf. `ergebnis_bestaetigen` hält den Lauf am Ende an und legt eine Freigabe mit dem Ergebnis an (in der letzten Stufe des Flows, sonst ohne Stufe); `autonom` legt keine an. Ohne Angabe gilt die erste genannte Art, ohne `arten` `autonom`. Ein Flow, der erzeugt (kein Schritt mit `faehigkeiten.bild`), läuft autonom oder mit Freigabe von Anfang an, nie mit stillem Rückfall. Ein Flow, der erkennt (mindestens ein `subagent`-Schritt mit `faehigkeiten.bild: true`), legt bei fehlender oder unsicherer Erkennung auch in `autonom` eine Freigabe mit dem Grund `Erkennung unsicher: Feld X` an: ein deklariertes Feld der Rolle ohne Wert, oder eines, das die Rolle im JSON unter `unsicher` (Liste von Feldnamen) nennt; kam kein JSON oder scheiterte die Rolle, gelten alle Felder als unsicher. In der Art `ergebnis_bestaetigen` (seit Kontrakt 14) legt ein erkennender Schritt diese Freigabe IMMER an, auch wenn alles sicher erkannt ist, mit den Feldern und dem Titel `Ergebnis bestätigen: <Flow>`; sie ist die Bestätigung des Laufs, am Ende kommt keine zweite. Eine Vorlage, die dafür einen eigenen Schritt `freigabe_anfordern` anhängt, bekommt zwei Prüfungen.',
         '`ausloeser` nennt, wodurch der Flow startet (seit Kontrakt 8, freiwillig): eine Liste von Objekten mit `typ` `hand`, `zeitplan` (dazu `zeitplan`, fünf Felder wie in cron, z. B. `"0 6 * * 1-5"`) oder `ereignis` (dazu `ereignis`, der Name eines Ereignisses der App). Höchstens 5, keiner doppelt. `zeitplan` wirkt seit dem 04.10.2026: das Gerät startet den Flow im LIVESTAND zur genannten Zeit (Zeitzone des Geräts, Europe/Berlin; Sommer- und Winterzeit richtig: eine Uhrzeit, die es beim Umstellen nicht gibt, läuft einmal danach, eine doppelte nur beim ersten Mal), genau einmal je Termin, ohne Argumente und ohne Einreicher (der Lauf trägt den Auslöser `zeitplan`). Ein Flow mit Pflichtargument ohne Vorgabe läuft nicht nach Zeitplan. Läuft oder wartet schon ein Lauf desselben Flows, entfällt der Termin. Verpasste Termine (Gerät aus): der jüngste wird höchstens einmal nachgeholt, wenn er höchstens eine Stunde zurückliegt, sonst übersprungen; der Administrator sieht es auf der Seite der App und pausiert den Zeitplan je Flow. Ein Ausdruck, den das Gerät nicht lesen kann (Minute 61), wird beim Einspielen abgewiesen. `ereignis` wirkt seit Kontrakt 13, siehe die nächste Regel.',
         '`ereignis` (seit Kontrakt 13): die App meldet ein Ereignis mit ihrem Schlüssel, `POST ereignisse/<name>` relativ zur Basis (Bereich `flow:run`), Körper `{"daten": {…}, "einreicher": "<X-Arasul-User>"}`, beides freiwillig. Das Gerät startet JEDEN Flow derselben App im selben Stand, der unter `ausloeser` `{typ: ereignis, ereignis: <name>}` nennt; eine App löst kein Ereignis einer anderen aus. `daten` werden die Argumente des Flows mit demselben Namen (Werte als Zeichenkette, Zahl oder Wahrheitswert; was der Flow nicht deklariert, fällt weg). Fehlt ein Pflichtargument, passt eine Auswahl nicht oder ist der Flow ausgeschaltet, startet DIESER Flow nicht, die anderen schon. Der Lauf trägt den Auslöser `ereignis` und den Namen (`GET flows/runs/:id` nennt `ausloeser` und `ereignis`); Einreicher ist, wen die App nennt, sonst niemand. Die Antwort wartet nicht auf die Läufe: 202 mit `laeufe` (je `flow`, `run_id`) und `nicht_gestartet` (je `flow`, `grund`), 200 mit leeren Listen, wenn kein Flow hört.',
         '`stufen` nennt die benannten Freigabestufen (seit Kontrakt 8, freiwillig), z. B. `pruefung` und `leitung`: je Stufe `name`, optional `bezeichnung` und `frist_minuten`. Höchstens 5, keine doppelt. Nennt ein `freigabe_anfordern`-Schritt in `parameter.stufe` eine Stufe, muss der Flow sie deklarieren. Die Person je Stufe setzt der Administrator, nicht der Flow: eine neue Freigabe der Stufe liegt zuerst bei ihrer Standardperson (je App und Stufenname, zwei Flows mit derselben Stufe teilen sie), ohne sie bei allen mit Zugang (`freigaben`).',
         '`faehigkeiten` je Schritt nennt, was der Schritt vom Modell braucht (seit Kontrakt 8, freiwillig): `text`, `bild`, `werkzeuge` (je true oder false) und `mindestkontext` (Tokens, 512 bis 1048576). Nur bei `typ: subagent`; ein Werkzeug-Schritt ruft kein Modell und wird mit `faehigkeiten` abgewiesen.',
         '`ergebnis.aenderbar` an einer Rolle nennt, welche ihrer `felder` ein Mensch in einer Freigabe ändern darf (seit Kontrakt 10, freiwillig; nur Namen aus `felder`). Die Freigabe aus der Erkennung zeigt alle Felder mit dem Vorschlag der KI, unsichere und fehlende zuerst mit „pruefen", ohne Prozentzahl; änderbar sind nur diese. Wer bestätigt, schickt geänderte Werte unter `felder` mit (`POST /api/freigabe-anfragen/:id/bestaetigen`); ein Feld, das hier nicht steht, weist das Gerät mit 400 ab. Gespeichert wird je Feld der Vorschlag, der neue Wert, wer und wann (`korrekturen`), und der weitere Lauf arbeitet mit dem neuen Wert.',
         '`original` an einem erkennenden Schritt (`typ: subagent` mit `faehigkeiten.bild: true`, seit Kontrakt 10, freiwillig) nennt das Bild oder PDF, das er liest, als Pfad RELATIV zur Adresse der App, mit Platzhaltern wie der Auftrag (`api/belege/{{beleg}}`): ohne `/` am Anfang, ohne `..`, ohne Schema. Die Freigabe zeigt es links, zoombar, geladen unter `/apps/<id>/` (Teststand `/apps/<id>/test/`) mit der Sitzung dessen, der entscheidet. Ergibt das Einsetzen keinen solchen Pfad, entsteht die Freigabe ohne Original.',
+        `Das Modell liest das Original (seit Kontrakt 14): vor dem Modellaufruf holt das Gerät die Datei über die Adresse der App im Stand des Laufs (Teststand und Livestand getrennt). Ein Pfad unter \`api/\` geht an das Backend der App (GET an ihren Container, mit \`X-Arasul-User\` und \`X-Arasul-Role\` des Menschen des Laufs und nur mit dessen Zugang zur App, wie \`route_aufrufen\`), jeder andere an die Dateien ihres Frontends. PNG und JPEG gehen unverändert als Bild an das Modell, ein PDF als seine ersten ${originalDienst.MAX_SEITEN} Seiten (PNG); höchstens ${originalDienst.MAX_BYTES / 1024 / 1024} MB, erkannt an den ersten Bytes, nicht am Namen. Das Modell ist das des Schritts, wenn es Bilder liest, sonst das Bildmodell des Geräts (\`gemma4:e4b\`); hat der Administrator den Flow auf ein externes Modell gestellt, geht das Bild dorthin mit (als Bildteil im OpenAI-Format). Fehlt das Original, ist es zu groß, kein PNG, JPEG oder PDF, oder liegt kein Bildmodell am Gerät, ruft das Gerät KEIN Modell auf: der Lauf hält mit einer Freigabe an (\`Original fehlt\`, \`Original zu groß\`, \`Original nicht lesbar\`, \`Original nicht abrufbar\`, \`Kein Bildmodell am Gerät\`), der Grund steht als Satz im Zusammenhang, die Felder sind leer. Ohne \`original\` bekommt das Modell wie bis Kontrakt 13 nur den Auftrag als Text.`,
         '`abschluss` nennt die Abschluss-Route der eigenen App (seit Kontrakt 11, freiwillig): `abschluss: { route: "/abschluss/beleg" }`, ein Pfad des Backends so, wie die App ihn sieht (ohne `/apps/<id>/api`), mit führendem `/`, ohne Host, Abfrage und `..`. Nach der letzten Stufe (bei der Art `ergebnis_bestaetigen` nach der Bestätigung) ruft das Gerät sie mit POST und JSON auf: `lauf` (Nummer, zugleich Kopf `Idempotency-Key: arasul-lauf-<nummer>` und `X-Arasul-Lauf`), `flow`, `app`, `stand`, `argumente`, `ergebnis` (Text), `felder` (je Feld der geltende Wert, mit den Korrekturen; null ohne Erkennung), `korrekturen` (je Feld `feld`, `vorschlag`, `wert`, `von`, `am`; null ohne) und `angenommen`. `Authorization: Bearer` trägt `ARASUL_ABSCHLUSS_TOKEN`; die App prüft es und legt ein Ergebnis zu einer Lauf-Nummer nur einmal an (derselbe Aufruf kommt bei „erneut" wieder). Antwortet sie mit 2xx, ist der Lauf `fertig`; mit allem anderen, nach 30 Sekunden ohne Antwort oder gar nicht, steht er auf `nicht_uebergeben` mit dem Grund, und der Administrator loest in der Verwaltung „erneut" aus, ohne dass die Schritte neu laufen. Das Gerät folgt keiner Weiterleitung. Das Manifest braucht ein `backend`.',
         '`routen` nennt die Routen, die das Werkzeug `route_aufrufen` rufen darf (seit Kontrakt 13, freiwillig; nur mit dem Werkzeug und das Werkzeug nur mit `routen`): je Eintrag `methode` (GET, POST, PUT, PATCH, DELETE), `pfad` wie bei `abschluss.route` (so, wie die App ihn sieht, mit führendem `/`; ein Wegstück `{name}` steht für genau ein Wegstück aus Buchstaben, Ziffern und . _ ~ -), optional `app` (die Kennung einer anderen App; ohne `app` die eigene, dann braucht das Manifest ein `backend`) und `zweck` (ein Satz für das Modell). Höchstens 20, keine doppelt.',
         '`route_aufrufen` nimmt `app` (leer = eigene), `methode` (Vorgabe GET), `pfad` (mit eingesetzten Werten) und `daten`: in einem Werkzeug-Schritt als JSON-Text oder als Liste `name=wert`, beim Modell als Objekt; bei GET und DELETE als Abfrage, sonst als JSON-Körper. Das Gerät prüft ZUERST, dass Methode und Pfad zu einem Eintrag unter `routen` für genau diese App passen, DANN, dass der Mensch des Laufs die Ziel-App im Stand des Laufs benutzen darf (dieselbe Freigabe wie im Browser): der Einreicher, sonst das Konto, dem der Lauf gehört (bei Zeitplan und Ereignis ohne Einreicher der Besitzer des Schlüssels der App). Gerufen wird derselbe Stand der Ziel-App, über ihren Container im Netz `arasul-apps`, mit `X-Arasul-User` und `X-Arasul-Role` dieses Menschen, `X-Arasul-Lauf` und `X-Arasul-App` (die rufende App); kein Geheimnis, kein `ARASUL_ABSCHLUSS_TOKEN`, kein freier Host, keine Weiterleitung, keine Shell. Eine Abweisung oder eine Antwort außer 2xx beendet einen Werkzeug-Schritt als Fehler mit dem Grund im Lauf (`Route abgewiesen: …`); die Antwort der App (höchstens 8000 Zeichen) ist die Ausgabe des Schritts.',

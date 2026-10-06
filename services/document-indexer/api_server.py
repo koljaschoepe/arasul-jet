@@ -10,8 +10,11 @@ kein Embedding, kein Hintergrundlauf.
 Endpunkte:
 - GET  /health         Lebenszeichen des Prozesses
 - POST /extract-text   multipart, Feld `file`
+- POST /pdf-seiten     multipart, Feld `file` (PDF), `seiten` (hoechstens 4):
+                       die ersten Seiten als PNG fuer ein Bildmodell
 """
 
+import base64
 import os
 
 # Strukturiertes JSON-Logging, bevor irgendein Modul auf Modulebene loggt.
@@ -22,7 +25,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 import config
-from document_parsers import parse_document, PARSERS, OCR_AVAILABLE
+from document_parsers import parse_document, render_pdf_pages, PARSERS, OCR_AVAILABLE
 from metadata_extractor import extract_metadata
 
 app = Flask(__name__)
@@ -122,6 +125,52 @@ def extract_text():
         'text': text,
         'filename': filename,
         'metadata': metadata,
+    })
+
+
+# Mehr Seiten bekommt ein Bildmodell je Aufruf nicht (Backend: BILD_MAX_ANZAHL).
+_MAX_PDF_SEITEN = 4
+
+
+@app.route('/pdf-seiten', methods=['POST'])
+def pdf_seiten():
+    """
+    Die ersten Seiten eines PDF als PNG, ohne etwas zu speichern (M5, 06.10.2026).
+
+    Das Backend gibt sie einem Bildmodell, wenn ein erkennender Flow-Schritt
+    ein PDF als Original nennt (Kontrakt 14). Die Obergrenze der Seiten setzt
+    das Backend; hier wird sie nur gedeckelt.
+
+    Eingabe: multipart/form-data mit `file` (PDF) und `seiten` (1 bis 4).
+    Antwort: { seiten: [Base64-PNG, ...], gesamt }
+    Fehler:  { error } mit 400 (keine Datei, kein PDF, verschluesselt oder
+             kaputt), 413 (zu gross), 500 (Rendern gescheitert).
+    """
+    uploaded = request.files.get('file')
+    if uploaded is None:
+        return jsonify({'error': 'multipart field "file" is required'}), 400
+    try:
+        seiten = int(request.form.get('seiten', '1'))
+    except ValueError:
+        return jsonify({'error': '"seiten" must be a number'}), 400
+    seiten = max(1, min(seiten, _MAX_PDF_SEITEN))
+
+    data = uploaded.read()
+    if b'%PDF-' not in data[:1024]:
+        return jsonify({'error': 'not a PDF'}), 400
+
+    try:
+        bilder, gesamt = render_pdf_pages(data, seiten)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:  # noqa: BLE001 - als JSON melden, nicht als HTML-500
+        logger.error(f"PDF rendering error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+    logger.info(f"Rendered {len(bilder)} of {gesamt} PDF pages as PNG")
+    return jsonify({
+        'seiten': [base64.b64encode(b).decode('ascii') for b in bilder],
+        'gesamt': gesamt,
     })
 
 

@@ -116,6 +116,7 @@ describe('POST /flows/:name/run', () => {
       stand: 'live',
       einreicherId: null,
       freigabeRegel: null,
+      titel: null,
     });
   });
 

@@ -363,7 +363,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // `ausloeser: ereignis` wirkt (neuer Endpunkt `ereignisse/:name`), `routen`
     // im Flow-Kopf und das Werkzeug `route_aufrufen`. Die Zahl geht mit, weil
     // der Kopf `.strict()` ist und die Werkzeuge eine feste Liste sind.
-    expect(abdruck).toBe('4b693ea580c949b3f86f2b3f71382aae86d64bb8097d549e594b45669cda4884');
+    //
+    // 06.10.2026 (M5, Kontrakt 14, Auftrag erkennung-liest-das-original): das
+    // Modell liest das Original (Regel zu `original`), ein erkennender Flow in
+    // `ergebnis_bestaetigen` hat genau eine Pruefung, `titel` beim Start und
+    // eine Fassung dazu, wo und von wem entschieden wird. Die Zahl geht mit,
+    // weil der Start `.strict()` ist und sich ein Verhalten aendert.
+    expect(abdruck).toBe('66b96771795646e18ea6060ffa9511d60929bf11c81d4768d6d57999c7679308');
   });
 
   /**

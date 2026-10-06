@@ -64,7 +64,16 @@ async function hoerende({ appId, stand, name }, datenbank = db) {
  *                    nicht_gestartet: {flow: string, grund: string}[]}>}
  */
 async function melde(
-  { appId, stand, name, daten = {}, userId, einreicherId = null, freigabeRegel = null },
+  {
+    appId,
+    stand,
+    name,
+    daten = {},
+    userId,
+    einreicherId = null,
+    freigabeRegel = null,
+    titel = null,
+  },
   deps = {}
 ) {
   const {
@@ -93,6 +102,7 @@ async function melde(
         freigabeRegel,
         ausloeser: 'ereignis',
         ereignis: name,
+        titel,
       });
       laeufe.push({ flow: flow.name, run_id: runId });
     } catch (err) {

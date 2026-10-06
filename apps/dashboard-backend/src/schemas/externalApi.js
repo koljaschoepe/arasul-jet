@@ -84,6 +84,13 @@ const FreigabeRegel = z
   })
   .strict();
 
+/** Der kurze Titel eines Laufs (Kontrakt 14, Migration 211). */
+const LaufTitel = z
+  .string()
+  .trim()
+  .min(1, 'titel darf nicht leer sein')
+  .max(120, 'titel hat höchstens 120 Zeichen');
+
 const ExternalFlowRunBody = z
   .object({
     args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
@@ -95,6 +102,10 @@ const ExternalFlowRunBody = z
     // (`freigabeAnfragen.pruefeRegel`), hier nur die Form.
     einreicher: z.string().trim().min(1).max(100).optional(),
     freigabe: FreigabeRegel.optional(),
+    // Ein kurzer Titel fuer die Freigabekarten des Laufs (Kontrakt 14):
+    // „Beleg 7, Deutsche Post, 4,95 €". Ohne ihn bildet das Geraet einen aus
+    // den erkannten Feldern.
+    titel: LaufTitel.optional(),
   })
   .strict();
 
@@ -127,6 +138,8 @@ const ExternalEreignisBody = z
     // Wer das Ereignis ausgeloest hat (der Wert aus `X-Arasul-User`), wie beim
     // Start eines Flows. Ohne ihn laufen die Flows ohne Einreicher.
     einreicher: z.string().trim().min(1).max(100).optional(),
+    // Der Titel jedes Laufs, den das Ereignis startet (Kontrakt 14).
+    titel: LaufTitel.optional(),
   })
   .strict();
 

@@ -135,7 +135,9 @@ class SubagentTool extends BaseTool {
         eigenerSchritt = await stepRecorder.beginnen({
           kind: 'subagent',
           name: rolleName,
-          input: { auftrag },
+          // Was die Rolle an Bildern bekam (M5, Kontrakt 14): Pfad, Art, Seiten
+          // und Groesse des Originals, nie die Bilder selbst.
+          input: context.originalInfo ? { auftrag, original: context.originalInfo } : { auftrag },
           parentStepId,
           modell: rollenModell,
         });
@@ -294,6 +296,8 @@ class SubagentTool extends BaseTool {
         zeitlimitS: limits.restSekunden(),
         context: roleContext,
         think: denkt,
+        // Das Original eines erkennenden Schritts als Bilder (M5, Kontrakt 14).
+        bilder: context.bilder || null,
         // Dasselbe Abbruch-Signal wie der Orchestrator: ein Abbruch stoppt auch
         // eine gerade laufende Rolle vor ihrem nächsten Modell-Aufruf.
         signal: context.signal,

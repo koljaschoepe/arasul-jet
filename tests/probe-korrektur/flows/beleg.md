@@ -39,7 +39,7 @@ schritte:
     rolle: leser
     auftrag: 'Lies den Beleg {{beleg}}. <<<{"betrag": "12,50", "datum": "{{datum}}", "unsicher": [{{unsicher}}]}>>>'
     faehigkeiten: { text: true, bild: true }
-    original: 'api/belege/{{beleg}}.svg'
+    original: 'api/belege/{{beleg}}.png'
   - name: buchen
     typ: subagent
     rolle: bucher

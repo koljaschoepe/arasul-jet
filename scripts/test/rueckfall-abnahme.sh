@@ -348,7 +348,7 @@ P1="$ANFRAGE"
 pruefe 'Sie zeigt nicht selbst: app_zeigt_freigaben=false (Rückfall in Arasul)' \
   "$(ja_wenn "$(printf '%s' "$ANFRAGE_JSON" | feld app_zeigt_freigaben)" false)"
 pruefe 'Sie trägt Felder (datum zu prüfen, änderbar) und das Original' \
-  "$([ "$(printf '%s' "$ANFRAGE_JSON" | feld felder.0.name)" = datum ] && [ "$(printf '%s' "$ANFRAGE_JSON" | feld felder.0.aenderbar)" = true ] && [ "$(printf '%s' "$ANFRAGE_JSON" | feld original)" = "/apps/$APP/api/belege/4711.svg" ] && echo ja || echo nein)"
+  "$([ "$(printf '%s' "$ANFRAGE_JSON" | feld felder.0.name)" = datum ] && [ "$(printf '%s' "$ANFRAGE_JSON" | feld felder.0.aenderbar)" = true ] && [ "$(printf '%s' "$ANFRAGE_JSON" | feld original)" = "/apps/$APP/api/belege/4711.png" ] && echo ja || echo nein)"
 ruf "$TOK_B" GET /api/freigabe-anfragen
 pruefe "$B (Einreicher) sieht die Freigabe nicht, vier Augen" \
   "$([ -z "$(rumpf | anfrage_zu_lauf "$LAUF" "$TITEL_PRUEFUNG")" ] && echo ja || echo nein)"

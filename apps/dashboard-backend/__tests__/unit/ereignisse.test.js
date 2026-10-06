@@ -64,6 +64,7 @@ describe('ereignisse.melde', () => {
       freigabeRegel: null,
       ausloeser: 'ereignis',
       ereignis: 'beleg.eingegangen',
+      titel: null,
     });
     // Gesucht wird in App UND Stand des Schluessels, mit genau diesem Namen.
     const [sql, params] = db.query.mock.calls[0];

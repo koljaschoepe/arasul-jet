@@ -28,6 +28,8 @@ const { felderText } = require('./resultContract');
 const { felderDerErkennung } = require('./freigabeAnfragen');
 const { runFlowLoop } = require('./toolLoop');
 const SubagentTool = require('./subagent');
+const originalDienst = require('./original');
+const runStore = require('./runStore');
 const logger = require('../../utils/logger');
 
 /** Obergrenze der Elemente einer `wiederhole_ueber`-Schleife (Notbremse). */
@@ -197,6 +199,44 @@ function erkennungsTitel({ fehlend, unsicher }) {
 }
 
 /**
+ * Erkennt dieser Flow (M5)? Mindestens ein `subagent`-Schritt mit
+ * `faehigkeiten.bild: true`. Dieselbe Regel wie im Kontrakt.
+ */
+function istErkennend(flow) {
+  return (flow?.schritte || []).some(s => s.typ === 'subagent' && s.faehigkeiten?.bild === true);
+}
+
+/**
+ * Ein kurzer Titel aus den erkannten Feldern (Kontrakt 14): die ersten drei
+ * Werte in der Reihenfolge, in der die Rolle ihre Felder nennt, je hoechstens
+ * 40 Zeichen. So steht auf der Karte „Deutsche Post, 4,95, 01.10.2026" statt
+ * nur des Grundes. Null, wenn kein Feld einen Wert hat.
+ */
+function titelAusFeldern(felder = {}, reihenfolge = []) {
+  const namen = [...reihenfolge, ...Object.keys(felder).filter(n => !reihenfolge.includes(n))];
+  const werte = namen
+    .map(n =>
+      String(felder[n] ?? '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    )
+    .filter(Boolean)
+    .slice(0, 3)
+    .map(w => (w.length > 40 ? `${w.slice(0, 39)}…` : w));
+  return werte.length ? werte.join(', ').slice(0, 120) : null;
+}
+
+/** Der Titel einer Freigabe, wenn das Original nicht zu lesen war. */
+const TITEL_OHNE_ORIGINAL = {
+  fehlt: 'Original fehlt',
+  zu_gross: 'Original zu groß',
+  format: 'Original nicht lesbar',
+  pdf: 'Original nicht lesbar',
+  zugang: 'Original nicht abrufbar',
+  kein_bildmodell: 'Kein Bildmodell am Gerät',
+};
+
+/**
  * Das Original eines erkennenden Schritts (Kontrakt 10), mit eingesetzten
  * Platzhaltern. Ein Wert, der nach dem Einsetzen kein Pfad relativ zur App mehr
  * ist (ein Argument brachte `..` oder ein Schema mit), faellt weg: die Freigabe
@@ -329,6 +369,9 @@ async function executeSteps({
   schrittPlan = null,
   SubagentToolClass = SubagentTool,
   felderNachFreigabe = null,
+  holeOriginal = originalDienst.hole,
+  modellMitBild = originalDienst.modellMitBild,
+  titelSetzen = runStore.titelSetzen,
 }) {
   const subagentTool = new SubagentToolClass();
   const outputs = {};
@@ -415,52 +458,196 @@ async function executeSteps({
         // Felder kommen mit zurueck, damit bei fehlender oder unsicherer
         // Erkennung ein Mensch entscheidet -- in jeder Art des Flows (M5).
         const erkennt = schritt.faehigkeiten?.bild === true;
+        const rolle = (flow.rollen || []).find(r => r.name === schritt.rolle);
+        const original = erkennt ? originalPfad(schritt.original, scope) : null;
+        const fortsetzungHier =
+          !schritt.wiederhole_ueber && (schritt.iterationen || 1) === 1
+            ? { schritt: index, name: schritt.name }
+            : null;
+        const stufeHier = flow.stufen?.length ? { stufe: flow.stufen[0].name } : {};
+        // Wie `SubagentTool`: extern rechnet die Rolle, wenn der Flow extern
+        // steht und sie kein eigenes Modell nennt.
+        const rechnetExtern = Boolean(context?.extern) && !rolle?.modell;
+
+        // Das Original (Kontrakt 14): nennt der Schritt eines, bekommt das
+        // Modell es als Bild -- oder der Lauf haelt mit dem Grund an, warum
+        // nicht. Ohne `original` (jedes Paket vor Kontrakt 14) bleibt es beim
+        // Auftrag als Text, wie bisher.
+        let bild = null;
+        let ohneOriginal = null;
+        if (erkennt && schritt.original) {
+          try {
+            if (!original) {
+              throw originalDienst.originalFehler(
+                'fehlt',
+                'Der Pfad des Originals ist nach dem Einsetzen kein Pfad relativ zur App.'
+              );
+            }
+            const geholt = await holeOriginal({ pfad: original, context });
+            // Hat der Administrator den Flow auf ein externes Modell gestellt
+            // (D4), geht das Bild dorthin mit: seine Entscheidung, nicht die des
+            // Schritts. Sonst rechnet ein Modell des Geraets, das Bilder liest.
+            const gewaehlt = rechnetExtern
+              ? null
+              : await modellMitBild(
+                  geplant?.modell || schritt.modell || rolle?.modell || context.model
+                );
+            bild = { ...geholt, modell: gewaehlt?.modell ?? null };
+          } catch (err) {
+            if (!err.originalGrund) {
+              throw err;
+            }
+            ohneOriginal = { grund: err.originalGrund, satz: err.message };
+          }
+        }
+
+        if (ohneOriginal) {
+          // Kein Modellaufruf: ohne Bild wuerde das Modell die Felder aus dem
+          // Auftrag erfinden (Fremdtest 06.10.2026: „Fehlt Beleg"). Der Schritt
+          // steht trotzdem im Protokoll, mit dem Grund -- die Wiederaufnahme
+          // nach einem Neustart erwartet ihn dort.
+          const namen = rolle?.ergebnis?.felder || [];
+          const recorder = context?.stepRecorder;
+          if (recorder) {
+            try {
+              const step = await recorder.beginnen({
+                kind: 'subagent',
+                name: schritt.rolle,
+                input: { auftrag, original: { pfad: original, grund: ohneOriginal.grund } },
+              });
+              await recorder.abschliessen({
+                stepId: step.id,
+                output: `Kein Modellaufruf: ${ohneOriginal.satz}`,
+              });
+            } catch (err) {
+              logger.warn(
+                `Flow-Schritt "${schritt.name}": Schritt nicht gespeichert: ${err.message}`
+              );
+            }
+          }
+          await recordWerkzeug({
+            werkzeug: 'freigabe_anfordern',
+            params: {
+              titel: TITEL_OHNE_ORIGINAL[ohneOriginal.grund] || 'Original nicht lesbar',
+              zusammenhang:
+                `Schritt „${schritt.name}" (Rolle ${schritt.rolle}): ${ohneOriginal.satz}\n\n` +
+                'Das Modell hat nichts gelesen, die Felder sind leer. Tragen Sie ein, was ' +
+                'Sie ändern dürfen, oder lehnen Sie ab.',
+              ...stufeHier,
+              automatisch: true,
+            },
+            fortsetzung: fortsetzungHier,
+            erkennung: {
+              felder: felderDerErkennung({
+                felder: Object.fromEntries(namen.map(n => [n, ''])),
+                fehlend: namen,
+                unsicher: [],
+                aenderbar: rolle?.ergebnis?.aenderbar || [],
+              }),
+              schritt: schritt.name,
+              // Fehlt es, zeigt die Freigabe kein kaputtes Bild.
+              original: ohneOriginal.grund === 'fehlt' ? null : original,
+            },
+          });
+          const korrigiert = await korrigierteAusgabe({
+            flow,
+            schritt,
+            runId: context?.runId,
+            lesen: felderNachFreigabe,
+          });
+          return korrigiert ?? '';
+        }
+
         let erkannt = null;
         // SubagentTool schreibt den DB-Schritt (samt Kind-Schritten und
         // Rohdaten) über context.stepRecorder selbst und meldet ihn live —
         // hier keine eigene Meldung, sonst stünde die Delegation doppelt.
         const antwort = await subagentTool.execute(
-          { rolle: schritt.rolle, auftrag },
+          {
+            rolle: schritt.rolle,
+            auftrag: bild ? `${auftrag}\n\n${originalDienst.hinweisFuerModell(bild)}` : auftrag,
+          },
           {
             ...context,
             signal,
-            model: geplant?.modell || schritt.modell || context.model,
+            model: bild?.modell || geplant?.modell || schritt.modell || context.model,
             // Ein Modell aus dem Plan gilt auch gegen `rolle.modell`: der Admin
-            // hat den SCHRITT umgestellt, nicht die Rolle.
-            ...(geplant?.modell ? { modellErzwungen: true } : {}),
+            // hat den SCHRITT umgestellt, nicht die Rolle. Mit Bild ebenso: das
+            // Modell ist oben schon auf Bildfaehigkeit geprueft.
+            ...(geplant?.modell || bild?.modell ? { modellErzwungen: true } : {}),
             ...(erkennt ? { erkennend: true, onErgebnis: e => (erkannt = e) } : {}),
+            // Lokal heisst lokal: `modellErzwungen` liesse die Rolle sonst den
+            // externen Zugang des Flows nehmen, mit dem Namen eines Modells
+            // dieses Geraets.
+            ...(bild && !rechnetExtern ? { extern: null } : {}),
+            ...(bild
+              ? {
+                  bilder: bild.bilder,
+                  originalInfo: {
+                    pfad: bild.pfad,
+                    art: bild.art,
+                    seiten: bild.seiten,
+                    gesamt: bild.gesamt,
+                    bytes: bild.bytes,
+                    modell: bild.modell || 'extern',
+                  },
+                }
+              : {}),
           }
         );
-        if (erkannt) {
-          const befund = erkennungsBefund(erkannt);
-          if (befund.fehlend.length + befund.unsicher.length > 0) {
-            const rolle = (flow.rollen || []).find(r => r.name === schritt.rolle);
+        if (erkennt) {
+          // Kam keine Erkennung zurueck (die Rolle scheiterte), ist das kein
+          // stiller Durchlauf: jedes Feld gilt als unsicher, ein Mensch sieht es.
+          const namen = rolle?.ergebnis?.felder || [];
+          const ergebnis = erkannt || {
+            felder: Object.fromEntries(namen.map(n => [n, ''])),
+            json: false,
+            unsicher: [],
+          };
+          const befund = erkennungsBefund(ergebnis);
+          // In der Art `ergebnis_bestaetigen` ist diese Freigabe DIE Bestaetigung
+          // (Kontrakt 14): sie kommt immer, auch wenn alles sicher erkannt ist,
+          // und traegt die Felder. Am Ende kommt keine zweite (`runFlow`).
+          const immer = flow.art === 'ergebnis_bestaetigen';
+          if (befund.fehlend.length + befund.unsicher.length > 0 || immer) {
+            // Der Titel des Laufs (Kontrakt 14): was die App beim Start nannte,
+            // sonst aus den erkannten Feldern. Er steht vorn an jeder Freigabe.
+            if (context?.runId != null && ergebnis.json) {
+              try {
+                await titelSetzen({
+                  runId: context.runId,
+                  titel: titelAusFeldern(ergebnis.felder, namen),
+                });
+              } catch (err) {
+                logger.warn(`Flow-Schritt "${schritt.name}": Titel nicht gesetzt: ${err.message}`);
+              }
+            }
+            const unsicher = befund.fehlend.length + befund.unsicher.length > 0;
             await recordWerkzeug({
               werkzeug: 'freigabe_anfordern',
               params: {
-                titel: erkennungsTitel(befund),
+                titel: unsicher
+                  ? erkennungsTitel(befund)
+                  : `Ergebnis bestätigen: ${context?.slug || schritt.name}`,
                 zusammenhang:
                   `Schritt „${schritt.name}" (Rolle ${schritt.rolle}):\n${antwort}\n\n` +
                   (befund.fehlend.length ? `Nicht erkannt: ${befund.fehlend.join(', ')}\n` : '') +
                   (befund.unsicher.length ? `Unsicher: ${befund.unsicher.join(', ')}\n` : ''),
-                ...(flow.stufen?.length ? { stufe: flow.stufen[0].name } : {}),
+                ...stufeHier,
                 automatisch: true,
               },
-              fortsetzung:
-                !schritt.wiederhole_ueber && (schritt.iterationen || 1) === 1
-                  ? { schritt: index, name: schritt.name }
-                  : null,
+              fortsetzung: fortsetzungHier,
               // Die Felder fuer die Ansicht der Freigabe (M5): Vorschlag,
               // unsicher, fehlend, und was die App als aenderbar erklaert.
               erkennung: {
                 felder: felderDerErkennung({
-                  felder: erkannt.felder,
+                  felder: ergebnis.felder,
                   fehlend: befund.fehlend,
                   unsicher: befund.unsicher,
                   aenderbar: rolle?.ergebnis?.aenderbar || [],
                 }),
                 schritt: schritt.name,
-                original: originalPfad(schritt.original, scope),
+                original,
               },
             });
             // Bestaetigt: der weitere Lauf arbeitet mit dem, was der Mensch
@@ -590,5 +777,7 @@ module.exports = {
   korrigierteAusgabe,
   korrigiereVorab,
   originalPfad,
+  istErkennend,
+  titelAusFeldern,
   MAX_MAP_ELEMENTE,
 };

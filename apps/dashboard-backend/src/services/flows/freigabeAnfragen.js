@@ -645,7 +645,12 @@ async function anfordern(
                                    stufe, felder, felder_schritt, original,
                                    einreicher_id, ohne_einreicher, entscheider_rolle,
                                    entscheider_ids)
-     SELECT $1, $2, $3, $4, $5, $6, NOW() + ($7 || ' minutes')::interval, $8,
+     SELECT $1, $2, $3, $4,
+            -- Der Titel des Laufs vorn (Kontrakt 14, Migration 211): zwei Karten
+            -- „Erkennung unsicher" sind sonst nicht zu unterscheiden.
+            CASE WHEN r.titel IS NOT NULL AND r.titel <> ''
+                 THEN left(r.titel || ' – ' || $5::text, 500) ELSE $5::text END,
+            $6, NOW() + ($7 || ' minutes')::interval, $8,
             $9::jsonb, $10, $11,
             r.einreicher_id,
             COALESCE((r.freigabe_regel->>'ohne_einreicher')::boolean, FALSE)

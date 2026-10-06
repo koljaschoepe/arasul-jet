@@ -277,6 +277,31 @@ Idempotenz beibringen. Ein Paket von Kontrakt 10 rollt unverändert aus; ein
 laufender App-Container bekommt `ARASUL_ABSCHLUSS_TOKEN` erst mit dem nächsten
 Einspielen.
 
+## Die Erkennung liest das Original: Kontrakt 14 (M5, 06.10.2026)
+
+Gefunden im Fremdtest vom 06.10.2026: das Modell eines erkennenden Schritts
+bekam nur den Auftrag als Text und antwortete „Fehlt Beleg"; Felder zum Ändern
+gab es nur bei „unsicher", und `--felder` mit `ergebnis_bestaetigen` ergab zwei
+Freigaben. Die Regeln im Einzelnen stehen in
+[FLOWS.md](FLOWS.md#das-original-lesen-m5-06102026-kontrakt-14).
+
+| Wo                              | Feld / Verhalten   | Form                                                                                                                                                                 |
+| ------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schritt (`subagent` mit `bild`) | `original`         | Wie seit Kontrakt 10; jetzt holt das Gerät die Datei und gibt sie dem Bildmodell. PNG, JPEG oder PDF (die ersten 3 Seiten), höchstens 10 MB                          |
+| Flow mit `ergebnis_bestaetigen` | eine Prüfung       | Ein erkennender Schritt legt seine Freigabe immer an, mit den Feldern; am Ende kommt keine zweite                                                                    |
+| Start eines Laufs               | `titel`            | Freiwillig, höchstens 120 Zeichen, auch bei `ereignisse/<name>`; sonst aus den erkannten Feldern. Steht vorn an jeder Freigabe des Laufs, `GET flows/runs/:id` nennt ihn |
+| Fehlendes Original              | Freigabe mit Grund | `Original fehlt`, `Original zu groß`, `Original nicht lesbar`, `Original nicht abrufbar`, `Kein Bildmodell am Gerät`; kein Modellaufruf, Felder leer                   |
+
+**Kontraktfassung 14:** der Start ist `.strict()`, ein Kit, das gegen 13 prüft,
+wiese `titel` ab; und eine Vorlage, die für `--felder` einen eigenen Schritt
+`entscheiden` (`freigabe_anfordern`) anhängt, bekommt in der Art
+`ergebnis_bestaetigen` weiterhin zwei Prüfungen. **Folge fürs Kit** (eine
+eigene Kit-Karte): `KIT_CONTRACT_VERSIONS` auf 14, das Wissen (`app.md`) sagt,
+dass das Modell das Original liest und wo es liegen darf, Gerüst und
+`--new --felder` lassen den Schritt `entscheiden` weg. Ein Paket von Kontrakt 13
+rollt unverändert aus: ohne `original` liest das Modell wie bisher nur den
+Auftrag.
+
 ## Ereignisse und Routen von Apps: Kontrakt 13 (M5, 04.10.2026)
 
 Zwei Dinge, beide aus dem Abschnitt „Flows und Freigaben“ des Zielbilds:

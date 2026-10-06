@@ -96,3 +96,50 @@ def test_bilder_zaehlen_als_ocr(client, monkeypatch):
     antwort = _upload(client, 'scan.png', b'\x89PNG')
     assert antwort.status_code == 200
     assert antwort.get_json()['metadata']['ocr_used'] is True
+
+
+def _pdf_upload(client, data, seiten='3'):
+    return client.post(
+        '/pdf-seiten',
+        data={'file': (io.BytesIO(data), 'beleg.pdf'), 'seiten': seiten},
+        content_type='multipart/form-data',
+    )
+
+
+def test_pdf_seiten_gibt_png_als_base64_und_gesamtzahl(client, monkeypatch):
+    gesehen = {}
+
+    def render(data, max_pages):
+        gesehen['max'] = max_pages
+        return [b'\x89PNG eins', b'\x89PNG zwei'], 7
+
+    monkeypatch.setattr(api_server, 'render_pdf_pages', render)
+    antwort = _pdf_upload(client, b'%PDF-1.7 ...', seiten='9')
+    assert antwort.status_code == 200
+    daten = antwort.get_json()
+    assert daten['gesamt'] == 7
+    assert len(daten['seiten']) == 2
+    assert daten['seiten'][0] == 'iVBORyBlaW5z'
+    # gedeckelt auf vier Seiten, egal was verlangt wird
+    assert gesehen['max'] == 4
+
+
+def test_pdf_seiten_weist_kein_pdf_ab(client):
+    antwort = _pdf_upload(client, b'\x89PNG nicht pdf')
+    assert antwort.status_code == 400
+    assert 'PDF' in antwort.get_json()['error']
+
+
+def test_pdf_seiten_kaputtes_pdf_gibt_400(client, monkeypatch):
+    def render(data, max_pages):
+        raise ValueError('PDF ist verschluesselt')
+
+    monkeypatch.setattr(api_server, 'render_pdf_pages', render)
+    antwort = _pdf_upload(client, b'%PDF-1.7 kaputt')
+    assert antwort.status_code == 400
+    assert 'verschluesselt' in antwort.get_json()['error']
+
+
+def test_pdf_seiten_ohne_datei_gibt_400(client):
+    antwort = client.post('/pdf-seiten', data={}, content_type='multipart/form-data')
+    assert antwort.status_code == 400

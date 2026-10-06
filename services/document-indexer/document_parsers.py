@@ -277,6 +277,43 @@ def get_pdf_page_count(file_obj: IO[bytes]) -> int:
         return 0
 
 
+def render_pdf_pages(pdf_bytes: bytes, max_pages: int, max_edge: int = 1600):
+    """
+    Die ersten Seiten eines PDF als PNG (M5, 06.10.2026, Kontrakt 14).
+
+    Fuer das Bildmodell eines erkennenden Flow-Schritts: es liest Bilder, keine
+    PDFs. Gerendert wird so, dass die lange Kante hoechstens ``max_edge`` Pixel
+    hat (und hoechstens 200 dpi): ein Beleg in A4 kommt bei rund 136 dpi an,
+    genug fuer Betraege und Daten, und klein genug fuer den Speicher des
+    Modells.
+
+    Returns:
+        (Liste der PNG-Bytes, Seitenzahl des ganzen Dokuments)
+
+    Raises:
+        ValueError: das PDF laesst sich nicht oeffnen oder ist verschluesselt.
+    """
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception as e:  # noqa: BLE001 - jede Form von kaputt ist dasselbe
+        raise ValueError(f"PDF nicht lesbar: {e}") from e
+    try:
+        if getattr(doc, 'needs_pass', False):
+            raise ValueError("PDF ist verschluesselt")
+        gesamt = len(doc)
+        bilder = []
+        for nummer in range(min(gesamt, max_pages)):
+            seite = doc[nummer]
+            breite, hoehe = seite.rect.width, seite.rect.height
+            lang = max(breite, hoehe) or 1
+            zoom = min(max_edge / lang, 200 / 72)
+            pix = seite.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+            bilder.append(pix.tobytes("png"))
+        return bilder, gesamt
+    finally:
+        doc.close()
+
+
 def parse_docx(file_obj: IO[bytes]) -> str:
     """
     Parse DOCX file and extract text

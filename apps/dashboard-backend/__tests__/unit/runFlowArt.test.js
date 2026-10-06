@@ -81,6 +81,43 @@ describe('runFlow: Art am Ende', () => {
     );
   });
 
+  it('ein erkennender Flow mit ergebnis_bestaetigen hat genau eine Prüfung (Kontrakt 14)', async () => {
+    // Fremdtest 06.10.2026: Erkennung und „Ergebnis bestätigen" ergaben zwei
+    // Freigaben. Die der Erkennung ist die Bestätigung, am Ende kommt keine.
+    const deps = makeDeps({
+      ...basis,
+      art: 'ergebnis_bestaetigen',
+      werkzeuge: ['subagent'],
+      rollen: [
+        {
+          name: 'leser',
+          prompt: 'Lies.',
+          werkzeuge: [],
+          ergebnis: { felder: ['betrag'], max_zeichen: 2000 },
+        },
+      ],
+      schritte: [
+        {
+          name: 'lesen',
+          typ: 'subagent',
+          rolle: 'leser',
+          auftrag: 'Lies den Beleg.',
+          faehigkeiten: { bild: true },
+        },
+      ],
+    });
+    // Was der Mensch bestaetigt hat, liest der Lauf aus der Freigabe.
+    deps.felderNachFreigabe = jest.fn(async () => ({ felder: { betrag: '4,95' } }));
+    await runFlow(lauf, deps);
+
+    expect(deps.freigabeTool.execute).toHaveBeenCalledTimes(1);
+    const [params] = deps.freigabeTool.execute.mock.calls[0];
+    expect(params.titel).toMatch(/^Erkennung unsicher: Feld betrag/);
+    expect(deps.store.finishRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'fertig', result: 'Das Ergebnis' })
+    );
+  });
+
   it('autonom legt keine Freigabe an', async () => {
     const deps = makeDeps({ ...basis, art: 'autonom' });
     await runFlow(lauf, deps);
