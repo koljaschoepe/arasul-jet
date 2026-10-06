@@ -57,14 +57,16 @@ def test_kaputtes_pdf_bleibt_ein_valueerror():
 
 @pytest.mark.skipif(not sys.platform.startswith('linux'), reason='RLIMIT_AS wirkt nur unter Linux')
 def test_ohne_speicher_wird_abgewiesen_statt_zu_haengen():
-    # Unter der echten Grenze (1 GiB Adressraum) eine leere Seite in der
-    # groessten Groesse, die PDF erlaubt: bei 200 dpi 40000 x 40000 Pixel, rund
-    # 4,8 GB. Das Oeffnen geht, erst das Rendern scheitert am Speicher. (Mit
-    # `speicher=1` scheiterte schon das Oeffnen, als unlesbares PDF.)
+    # Unter der echten Grenze (1 GiB Adressraum) eine leere Seite von
+    # 8000 x 8000 pt: bei 200 dpi 22222 x 22222 Pixel, rund 1,5 GB. Das Oeffnen
+    # geht, erst das Rendern scheitert am Speicher. Nicht groesser: ab rund
+    # 2 GB weist MuPDF selbst ab ("Overly large image"), dann prueft der Test
+    # nicht mehr die Speichergrenze. Und nicht `speicher=1`: dann scheitert
+    # schon das Oeffnen, als unlesbares PDF. Beides in der CI gesehen.
     doc = fitz.open()
-    doc.new_page(width=14400, height=14400)
+    doc.new_page(width=8000, height=8000)
     daten = doc.tobytes()
     doc.close()
     with pytest.raises(document_parsers.PdfZuAufwendig) as fehler:
-        document_parsers.render_pdf_pages(daten, 1, max_edge=40000, zeit_s=20)
+        document_parsers.render_pdf_pages(daten, 1, max_edge=22222, zeit_s=20)
     assert fehler.value.grund == 'zu_gross'
