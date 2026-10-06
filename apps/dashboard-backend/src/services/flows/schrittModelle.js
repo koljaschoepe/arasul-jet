@@ -224,12 +224,13 @@ async function wahlenFuer({ appId, flowName }) {
  *
  * @param {{appId:string, flowName:string, definitionen:Array<{stand:string, definition:object}>}} p
  *   die Flow-Definitionen aus den Staenden, in denen es den Flow gibt
- * @param {{modelle?:object[], standardId?:string|null}} [vorab] schon gelesene Modelle
+ * @param {{modelle?:object[], standardId?:string|null, wahlen?:Map<string,string>}} [vorab]
+ *   schon gelesene Modelle und Wahlen dieses Flows
  */
 async function schritteVon({ appId, flowName, definitionen }, vorab = {}) {
   const modelle = vorab.modelle || (await installierte());
   const standardId = vorab.standardId ?? (await standardKennung(modelle));
-  const wahlen = await wahlenFuer({ appId, flowName });
+  const wahlen = vorab.wahlen || (await wahlenFuer({ appId, flowName }));
 
   // Je Schrittname alle Staende sammeln: dieselbe Wahl gilt fuer beide.
   const proName = new Map();
@@ -317,9 +318,25 @@ async function planFuerLauf({ appId, flowName, definition }) {
       });
     }
   } catch (err) {
-    // Der Plan ist eine Verfeinerung. Ohne ihn laeuft der Schritt wie bisher.
+    // Der Plan ist eine Verfeinerung; ohne ihn rechnet jeder Schritt mit dem
+    // Modell aus dem Paket (`modell: null`). Aber nicht still: bis zum
+    // 07.10.2026 stand das nur im Log, und eine Wahl des Admins galt in diesem
+    // Lauf nicht, ohne dass es jemand sah (Befund 15 der zweiten Pruefung).
+    // Ein Vermerk fuer den Lauf, am ersten Schritt, nicht einer je Schritt.
     logger.warn(`Modell je Schritt: Plan nicht lesbar, Lauf ohne: ${err.message}`);
-    return new Map();
+    const ohne = new Map();
+    subagenten.forEach((s, i) => {
+      ohne.set(s.name, {
+        modell: null,
+        herkunft: 'plan_unlesbar',
+        original: originalVon(definition, s),
+        vermerk:
+          i === 0
+            ? 'Die Modellwahl je Schritt ließ sich für diesen Lauf nicht lesen. Jeder Schritt läuft mit dem Modell aus dem Paket; eine Umstellung in der Verwaltung gilt erst im nächsten Lauf.'
+            : null,
+      });
+    });
+    return ohne;
   }
   return plan;
 }
@@ -368,19 +385,62 @@ async function setze({ appId, flowName, schritt, modell, forderung, durch = null
   return { modell: treffer.id };
 }
 
-/** Die Definitionen aller Flows einer App, je Flow die Staende, in denen es ihn gibt. */
-async function definitionenDerApp(appId) {
+/**
+ * Die Definitionen der Flows, je App und je Flow die Staende, in denen es ihn
+ * gibt. Mit `appId` nur die einer App, ohne die aller: eine Abfrage, nicht eine
+ * je App (Befund 14 der zweiten Pruefung, 05.10.2026).
+ *
+ * @returns {Promise<Map<string, Map<string, Array<{stand:string, definition:object}>>>>}
+ */
+async function definitionen(appId = null) {
   const { rows } = await db.query(
-    `SELECT name, stand, definition FROM public.app_flows WHERE app_id = $1 ORDER BY name, stand`,
+    `SELECT app_id, name, stand, definition FROM public.app_flows
+      WHERE $1::text IS NULL OR app_id = $1
+      ORDER BY app_id, name, stand`,
     [appId]
   );
-  const proFlow = new Map();
+  const proApp = new Map();
   for (const z of rows) {
+    const proFlow = proApp.get(z.app_id) || new Map();
     const liste = proFlow.get(z.name) || [];
     liste.push({ stand: z.stand, definition: z.definition });
     proFlow.set(z.name, liste);
+    proApp.set(z.app_id, proFlow);
   }
-  return proFlow;
+  return proApp;
+}
+
+/** Die Definitionen aller Flows einer App, je Flow die Staende, in denen es ihn gibt. */
+async function definitionenDerApp(appId) {
+  return (await definitionen(appId)).get(appId) || new Map();
+}
+
+/**
+ * Die Wahlen des Admins, je App und Flow als Map Schrittname -> Modell; mit
+ * `appId` nur die einer App. Eine Abfrage statt einer je Flow (Befund 14).
+ *
+ * @returns {Promise<Map<string, Map<string, Map<string,string>>>>} App -> Flow -> Schritt -> Modell
+ */
+async function alleWahlen(appId = null) {
+  const { rows } = await db.query(
+    `SELECT app_id, flow_name, schritt, modell FROM public.flow_schritt_modelle
+      WHERE $1::text IS NULL OR app_id = $1`,
+    [appId]
+  );
+  const aus = new Map();
+  for (const z of rows) {
+    const proFlow = aus.get(z.app_id) || new Map();
+    const wahlen = proFlow.get(z.flow_name) || new Map();
+    wahlen.set(z.schritt, z.modell);
+    proFlow.set(z.flow_name, wahlen);
+    aus.set(z.app_id, proFlow);
+  }
+  return aus;
+}
+
+/** Die Wahlen eines Flows aus dem Ergebnis von `alleWahlen`, leer wenn keine. */
+function wahlenAus(alle, appId, flowName) {
+  return alle.get(appId)?.get(flowName) || new Map();
 }
 
 /**
@@ -393,9 +453,13 @@ async function uebersicht(appId) {
   for (const m of modelle) {
     m.ist_standard = m.id === standardId;
   }
+  const wahlen = await alleWahlen(appId);
   const flows = [];
-  for (const [flowName, definitionen] of await definitionenDerApp(appId)) {
-    const schritte = await schritteVon({ appId, flowName, definitionen }, { modelle, standardId });
+  for (const [flowName, definitionenDesFlows] of await definitionenDerApp(appId)) {
+    const schritte = await schritteVon(
+      { appId, flowName, definitionen: definitionenDesFlows },
+      { modelle, standardId, wahlen: wahlenAus(wahlen, appId, flowName) }
+    );
     if (schritte.length > 0) {
       flows.push({ name: flowName, schritte });
     }
@@ -408,11 +472,11 @@ async function uebersicht(appId) {
  * der Staende, nicht vom Aufrufer -- der Admin schickt nur das Modell.
  */
 async function setzeFuerSchritt({ appId, flowName, schritt, modell, durch }) {
-  const definitionen = (await definitionenDerApp(appId)).get(flowName);
-  if (!definitionen) {
+  const desFlows = (await definitionenDerApp(appId)).get(flowName);
+  if (!desFlows) {
     throw new NotFoundError(`App ${appId} hat keinen Flow "${flowName}"`);
   }
-  const betroffen = definitionen.flatMap(({ definition }) =>
+  const betroffen = desFlows.flatMap(({ definition }) =>
     (definition.schritte || []).filter(s => s.name === schritt && s.typ === 'subagent')
   );
   if (betroffen.length === 0) {
@@ -435,15 +499,19 @@ async function setzeFuerSchritt({ appId, flowName, schritt, modell, durch }) {
  * mehr passt, ueber alle Apps. Ist alles gut, ist die Liste leer.
  */
 async function hinweise() {
-  const { rows: apps } = await db.query('SELECT id, name FROM public.apps ORDER BY id');
-  const modelle = await installierte();
+  const [{ rows: apps }, modelle, alleDefinitionen, wahlen] = await Promise.all([
+    db.query('SELECT id, name FROM public.apps ORDER BY id'),
+    installierte(),
+    definitionen(),
+    alleWahlen(),
+  ]);
   const standardId = await standardKennung(modelle);
   const aus = [];
   for (const app of apps) {
-    for (const [flowName, definitionen] of await definitionenDerApp(app.id)) {
+    for (const [flowName, definitionenDesFlows] of alleDefinitionen.get(app.id) || []) {
       const schritte = await schritteVon(
-        { appId: app.id, flowName, definitionen },
-        { modelle, standardId }
+        { appId: app.id, flowName, definitionen: definitionenDesFlows },
+        { modelle, standardId, wahlen: wahlenAus(wahlen, app.id, flowName) }
       );
       for (const s of schritte) {
         if (!s.hinweis) {
