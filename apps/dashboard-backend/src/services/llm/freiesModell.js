@@ -170,10 +170,11 @@ function budgetPruefen(kennung, bytes) {
 const PLATTE_AUFSCHLAG = 1.5;
 
 /**
- * Reicht die Platte? Wirft mit Grund, in zwei Saetzen.
+ * Reicht die Platte? Wirft mit Grund, in zwei Saetzen. `frei` (Bytes) nimmt
+ * eine schon gelesene Platte; ohne liest sie hier.
  */
-async function plattePruefen(kennung, bytes) {
-  const { free } = await require('./modelService').getDiskSpace();
+async function plattePruefen(kennung, bytes, frei) {
+  const free = frei ?? (await require('./modelService').getDiskSpace()).free;
   const benoetigt = Math.floor(bytes * PLATTE_AUFSCHLAG);
   if (free < benoetigt) {
     throw new ValidationError(
@@ -264,12 +265,17 @@ async function pruefe(kennung) {
   } else {
     ({ bytes } = await manifestLesen(kennung, kennungLesen(kennung)));
   }
+  return urteil(kennung, bytes);
+}
+
+/** Speicher und Platte fuer eine bekannte Groesse, als Ergebnis wie `pruefe`. */
+async function urteil(kennung, bytes, frei) {
   if (!bytes) {
     return { passt: true, grund: null, groesse_bytes: 0 };
   }
   try {
     budgetPruefen(kennung, bytes);
-    await plattePruefen(kennung, bytes);
+    await plattePruefen(kennung, bytes, frei);
   } catch (err) {
     if (err instanceof ValidationError) {
       return { passt: false, grund: err.message, groesse_bytes: bytes, details: err.details };
@@ -277,6 +283,27 @@ async function pruefe(kennung) {
     throw err;
   }
   return { passt: true, grund: null, groesse_bytes: bytes };
+}
+
+/**
+ * `pruefe` fuer Zeilen des Katalogs, deren Groesse schon gelesen ist: die
+ * Platte EINMAL, ohne Abfrage je Modell (Befund 13 der zweiten Pruefung,
+ * 05.10.2026: die Modellverwaltung fragte je Modell zweimal die Datenbank und
+ * einmal `df`, nacheinander, bei jedem Oeffnen).
+ *
+ * @param {Array<{id: string, size_bytes: number|string|null}>} zeilen
+ * @returns {Promise<Map<string, {passt: boolean, grund: string|null}>>}
+ */
+async function pruefeKatalog(zeilen) {
+  const aus = new Map();
+  if (zeilen.length === 0) {
+    return aus;
+  }
+  const { free } = await require('./modelService').getDiskSpace();
+  for (const z of zeilen) {
+    aus.set(z.id, await urteil(z.id, Number(z.size_bytes) || 0, free));
+  }
+  return aus;
 }
 
 /**
@@ -379,6 +406,7 @@ async function nachFehlschlag(modelId) {
 module.exports = {
   vorbereiten,
   pruefe,
+  pruefeKatalog,
   nachFehlschlag,
   kennungLesen,
   budgetPruefen,

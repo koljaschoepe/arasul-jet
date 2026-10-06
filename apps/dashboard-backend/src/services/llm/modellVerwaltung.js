@@ -165,12 +165,15 @@ async function uebersicht() {
         AND COALESCE(i.status, '') <> 'available'
       ORDER BY c.performance_tier, c.ram_required_gb`
   );
+  // Was gerade geladen wird, hat die Pruefung schon bestanden; mitten im
+  // Laden wuerde sie die halbe Platte als voll melden. Der Rest in EINEM Zug:
+  // Platte einmal, Groesse aus dieser Abfrage (Befund 13).
+  const urteile = await freiesModell
+    .pruefeKatalog(offen.filter(z => z.status !== 'downloading'))
+    .catch(() => new Map());
   const liste = [];
   for (const z of offen) {
-    // Was gerade geladen wird, hat die Pruefung schon bestanden; mitten im
-    // Laden wuerde sie die halbe Platte als voll melden.
-    const pruefung =
-      z.status === 'downloading' ? null : await freiesModell.pruefe(z.id).catch(() => null);
+    const pruefung = urteile.get(z.id) || null;
     liste.push({
       id: z.id,
       name: z.name,
