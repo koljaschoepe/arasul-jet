@@ -195,38 +195,6 @@ describe('API Integration Tests', () => {
             expect(Array.isArray(response.body.events)).toBe(true);
         });
 
-        test('should return self-healing status', async () => {
-            db.query.mockImplementation((query, params) => {
-                // Auth queries
-                if (query.includes('token_blacklist')) {
-                    return Promise.resolve({ rows: [] });
-                }
-                if (query.includes('active_sessions') && query.includes('SELECT')) {
-                    return Promise.resolve({ rows: [{ id: 1 }] });
-                }
-                if (query.includes('update_session_activity')) {
-                    return Promise.resolve({ rows: [] });
-                }
-                if (query.includes('admin_users')) {
-                    return Promise.resolve({ rows: [mockUser] });
-                }
-                // Status query
-                if (query.includes('self_healing_events')) {
-                    return Promise.resolve({
-                        rows: [{ events_last_hour: 5, critical_last_hour: 1 }]
-                    });
-                }
-                return Promise.resolve({ rows: [] });
-            });
-
-            const response = await request(app)
-                .get('/api/self-healing/status')
-                .set('Authorization', `Bearer ${authToken}`);
-
-            expect(response.status).toBe(200);
-            // API returns overall_health not status
-            expect(response.body).toHaveProperty('overall_health');
-        });
     });
 
     describe('Error Handling', () => {

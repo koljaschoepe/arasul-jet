@@ -146,40 +146,6 @@ router.get(
 );
 
 /**
- * GET /api/models/loaded
- * Get all currently loaded models (multi-model support)
- */
-router.get(
-  '/loaded',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const loadedModels = await modelService.getLoadedModels();
-    // Backwards-compatible: also include single loaded_model for existing consumers
-    res.json({
-      loaded_model: loadedModels.length > 0 ? loadedModels[0] : null,
-      loaded_models: loadedModels,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * GET /api/models/lifecycle
- * Get adaptive lifecycle status (phase, keep-alive, usage profile)
- */
-router.get(
-  '/lifecycle',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const modelLifecycleService = require('../../services/llm/modelLifecycleService');
-    const status = await modelLifecycleService.getLifecycleStatus();
-    res.json(status);
-  })
-);
-
-/**
  * GET /api/models/memory-budget
  * Get memory budget status (total, used, available, loaded models)
  */
@@ -440,34 +406,6 @@ router.delete(
 );
 
 /**
- * GET /api/models/recommended
- * Get recommended model for this device based on hardware profile
- * Used by Setup Wizard to pre-select the optimal model
- */
-router.get(
-  '/recommended',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const { getRecommendedModel } = require('../../utils/hardware');
-    const recommendation = await getRecommendedModel();
-
-    res.json({
-      recommended_model: recommendation.model,
-      recommended_models: recommendation.models,
-      // P9: tier-aware companions for Setup auto-pull. Setup-Wizard can pull
-      // all four to give the user a Fast/Balanced/Quality experience out of the
-      // box, with a small vision model ready for the auto-vision-fallback (P6).
-      recommended_fast_model: recommendation.fast_model || null,
-      recommended_vision_model: recommendation.vision_model || null,
-      recommended_embedding_model: recommendation.embedding_model || null,
-      device_profile: recommendation.profile,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
  * POST /api/models/default
  * Das Standardmodell setzen: damit rechnet ein Flow, der im Frontmatter
  * keines nennt (C6). Den Chat der Oberflaeche gibt es seit B6 nicht mehr.
@@ -530,99 +468,6 @@ router.get(
       default_model: defaultModel,
       timestamp: new Date().toISOString(),
     });
-  })
-);
-
-/**
- * POST /api/models/sync
- * Sync installed models with Ollama
- */
-router.post(
-  '/sync',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const result = await modelService.syncWithOllama();
-
-    // Invalidate all model caches after sync
-    cacheService.invalidatePattern('models:*');
-
-    res.json({
-      ...result,
-      message: 'Modell-Synchronisation abgeschlossen',
-    });
-  })
-);
-
-/**
- * GET /api/models/:modelId/capabilities
- * Get capabilities for a specific model (unified capability detection)
- * Used by frontend to dynamically show/hide UI features per model.
- */
-router.get(
-  '/:modelId/capabilities',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const { modelId } = req.params;
-    const db = require('../../database');
-
-    const result = await db.query(
-      // `supports_audio_input` und `max_context_window` gibt es in dieser
-      // Tabelle NICHT. Der Endpunkt gab deshalb auf jedem Geraet HTTP 500
-      // (23.08.2026 gefunden, als der Live-Sweep zum ersten Mal eine Id fuer
-      // `:modelId` hatte). Die Spalte fuer das Kontextfenster heisst
-      // `context_window`; Audio kennt der Katalog gar nicht, und ein Modell,
-      // das es kann, gibt es auf dem Geraet auch nicht.
-      `SELECT id, name, model_type, supports_thinking, supports_vision_input,
-              context_window, capabilities, rag_optimized
-       FROM llm_model_catalog WHERE id = $1`,
-      [modelId]
-    );
-
-    if (result.rows.length === 0) {
-      throw new NotFoundError(`Modell ${modelId} nicht gefunden`);
-    }
-
-    const model = result.rows[0];
-    res.json({
-      model: model.id,
-      name: model.name,
-      capabilities: {
-        text: true,
-        vision: model.supports_vision_input === true || model.model_type === 'vision',
-        thinking: model.supports_thinking === true,
-        ocr: model.model_type === 'ocr',
-        // Bleibt in der Antwort, damit nichts bricht, was das Feld schon liest
-        // — aber ehrlich: der Katalog kennt keine Audio-Faehigkeit, also ist
-        // die Antwort immer `false` und nicht "unbekannt als true getarnt".
-        audio: false,
-        rag_optimized: model.rag_optimized === true,
-        streaming: true,
-        max_context_window: model.context_window || null,
-        extra: model.capabilities || [],
-      },
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * GET /api/models/:modelId
- * Get info for a specific model
- */
-router.get(
-  '/:modelId',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const { modelId } = req.params;
-
-    const model = await modelService.getModelInfo(modelId);
-    if (!model) {
-      throw new NotFoundError(`Modell ${modelId} nicht gefunden`);
-    }
-    res.json(model);
   })
 );
 

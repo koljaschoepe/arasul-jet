@@ -393,8 +393,4 @@ describe('Die Routen der Verwaltung eines Ausweises', () => {
     expect(db.query.mock.calls[0][1]).toEqual([99]);
   });
 
-  test('nur der Administrator sieht alle Ausweise', async () => {
-    const res = await request(mitSitzung(ANNA)).get('/api/ausweise/alle');
-    expect(res.status).toBe(403);
-  });
 });

@@ -50,23 +50,6 @@ router.get(
 );
 
 /**
- * GET /api/ausweise/alle — alle Ausweise am Geraet.
- *
- * VOR `/:id` gibt es hier nichts zu klaeren -- `:id` ist eine Zahl und hat
- * nur ein DELETE. Die Route steht trotzdem hier oben, weil sie zur Liste
- * daneben gehoert und nicht zum Widerruf darunter.
- */
-router.get(
-  '/alle',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const data = await mitarbeiterAusweis.listeAlle();
-    res.json({ data, timestamp: new Date().toISOString() });
-  })
-);
-
-/**
  * POST /api/ausweise — einen Ausweis ausstellen.
  *
  * `ausweis` im Rumpf der Antwort ist das einzige Mal, dass dieser Wert das

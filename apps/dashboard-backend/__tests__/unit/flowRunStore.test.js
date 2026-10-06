@@ -283,7 +283,7 @@ describe('getRun', () => {
   });
 });
 
-describe('getRunFuerApp (Laeufe-Ansicht der Verwaltung)', () => {
+describe('getRunAlle (Laeufe-Ansicht der Verwaltung)', () => {
   it('traegt die Freigaben mit Feldern und Korrekturen wie getRun', async () => {
     const freigabe = {
       id: 5,
@@ -292,7 +292,7 @@ describe('getRunFuerApp (Laeufe-Ansicht der Verwaltung)', () => {
       korrekturen: [{ feld: 'datum', vorschlag: '', wert: '01.10.2026', von: 'b' }],
     };
     const db = fakeDb({ rows: [{ id: 7, app_id: 'belege' }] }, { rows: [] }, { rows: [freigabe] });
-    const run = await runStore.getRunFuerApp({ runId: 7, appId: 'belege' }, { db });
+    const run = await runStore.getRunAlle({ runId: 7 }, { db });
     expect(run.freigaben).toEqual([freigabe]);
     expect(db.calls[2].sql).toMatch(/FROM public\.approvals/);
     expect(db.calls[2].params).toEqual([7]);

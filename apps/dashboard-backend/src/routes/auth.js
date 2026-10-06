@@ -11,7 +11,6 @@ const {
   generateToken,
   blacklistToken,
   blacklistAllUserTokens,
-  getUserSessions,
   // Das Sitzungs-Cookie muss genau so lange gelten wie der Token. Stand hier
   // fest 4 Stunden, waehrend JWT_EXPIRY auf dem Geraet 24h sagt (23.08.2026).
   tokenLebensdauerMs,
@@ -516,58 +515,6 @@ router.get(
       path: '/',
     });
     res.json({ csrfToken, timestamp: new Date().toISOString() });
-  })
-);
-
-// GET /api/auth/sessions - Get active sessions
-router.get(
-  '/sessions',
-  requireAuth,
-  requireRole('admin', 'mitarbeiter'),
-  asyncHandler(async (req, res) => {
-    const sessions = await getUserSessions(req.user.id);
-
-    res.json({
-      sessions: sessions.map(s => ({
-        id: s.token_jti,
-        ipAddress: s.ip_address,
-        userAgent: s.user_agent,
-        createdAt: s.created_at,
-        expiresAt: s.expires_at,
-        lastActivity: s.last_activity,
-        isCurrent: s.token_jti === req.tokenData.jti,
-      })),
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-// POST /api/auth/refresh-cookie - Re-sync the session cookie from the Bearer token.
-// Forward-auth (Traefik dashboard) only receives Cookie/Authorization on the
-// request. Plain <a href> navigations never carry the Authorization header, so if the
-// browser's cookie jar is missing the session cookie (e.g. user logged in under a
-// different hostname like arasul.local vs the IP), the navigation lands on 401. The
-// frontend calls this endpoint right before opening a forward-auth-gated app to ensure
-// the cookie exists for the host currently in the URL bar.
-router.post(
-  '/refresh-cookie',
-  requireAuth,
-  requireRole('admin', 'mitarbeiter'),
-  asyncHandler(async (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1] || req.cookies?.arasul_session;
-    if (!token) {
-      throw new UnauthorizedError('Es gibt keine Anmeldung, die erneuert werden könnte.');
-    }
-
-    res.cookie('arasul_session', token, {
-      httpOnly: true,
-      secure: isSecure,
-      sameSite: isSecure ? 'strict' : 'lax',
-      maxAge: tokenLebensdauerMs(),
-      path: '/',
-    });
-
-    res.json({ success: true, timestamp: new Date().toISOString() });
   })
 );
 

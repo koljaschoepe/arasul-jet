@@ -474,10 +474,8 @@ describe('Audit Middleware', () => {
     // Constants
     // ============================================================================
     describe('Constants', () => {
-        test('EXCLUDED_ENDPOINTS should include health and metrics', () => {
+        test('EXCLUDED_ENDPOINTS should include health', () => {
             expect(EXCLUDED_ENDPOINTS).toContain('/api/health');
-            expect(EXCLUDED_ENDPOINTS).toContain('/api/metrics/live');
-            expect(EXCLUDED_ENDPOINTS).toContain('/api/metrics/live-stream');
         });
 
         test('SENSITIVE_FIELDS should include common sensitive field names', () => {

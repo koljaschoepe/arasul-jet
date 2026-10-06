@@ -165,26 +165,6 @@ describe('Models Routes', () => {
   });
 
   // ============================================================================
-  // GET /api/models/loaded
-  // ============================================================================
-  describe('GET /api/models/loaded', () => {
-    test('should return loaded model', async () => {
-      modelService.getLoadedModels.mockResolvedValue([{ model_id: 'llama3:8b' }]);
-
-      const response = await request(app)
-        .get('/api/models/loaded')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('loaded_model');
-      expect(response.body.loaded_model.model_id).toBe('llama3:8b');
-      expect(response.body).toHaveProperty('loaded_models');
-      expect(response.body.loaded_models).toHaveLength(1);
-      expect(response.body).toHaveProperty('timestamp');
-    });
-  });
-
-  // ============================================================================
   // POST /api/models/download
   // ============================================================================
   describe('POST /api/models/download', () => {
@@ -433,51 +413,4 @@ describe('Models Routes', () => {
     });
   });
 
-  // ============================================================================
-  // POST /api/models/sync
-  // ============================================================================
-  describe('POST /api/models/sync', () => {
-    test('should sync with Ollama', async () => {
-      modelService.syncWithOllama.mockResolvedValue({ synced: 3 });
-
-      const response = await request(app)
-        .post('/api/models/sync')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('synced', 3);
-      expect(response.body).toHaveProperty('message');
-      expect(modelService.syncWithOllama).toHaveBeenCalled();
-    });
-  });
-
-  // ============================================================================
-  // GET /api/models/:modelId
-  // ============================================================================
-  describe('GET /api/models/:modelId', () => {
-    test('should return model info', async () => {
-      modelService.getModelInfo.mockResolvedValue({
-        id: 'llama3:8b',
-        name: 'Llama 3'
-      });
-
-      const response = await request(app)
-        .get('/api/models/llama3:8b')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('id', 'llama3:8b');
-      expect(response.body).toHaveProperty('name', 'Llama 3');
-    });
-
-    test('should return 404 if model not found', async () => {
-      modelService.getModelInfo.mockResolvedValue(null);
-
-      const response = await request(app)
-        .get('/api/models/nonexistent:model')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(404);
-    });
-  });
 });
