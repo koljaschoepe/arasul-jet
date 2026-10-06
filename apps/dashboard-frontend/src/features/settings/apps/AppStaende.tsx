@@ -254,7 +254,9 @@ export function AppStaende({
   // sicher mit 409 antwortet, weil im Livestand nie etwas anderes lief, ist
   // eine Sackgasse — dieselbe Linie wie bei den Knöpfen der Mitarbeiter-Liste
   // für das eigene Konto (D3).
-  const kannLive = Boolean(staende.test);
+  // Auch kein „Live schalten“, wenn Test und Live dieselbe Fassung tragen: da
+  // gibt es nichts zu schalten.
+  const kannLive = Boolean(staende.test) && staende.test?.version !== staende.live?.version;
   const kannZurueck = Boolean(staende.live?.vorige_version);
 
   return (

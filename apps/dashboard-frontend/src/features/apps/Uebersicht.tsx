@@ -62,7 +62,7 @@ function AppKachel({
     >
       {eintrag.beschreibung && <span className="line-clamp-2">{eintrag.beschreibung}</span>}
       {zeigeFassung && (
-        <span className="block text-xs text-muted-foreground/70">Fassung {eintrag.version}</span>
+        <span className="block text-xs text-muted-foreground">Fassung {eintrag.version}</span>
       )}
     </Karte>
   );
@@ -113,7 +113,11 @@ export function Uebersicht({
         <Leerzustand
           symbol={<AppWindow />}
           titel="Noch keine App für Sie"
-          beschreibung="Ein Administrator gibt Apps für einzelne Menschen frei. Sobald eine für Sie dabei ist, steht sie hier und links in der Leiste."
+          beschreibung={
+            user?.role === 'admin'
+              ? 'Geben Sie Apps unter Verwaltung › Personen frei. Sobald eine für Sie dabei ist, steht sie hier und in der Leiste.'
+              : 'Ein Administrator gibt Apps für einzelne Menschen frei. Sobald eine für Sie dabei ist, steht sie hier und in der Leiste.'
+          }
         />
       ) : (
         <div className="grid grid-cols-1 gap-ui-2 min-[900px]:grid-cols-2">

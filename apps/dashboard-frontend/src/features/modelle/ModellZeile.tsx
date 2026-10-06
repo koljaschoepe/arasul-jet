@@ -100,7 +100,7 @@ export function ModellZeile({ modell, busy, onStandard, onEntfernen }: ModellZei
             disabled={busy}
             data-testid={`standard-setzen-${modell.id}`}
           >
-            Standard
+            Als Standard setzen
           </Button>
         )}
         <Button

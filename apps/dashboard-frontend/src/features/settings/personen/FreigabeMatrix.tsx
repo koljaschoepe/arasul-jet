@@ -148,13 +148,16 @@ export function FreigabeMatrix({ benutzer }: { benutzer: Benutzer[] }) {
                   key={String(b.id)}
                   className="flex flex-wrap items-center gap-3 border-b border-border p-ui-3 last:border-b-0"
                 >
-                  <Zelle
-                    app={app}
-                    b={b}
-                    freigabe={freigabeVon(alleFreigaben, app.id, b.id)}
-                    laeuft={setzen.isPending}
-                    setzen={stand => setze(app.id, b.id, stand)}
-                  />
+                  {/* Feste Breite: sonst rückt der Name nach rechts, sobald „Live“ oder „Test“ dasteht. */}
+                  <span className="w-24 shrink-0">
+                    <Zelle
+                      app={app}
+                      b={b}
+                      freigabe={freigabeVon(alleFreigaben, app.id, b.id)}
+                      laeuft={setzen.isPending}
+                      setzen={stand => setze(app.id, b.id, stand)}
+                    />
+                  </span>
                   <span className="min-w-0 flex-1 text-sm text-foreground">
                     {anzeigeName(b)}
                     {b.role === 'admin' && (

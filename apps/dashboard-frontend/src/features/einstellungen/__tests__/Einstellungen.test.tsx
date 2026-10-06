@@ -109,10 +109,10 @@ describe('Einstellungen, persönlich', () => {
     expect(screen.getByTestId('profil-bild-waehlen')).toBeInTheDocument();
   });
 
-  it('hat keinen Kopf „Einstellungen" und kein Logo', async () => {
+  it('hat den Seitenkopf „Einstellungen" wie die übrigen Seiten, aber kein Logo', async () => {
     zeige();
     await screen.findByText('Angemeldete Rechner');
-    expect(screen.queryByText('Einstellungen')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Einstellungen' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Arasul')).not.toBeInTheDocument();
   });
 

@@ -104,8 +104,8 @@ async function liste(deps = {}) {
     ordner: dir,
     hinweis: medien.length
       ? null
-      : 'Kein Datenträger eingehängt. Platte anstecken und kurz warten; ' +
-        'das Betriebssystem hängt sie von selbst ein.',
+      : 'Kein Datenträger angesteckt. Eine USB-SSD einfach einstecken, ' +
+        'das Gerät erkennt sie von selbst.',
   };
 }
 

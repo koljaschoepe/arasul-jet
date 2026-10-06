@@ -10,6 +10,7 @@ import { LaufZustand, ausloeserText } from '../apps/LaufAnsicht';
 import type { AppLauf } from '../apps/useAppVerwaltung';
 import { LaufAktionen } from './LaufAktionen';
 import { LaufInhalt } from './LaufInhalt';
+import { laufFehlerKurz } from './laufText';
 import { personText } from './personText';
 
 function laufAdresse(id: number, filter: string): string {
@@ -84,7 +85,7 @@ export function LaufZeile({
         </a>
       </div>
       {lauf.error && !offen && (
-        <p className="truncate px-ui-3 pb-2 pl-10 text-xs text-destructive">{lauf.error}</p>
+        <p className="px-ui-3 pb-2 pl-10 text-xs text-destructive">{laufFehlerKurz(lauf.error)}</p>
       )}
       {offen && (
         <div className="flex flex-col gap-3 px-ui-3 pb-ui-3 pl-10">

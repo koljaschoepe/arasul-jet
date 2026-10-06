@@ -31,9 +31,11 @@ import { useAlleApps, type AppZeile } from './personen/useAppFreigaben';
 function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => void }) {
   const { live, test } = app.staende;
   const mangel = live?.lieferbar === false || test?.lieferbar === false;
+  // Ein Tag und „im Test“ nur, wenn der Test eine andere Fassung trägt als Live.
+  const wartet = Boolean(test) && test?.version !== live?.version;
   const satz = !live
     ? 'Noch nicht live'
-    : test
+    : wartet && test
       ? `Live ${live.version}, im Test ${test.version}`
       : `Live ${live.version}`;
   return (
@@ -63,7 +65,7 @@ function AppZeileKnopf({ app, onOeffnen }: { app: AppZeile; onOeffnen: () => voi
             {satz}
           </span>
         )}
-        {test && (
+        {wartet && (
           <span
             className="rounded bg-muted-foreground/15 px-1.5 py-0.5 font-medium text-muted-foreground"
             data-testid={`app-tag-test-${app.id}`}

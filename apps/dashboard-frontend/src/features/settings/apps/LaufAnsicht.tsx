@@ -21,6 +21,7 @@ import { formatDate } from '@/utils/formatting';
 import type { AppLauf, AppLaufDetail, LaufFreigabe, LaufSchritt } from './useAppVerwaltung';
 import { useLaufErneut } from './useAppVerwaltung';
 import { useToast } from '@/contexts/ToastContext';
+import { laufFehlerKurz, werkzeugText } from '../laeufe/laufText';
 
 /** Der Zustand eines Laufs in einem Wort, mit Farbe. */
 export function LaufZustand({ status }: { status: string }) {
@@ -91,7 +92,7 @@ function Schritt({ schritt }: { schritt: LaufSchritt }) {
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-foreground">
-              {gedanke ? 'Gedankengang' : schritt.name || schritt.kind}
+              {gedanke ? 'Gedankengang' : werkzeugText(schritt.name ?? '') || schritt.kind}
             </span>
             {schritt.modell && (
               <span className="font-mono text-xs text-muted-foreground">{schritt.modell}</span>
@@ -349,12 +350,16 @@ export function LaufDetail({
       </dl>
 
       {lauf.error && (
-        <p
+        <div
           className="rounded-md border border-destructive/30 bg-destructive/10 p-ui-3 text-sm text-destructive"
           data-testid="lauf-grund"
         >
-          {lauf.error}
-        </p>
+          {laufFehlerKurz(lauf.error)}
+          <details className="mt-1 text-xs">
+            <summary className="cursor-pointer">Technische Angabe</summary>
+            <span className="mt-1 block break-words font-mono">{lauf.error}</span>
+          </details>
+        </div>
       )}
 
       <div>

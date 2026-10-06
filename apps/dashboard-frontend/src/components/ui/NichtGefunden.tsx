@@ -36,7 +36,9 @@ export default function NichtGefunden({
         titel={hinweis}
         aktion={
           <Button asChild>
-            <Link to={ziel}>{zielText}</Link>
+            <Link to={ziel} className="no-underline hover:no-underline">
+              {zielText}
+            </Link>
           </Button>
         }
       />

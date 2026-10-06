@@ -195,7 +195,7 @@ export function Fernzugriff() {
                 className={cn('size-4 transition-transform', offen && 'rotate-180')}
                 aria-hidden="true"
               />
-              Technik
+              Technische Angaben
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>

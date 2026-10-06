@@ -87,7 +87,7 @@ describe('AppRahmen', () => {
     render(<AppRahmen appId="urlaub" stand="test" />, { wrapper: huelle() });
 
     await waitFor(() =>
-      expect(screen.getByText('urlaub ist Ihnen nicht freigegeben')).toBeInTheDocument()
+      expect(screen.getByText('Urlaubsantrag ist Ihnen nicht freigegeben')).toBeInTheDocument()
     );
     expect(screen.queryByTestId('app-rahmen-urlaub')).not.toBeInTheDocument();
   });
@@ -96,8 +96,27 @@ describe('AppRahmen', () => {
     apiMock.get.mockResolvedValue({ data: [] });
     render(<AppRahmen appId="geheim" stand="live" />, { wrapper: huelle() });
     await waitFor(() =>
-      expect(screen.getByText('geheim ist Ihnen nicht freigegeben')).toBeInTheDocument()
+      expect(screen.getByText('Diese App ist Ihnen nicht freigegeben')).toBeInTheDocument()
     );
+  });
+
+  it('steht nur der Test bereit, heißt es „noch nicht live“, mit dem Namen statt der Kennung', async () => {
+    apiMock.get.mockResolvedValue({
+      data: [
+        {
+          id: 'beleg',
+          name: 'Belegeingang',
+          beschreibung: null,
+          live: null,
+          test: { version: '0.1.0', pfad: '/apps/beleg/test/' },
+        },
+      ],
+    });
+    render(<AppRahmen appId="beleg" stand="live" />, { wrapper: huelle() });
+    await waitFor(() =>
+      expect(screen.getByText('Belegeingang ist noch nicht live')).toBeInTheDocument()
+    );
+    expect(screen.queryByText(/beleg ist/)).not.toBeInTheDocument();
   });
 
   /**

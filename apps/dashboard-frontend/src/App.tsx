@@ -268,19 +268,24 @@ function AppContent(): React.JSX.Element | null {
                   Deep-Links wie /settings?tab=remote-access weiter funktionieren. */}
           {/* Die Schauseite der Bibliothek (H3). Hinter der Anmeldung, weil
                   sie auf einem Geraet im Firmennetz steht; in keinem Menue,
-                  weil sie niemandem hier bei der Arbeit hilft. */}
-          <Route
-            path="/entwickler/bausteine"
-            element={
-              <RouteErrorBoundary showDetails={istAdmin}>
-                <Suspense
-                  fallback={<Ladezustand meldung="Bausteine werden geladen …" ganzeSeite={true} />}
-                >
-                  <Schauseite />
-                </Suspense>
-              </RouteErrorBoundary>
-            }
-          />
+                  weil sie niemandem hier bei der Arbeit hilft. Nur für Administratoren:
+                  ein Mitarbeiter sieht keine Technik, für ihn ist die Adresse unbekannt. */}
+          {istAdmin && (
+            <Route
+              path="/entwickler/bausteine"
+              element={
+                <RouteErrorBoundary showDetails={istAdmin}>
+                  <Suspense
+                    fallback={
+                      <Ladezustand meldung="Bausteine werden geladen …" ganzeSeite={true} />
+                    }
+                  >
+                    <Schauseite />
+                  </Suspense>
+                </RouteErrorBoundary>
+              }
+            />
+          )}
           <Route path="/" element={<InDenArbeitsbereich ziel="" />} />
           <Route path="/settings" element={<InDenArbeitsbereich ziel="/verwaltung" />} />
           <Route path="/store/*" element={<InDenArbeitsbereich ziel="/store" />} />

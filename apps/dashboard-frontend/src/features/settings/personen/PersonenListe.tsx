@@ -86,6 +86,9 @@ export function PersonenListe({ liste, istIchSelbst, verwaltung, aktionen }: Lis
               <Person b={b} ichSelbst={istIchSelbst(b)} />
             </span>
             <span className="w-full truncate text-xs text-muted-foreground">{b.email || '—'}</span>
+            <span className="w-full text-xs text-muted-foreground">
+              Zuletzt angemeldet: {b.last_login ? formatDate(b.last_login) : 'noch nie'}
+            </span>
             <span className="flex items-center gap-2 text-xs text-muted-foreground">
               Verwaltung {verwaltung(b)}
             </span>

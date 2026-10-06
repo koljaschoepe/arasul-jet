@@ -56,7 +56,7 @@ describe('liste', () => {
   test('leer heisst: keine Platte angesteckt, und sagt das auch', async () => {
     const { medien: gefunden, hinweis } = await medien.liste({ dir: wurzel });
     expect(gefunden).toEqual([]);
-    expect(hinweis).toMatch(/Platte anstecken/);
+    expect(hinweis).toMatch(/Kein Datenträger angesteckt/);
   });
 
   test('fehlender Ordner ist etwas ANDERES als kein Datentraeger', async () => {

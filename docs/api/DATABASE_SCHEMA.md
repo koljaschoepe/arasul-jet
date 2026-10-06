@@ -84,7 +84,7 @@
 > setzt. Bestandszeilen bekamen `false`: wer das Passwort in der Vergangenheit
 > gesetzt hat, weiß die Spalte nicht.
 > `theme` (Migration 180, Phase H1) ist die Darstellung der Oberfläche für
-> diesen Menschen: `light` (Vorgabe), `dark` oder `system` (Migration 194, M5;
+> diesen Menschen: `system` (Vorgabe seit Migration 210, M5; vorher `light`), `light` oder `dark` (`system` seit Migration 194;
 > `CHECK admin_users_theme_check`). Vorher lag der Wert im `localStorage` des
 > Browsers, war also an den Rechner gebunden statt an den Menschen; »Schwarz«
 > als drittes Theme ist mit H1 gefallen. Geschrieben wird die Spalte über
@@ -107,7 +107,7 @@
 | `is_active`                       | boolean                  | ✅       | `true`                                    |
 | `role`                            | character varying        | ⛔       | `'admin'::character varying`              |
 | `passwort_vom_admin`              | boolean                  | ⛔       | `false`                                   |
-| `theme`                           | character varying        | ⛔       | `'light'::character varying`              |
+| `theme`                           | character varying        | ⛔       | `'system'::character varying`             |
 | `vorname`, `nachname`, `funktion` | character varying(100)   | ✅       | — (Migration 193, M5)                     |
 | `kuerzel`                         | character varying(8)     | ✅       | —                                         |
 | `bild_typ`, `bild_daten`          | varchar(20), bytea       | ✅       | — (`image/png\|jpeg\|webp`, ≤ 512 KB)     |

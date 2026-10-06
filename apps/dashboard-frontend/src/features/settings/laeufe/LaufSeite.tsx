@@ -3,8 +3,8 @@
  * (`/workspace/verwaltung/laeufe/<nummer>`): so lässt er sich verlinken und
  * frisch laden. Der Weg zurück führt zur Liste mit derselben Auswahl.
  */
-import { ArrowLeft } from 'lucide-react';
-import { Button } from '@marken';
+import { ArrowLeft, ListOrdered } from 'lucide-react';
+import { Button, Kopf } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { LaufDetail, LaufZustand } from '../apps/LaufAnsicht';
 import { LaufAktionen } from './LaufAktionen';
@@ -46,10 +46,8 @@ export function LaufSeite({
 
       {lauf && (
         <>
+          <Kopf titel={`Lauf ${lauf.id}: ${lauf.flow_name}`} symbol={<ListOrdered />} />
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-medium text-foreground">
-              Lauf {lauf.id}: {lauf.flow_name}
-            </h3>
             <LaufZustand status={lauf.status} />
             <span className="text-xs text-muted-foreground" data-testid="lauf-seite-app">
               {appName(lauf.app_id)}

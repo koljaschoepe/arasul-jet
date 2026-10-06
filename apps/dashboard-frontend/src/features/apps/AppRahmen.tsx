@@ -52,6 +52,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AppWindow } from 'lucide-react';
 import { useTheme, themeAmDokument } from '@/hooks/useTheme';
+import { useAuth } from '@/contexts/AuthContext';
 import { appPfad, useWorkspaceStore, type AppStand } from '@/stores/workspaceStore';
 import { useMeineApps } from './meineApps';
 import { Ladezustand, Leerzustand } from '@marken';
@@ -70,6 +71,7 @@ interface AppRahmenProps {
 export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
   const { data: apps, isLoading, isError } = useMeineApps();
   const { theme } = useTheme();
+  const istAdmin = useAuth().user?.role === 'admin';
   const rahmen = useRef<HTMLIFrameElement>(null);
 
   /**
@@ -117,14 +119,29 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
   const bekannt = isError || (apps ?? []).some(a => a.id === appId && a[stand]);
 
   if (!bekannt) {
+    // Die Kennung ist kein Wort für einen Menschen: der Name kommt aus der
+    // Liste, und fehlt er (die App ist dieser Person gar nicht freigegeben),
+    // heißt sie „Diese App". Steht nur der Test bereit, fehlt keine Freigabe,
+    // die App ist nur noch nicht live.
+    const app = apps?.find(a => a.id === appId);
+    const appName = app?.name ?? 'Diese App';
+    const nurTest = stand === 'live' && Boolean(app?.test);
     return (
       <Leerzustand
         symbol={<AppWindow />}
-        titel={`${appId} ist Ihnen nicht freigegeben`}
+        titel={
+          nurTest ? `${appName} ist noch nicht live` : `${appName} ist Ihnen nicht freigegeben`
+        }
         beschreibung={
-          stand === 'test'
-            ? 'Test sieht nur, wer als Tester eingetragen ist. Ein Administrator kann das ändern.'
-            : 'Ein Administrator gibt Apps für einzelne Menschen frei. Sprechen Sie ihn an, wenn Sie sie brauchen.'
+          nurTest
+            ? 'Zurzeit steht nur der Test bereit. Sobald die App live geschaltet ist, steht sie hier.'
+            : stand === 'test'
+              ? istAdmin
+                ? 'Test sieht nur, wer als Testperson eingetragen ist. Tragen Sie sich unter Verwaltung › Personen ein.'
+                : 'Test sieht nur, wer als Testperson eingetragen ist. Ein Administrator kann das ändern.'
+              : istAdmin
+                ? 'Geben Sie die App unter Verwaltung › Personen für sich frei.'
+                : 'Ein Administrator gibt Apps für einzelne Menschen frei. Sprechen Sie ihn an, wenn Sie sie brauchen.'
         }
       />
     );

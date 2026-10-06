@@ -43,7 +43,7 @@ export function AppZustand({ app }: { app: AppDetail }) {
     ? test
       ? `Noch nicht live. Im Test steht Fassung ${test.version}.`
       : 'Keine Fassung am Gerät.'
-    : test
+    : test && test.version !== live.version
       ? `Läuft mit Fassung ${live.version}. Im Test wartet Fassung ${test.version}.`
       : `Läuft mit Fassung ${live.version}.`;
 

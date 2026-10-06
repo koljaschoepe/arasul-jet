@@ -3,7 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#F6F6F6" />
+    <meta name="theme-color" content="#F6F6F6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="description" content="Arasul Platform Dashboard - Edge AI Management" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -35,9 +37,15 @@
          Stylesheet, und wer zuerst genannt wird, steht unten. Sobald das
          Stylesheet da ist, verliert alles hier. */
       @layer flackerschutz {
+        /* Hell, und dunkel nach System: light-dark() liest das Schema, das der
+           Browser meldet, ohne eine Abfrage zu verschachteln. Sobald das
+           Stylesheet da ist, gilt das Theme des Menschen. */
+        :root {
+          color-scheme: light dark;
+        }
         body {
-          background: #f6f6f6;
-          color: #1a1a1a;
+          background: light-dark(#f6f6f6, #141414);
+          color: light-dark(#1a1a1a, #e6e6e6);
           margin: 0;
         }
         .loading {
@@ -49,7 +57,7 @@
           /* War #00FF88 -- die verbotene Gruenfarbe des alten Designsystems,
              auf Schwarz gerade noch lesbar und auf der neuen hellen Vorgabe
              gar nicht. `--muted-foreground` des Themes »Hell« (Phase H1). */
-          color: #6b6b6b;
+          color: light-dark(#6b6b6b, #9a9a9a);
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
       }

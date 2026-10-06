@@ -280,10 +280,10 @@ router.post(
         username: user.username,
         email: user.email,
         role: 'admin',
-        // Frisch angelegt, also die Spaltenvorgabe (Migration 180). Steht hier
+        // Frisch angelegt, also die Spaltenvorgabe (Migration 210). Steht hier
         // ausgeschrieben und nicht als `user.theme`, weil `createFirstAdmin`
         // die Spalte nicht zurueckgibt.
-        theme: 'light',
+        theme: 'system',
       },
       timestamp: new Date().toISOString(),
     });
