@@ -1358,13 +1358,6 @@ const ABLAGE = '/arasul/firmenordner';
 const KNAPP_ANTEIL = 0.9;
 const KNAPP_PLATTE_BYTES = 10 * 1000 * 1000 * 1000;
 
-/**
- * Die kleinste Grenze, die sich setzen laesst. Darunter ist ein Bereich
- * nicht mehr zu gebrauchen, und eine Zahl wie „5" waere vermutlich als
- * Gigabyte gemeint und als Byte angekommen.
- */
-const GRENZE_MINDESTENS_BYTES = 1000 * 1000;
-
 /** Bytes, wie ein Mensch sie liest: dezimal wie der Dienst, deutsche Zahl. */
 function groesseLesbar(bytes) {
   const n = Number(bytes) || 0;
@@ -1664,7 +1657,6 @@ module.exports = {
   platzUebersicht,
   setzeGrenze,
   groesseLesbar,
-  GRENZE_MINDESTENS_BYTES,
   aenderungenVon,
   papierkorbUebersicht,
   papierkorbVon,
