@@ -5,20 +5,6 @@ http:
   middlewares:
     # Rate Limiting Middlewares
 
-    # LLM API: 10 requests/second
-    rate-limit-llm:
-      rateLimit:
-        average: 10
-        period: 1s
-        burst: 5
-
-    # Metrics API: 20 requests/second
-    rate-limit-metrics:
-      rateLimit:
-        average: 20
-        period: 1s
-        burst: 10
-
     # Auth endpoints: 30 requests/minute (prevent brute force while allowing normal use)
     # Previous: 5/15min was too restrictive, caused login failures
     # Note: Backend also has login attempt tracking in database for security
@@ -90,37 +76,6 @@ http:
           X-Powered-By: 'Arasul Platform'
           Server: '' # Hide server info
 
-    # CORS Headers
-    # PHASE1-FIX: Restricted to local/private networks instead of wildcard "*"
-    cors-headers:
-      headers:
-        accessControlAllowMethods:
-          - GET
-          - POST
-          - PUT
-          - DELETE
-          - OPTIONS
-        accessControlAllowOriginList:
-          - 'http://localhost'
-          - 'http://localhost:3000'
-          - 'http://127.0.0.1'
-          - 'http://127.0.0.1:3000'
-          - 'https://localhost'
-          - 'https://127.0.0.1'
-        accessControlAllowOriginListRegex:
-          - "^https?://192\\.168\\.[0-9]+\\.[0-9]+(:[0-9]+)?$"
-          - "^https?://10\\.[0-9]+\\.[0-9]+\\.[0-9]+(:[0-9]+)?$"
-          - "^https?://172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+(:[0-9]+)?$"
-        accessControlAllowHeaders:
-          - 'Content-Type'
-          - 'Authorization'
-          - 'X-Requested-With'
-        accessControlExposeHeaders:
-          - 'Content-Length'
-          - 'Content-Type'
-        accessControlMaxAge: 3600
-        addVaryHeader: true
-
     # Forward Authentication (JWT validation via cookie or header)
     forward-auth:
       forwardAuth:
@@ -179,18 +134,6 @@ http:
           Server: ''
           Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
 
-    strip-models-prefix:
-      stripPrefix:
-        prefixes:
-          - '/models'
-        forceSlash: false
-
-    strip-embeddings-prefix:
-      stripPrefix:
-        prefixes:
-          - '/embeddings'
-        forceSlash: false
-
     # Request Body Size Limit (50MB — prevents DoS via oversized uploads)
     body-limit:
       buffering:
@@ -203,15 +146,6 @@ http:
           - 'text/event-stream'
           - 'application/grpc'
 
-    # IP Whitelist (for admin routes - available for future use)
-    admin-whitelist:
-      ipWhiteList:
-        sourceRange:
-          - '127.0.0.1/32'
-          - '172.30.0.0/24' # Docker network
-          - '192.168.0.0/16' # Local network
-          - '10.0.0.0/8' # Private network
-
     # The Traefik dashboard is protected by forward-auth (dashboard session),
     # see routes.yml. The old basicAuth-traefik middleware and its
     # __BASIC_AUTH_HASH__ bootstrap placeholder were unused and have been removed.
@@ -222,12 +156,6 @@ http:
       forwardingTimeouts:
         responseHeaderTimeout: 600s
         idleConnTimeout: 600s
-
-    # LLM inference can take up to 5 minutes for long outputs
-    llm-transport:
-      forwardingTimeouts:
-        responseHeaderTimeout: 300s
-        idleConnTimeout: 300s
 
     # Der Firmenordner (J33, 22.09.2026). Eine grosse Datei ueber ein WLAN
     # braucht laenger als die Vorgabe: gemessen am 21.09.2026 lud derselbe Baum
