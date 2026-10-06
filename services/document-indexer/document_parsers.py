@@ -277,22 +277,22 @@ def get_pdf_page_count(file_obj: IO[bytes]) -> int:
         return 0
 
 
-def render_pdf_pages(pdf_bytes: bytes, max_pages: int, max_edge: int = 1600):
-    """
-    Die ersten Seiten eines PDF als PNG (M5, 06.10.2026, Kontrakt 14).
+# Grenzen gegen eine PDF-Bombe (06.10.2026). Der Eingang ist auf
+# DOCUMENT_MAX_SIZE_MB gedeckelt, aber zehn Megabyte PDF koennen ein
+# eingebettetes Bild von Gigapixeln tragen, das MuPDF vor dem Verkleinern
+# ganz auspackt, oder eine Seite aus Millionen Zeichenbefehlen, an der es
+# minutenlang rechnet. Das Geraet teilt seinen Speicher mit dem Sprachmodell.
+#
+# PIXEL: eingebettete Bilder je Seite zusammen. 50 Millionen sind ein A4-Scan
+# mit 600 dpi in Farbe gut fuenffach; ein echter Beleg liegt weit darunter.
+# ZEIT: fuer hoechstens vier Seiten. Das Rendern laeuft in einem eigenen
+# Prozess, nur so laesst es sich nach Ablauf wirklich anhalten.
+PDF_SEITEN_MAX_BILDPIXEL = 50_000_000
+PDF_SEITEN_ZEIT_S = 30
 
-    Fuer das Bildmodell eines erkennenden Flow-Schritts: es liest Bilder, keine
-    PDFs. Gerendert wird so, dass die lange Kante hoechstens ``max_edge`` Pixel
-    hat (und hoechstens 200 dpi): ein Beleg in A4 kommt bei rund 136 dpi an,
-    genug fuer Betraege und Daten, und klein genug fuer den Speicher des
-    Modells.
 
-    Returns:
-        (Liste der PNG-Bytes, Seitenzahl des ganzen Dokuments)
-
-    Raises:
-        ValueError: das PDF laesst sich nicht oeffnen oder ist verschluesselt.
-    """
+def _seiten_rendern(pdf_bytes: bytes, max_pages: int, max_edge: int):
+    """Der eigentliche Lauf von `render_pdf_pages`, im Kindprozess."""
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     except Exception as e:  # noqa: BLE001 - jede Form von kaputt ist dasselbe
@@ -304,6 +304,12 @@ def render_pdf_pages(pdf_bytes: bytes, max_pages: int, max_edge: int = 1600):
         bilder = []
         for nummer in range(min(gesamt, max_pages)):
             seite = doc[nummer]
+            pixel = sum(int(b[2]) * int(b[3]) for b in seite.get_images(full=True))
+            if pixel > PDF_SEITEN_MAX_BILDPIXEL:
+                raise ValueError(
+                    f"PDF-Seite {nummer + 1} traegt Bilder mit {pixel // 1_000_000} Megapixeln, "
+                    f"mehr als {PDF_SEITEN_MAX_BILDPIXEL // 1_000_000} werden nicht gerendert"
+                )
             breite, hoehe = seite.rect.width, seite.rect.height
             lang = max(breite, hoehe) or 1
             zoom = min(max_edge / lang, 200 / 72)
@@ -312,6 +318,68 @@ def render_pdf_pages(pdf_bytes: bytes, max_pages: int, max_edge: int = 1600):
         return bilder, gesamt
     finally:
         doc.close()
+
+
+def _im_kindprozess(pdf_bytes: bytes, max_pages: int, max_edge: int, rohr) -> None:
+    """Rendert und schickt das Ergebnis oder den Grund des Scheiterns zurueck."""
+    try:
+        rohr.send(('ok', _seiten_rendern(pdf_bytes, max_pages, max_edge)))
+    except ValueError as e:
+        rohr.send(('ungueltig', str(e)))
+    except Exception as e:  # noqa: BLE001 - der Elternprozess meldet es als 500
+        rohr.send(('fehler', str(e)))
+    finally:
+        rohr.close()
+
+
+def render_pdf_pages(pdf_bytes: bytes, max_pages: int, max_edge: int = 1600,
+                     zeit_s: float = PDF_SEITEN_ZEIT_S):
+    """
+    Die ersten Seiten eines PDF als PNG (M5, 06.10.2026, Kontrakt 14).
+
+    Fuer das Bildmodell eines erkennenden Flow-Schritts: es liest Bilder, keine
+    PDFs. Gerendert wird so, dass die lange Kante hoechstens ``max_edge`` Pixel
+    hat (und hoechstens 200 dpi): ein Beleg in A4 kommt bei rund 136 dpi an,
+    genug fuer Betraege und Daten, und klein genug fuer den Speicher des
+    Modells.
+
+    Gerendert wird in einem eigenen Prozess (forkserver, nicht fork: der
+    Flask-Prozess hat Threads). Braucht er laenger als ``zeit_s``, wird er
+    beendet; stirbt er (etwa am Speicher), ist das PDF ebenso abgewiesen.
+
+    Returns:
+        (Liste der PNG-Bytes, Seitenzahl des ganzen Dokuments)
+
+    Raises:
+        ValueError: das PDF laesst sich nicht oeffnen, ist verschluesselt,
+            traegt zu grosse Bilder oder braucht zu lange.
+        RuntimeError: das Rendern selbst ist gescheitert.
+    """
+    import multiprocessing
+
+    kontext = multiprocessing.get_context('forkserver')
+    eltern, kind = kontext.Pipe(duplex=False)
+    prozess = kontext.Process(
+        target=_im_kindprozess, args=(pdf_bytes, max_pages, max_edge, kind), daemon=True
+    )
+    prozess.start()
+    kind.close()
+    try:
+        if not eltern.poll(zeit_s):
+            raise ValueError(f"PDF braucht zum Rendern laenger als {zeit_s:g} s")
+        art, wert = eltern.recv()
+    except EOFError as e:
+        raise ValueError("PDF liess sich nicht rendern, der Prozess dafuer ist abgebrochen") from e
+    finally:
+        if prozess.is_alive():
+            prozess.kill()
+        prozess.join(5)
+        eltern.close()
+    if art == 'ok':
+        return wert
+    if art == 'ungueltig':
+        raise ValueError(wert)
+    raise RuntimeError(wert)
 
 
 def parse_docx(file_obj: IO[bytes]) -> str:

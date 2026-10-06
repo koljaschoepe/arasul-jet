@@ -143,8 +143,10 @@ def pdf_seiten():
 
     Eingabe: multipart/form-data mit `file` (PDF) und `seiten` (1 bis 4).
     Antwort: { seiten: [Base64-PNG, ...], gesamt }
-    Fehler:  { error } mit 400 (keine Datei, kein PDF, verschluesselt oder
-             kaputt), 413 (zu gross), 500 (Rendern gescheitert).
+    Fehler:  { error } mit 400 (keine Datei, kein PDF, verschluesselt, kaputt,
+             Bilder ueber der Pixelgrenze oder laenger als die Zeitgrenze,
+             siehe `document_parsers.PDF_SEITEN_*`), 413 (zu gross),
+             500 (Rendern gescheitert).
     """
     uploaded = request.files.get('file')
     if uploaded is None:
