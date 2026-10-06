@@ -7,12 +7,13 @@
  *
  * Kein Kopf mit Logo: oben steht gleich der Name des ersten Abschnitts.
  */
-import { LogOut, Monitor, Moon, Palette, Sun, User } from 'lucide-react';
+import { LogOut, Monitor, Moon, Palette, Settings, Sun, User } from 'lucide-react';
 import { useState } from 'react';
 import {
   Button,
   Feldgruppe,
   Formularseite,
+  Kopf,
   Label,
   Leerzustand,
   RadioGroup,
@@ -116,16 +117,18 @@ function AngemeldeteRechner() {
       titel="Angemeldete Rechner"
       symbol={<Monitor />}
       aktion={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void ueberallAbmelden()}
-          disabled={ueberall}
-          data-testid="ueberall-abmelden"
-        >
-          <LogOut className="size-4" aria-hidden="true" />
-          Überall abmelden
-        </Button>
+        liste.length > 0 ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void ueberallAbmelden()}
+            disabled={ueberall}
+            data-testid="ueberall-abmelden"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+            Überall abmelden
+          </Button>
+        ) : undefined
       }
     >
       {ConfirmDialog}
@@ -173,6 +176,7 @@ function AngemeldeteRechner() {
 export default function Einstellungen() {
   return (
     <div className="max-w-225 p-6 animate-in fade-in max-md:p-4" data-testid="einstellungen">
+      <Kopf titel="Einstellungen" symbol={<Settings />} />
       <Formularseite>
         <Feldgruppe titel="Profil" symbol={<User />}>
           <ComponentErrorBoundary componentName="Profil">

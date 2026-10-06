@@ -43,7 +43,7 @@ function ModelleAnsicht() {
   const grund = wechselGrund(budget?.lastSwitch?.reason);
 
   return (
-    <div className="min-w-0 p-6 max-md:p-4 animate-in fade-in" data-testid="modelle-seite">
+    <div className="min-w-0 animate-in fade-in" data-testid="modelle-seite">
       <Kopf
         titel="Modelle"
         symbol={<Cpu />}

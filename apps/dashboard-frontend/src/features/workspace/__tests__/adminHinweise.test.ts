@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { appHinweise, lizenzHinweis, modellHinweise, sicherungHinweis } from '../useAdminHinweise';
+import {
+  appHinweise,
+  kopieHinweis,
+  lizenzHinweis,
+  modellHinweise,
+  sicherungHinweis,
+} from '../useAdminHinweise';
 import type { SicherungStatus } from '@/features/system/sicherung/useSicherung';
 import type { AppZeile } from '@/features/settings/personen/useAppFreigaben';
 import type { LizenzInfo } from '@/features/settings/geraet/useLizenz';
@@ -101,5 +107,29 @@ describe('Hinweise für den Administrator', () => {
       bereich: 'geraet',
       abschnitt: 'lizenz',
     });
+  });
+});
+
+describe('kopieHinweis', () => {
+  const jetzt = new Date('2026-10-06T12:00:00Z').getTime();
+  const status = (zeitpunkt: string | null, angesteckt = false) =>
+    ({
+      ausserhalb: { vorhanden: zeitpunkt !== null, zeitpunkt, datentraeger: { angesteckt } },
+    }) as unknown as Parameters<typeof kopieHinweis>[0];
+
+  it('schweigt bei einer frischen Kopie und ohne Angabe', () => {
+    expect(kopieHinweis(status('2026-10-05T12:00:00Z'), jetzt)).toBeNull();
+    expect(kopieHinweis(undefined, jetzt)).toBeNull();
+    expect(kopieHinweis(status(null), jetzt)).toBeNull();
+  });
+
+  it('meldet sich nach drei Tagen und nennt, ob der Datenträger fehlt', () => {
+    expect(kopieHinweis(status('2026-10-02T12:00:00Z'), jetzt)?.text).toBe(
+      'Die Sicherungs-SSD fehlt seit 4 Tagen.'
+    );
+    expect(kopieHinweis(status('2026-10-02T12:00:00Z', true), jetzt)?.text).toMatch(
+      /Datenträger ist 4 Tage alt/
+    );
+    expect(kopieHinweis(status('2026-10-02T12:00:00Z'), jetzt)?.ziel).toEqual({ bereich: 'daten' });
   });
 });

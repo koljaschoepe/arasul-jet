@@ -212,7 +212,7 @@ beschreibe('Anmeldung, Profil und Personen gegen echtes Postgres', () => {
       username: 'admin',
       role: 'admin',
       passwortWechselNoetig: false,
-      theme: 'light',
+      theme: 'system',
       hatBild: false,
       anzeigeName: 'admin',
     });

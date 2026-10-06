@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
-import { Alert, AlertDescription, Button, cn, Input, Label } from '@marken';
+import { Alert, AlertDescription, Button, Checkbox, cn, Input, Label } from '@marken';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -84,12 +84,12 @@ const STUFEN: { id: Stufe; titel: string; text: string }[] = [
   {
     id: 'inhalte',
     titel: 'Inhalte zurücksetzen',
-    text: 'Chats, Dokumente, Wissensräume, Projekte, Sandboxes und alle Flow-Läufe sind danach weg. Zugang, Erweiterungen, Flows, Einstellungen und Modelle bleiben.',
+    text: 'Alle Flow-Läufe mit ihren Schritten, offene Freigaben und die Aufträge an die Sprachmodelle sind danach weg. Apps, Personen, Einstellungen, Firmenordner und Modelle bleiben.',
   },
   {
     id: 'auslieferung',
     titel: 'Auslieferungszustand',
-    text: 'Zusätzlich die gesamte Einrichtung: Zugangsdaten, Erweiterungen, Flows, hinterlegte Zugänge zu fremden Diensten, Protokolle und Messwerte. Danach läuft wieder die Ersteinrichtung.',
+    text: 'Zusätzlich die gesamte Einrichtung: Personen und Zugangsdaten, Apps mit ihren Datenbanken, Freigaben, Schlüssel, Protokolle und Messwerte. Die Dateien im Firmenordner bleiben liegen. Danach läuft wieder die Ersteinrichtung.',
   },
 ];
 
@@ -188,21 +188,24 @@ export function Werksreset() {
             </button>
           ))}
 
-          <label className="flex items-start gap-2 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
-              className="mt-1"
+          <div className="flex items-start gap-2 text-sm text-muted-foreground">
+            <Checkbox
+              id="werksreset-modelle"
+              className="mt-0.5"
               checked={modelleLoeschen}
-              onChange={e => {
-                setModelleLoeschen(e.target.checked);
+              onCheckedChange={gewaehlt => {
+                setModelleLoeschen(gewaehlt === true);
                 setVorschau(null);
               }}
             />
-            <span>
-              Auch die heruntergeladenen Modelle löschen. Ohne Modelle kann das Gerät bis zum
-              nächsten Herunterladen weder antworten noch Dokumente durchsuchen.
-            </span>
-          </label>
+            <Label
+              htmlFor="werksreset-modelle"
+              className="font-normal text-muted-foreground leading-normal"
+            >
+              Auch die heruntergeladenen Modelle löschen. Ohne Modelle antwortet das Gerät erst
+              wieder, wenn sie neu heruntergeladen sind.
+            </Label>
+          </div>
         </fieldset>
 
         <div>

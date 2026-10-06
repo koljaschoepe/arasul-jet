@@ -30,7 +30,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
-import { Button, cn } from '@marken';
+import { Button, cn, Kopf } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import type { ApiError } from '@/hooks/useApi';
@@ -252,35 +252,30 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
 
   return (
     <div className="flex flex-col gap-6" data-testid={`app-ansicht-${appId}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="flex items-center gap-2 text-lg font-medium text-foreground">
-            <AppWindow className="size-4 text-muted-foreground" aria-hidden="true" />
-            {app.name}
-            <span className="font-mono text-xs text-muted-foreground">{app.id}</span>
-          </h3>
-          {app.beschreibung && (
-            <p className="mt-1 text-sm text-muted-foreground">{app.beschreibung}</p>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {/* Der eine Weg, eine App loszuwerden, den es für einen Menschen
+      <Kopf
+        titel={app.name}
+        symbol={<AppWindow />}
+        beschreibung={app.beschreibung}
+        aktionen={
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Der eine Weg, eine App loszuwerden, den es für einen Menschen
               gibt (Auftrag app-leiche): bis dahin konnte ein Kunde eine App
               nur über das Kit oder in der Datenbank entfernen. */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setEntfernenOffen(true)}
-            data-testid="app-entfernen"
-          >
-            <Trash2 className="size-4" aria-hidden="true" />
-            App entfernen
-          </Button>
-          <Button variant="outline" size="sm" onClick={onZurueck} data-testid="app-zurueck">
-            Alle Apps
-          </Button>
-        </div>
-      </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEntfernenOffen(true)}
+              data-testid="app-entfernen"
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+              App entfernen
+            </Button>
+            <Button variant="outline" size="sm" onClick={onZurueck} data-testid="app-zurueck">
+              Alle Apps
+            </Button>
+          </div>
+        }
+      />
 
       <Formularseite>
         <Feldgruppe titel="Zustand" symbol={<Activity />}>

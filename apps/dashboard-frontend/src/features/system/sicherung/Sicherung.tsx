@@ -206,7 +206,12 @@ export function Sicherung() {
   const drill = status?.wiederherstellungstest;
   const traeger = ausserhalb?.datentraeger;
   const klartext = ausserhalb?.klartextDateien ?? 0;
-  const versuch = versuchText(ausserhalb?.letzterVersuch);
+  // Steht in der Kachel schon „Kein Datenträger angesteckt“, sagt ein zweiter
+  // Satz über den nicht erkannten Datenträger dasselbe noch einmal.
+  const versuch =
+    ausserhalb?.letzterVersuch === 'nicht_eingehaengt' && !ausserhalb?.datentraeger?.angesteckt
+      ? null
+      : versuchText(ausserhalb?.letzterVersuch);
   const schluessel = status?.schluessel;
 
   const ausserhalbFussnote = [
@@ -222,8 +227,10 @@ export function Sicherung() {
       ? null
       : 'Eine Sicherung, die nur auf diesem Gerät liegt, überlebt das Gerät nicht.',
   ]
-    .filter(Boolean)
-    .join('. ');
+    .filter((teil): teil is string => Boolean(teil))
+    .map(teil => teil.replace(/\.$/, ''))
+    .join('. ')
+    .concat('.');
 
   return (
     <div className="animate-in fade-in" data-testid="sicherung-seite">
@@ -262,7 +269,7 @@ export function Sicherung() {
           <Feldgruppe
             titel="Sicherung"
             symbol={<ShieldCheck />}
-            beschreibung={'Nicht „könnte sichern“, sondern „hat gesichert“.'}
+            beschreibung="Jede Nacht ein Stand, verschlüsselt, auf dem Gerät und auf dem Datenträger."
             aktion={
               <Button onClick={jetztSichern} disabled={laeuft} data-testid="sicherung-ausloesen">
                 {sichern.isPending ? (
@@ -314,7 +321,7 @@ export function Sicherung() {
                 fussnote={ausserhalbFussnote}
               />
               <Kennzahl
-                beschriftung="Wiederherstellungstest"
+                beschriftung="Wiederherstellung"
                 wert={
                   drill?.status === 'nie_gelaufen'
                     ? 'nie gelaufen'

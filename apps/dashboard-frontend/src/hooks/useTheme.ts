@@ -3,7 +3,7 @@ import { useApi } from './useApi';
 import { useAuth } from '@/contexts/AuthContext';
 
 /**
- * Zwei Themes: Hell (Vorgabe) und Dunkel — und sie gehoeren dem MENSCHEN.
+ * Zwei Themes: Hell und Dunkel (Vorgabe: dem System folgen) — und sie gehoeren dem MENSCHEN.
  *
  * Bis Phase H1 lagen drei Themes im `localStorage` des Browsers. Beides ist
  * hier gefallen:
@@ -44,8 +44,12 @@ function systemBevorzugtDunkel(): boolean {
     : false;
 }
 
-/** Ohne Sitzung und ohne gesetzten Wert: hell (Spaltenvorgabe, Migration 180). */
-const THEME_VORGABE: Theme = 'light';
+/**
+ * Ohne Sitzung und ohne gesetzten Wert gilt das System: hell, solange das
+ * Betriebssystem nichts anderes meldet (Migration 210 stellt die Spaltenvorgabe
+ * gleich). So folgt auch die Anmeldeseite dem Dunkelmodus des Rechners.
+ */
+const THEME_VORGABE: ThemeWahl = 'system';
 
 /**
  * Der alte Schluessel — nur noch, um ihn EINMAL zu uebernehmen und dann zu
@@ -113,7 +117,9 @@ export function useTheme() {
   const api = useApi();
 
   const wahl: ThemeWahl =
-    user?.theme === 'dark' || user?.theme === 'system' ? user.theme : THEME_VORGABE;
+    user?.theme === 'dark' || user?.theme === 'light' || user?.theme === 'system'
+      ? user.theme
+      : THEME_VORGABE;
 
   // Bei `system` folgt das Theme dem Betriebssystem, auch wenn es sich ändert,
   // solange die Seite offen ist.

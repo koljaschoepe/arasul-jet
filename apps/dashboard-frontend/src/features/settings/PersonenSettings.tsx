@@ -135,7 +135,7 @@ export function PersonenSettings() {
       />
 
       <Formularseite>
-        <Feldgruppe titel="Personen" symbol={<Users />}>
+        <section className="border-b border-border pb-6" data-testid="personen-liste-abschnitt">
           {isLoading ? (
             <SkeletonText lines={4} />
           ) : isError ? (
@@ -195,7 +195,7 @@ export function PersonenSettings() {
               }
             />
           )}
-        </Feldgruppe>
+        </section>
 
         <Feldgruppe titel="Freigaben: Apps" symbol={<ShieldCheck />}>
           {isLoading ? <SkeletonText lines={3} /> : <FreigabeMatrix benutzer={liste} />}

@@ -53,6 +53,24 @@ export function sicherungHinweis(s: SicherungStatus | undefined): Hinweis | null
   return null;
 }
 
+/** Fehlt die Kopie außerhalb des Geräts seit so vielen Tagen, kommt ein Hinweis. */
+const KOPIE_ALTER_TAGE = 3;
+
+export function kopieHinweis(s: SicherungStatus | undefined, jetzt = Date.now()): Hinweis | null {
+  const zeitpunkt = s?.ausserhalb?.vorhanden ? s.ausserhalb.zeitpunkt : null;
+  if (!zeitpunkt) return null;
+  const tage = Math.floor((jetzt - new Date(zeitpunkt).getTime()) / 86_400_000);
+  if (!(tage >= KOPIE_ALTER_TAGE)) return null;
+  const traeger = s?.ausserhalb?.datentraeger?.angesteckt;
+  return {
+    art: 'sicherung',
+    text: traeger
+      ? `Die Kopie auf dem Datenträger ist ${tage} Tage alt.`
+      : `Die Sicherungs-SSD fehlt seit ${tage} Tagen.`,
+    ziel: { bereich: 'daten' },
+  };
+}
+
 export function appHinweise(apps: AppZeile[] | undefined): Hinweis[] {
   const aus: Hinweis[] = [];
   for (const app of apps ?? []) {
@@ -189,6 +207,7 @@ export function useAdminHinweise(): Hinweis[] {
 
   return [
     sicherungHinweis(sicherung.data),
+    kopieHinweis(sicherung.data),
     nachtHinweis,
     update,
     ...appHinweise(apps.data),

@@ -44,7 +44,7 @@ export function RechnerVerbinden() {
         einen leeren Ordner, öffnen Sie dort ein Terminal und geben Sie diesen Befehl ein. Ihr
         Passwort fragt er selbst.
       </p>
-      <div className="flex items-start gap-ui-3 rounded-md border border-border p-ui-3">
+      <div className="flex items-center gap-ui-3 rounded-md border border-border p-ui-3">
         <code
           className="min-w-0 flex-1 font-mono text-xs break-all select-all"
           data-testid="rechner-verbinden-befehl"

@@ -130,10 +130,13 @@ export function ModellHinzufuegen({ liste, busy, onGestartet }: ModellHinzufuege
       )}
 
       <p className="mb-3 text-xs text-muted-foreground">
-        Oder ein beliebiges Modell aus der Ollama-Bibliothek (zum Beispiel mistral:7b) oder von
-        Hugging Face (hf.co/nutzer/repo:quant). Das Gerät prüft vorher, ob Speicher und Platte
-        reichen. Modelle außerhalb der Liste sind ungemessen: sie laufen, aber hier hat niemand
-        geprüft, wie gut und wie schnell.
+        {liste.length > 0
+          ? 'Oder ein beliebiges Modell'
+          : 'Alle geprüften Modelle sind installiert. Ein weiteres Modell'}{' '}
+        aus der Ollama-Bibliothek (zum Beispiel mistral:7b) oder von Hugging Face
+        (hf.co/nutzer/repo:quant). Das Gerät prüft vorher, ob Speicher und Platte reichen. Modelle
+        außerhalb der Liste sind ungemessen: sie laufen, aber hier hat niemand geprüft, wie gut und
+        wie schnell.
       </p>
       <form onSubmit={e => void hinzufuegen(e)} className="flex flex-wrap items-end gap-2">
         <span className="flex min-w-0 flex-[1_1_18rem] flex-col gap-1">

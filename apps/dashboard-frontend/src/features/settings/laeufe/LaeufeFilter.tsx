@@ -32,7 +32,7 @@ function Wahl({
   onWahl: (wert: string) => void;
 }) {
   return (
-    <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted-foreground">
+    <label className="col-span-2 flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted-foreground md:col-span-1">
       {beschriftung}
       <Select value={wert || ALLE} onValueChange={w => onWahl(w === ALLE ? '' : w)}>
         <SelectTrigger aria-label={beschriftung} data-testid={`laeufe-filter-${name}`}>
@@ -64,7 +64,10 @@ export function LaeufeFilterLeiste({
 }) {
   const setze = (teil: Partial<LaeufeFilter>) => onAendern({ ...filter, ...teil });
   return (
-    <div className="flex flex-wrap items-end gap-3" data-testid="laeufe-filter">
+    <div
+      className="grid grid-cols-2 items-end gap-3 md:flex md:flex-wrap"
+      data-testid="laeufe-filter"
+    >
       <Wahl
         name="app"
         beschriftung="App"
@@ -91,11 +94,12 @@ export function LaeufeFilterLeiste({
       />
       <label
         htmlFor="laeufe-von"
-        className="flex min-w-36 flex-col gap-1 text-xs text-muted-foreground"
+        className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground md:min-w-36"
       >
         Von
         <Input
           id="laeufe-von"
+          className="w-full"
           type="date"
           value={filter.von}
           max={filter.bis || undefined}
@@ -105,11 +109,12 @@ export function LaeufeFilterLeiste({
       </label>
       <label
         htmlFor="laeufe-bis"
-        className="flex min-w-36 flex-col gap-1 text-xs text-muted-foreground"
+        className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground md:min-w-36"
       >
         Bis
         <Input
           id="laeufe-bis"
+          className="w-full"
           type="date"
           value={filter.bis}
           min={filter.von || undefined}
@@ -121,6 +126,7 @@ export function LaeufeFilterLeiste({
         <Button
           variant="ghost"
           size="sm"
+          className="col-span-2 md:col-span-1"
           onClick={() => onAendern(KEIN_FILTER)}
           data-testid="laeufe-filter-zuruecksetzen"
         >
