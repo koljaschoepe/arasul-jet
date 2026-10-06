@@ -269,6 +269,91 @@ async function bearbeite(flow, termine, jetzt, deps = {}) {
   }
 }
 
+/** So lange darf ein Start dauern, bevor ein Termin ohne Lauf als liegen geblieben gilt. */
+const LIEGEN_GEBLIEBEN_MS = 2 * MIN;
+
+/**
+ * Termine, die eingetragen sind, aber nie einen Lauf bekamen (Befund 16 der
+ * zweiten Pruefung, 05.10.2026). Stirbt das Backend zwischen `beanspruche` und
+ * dem Start, steht die Zeile als `gestartet` ohne `run_id` da, und weil sie
+ * schon eingetragen ist, fasst `bearbeite` den Termin nie wieder an: "hoechstens
+ * einmal" statt "genau einmal", und die Seite der App zeigt ihn als gestartet.
+ *
+ * Der naechste Takt raeumt das auf, mit denselben Regeln wie nach einem Ausfall:
+ *
+ *   - Begann der Lauf noch (ein Lauf des Flows nach Zeitplan, nach dem Eintrag,
+ *     keinem anderen Termin zugeordnet), bekommt der Termin seine Kennung.
+ *   - Sonst wird er nachgeholt, wenn er hoechstens eine Stunde zurueckliegt und
+ *     kein Lauf des Flows offen ist,
+ *   - sonst uebersprungen, mit Grund.
+ *
+ * Nur Zeilen, die aelter sind als `LIEGEN_GEBLIEBEN_MS`: ein Start, der gerade
+ * laeuft, ist nicht liegen geblieben.
+ */
+async function liegenGebliebene(jetzt, deps = {}) {
+  const { datenbank = db, start = startLauf } = deps;
+  const { rows } = await datenbank.query(
+    `SELECT app_id, flow_name, termin, erfasst_am FROM public.flow_zeitplan_termine
+      WHERE run_id IS NULL AND ergebnis IN ('gestartet', 'nachgeholt')
+        AND erfasst_am < $1
+      ORDER BY termin`,
+    [new Date(jetzt - LIEGEN_GEBLIEBEN_MS)]
+  );
+  for (const z of rows) {
+    const flow = { appId: z.app_id, flowName: z.flow_name };
+    const setze = (ergebnis, grund, runId) =>
+      datenbank.query(
+        `UPDATE public.flow_zeitplan_termine SET ergebnis = $4, grund = $5, run_id = $6
+          WHERE app_id = $1 AND flow_name = $2 AND termin = $3`,
+        [z.app_id, z.flow_name, z.termin, ergebnis, grund, runId]
+      );
+    const begonnen = await datenbank.query(
+      `SELECT r.id FROM flow_runs r
+        WHERE r.app_id = $1 AND r.stand = 'live' AND r.flow_name = $2
+          AND r.ausloeser = 'zeitplan' AND r.created_at >= $3
+          AND NOT EXISTS (SELECT 1 FROM public.flow_zeitplan_termine t WHERE t.run_id = r.id)
+        ORDER BY r.id ASC LIMIT 1`,
+      [z.app_id, z.flow_name, z.erfasst_am]
+    );
+    if (begonnen.rows[0]) {
+      await datenbank.query(
+        `UPDATE public.flow_zeitplan_termine SET run_id = $4
+          WHERE app_id = $1 AND flow_name = $2 AND termin = $3`,
+        [z.app_id, z.flow_name, z.termin, begonnen.rows[0].id]
+      );
+      continue;
+    }
+    const wann = terminInWorten(new Date(z.termin).getTime());
+    if (jetzt - new Date(z.termin).getTime() > NACHHOLEN_MS) {
+      await setze(
+        'uebersprungen',
+        `Der Start am ${wann} wurde unterbrochen (Neustart des Geräts); nach mehr als einer Stunde wird nicht mehr nachgeholt.`,
+        null
+      );
+      continue;
+    }
+    const offen = await offenerLauf(flow, datenbank);
+    if (offen) {
+      await setze(
+        'uebersprungen',
+        `Der Start am ${wann} wurde unterbrochen, und der Lauf Nr. ${offen} dieses Flows läuft noch oder wartet auf eine Freigabe; es startet kein zweiter.`,
+        null
+      );
+      continue;
+    }
+    try {
+      const runId = await start(flow);
+      await setze('nachgeholt', null, runId);
+      logger.info(
+        `Zeitplaner: ${z.app_id}/${z.flow_name} nach Unterbrechung nachgeholt (Lauf ${runId})`
+      );
+    } catch (err) {
+      logger.warn(`Zeitplaner: ${z.app_id}/${z.flow_name} startet nicht: ${err.message}`);
+      await setze('uebersprungen', `Der Lauf startete nicht: ${err.message}`, null);
+    }
+  }
+}
+
 let letzteReinigung = 0;
 
 /**
@@ -295,6 +380,12 @@ async function takt(jetzt = Date.now(), deps = {}) {
   if (bis <= von) {
     return [];
   }
+  // Erst, was ein Absturz liegen liess: einmal je Minute, nicht in jedem
+  // Takt. Ein Fehler dabei haelt den Takt nicht auf.
+  await liegenGebliebene(jetzt, deps).catch(err =>
+    logger.error(`Zeitplaner: liegen gebliebene Termine: ${err.message}`)
+  );
+
   if (bis - von > RUECKBLICK_MS) {
     logger.warn('Zeitplaner: länger als sieben Tage nicht gelaufen, es zählt nur die letzte Woche');
     von = bis - RUECKBLICK_MS;
