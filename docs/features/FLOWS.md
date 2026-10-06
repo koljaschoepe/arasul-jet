@@ -696,6 +696,16 @@ erkennenden Schritts wird nach der Bestätigung aus den Feldern der Anfrage neu
 gebildet (dieselbe Form `feld: wert`, die die Rolle geliefert hätte), im
 laufenden Prozess, nach einem Neustart und beim „Ab Fehler wiederholen" (dort
 aus den Freigaben des alten Laufs), für jeden übernommenen erkennenden Schritt.
+**Und der Lauf weiß, was geändert wurde** (07.10.2026): am Orin stand nach einer
+Korrektur von 23,80 auf 23,90 im Satz des Flows „keine menschlichen
+Änderungen". Der Wert kam an, nur die Kennzeichnung fehlte. Jetzt bekommt jeder
+folgende Schritt den Auftrag mit einem eigenen Abschnitt „Änderungen durch einen
+Menschen" (Schritt, Feld, Vorschlag der KI, neuer Wert), ebenso die Synthese am
+Ende; wer die Stelle selbst setzen will, schreibt `{{aenderungen}}` in den
+Auftrag. Ohne Korrektur steht dort nichts. Das gilt im laufenden Prozess, nach
+einem Neustart und beim „Ab Fehler wiederholen". Geprüft gegen echtes Postgres
+in `__tests__/pg/korrekturImKontext.test.js`.
+
 Im Protokoll des Laufs bleibt der
 Vorschlag am Schritt der Rolle stehen; der Freigabe-Schritt nennt darunter
 „Geändert: datum: „" (Vorschlag) → „01.10.2026" (bernd)". Die Läufe-Ansicht der

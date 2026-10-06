@@ -26,6 +26,7 @@ const {
   executeSteps,
   korrigierteAusgabe,
   korrigiereVorab,
+  aenderungenAbschnitt,
   originalPfad,
 } = require('../../src/services/flows/stepExecutor');
 const { felderText } = require('../../src/services/flows/resultContract');
@@ -399,7 +400,29 @@ describe('der Lauf arbeitet mit dem geaenderten Wert', () => {
     // Nie ueber `params`: das Modell soll keine Felder fuer aenderbar erklaeren.
     expect(arg.params.felder).toBeUndefined();
     expect(felderNachFreigabe).toHaveBeenCalledWith({ runId: 7, schritt: 'lesen' });
-    expect(auftraege[1]).toBe('Buche: betrag: 12,50\ndatum: 01.10.2026');
+    // Der Wert ist der korrigierte, und ein eigener Abschnitt nennt die Aenderung.
+    expect(auftraege[1]).toContain('Buche: betrag: 12,50\ndatum: 01.10.2026');
+    expect(auftraege[1]).toContain('--- Änderungen durch einen Menschen ---');
+    expect(auftraege[1]).toContain('Feld „datum": von „" (Vorschlag der KI) auf „01.10.2026"');
+  });
+
+  it('ohne Korrektur steht kein Abschnitt im Auftrag', async () => {
+    const { auftraege } = await lauf({
+      erkannt: { felder: { betrag: '12,50', datum: '' }, json: true, unsicher: [] },
+      felderNachFreigabe: jest.fn().mockResolvedValue({
+        felder: { betrag: '12,50', datum: '' },
+        korrekturen: [],
+      }),
+    });
+    expect(auftraege[1]).not.toContain('Änderungen durch einen Menschen');
+  });
+
+  it('aenderungenAbschnitt nennt je Feld Vorschlag und neuen Wert, leer ohne Aenderung', () => {
+    expect(aenderungenAbschnitt({})).toBe('');
+    const text = aenderungenAbschnitt({
+      lesen: [{ feld: 'betrag', vorschlag: '23,80', wert: '23,90' }],
+    });
+    expect(text).toContain('Feld „betrag": von „23,80" (Vorschlag der KI) auf „23,90"');
   });
 
   it('ohne Freigabe (alles erkannt) bleibt die Ausgabe der Rolle', async () => {
