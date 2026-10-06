@@ -5,18 +5,22 @@
 # Die Messregel der Phase: "`GET /models` zeigt die Kurzliste, Profile
 # aktualisiert." Genau das misst dieses Skript, gegen das laufende Geraet:
 #
-#   1. `GET /api/models/catalog` (Sitzung) zeigt GENAU die vier Modelle der
-#      Kurzliste -- keines fehlt, keines steht zuviel darin.
+#   1. `GET /api/models/catalog` (Sitzung) zeigt jedes Modell der Kurzliste;
+#      was darueber hinaus darin steht, ist als `frei_geladen` markiert (J4).
 #   2. `GET /api/v1/external/models` (Schluessel) zeigt nur Modelle der
-#      Kurzliste und nennt den Standard.
+#      Kurzliste oder frei geladene und nennt den Standard.
 #   3. Die Empfehlung des Geraets (`getRecommendedModel`, seit dem 06.10.2026
 #      ohne eigene Route, am Geraet im Container gelesen) nennt fuer jede
 #      Rolle ein Modell der Kurzliste. Das ist die Seite der Plattformprofile,
 #      die sich am laufenden Geraet ueberhaupt messen laesst.
-#   4. Ein Download ausserhalb der Kurzliste geht nicht -- weder ueber
-#      `POST /api/models/download` (der Katalog kennt das Modell nicht) noch
-#      ueber den frueheren Weg `POST /api/models/katalog`, den es nicht mehr
-#      gibt.
+#   4. Seit J4 (#812, 30.09.2026) ist jedes offene Modell ladbar, das auf das
+#      Geraet passt. Gemessen wird das OHNE Download: ein Modell, das es nicht
+#      gibt, weist `POST /api/models/download` vor dem Strom ab (404), und ein
+#      offenes ausserhalb der Kurzliste (`tinyllama:1.1b`) geht nur durch die
+#      Vorpruefung `POST /api/models/pruefen`, die nichts anlegt und nichts
+#      laedt. Den frueheren Weg `POST /api/models/katalog` gibt es nicht mehr.
+#      Bis 06.10.2026 schickte diese Abnahme `tinyllama` an `download` und
+#      erwartete 404; seit J4 startete das einen echten Download.
 #   5. Der Idle-Unload bleibt: `LLM_KEEP_ALIVE_SECONDS` steht am Geraet.
 #   6. Am Geraet zusaetzlich: `ollama list` gegen die Kurzliste gehalten --
 #      was darueber hinaus liegt, nennt `scripts/util/modelle-aufraeumen.sh`.
@@ -107,11 +111,6 @@ for m in liste:
     print(m.get("id", ""))' "$1" 2>/dev/null
 }
 
-# Zwei Listen vergleichen, sortiert, ohne Leerzeilen.
-gleich() {
-  [ "$(printf '%s\n' "$1" | sort)" = "$(printf '%s\n' "$2" | sort)" ]
-}
-
 if ! arasul_geraet_erreichbar "$BASIS"; then
   echo "Kein Geraet unter $BASIS. Erst: ssh -f -N -L 8443:localhost:443 jetson"
   exit 1
@@ -127,21 +126,36 @@ pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" 
   "${ARASUL_TOKEN:+geteilter Token}${ARASUL_TOKEN:-HTTP $(arasul_anmeldecode)}"
 [ -z "$TOK" ] && { echo; echo "Ohne Anmeldung gibt es nichts zu messen."; exit 1; }
 
-# --- 2. Der Katalog IST die Kurzliste ---------------------------------------
+# --- 2. Der Katalog: die Kurzliste und was frei geladen ist -----------------
+# Seit J4 nimmt der Katalog jedes Modell auf, das jemand frei laedt; es steht
+# dort mit `frei_geladen`. Gemessen wird also: die Kurzliste fehlt nicht, und
+# was darueber hinaus da ist, traegt die Marke.
 sitzungs_ruf GET /api/models/catalog
 pruefe 'GET /api/models/catalog antwortet' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
 KATALOG=$(rumpf | ids_aus models)
-pruefe 'Der Katalog zeigt genau die Kurzliste' \
-  "$(gleich "$KATALOG" "$ERWARTET" && echo ja || echo nein)" \
-  "$(printf '%s' "$KATALOG" | tr '\n' ' ')"
+FREI=$(rumpf | python3 -c 'import sys,json
+try: d = json.load(sys.stdin)
+except Exception: raise SystemExit
+for m in d.get("models") or []:
+    if m.get("frei_geladen") is True: print(m.get("id", ""))' 2>/dev/null)
+FEHLT=$(comm -23 <(printf '%s\n' "$ERWARTET" | sort -u) <(printf '%s\n' "$KATALOG" | sort -u))
+pruefe 'Der Katalog zeigt jedes Modell der Kurzliste' \
+  "$([ -z "$FEHLT" ] && echo ja || echo nein)" \
+  "${FEHLT:+fehlt: $(printf '%s' "$FEHLT" | tr '\n' ' ')}$(printf '%s' "$KATALOG" | tr '\n' ' ')"
+UNMARKIERT=$(comm -23 <(printf '%s\n' "$KATALOG" | sort -u) \
+  <(printf '%s\n%s\n' "$ERWARTET" "$FREI" | sort -u) | sed '/^$/d')
+pruefe 'und alles darueber hinaus ist als frei geladen markiert' \
+  "$([ -z "$UNMARKIERT" ] && echo ja || echo nein)" \
+  "${UNMARKIERT:-frei geladen: $(printf '%s' "${FREI:-keines}" | tr '\n' ' ')}"
 
-# Und die Gegenprobe, damit ein leerer Katalog nicht als "genau die Liste"
+# Und die Gegenprobe, damit ein leerer Katalog nicht als "die Liste"
 # durchgeht: die Zahl steht in der Antwort selbst.
 ANZAHL=$(rumpf | python3 -c 'import sys,json
 try: print(json.load(sys.stdin).get("total", ""))
 except Exception: print("")' 2>/dev/null)
-pruefe 'und nennt vier als Gesamtzahl' \
-  "$(ja_wenn "$ANZAHL" "$(printf '%s\n' "$ERWARTET" | wc -l | tr -d ' ')")" "total=$ANZAHL"
+SOLL=$(printf '%s\n%s\n' "$ERWARTET" "$FREI" | sed '/^$/d' | sort -u | wc -l | tr -d ' ')
+pruefe 'und nennt Kurzliste plus frei geladene als Gesamtzahl' \
+  "$(ja_wenn "$ANZAHL" "$SOLL")" "total=$ANZAHL, erwartet $SOLL"
 
 # --- 3. Der Standard je Aufgabe ---------------------------------------------
 # `GET /api/models/recommended` ist mit der Totcode-Pruefung vom 06.10.2026
@@ -216,11 +230,12 @@ else
   schluessel_ruf GET /api/v1/external/models
   pruefe 'GET /api/v1/external/models antwortet' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
   EXTERN=$(rumpf | ids_aus models)
-  FREMD=$(comm -23 <(printf '%s\n' "$EXTERN" | sort -u) <(printf '%s\n' "$ERWARTET" | sort -u))
+  FREMD=$(comm -23 <(printf '%s\n' "$EXTERN" | sort -u) \
+    <(printf '%s\n%s\n' "$ERWARTET" "$FREI" | sort -u) | sed '/^$/d')
   # Kein `gleich`: `/models` listet, was INSTALLIERT ist. Ein Modell der
   # Kurzliste, das noch niemand geladen hat, fehlt dort zu Recht. Rot ist nur
   # das Umgekehrte -- etwas, das nicht auf der Liste steht.
-  pruefe 'Er zeigt nichts ausserhalb der Kurzliste' \
+  pruefe 'Er zeigt nichts ausser Kurzliste und frei geladenen' \
     "$([ -z "$FREMD" ] && echo ja || echo nein)" \
     "${FREMD:-nur Kurzliste}: $(printf '%s' "$EXTERN" | tr '\n' ' ')"
   DEFAULT=$(rumpf | python3 -c 'import sys,json
@@ -242,10 +257,28 @@ except Exception: print("")' 2>/dev/null)
   done <<<"$ERWARTET"
 fi
 
-# --- 5. Kein Weg an der Kurzliste vorbei ------------------------------------
-sitzungs_ruf POST /api/models/download '{"model_id":"tinyllama:1.1b"}'
-pruefe 'Ein Download ausserhalb der Kurzliste wird abgewiesen' \
-  "$(ja_wenn "$CODE" 404)" "HTTP $CODE"
+# --- 5. Offene Modelle: ladbar, aber nur was es gibt (J4) -------------------
+# Ohne Download. Ein Name, den es in keiner Registry gibt, wird VOR dem Strom
+# abgewiesen (`freiesModell.vorbereiten`, 404); kaeme hier ein Ereignisstrom,
+# haette das Geraet einen Download begonnen.
+NIRGENDS="arasul-abnahme-gibt-es-nicht:$(date +%s)"
+sitzungs_ruf POST /api/models/download "{\"model_id\":\"$NIRGENDS\"}"
+pruefe 'Ein Modell, das es nicht gibt, wird ohne Download abgewiesen' \
+  "$(ja_wenn "$CODE" 404)" "HTTP $CODE, $NIRGENDS"
+
+# Ein offenes Modell ausserhalb der Kurzliste geht durch die Vorpruefung: sie
+# fragt die Registry nach der Groesse und haelt sie gegen Speicher und Platte,
+# legt aber nichts an. 503 heisst, die Registry war nicht zu erreichen.
+sitzungs_ruf POST /api/models/pruefen '{"model_id":"tinyllama:1.1b"}'
+PASST=$(rumpf | python3 -c 'import sys,json
+try: print(json.dumps(json.load(sys.stdin).get("passt")))
+except Exception: print("")' 2>/dev/null)
+pruefe 'Ein offenes Modell ausserhalb der Kurzliste gilt als ladbar (nur Vorpruefung)' \
+  "$([ "$CODE" = 200 ] && [ "$PASST" = true ] && echo ja || echo nein)" "HTTP $CODE, passt=${PASST:-?}"
+sitzungs_ruf GET /api/models/catalog
+NACHHER=$(rumpf | ids_aus models)
+pruefe 'und die Vorpruefung hat es nicht in den Katalog gelegt' \
+  "$(printf '%s\n' "$NACHHER" | grep -qxF 'tinyllama:1.1b' && ! printf '%s\n' "$KATALOG" | grep -qxF 'tinyllama:1.1b' && echo nein || echo ja)"
 
 sitzungs_ruf POST /api/models/katalog '{"quelle":"llama3.2:3b"}'
 pruefe 'Den Weg „Modell ueber einen Link hinzufuegen" gibt es nicht mehr' \
