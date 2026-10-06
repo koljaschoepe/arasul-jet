@@ -147,12 +147,21 @@ pruefe 'und nennt vier als Gesamtzahl' \
 # `GET /api/models/recommended` ist mit der Totcode-Pruefung vom 06.10.2026
 # gefallen (kein Aufrufer). Die Empfehlung selbst lebt weiter als letzter
 # Rueckfall des Standardmodells (`utils/hardware.js`, getRecommendedModel) und
-# wird deshalb am Geraet direkt im Backend-Container gelesen.
-if ! docker exec dashboard-backend true >/dev/null 2>&1; then
+# wird deshalb am Geraet direkt im Backend-Container gelesen: ueber ssh, wenn
+# ARASUL_GERAET gesetzt ist (Lauf vom Arbeitsrechner durch den Tunnel), sonst
+# hier (Lauf auf dem Geraet selbst).
+im_backend() {
+  if [ -n "${ARASUL_GERAET:-}" ]; then
+    ssh -o BatchMode=yes -o ConnectTimeout=15 "$ARASUL_GERAET" "docker exec -i dashboard-backend $*"
+  else
+    docker exec -i dashboard-backend "$@"
+  fi
+}
+if ! im_backend true </dev/null >/dev/null 2>&1; then
   uebergehen 'Die Empfehlungen je Rolle stehen in der Kurzliste' \
-    'nur am Geraet: docker exec dashboard-backend nicht erreichbar'
+    'nur am Geraet oder mit ARASUL_GERAET: dashboard-backend nicht erreichbar'
 else
-  EMPFEHLUNG=$(docker exec -i dashboard-backend node - 2>/dev/null <<'JS' | tail -n1
+  EMPFEHLUNG=$(im_backend node - 2>/dev/null <<'JS' | tail -n1
 require('./src/utils/hardware')
   .getRecommendedModel()
   .then(r => {

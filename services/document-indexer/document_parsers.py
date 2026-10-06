@@ -14,6 +14,7 @@ Textlayer, Anreicherung) ist mit dem Hintergrund-Indexer gefallen.
 import gc
 import logging
 import os
+import threading
 from io import BytesIO
 from typing import IO, Generator, Optional
 
@@ -287,8 +288,23 @@ def get_pdf_page_count(file_obj: IO[bytes]) -> int:
 # mit 600 dpi in Farbe gut fuenffach; ein echter Beleg liegt weit darunter.
 # ZEIT: fuer hoechstens vier Seiten. Das Rendern laeuft in einem eigenen
 # Prozess, nur so laesst es sich nach Ablauf wirklich anhalten.
+#
+# SPEICHER: der Kindprozess bekommt hoechstens so viel Adressraum; was darueber
+# hinaus will, scheitert dort und nicht am OOM-Killer des Containers, der sonst
+# den Flask-Prozess treffen koennte. Und es rendert immer nur einer zugleich.
 PDF_SEITEN_MAX_BILDPIXEL = 50_000_000
 PDF_SEITEN_ZEIT_S = 30
+PDF_SEITEN_SPEICHER_BYTES = 1024 * 1024 * 1024
+_EIN_RENDERN = threading.BoundedSemaphore(1)
+
+
+class PdfZuAufwendig(ValueError):
+    """Ein gueltiges PDF, das ueber eine Grenze geht. ``grund`` ist
+    ``zu_gross`` oder ``zu_langsam``; das Backend macht daraus einen Satz."""
+
+    def __init__(self, grund: str, text: str):
+        super().__init__(text)
+        self.grund = grund
 
 
 def _seiten_rendern(pdf_bytes: bytes, max_pages: int, max_edge: int):
@@ -306,9 +322,9 @@ def _seiten_rendern(pdf_bytes: bytes, max_pages: int, max_edge: int):
             seite = doc[nummer]
             pixel = sum(int(b[2]) * int(b[3]) for b in seite.get_images(full=True))
             if pixel > PDF_SEITEN_MAX_BILDPIXEL:
-                raise ValueError(
+                raise PdfZuAufwendig('zu_gross', 
                     f"PDF-Seite {nummer + 1} traegt Bilder mit {pixel // 1_000_000} Megapixeln, "
-                    f"mehr als {PDF_SEITEN_MAX_BILDPIXEL // 1_000_000} werden nicht gerendert"
+                    f"mehr als {PDF_SEITEN_MAX_BILDPIXEL // 1_000_000} werden nicht gerendert",
                 )
             breite, hoehe = seite.rect.width, seite.rect.height
             lang = max(breite, hoehe) or 1
@@ -320,10 +336,20 @@ def _seiten_rendern(pdf_bytes: bytes, max_pages: int, max_edge: int):
         doc.close()
 
 
-def _im_kindprozess(pdf_bytes: bytes, max_pages: int, max_edge: int, rohr) -> None:
+def _im_kindprozess(pdf_bytes: bytes, max_pages: int, max_edge: int, speicher: int,
+                    rohr) -> None:
     """Rendert und schickt das Ergebnis oder den Grund des Scheiterns zurueck."""
     try:
+        import resource
+        resource.setrlimit(resource.RLIMIT_AS, (speicher, speicher))
+    except (ImportError, ValueError, OSError):
+        pass  # nicht ueberall setzbar (macOS); die Zeitgrenze gilt trotzdem
+    try:
         rohr.send(('ok', _seiten_rendern(pdf_bytes, max_pages, max_edge)))
+    except PdfZuAufwendig as e:
+        rohr.send(('zu_aufwendig', (e.grund, str(e))))
+    except MemoryError:
+        rohr.send(('zu_aufwendig', ('zu_gross', 'PDF braucht zum Rendern zu viel Speicher')))
     except ValueError as e:
         rohr.send(('ungueltig', str(e)))
     except Exception as e:  # noqa: BLE001 - der Elternprozess meldet es als 500
@@ -333,7 +359,8 @@ def _im_kindprozess(pdf_bytes: bytes, max_pages: int, max_edge: int, rohr) -> No
 
 
 def render_pdf_pages(pdf_bytes: bytes, max_pages: int, max_edge: int = 1600,
-                     zeit_s: float = PDF_SEITEN_ZEIT_S):
+                     zeit_s: float = PDF_SEITEN_ZEIT_S,
+                     speicher: int = PDF_SEITEN_SPEICHER_BYTES):
     """
     Die ersten Seiten eines PDF als PNG (M5, 06.10.2026, Kontrakt 14).
 
@@ -344,39 +371,47 @@ def render_pdf_pages(pdf_bytes: bytes, max_pages: int, max_edge: int = 1600,
     Modells.
 
     Gerendert wird in einem eigenen Prozess (forkserver, nicht fork: der
-    Flask-Prozess hat Threads). Braucht er laenger als ``zeit_s``, wird er
+    Flask-Prozess hat Threads), mit hoechstens ``speicher`` Bytes Adressraum
+    und immer nur einer zugleich. Braucht er laenger als ``zeit_s``, wird er
     beendet; stirbt er (etwa am Speicher), ist das PDF ebenso abgewiesen.
 
     Returns:
         (Liste der PNG-Bytes, Seitenzahl des ganzen Dokuments)
 
     Raises:
-        ValueError: das PDF laesst sich nicht oeffnen, ist verschluesselt,
-            traegt zu grosse Bilder oder braucht zu lange.
+        PdfZuAufwendig: zu grosse Bilder, zu viel Speicher oder zu lange.
+        ValueError: das PDF laesst sich nicht oeffnen oder ist verschluesselt.
         RuntimeError: das Rendern selbst ist gescheitert.
     """
     import multiprocessing
 
-    kontext = multiprocessing.get_context('forkserver')
-    eltern, kind = kontext.Pipe(duplex=False)
-    prozess = kontext.Process(
-        target=_im_kindprozess, args=(pdf_bytes, max_pages, max_edge, kind), daemon=True
-    )
-    prozess.start()
-    kind.close()
-    try:
-        if not eltern.poll(zeit_s):
-            raise ValueError(f"PDF braucht zum Rendern laenger als {zeit_s:g} s")
-        art, wert = eltern.recv()
-    except EOFError as e:
-        raise ValueError("PDF liess sich nicht rendern, der Prozess dafuer ist abgebrochen") from e
-    finally:
-        if prozess.is_alive():
-            prozess.kill()
-        prozess.join(5)
-        eltern.close()
+    with _EIN_RENDERN:
+        kontext = multiprocessing.get_context('forkserver')
+        eltern, kind = kontext.Pipe(duplex=False)
+        prozess = kontext.Process(
+            target=_im_kindprozess,
+            args=(pdf_bytes, max_pages, max_edge, speicher, kind),
+            daemon=True,
+        )
+        prozess.start()
+        kind.close()
+        try:
+            if not eltern.poll(zeit_s):
+                raise PdfZuAufwendig('zu_langsam', f"PDF braucht zum Rendern laenger als {zeit_s:g} s")
+            art, wert = eltern.recv()
+        except EOFError as e:
+            raise PdfZuAufwendig(
+                'zu_gross', "PDF liess sich nicht rendern, der Prozess dafuer ist abgebrochen"
+            ) from e
+        finally:
+            if prozess.is_alive():
+                prozess.kill()
+            prozess.join(5)
+            eltern.close()
     if art == 'ok':
         return wert
+    if art == 'zu_aufwendig':
+        raise PdfZuAufwendig(*wert)
     if art == 'ungueltig':
         raise ValueError(wert)
     raise RuntimeError(wert)

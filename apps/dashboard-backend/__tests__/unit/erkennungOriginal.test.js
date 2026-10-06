@@ -180,8 +180,25 @@ describe('original.hole aus dem Backend der App', () => {
     const post = jest.fn().mockRejectedValue({ response: { status: 400 } });
     await expect(
       original.hole({ pfad: 'api/x.pdf', context: KONTEXT }, backendDeps({ anfrage, post }))
-    ).rejects.toMatchObject({ originalGrund: 'pdf' });
+    ).rejects.toMatchObject({
+      originalGrund: 'pdf',
+      message: expect.stringContaining('beschädigt oder verschlüsselt'),
+    });
   });
+
+  it.each([
+    ['zu_gross', 'zu groß'],
+    ['zu_langsam', 'zu lange'],
+  ])(
+    'ein gültiges PDF über einer Grenze des Indexers (%s) heißt nicht kaputt',
+    async (grund, satz) => {
+      const { anfrage } = fakeAnfrage({ koerper: PDF });
+      const post = jest.fn().mockRejectedValue({ response: { status: 400, data: { grund } } });
+      await expect(
+        original.hole({ pfad: 'api/x.pdf', context: KONTEXT }, backendDeps({ anfrage, post }))
+      ).rejects.toMatchObject({ originalGrund: 'pdf', message: expect.stringContaining(satz) });
+    }
+  );
 });
 
 describe('original.hole aus dem Frontend der App', () => {

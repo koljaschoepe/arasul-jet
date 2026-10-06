@@ -409,8 +409,11 @@ pruefe 'takt: jeder Lauf entsteht in der ersten halben Minute des Termins' "$(ja
 sleep 20
 pruefe 'takt: die Laeufe enden fertig (feste Antwort, ohne Modell)' \
   "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' AND status NOT IN ('fertig','laeuft');")" 0)"
+# Nur die Laeufe seit Beginn: die Liste steht Fehler zuerst, und ohne `von`
+# koennten alte Fehlerlaeufe der App die takt-Laeufe aus den 200 draengen.
+VON_UTC=$(db "SELECT to_char(timestamptz '$BEGINN' AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"');")
 pruefe 'Die Liste der Laeufe nennt den Ausloeser' \
-  "$(ruf "$TOK" GET "/api/laeufe?app=$APP&limit=200" && rumpf | python3 -c 'import sys,json
+  "$(ruf "$TOK" GET "/api/laeufe?app=$APP&von=$VON_UTC&limit=200" && rumpf | python3 -c 'import sys,json
 d = [l for l in json.load(sys.stdin)["data"] if l.get("flow_name") == "takt"]
 print("ja" if d and all(l.get("ausloeser") == "zeitplan" for l in d) else "nein")')"
 

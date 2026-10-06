@@ -7,6 +7,8 @@ die kein Rendern schafft.
 
 # `pymupdf` statt `fitz`: test_pdf_open_once ersetzt `fitz` in sys.modules durch
 # eine Attrappe, und die gilt fuer alle Tests danach.
+import sys
+
 import pymupdf as fitz
 import pytest
 
@@ -36,15 +38,27 @@ def test_ein_bild_ueber_der_pixelgrenze_wird_abgewiesen(monkeypatch):
     # Bild, das wirklich darueber liegt, aber als Graustufe mit einer Farbe
     # klein komprimiert: 8000 x 7000 = 56 Megapixel.
     daten = _pdf_mit_bild(8000, 7000)
-    with pytest.raises(ValueError, match='Megapixel'):
+    with pytest.raises(document_parsers.PdfZuAufwendig, match='Megapixel') as fehler:
         document_parsers.render_pdf_pages(daten, 1)
+    assert fehler.value.grund == 'zu_gross'
 
 
 def test_zu_langsames_rendern_wird_abgebrochen():
-    with pytest.raises(ValueError, match='laenger als'):
+    with pytest.raises(document_parsers.PdfZuAufwendig, match='laenger als') as fehler:
         document_parsers.render_pdf_pages(_pdf_mit_bild(200, 300), 1, zeit_s=0.000001)
+    assert fehler.value.grund == 'zu_langsam'
 
 
 def test_kaputtes_pdf_bleibt_ein_valueerror():
-    with pytest.raises(ValueError, match='nicht lesbar'):
+    with pytest.raises(ValueError, match='nicht lesbar') as fehler:
         document_parsers.render_pdf_pages(b'%PDF-1.7 kaputt', 1)
+    assert not isinstance(fehler.value, document_parsers.PdfZuAufwendig)
+
+
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason='RLIMIT_AS wirkt nur unter Linux')
+def test_ohne_speicher_wird_abgewiesen_statt_zu_haengen():
+    # Ein Kindprozess, der nichts mehr anfordern darf, scheitert oder stirbt.
+    # Beides ist ein abgewiesenes PDF, kein Haenger bis zur Zeitgrenze.
+    with pytest.raises(document_parsers.PdfZuAufwendig) as fehler:
+        document_parsers.render_pdf_pages(_pdf_mit_bild(200, 300), 1, speicher=1, zeit_s=20)
+    assert fehler.value.grund == 'zu_gross'

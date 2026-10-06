@@ -25,7 +25,9 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 import config
-from document_parsers import parse_document, render_pdf_pages, PARSERS, OCR_AVAILABLE
+from document_parsers import (
+    parse_document, render_pdf_pages, PdfZuAufwendig, PARSERS, OCR_AVAILABLE,
+)
 from metadata_extractor import extract_metadata
 
 app = Flask(__name__)
@@ -145,7 +147,8 @@ def pdf_seiten():
     Antwort: { seiten: [Base64-PNG, ...], gesamt }
     Fehler:  { error } mit 400 (keine Datei, kein PDF, verschluesselt, kaputt,
              Bilder ueber der Pixelgrenze oder laenger als die Zeitgrenze,
-             siehe `document_parsers.PDF_SEITEN_*`), 413 (zu gross),
+             siehe `document_parsers.PDF_SEITEN_*`; dann mit `grund`
+             zu_gross oder zu_langsam), 413 (zu gross),
              500 (Rendern gescheitert).
     """
     uploaded = request.files.get('file')
@@ -163,6 +166,10 @@ def pdf_seiten():
 
     try:
         bilder, gesamt = render_pdf_pages(data, seiten)
+    except PdfZuAufwendig as e:
+        # Ein gueltiges PDF ueber einer Grenze: `grund` sagt dem Backend, dass
+        # es nicht kaputt ist (zu_gross, zu_langsam).
+        return jsonify({'error': str(e), 'grund': e.grund}), 400
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:  # noqa: BLE001 - als JSON melden, nicht als HTML-500

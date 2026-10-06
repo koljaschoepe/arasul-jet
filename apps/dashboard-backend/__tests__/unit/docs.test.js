@@ -2,9 +2,8 @@
  * Unit tests for Docs Routes (Swagger UI)
  *
  * Tests the API documentation endpoints:
- * - GET /api/docs - Swagger UI (requires auth)
- * - GET /api/docs/openapi.json - OpenAPI spec as JSON (requires auth)
- * - GET /api/docs/openapi.yaml - OpenAPI spec as YAML (requires auth)
+ * - GET /api/docs - Swagger UI (requires auth); das Dokument steht inline,
+ *   openapi.json und openapi.yaml als eigene Wege sind am 06.10.2026 gefallen
  */
 
 const request = require('supertest');

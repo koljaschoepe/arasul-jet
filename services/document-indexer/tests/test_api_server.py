@@ -143,3 +143,13 @@ def test_pdf_seiten_kaputtes_pdf_gibt_400(client, monkeypatch):
 def test_pdf_seiten_ohne_datei_gibt_400(client):
     antwort = client.post('/pdf-seiten', data={}, content_type='multipart/form-data')
     assert antwort.status_code == 400
+
+
+def test_pdf_seiten_ueber_einer_grenze_nennt_den_grund(client, monkeypatch):
+    def render(data, max_pages):
+        raise api_server.PdfZuAufwendig('zu_langsam', 'PDF braucht zum Rendern laenger als 30 s')
+
+    monkeypatch.setattr(api_server, 'render_pdf_pages', render)
+    antwort = _pdf_upload(client, b'%PDF-1.7 schwer')
+    assert antwort.status_code == 400
+    assert antwort.get_json()['grund'] == 'zu_langsam'

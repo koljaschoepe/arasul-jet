@@ -257,11 +257,18 @@ async function pdfSeiten(puffer, { post = axios.post } = {}) {
     });
   } catch (err) {
     const status = err.response?.status;
+    // Ein gueltiges PDF ueber einer Grenze des Indexers (Pixel, Zeit,
+    // Speicher) ist nicht kaputt und soll auch nicht so heissen.
+    const grund = err.response?.data?.grund;
     throw originalFehler(
       'pdf',
-      status === 400 || status === 422
-        ? 'Das PDF lässt sich nicht öffnen (beschädigt oder verschlüsselt).'
-        : `Das PDF ließ sich nicht in Bilder umwandeln (${status ? `HTTP ${status}` : err.code || err.message}).`
+      grund === 'zu_gross'
+        ? 'Das PDF ist zu groß, um es als Bild zu lesen (zu große Bilder oder zu viel Speicher).'
+        : grund === 'zu_langsam'
+          ? 'Das PDF braucht zu lange, um es als Bild zu lesen.'
+          : status === 400 || status === 422
+            ? 'Das PDF lässt sich nicht öffnen (beschädigt oder verschlüsselt).'
+            : `Das PDF ließ sich nicht in Bilder umwandeln (${status ? `HTTP ${status}` : err.code || err.message}).`
     );
   }
   const seiten = Array.isArray(antwort.data?.seiten) ? antwort.data.seiten : [];
