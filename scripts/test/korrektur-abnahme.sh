@@ -130,7 +130,9 @@ lauf = int(sys.argv[1]); titel = sys.argv[2] if len(sys.argv) > 2 else ""
 try: liste = json.load(sys.stdin)["data"]
 except Exception: print(""); raise SystemExit
 for a in liste:
-    if int(a.get("run_id", -1)) == lauf and (not titel or a.get("titel") == titel):
+    # Seit Kontrakt 14 (#929) steht der Titel des Laufs vorn: „12,50 – Erkennung …".
+    t = a.get("titel") or ""
+    if int(a.get("run_id", -1)) == lauf and (not titel or t == titel or t.endswith(" – " + titel)):
         print(json.dumps(a, ensure_ascii=False)); raise SystemExit
 print("")' "$@" 2>/dev/null
 }
@@ -348,8 +350,10 @@ pruefe 'Keine Prozentzahl an den Feldern' \
 ORIGINAL=$(printf '%s' "$ANFRAGE_JSON" | feld original)
 pruefe 'Das Original ist eine Adresse der App' "$(ja_wenn "$ORIGINAL" "/apps/$APP/api/belege/4711.png")" "$ORIGINAL"
 ruf "$TOK_B" GET "$ORIGINAL"
+# Die Bytes 2 bis 4 des PNG-Kopfs. Nicht `grep PNG`: hinter dem Byte 0x89
+# fand grep unter macOS (UTF-8) nichts, das Original war trotzdem da.
 pruefe "Das Original laedt mit der Sitzung von $B" \
-  "$([ "$CODE" = 200 ] && grep -q 'PNG' <<<"$(head -c 8 "$RUMPF_DATEI")" && echo ja || echo nein)" "HTTP $CODE"
+  "$([ "$CODE" = 200 ] && [ "$(head -c 4 "$RUMPF_DATEI" | tail -c 3)" = PNG ] && echo ja || echo nein)" "HTTP $CODE"
 
 bilder vorher
 

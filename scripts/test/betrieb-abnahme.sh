@@ -258,9 +258,14 @@ else
     "$(ja_wenn "$(rumpf | feld fassung.version)" '')" \
     "Anzeige: $(rumpf | feld fassung.anzeige)"
 fi
+# Ob hier eingespielt werden kann, sagt seit dem 06.10.2026 nur noch der Weg
+# der Fassungen (`GET /api/update/fassung`, J39), den auch die Oberflaeche
+# liest. `einspielenMoeglich` in `/api/update/status` gehoerte zum USB-Weg
+# und ist mit ihm gefallen.
+ruf GET /api/update/fassung
 pruefe 'Der Weg sagt, ob er hier ueberhaupt einspielen kann' \
-  "$(ja_wenn "$([ -n "$(rumpf | feld einspielenMoeglich)" ] && echo ja || echo nein)" ja)" \
-  "$(rumpf | feld einspielenMoeglich)$(rumpf | feld einspielenGrund | cut -c1-70)"
+  "$(ja_wenn "$([ -n "$(rumpf | feld data.einspielenMoeglich)" ] && echo ja || echo nein)" ja)" \
+  "HTTP $CODE $(rumpf | feld data.einspielenMoeglich) $(rumpf | feld data.einspielenGrund | cut -c1-70)"
 
 # Die Frage nach einer neueren Fassung. `GET /api/update/check` (der alte
 # OTA-Weg samt `versionBekannt`) ist am 06.10.2026 gefallen; die Oberflaeche

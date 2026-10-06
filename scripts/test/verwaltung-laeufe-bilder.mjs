@@ -323,9 +323,13 @@ try {
     .locator('[data-testid^="lauf-aufklappen-"][aria-expanded="true"]')
     .count();
   pruefe('Zwei Läufe stehen zugleich aufgeklappt da', offen === 2, `${offen} offen`);
-  const fehlerGrund = await seite.getByTestId('lauf-grund').first().innerText();
+  // Seit #927 steht vorn ein Satz für Menschen und der Grund selbst unter
+  // „Technische Angabe", zugeklappt. Ein Klick, dann muss er dastehen.
+  const grundKasten = seite.getByTestId('lauf-grund').first();
+  await grundKasten.locator('summary').click();
+  const fehlerGrund = await grundKasten.innerText();
   pruefe(
-    'Der Fehler nennt seinen Grund',
+    'Der Fehler nennt seinen Grund (unter „Technische Angabe")',
     /Route abgewiesen/.test(fehlerGrund),
     fehlerGrund.slice(0, 90)
   );
@@ -378,7 +382,12 @@ try {
   await seite.goto(adresse);
   await seite.getByTestId('lauf-seite').waitFor({ timeout: 30000 });
   await seite.getByTestId(`lauf-ausloeser-${EREIGNIS_A}`).waitFor({ timeout: 30000 });
-  const kopf = await seite.getByRole('heading', { level: 3 }).first().innerText();
+  // Seit #927 traegt die Seite den Titel im Baustein `Kopf` (h1), nicht mehr als h3.
+  const kopf = await seite
+    .getByTestId('lauf-seite')
+    .getByRole('heading', { level: 1 })
+    .first()
+    .innerText();
   const ausloeser = await seite.getByTestId(`lauf-ausloeser-${EREIGNIS_A}`).innerText();
   const person = await seite.getByTestId(`lauf-person-${EREIGNIS_A}`).innerText();
   pruefe(
