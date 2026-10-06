@@ -456,43 +456,6 @@ async function getRun(
 }
 
 /**
- * Lädt die neuesten Läufe eines Nutzers (ohne Schritte, für eine Übersicht).
- *
- * `app_id`/`stand` stehen seit C6 in der Auswahl, aber es gibt keinen Filter
- * darauf — die Liste eines Nutzers ist die Liste eines Nutzers, und ein Lauf,
- * den eine seiner Apps gestartet hat, gehört sichtbar dazu. Die Spalten sagen,
- * WOHER er kam. Ein Filter ohne Aufrufer wäre eine Verzweigung, die niemand je
- * durchläuft und die beim nächsten Umbau falsch stehenbleibt; wenn die
- * D-Phasen eine Ansicht je App bauen, kommt er mit ihr.
- */
-async function listRuns(
-  { userId, limit = 50, status = null, flowName = null },
-  { db = database } = {}
-) {
-  const params = [userId];
-  let filter = '';
-  if (status != null) {
-    params.push(status);
-    filter += `AND status = $${params.length} `;
-  }
-  if (flowName != null) {
-    params.push(flowName);
-    filter += `AND flow_name = $${params.length} `;
-  }
-  params.push(Math.min(Math.max(1, limit), 200));
-  const { rows } = await db.query(
-    `SELECT id, flow_name, app_id, stand, status, steps_used, created_at, finished_at, arguments,
-            ausloeser, ereignis
-       FROM flow_runs
-      WHERE user_id = $1 ${filter}
-      ORDER BY id DESC
-      LIMIT $${params.length}`,
-    params
-  );
-  return rows;
-}
-
-/**
  * Wer hinter einem Lauf steht, als eine Spalte: der Mensch, für den eine App
  * ihn auslöste (`einreicher_id`), bei einem Lauf der Plattform ohne App der
  * Nutzer selbst. Ein Lauf aus Zeitplan oder Ereignis hat keinen: sein
@@ -590,7 +553,6 @@ module.exports = {
   bumpSteps,
   cancelRun,
   getRun,
-  listRuns,
   ENDZUSTAENDE,
   LAEUFT_NOCH,
 };

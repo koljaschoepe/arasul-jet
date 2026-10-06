@@ -38,7 +38,7 @@ const AblehnenBody = z
  * Feld den Wert, mit dem der Lauf weiterarbeitet. Ob ein Feld aenderbar ist,
  * prueft der Dienst gegen die Anfrage, nicht dieses Schema. Alles andere bleibt
  * `.strict()`: ein Feld, das jemand mitschickt, ist ein Missverstaendnis und
- * soll als 400 auffallen (dieselbe Linie wie `WiederholenBody`).
+ * soll als 400 auffallen.
  */
 const BestaetigenBody = z
   .object({

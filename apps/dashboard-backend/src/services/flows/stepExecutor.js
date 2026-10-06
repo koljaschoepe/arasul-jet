@@ -75,8 +75,7 @@ function parseListe(text) {
  *
  * Nur Zeichenketten werden ersetzt; Zahlen und Wahrheitswerte bleiben, wie sie
  * sind. Listen von Zeichenketten werden EINTRAGSWEISE ersetzt (Plan 023 I4):
- * `frage_nutzer` bekommt seine Optionen als Liste, und eine Option darf
- * denselben Platzhalter tragen wie die Frage darüber.
+ * ein Eintrag darf denselben Platzhalter tragen wie ein Text daneben.
  */
 function resolveParams(parameter = {}, scope = {}) {
   const out = {};

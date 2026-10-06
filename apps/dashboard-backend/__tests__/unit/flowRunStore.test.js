@@ -299,17 +299,6 @@ describe('getRunAlle (Laeufe-Ansicht der Verwaltung)', () => {
   });
 });
 
-describe('listRuns', () => {
-  it('bindet auf den Nutzer und deckelt das Limit', async () => {
-    const db = fakeDb({ rows: [] });
-    await runStore.listRuns({ userId: 1, limit: 9999 }, { db });
-    const { sql, params } = db.calls[0];
-    expect(sql).toMatch(/WHERE user_id = \$1/);
-    expect(params[0]).toBe(1);
-    expect(params[params.length - 1]).toBe(200); // hart gedeckelt
-  });
-});
-
 describe('Läufe über alle Apps (Verwaltung, M5)', () => {
   it('ohne userId bricht cancelRun jeden Lauf ab, auch den aus Zeitplan oder Ereignis', async () => {
     const db = fakeDb({ rows: [{ id: 9, status: 'abgebrochen' }] }, { rows: [] });

@@ -130,42 +130,6 @@ function parseFlowFile(text, opts = {}) {
 }
 
 /**
- * Serialisiert eine Flow-Definition zurück in eine Markdown-Datei.
- * Gegenstück zu `parseFlowFile` — der Anlege-Dialog nutzt das für die
- * Live-Vorschau, damit sichtbar bleibt, dass die Datei die Wahrheit ist.
- * @param {object} flow - Bereits validierte Definition.
- * @returns {string} Dateiinhalt.
- */
-function serializeFlowFile(flow) {
-  const head = {
-    name: flow.name,
-    ...(flow.beschreibung ? { beschreibung: flow.beschreibung } : {}),
-    ...(flow.modell ? { modell: flow.modell } : {}),
-    ...(flow.argumente && flow.argumente.length ? { argumente: flow.argumente } : {}),
-    ...(flow.ordner && flow.ordner.length ? { ordner: flow.ordner } : {}),
-    ...(flow.werkzeuge && flow.werkzeuge.length ? { werkzeuge: flow.werkzeuge } : {}),
-    ...(flow.rollen && flow.rollen.length ? { rollen: flow.rollen } : {}),
-    ...(flow.schritte && flow.schritte.length ? { schritte: flow.schritte } : {}),
-    ...(flow.grenzen ? { grenzen: flow.grenzen } : {}),
-    // Nur schreiben, wenn es NICHT die Voreinstellung ist: sonst bekämen alle
-    // vorhandenen Flow-Dateien beim nächsten Speichern eine Zeile dazu, die
-    // nichts ändert (Plan 023 I2).
-    ...(flow.betriebsart && flow.betriebsart !== 'autonom'
-      ? { betriebsart: flow.betriebsart }
-      : {}),
-    ...(flow.ausgabe ? { ausgabe: flow.ausgabe } : {}),
-    ...(flow.arten ? { arten: flow.arten } : {}),
-    ...(flow.ausloeser ? { ausloeser: flow.ausloeser } : {}),
-    ...(flow.stufen ? { stufen: flow.stufen } : {}),
-    ...(flow.abschluss ? { abschluss: flow.abschluss } : {}),
-    ...(flow.routen ? { routen: flow.routen } : {}),
-  };
-
-  const front = yaml.dump(head, { lineWidth: 100, noRefs: true, quotingType: '"' });
-  return `---\n${front}---\n\n${String(flow.systemPrompt || '').trim()}\n`;
-}
-
-/**
  * Setzt die Argumentwerte in den Prompt ein.
  * @param {string} prompt
  * @param {Record<string,string>} values
@@ -180,7 +144,6 @@ function fillPlaceholders(prompt, values = {}) {
 
 module.exports = {
   parseFlowFile,
-  serializeFlowFile,
   splitFrontmatter,
   extractPlaceholders,
   fillPlaceholders,

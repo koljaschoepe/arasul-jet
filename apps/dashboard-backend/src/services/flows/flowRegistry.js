@@ -16,17 +16,14 @@
 const path = require('path');
 const fs = require('fs').promises;
 const logger = require('../../utils/logger');
-const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
-const { parseFlowFile, serializeFlowFile } = require('./flowFile');
+const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { parseFlowFile } = require('./flowFile');
 const { FLOW_NAME_RE } = require('../../schemas/flows');
 
 const FLOWS_DIR = process.env.FLOWS_DIR || '/arasul/flows';
 
 /** name → { flow, mtimeMs, size } */
 const cache = new Map();
-
-/** Macht die temporären Schreibdateien pro Aufruf eindeutig (siehe `saveFlow`). */
-let tmpCounter = 0;
 
 /**
  * Wirft, wenn `name` kein sauberer Flow-Name ist. Der Name wird zum Dateinamen,
@@ -122,80 +119,6 @@ async function listFlows() {
   return { flows, fehlerhaft };
 }
 
-/**
- * Schreibt einen Flow. Validiert IMMER vor dem Schreiben, indem die erzeugte
- * Datei direkt wieder geparst wird — was auf der Platte landet, ist damit
- * garantiert ladbar. Ein kaputter Flow kann nicht entstehen.
- *
- * @param {object} definition - Rohe Definition (wird validiert).
- * @param {{ overwrite?: boolean }} [opts] - `overwrite:false` erzwingt Neuanlage.
- * @returns {Promise<object>} Die gespeicherte, normalisierte Definition.
- * @throws {ConflictError} wenn der Flow schon existiert und nicht überschrieben werden darf.
- */
-async function saveFlow(definition, opts = {}) {
-  const safe = assertSafeName(definition && definition.name);
-  await ensureDir();
-  const file = fileFor(safe);
-
-  const exists = await fs
-    .access(file)
-    .then(() => true)
-    .catch(() => false);
-
-  if (exists && opts.overwrite === false) {
-    throw new ConflictError(`Flow "${safe}" existiert bereits`);
-  }
-  if (!exists && opts.overwrite === true) {
-    throw new NotFoundError(`Flow "${safe}" nicht gefunden`);
-  }
-
-  // Serialisieren und sofort zurücklesen: das ist die eigentliche Prüfung.
-  // Sie fängt auch Fälle, in denen die Serialisierung selbst etwas verlöre.
-  const text = serializeFlowFile({ ...definition, name: safe });
-  const verified = parseFlowFile(text, { name: safe });
-
-  // Atomar über eine temporäre Datei — ein abgebrochener Schreibvorgang darf
-  // keinen halben Flow hinterlassen, der beim nächsten Laden scheitert.
-  //
-  // Der Name ist pro Aufruf eindeutig, nicht nur pro Prozess: zwei gleichzeitige
-  // Speichervorgänge auf denselben Flow würden sich sonst dieselbe temporäre
-  // Datei teilen und einander den Inhalt unter dem `rename` wegziehen. Das
-  // Ergebnis wäre zwar nie halb geschrieben (rename ist atomar), aber einer der
-  // beiden könnte am fehlenden Temp-File scheitern. Der Zähler kostet nichts.
-  tmpCounter += 1;
-  const tmp = `${file}.tmp-${process.pid}-${tmpCounter}`;
-  try {
-    await fs.writeFile(tmp, text, 'utf8');
-    await fs.rename(tmp, file);
-  } catch (err) {
-    await fs.unlink(tmp).catch(() => {});
-    throw err;
-  }
-
-  cache.delete(safe);
-  logger.info(`Flow "${safe}" gespeichert (${exists ? 'geändert' : 'neu'})`);
-  return verified;
-}
-
-/**
- * Löscht einen Flow.
- * @param {string} name
- * @throws {NotFoundError} wenn es ihn nicht gibt.
- */
-async function deleteFlow(name) {
-  const safe = assertSafeName(name);
-  try {
-    await fs.unlink(fileFor(safe));
-  } catch (err) {
-    if (err.code === 'ENOENT') {
-      throw new NotFoundError(`Flow "${safe}" nicht gefunden`);
-    }
-    throw err;
-  }
-  cache.delete(safe);
-  logger.info(`Flow "${safe}" gelöscht`);
-}
-
 /** Nur für Tests: Cache leeren. */
 function clearCache() {
   cache.clear();
@@ -204,8 +127,6 @@ function clearCache() {
 module.exports = {
   listFlows,
   loadFlow,
-  saveFlow,
-  deleteFlow,
   ensureDir,
   clearCache,
   assertSafeName,

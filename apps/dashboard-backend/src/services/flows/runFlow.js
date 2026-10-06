@@ -205,7 +205,7 @@ async function runFlow(
   }
 
   // 3. Werkzeuge.
-  const tools = makeTools(flow.werkzeuge, { betriebsart: flow.betriebsart });
+  const tools = makeTools(flow.werkzeuge);
 
   // 4. Kontext für die Werkzeuge (die Basis, die auch Rollen für IHRE Werkzeuge
   //    erben). Bewusst getrennt gehalten: `roleContextBase` sind die
@@ -377,7 +377,7 @@ async function runFlow(
     // Das Abbruch-Signal fließt mit in den Kontext, damit auch die
     // verschachtelten Rollen-Schleifen (Subagent) es prüfen und aufhören.
     signal,
-    // Plan 023 I3: `frage_nutzer` braucht die Lauf-Nummer, um seine Frage
+    // Die Lauf-Nummer braucht `freigabe_anfordern`, um die Anfrage dem Lauf
     // zuzuordnen. `onEvent` kommt gleich dazu, sobald `weiter` steht.
     runId: run.id,
   };
@@ -429,8 +429,7 @@ async function runFlow(
     }
   };
 
-  // Erst jetzt, weil `weiter` oben noch nicht stand (Plan 023 I3). Das
-  // Werkzeug `frage_nutzer` schickt seine Frage hierüber an den Live-Kanal.
+  // Erst jetzt, weil `weiter` oben noch nicht stand (Plan 023 I3).
   context.onEvent = weiter;
   roleContextBase.onEvent = weiter;
   roleContextBase.runId = run.id;
@@ -517,27 +516,9 @@ async function runFlow(
     });
     let ausgabe;
     try {
-      // Die Betriebsart MUSS mit (Plan 023 I3, gefunden am 23.08.2026).
-      //
-      // `buildTools` laesst `frage_nutzer` in der Betriebsart `autonom`
-      // absichtlich weg, und ohne diese Angabe ist die Vorgabe `autonom`. Ein
-      // deterministischer Schritt mit `werkzeug: frage_nutzer` scheiterte
-      // deshalb IMMER, auch in einem Flow mit `betriebsart: rueckfragen`:
-      //
-      //   Schritt "umfang" fehlgeschlagen:
-      //   Werkzeug "frage_nutzer" ist nicht verfuegbar
-      //
-      // Damit war die Rueckfrage im deklarierten Schritt unerreichbar, also
-      // genau der Weg, den das `angebot`-Beispiel geht. Der modellgetriebene
-      // Pfad eine Zeile weiter oben reichte sie laengst durch.
-      const [tool] = makeTools([werkzeug], { betriebsart: flow.betriebsart });
+      const [tool] = makeTools([werkzeug]);
       if (!tool) {
-        throw new ValidationError(
-          `Werkzeug "${werkzeug}" ist nicht verfügbar` +
-            (werkzeug === 'frage_nutzer' && flow.betriebsart !== 'rueckfragen'
-              ? '. "frage_nutzer" braucht die Betriebsart "rückfragen".'
-              : '')
-        );
+        throw new ValidationError(`Werkzeug "${werkzeug}" ist nicht verfügbar`);
       }
       // Der Pruefpunkt einer Freigabe: Schritt der Kette UND dieser
       // Protokoll-Schritt, den die Wiederaufnahme schliesst. Er reist im

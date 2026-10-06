@@ -19,7 +19,8 @@ const {
   DateienAnhaengenTool,
 } = require('../../src/services/flows/tools/dateien');
 const { DateiSuchenTool } = require('../../src/services/flows/tools/suche');
-const { buildTools, implementedTools } = require('../../src/services/flows/toolRegistry');
+const { buildTools, FACTORIES } = require('../../src/services/flows/toolRegistry');
+const { VALID_TOOLS } = require('../../src/schemas/flows');
 
 let base, arbeit, zweit, aussen;
 
@@ -482,56 +483,14 @@ describe('Werkzeug-Registry', () => {
     expect(tool).toBeInstanceOf(SubagentTool);
   });
 
-  it('nennt die heute wirklich benutzbaren Werkzeuge (alle aus dem Plan)', () => {
-    expect(implementedTools().sort()).toEqual(
-      [
-        'dateien_lesen',
-        'dateien_schreiben',
-        'dateien_bearbeiten',
-        'dateien_anhaengen',
-        'dateien_suchen',
-        'symbol_suche',
-        'subagent',
-        // Plan 023 I3: EINE Rueckfrage an den Nutzer. Nur wirksam in der
-        // Betriebsart `rueckfragen` — siehe die Tests darunter.
-        'frage_nutzer',
-        // Phase C7: der Lauf haelt an, bis ein Mensch entscheidet. Anders als
-        // die Rueckfrage in JEDER Betriebsart -- eine Freigabe IST der Halt.
-        'freigabe_anfordern',
-        // Kontrakt 13 (M5): eine Route, die der Kopf unter `routen` nennt.
-        'route_aufrufen',
-      ].sort()
-    );
+  it('hat fuer jedes Werkzeug des Schemas eine Fabrik, und nur fuer diese', () => {
+    expect(Object.keys(FACTORIES).sort()).toEqual([...VALID_TOOLS].sort());
   });
 
-  /**
-   * Plan 023 I2: in der Betriebsart `autonom` gibt es `frage_nutzer` NICHT.
-   *
-   * Nicht als gesperrte Variante, die eine Fehlermeldung liefert, sondern gar
-   * nicht. Ein Modell, das ein Werkzeug sieht, benutzt es irgendwann, und die
-   * Zusage "autonom stellt er keine Frage" haelt nur, wenn es die Frage nicht
-   * geben kann.
-   */
-  describe('frage_nutzer haengt an der Betriebsart (Plan 023 I2)', () => {
-    const namen = t => t.map(x => x.name).sort();
-
-    it('faellt ohne Angabe weg — die Voreinstellung ist autonom', () => {
-      expect(namen(buildTools(['dateien_lesen', 'frage_nutzer']))).toEqual(['dateien_lesen']);
-    });
-
-    it('faellt bei betriebsart autonom weg', () => {
-      const t = buildTools(['dateien_lesen', 'frage_nutzer'], { betriebsart: 'autonom' });
-      expect(namen(t)).toEqual(['dateien_lesen']);
-    });
-
-    it('ist bei betriebsart rueckfragen da', () => {
-      const t = buildTools(['dateien_lesen', 'frage_nutzer'], { betriebsart: 'rueckfragen' });
-      expect(namen(t)).toEqual(['dateien_lesen', 'frage_nutzer']);
-    });
-
-    it('laesst die uebrigen Werkzeuge unberuehrt', () => {
-      const t = buildTools(['dateien_lesen', 'dateien_suchen'], { betriebsart: 'autonom' });
-      expect(namen(t)).toEqual(['dateien_lesen', 'dateien_suchen']);
-    });
+  it('frage_nutzer gibt es nicht mehr (06.10.2026)', () => {
+    expect(VALID_TOOLS).not.toContain('frage_nutzer');
+    expect(buildTools(['dateien_lesen', 'frage_nutzer']).map(t => t.name)).toEqual([
+      'dateien_lesen',
+    ]);
   });
 });

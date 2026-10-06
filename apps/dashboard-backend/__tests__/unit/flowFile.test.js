@@ -8,7 +8,6 @@
 
 const {
   parseFlowFile,
-  serializeFlowFile,
   splitFrontmatter,
   extractPlaceholders,
   fillPlaceholders,
@@ -194,31 +193,6 @@ X`,
   });
 });
 
-describe('serializeFlowFile', () => {
-  it('erzeugt eine Datei, die sich wieder identisch parsen laesst (Rundreise)', () => {
-    const original = parseFlowFile(`---
-name: recherche
-beschreibung: Recherchiert im Web.
-argumente:
-  - name: thema
-    typ: freitext
-    pflicht: true
-ordner: [/arasul/flows/demo]
-werkzeuge: [dateien_suchen, subagent]
-rollen:
-  - name: leser
-    werkzeuge: [dateien_suchen]
-    ergebnis: {felder: [fakten], max_zeichen: 1200}
-    prompt: Lies und verdichte.
----
-Recherchiere {{thema}}.
-`);
-    const text = serializeFlowFile(original);
-    expect(text.startsWith('---\n')).toBe(true);
-    expect(parseFlowFile(text)).toEqual(original);
-  });
-});
-
 describe('Platzhalter', () => {
   it('sammelt Platzhalter dedupliziert in Reihenfolge', () => {
     expect(extractPlaceholders('{{b}} {{a}} {{ b }}')).toEqual(['b', 'a']);
@@ -267,8 +241,6 @@ Antwort aus {{q}}.
     expect(flow.schritte[0]).toMatchObject({ name: 's1', typ: 'subagent', rolle: 'sucher' });
     expect(flow.schritte[0].iterationen).toBe(1);
     expect(flow.schritte[1]).toMatchObject({ name: 's2', typ: 'werkzeug', werkzeug: 'dateien_suchen' });
-    // Serialisierung nimmt die Schritte mit (Datei bleibt die Wahrheit).
-    expect(serializeFlowFile(flow)).toContain('schritte:');
   });
 
   it('weist einen subagent-Schritt mit unbekannter Rolle ab', () => {
@@ -288,42 +260,23 @@ Antwort aus {{q}}.
 });
 
 /**
- * Plan 023 I2: die Betriebsart steht in der Datei, aber nur wenn sie vom
- * Standard abweicht.
+ * Plan 023 I2: die Betriebsart. Seit die Rueckfrage gefallen ist (06.10.2026),
+ * wirkt sie nicht mehr; eine Datei, die sie nennt, bleibt aber gueltig.
  */
 describe('Betriebsart (Plan 023 I2)', () => {
-  const basis = {
-    name: 'test',
-    beschreibung: '',
-    argumente: [],
-    ordner: [],
-    werkzeuge: [],
-    rollen: [],
-    schritte: [],
-    grenzen: {},
-    systemPrompt: 'Tu etwas.',
-  };
-
-  it('schreibt autonom NICHT in die Datei', () => {
-    // Sonst bekaemen alle vorhandenen Flow-Dateien beim naechsten Speichern
-    // eine Zeile dazu, die nichts aendert.
-    const text = serializeFlowFile({ ...basis, betriebsart: 'autonom' });
-    expect(text).not.toContain('betriebsart');
-  });
-
-  it('schreibt rueckfragen in die Datei', () => {
-    const text = serializeFlowFile({ ...basis, betriebsart: 'rueckfragen' });
-    expect(text).toContain('betriebsart: rueckfragen');
-  });
+  const datei = zeile => `---\nname: test\n${zeile}---\nTu etwas.\n`;
 
   it('eine Datei ohne Angabe bleibt autonom', () => {
-    const text = serializeFlowFile(basis);
-    expect(text).not.toContain('betriebsart');
-    expect(parseFlowFile(text).betriebsart).toBe('autonom');
+    expect(parseFlowFile(datei('')).betriebsart).toBe('autonom');
   });
 
-  it('liest die Betriebsart wieder ein', () => {
-    const text = serializeFlowFile({ ...basis, betriebsart: 'rueckfragen' });
-    expect(parseFlowFile(text).betriebsart).toBe('rueckfragen');
+  it('eine Datei mit rueckfragen bleibt gueltig', () => {
+    expect(parseFlowFile(datei('betriebsart: rueckfragen\n')).betriebsart).toBe('rueckfragen');
+  });
+
+  it('frage_nutzer gibt es nicht mehr', () => {
+    expect(() =>
+      parseFlowFile(datei('betriebsart: rueckfragen\nwerkzeuge: [frage_nutzer]\n'))
+    ).toThrow(/frage_nutzer|werkzeuge/);
   });
 });

@@ -1,10 +1,9 @@
 /**
  * Lauf-Verwalter für Flows (Plan 011, Schritt 12).
  *
- * Die drei Zusagen, auf die es ankommt:
+ * Die zwei Zusagen, auf die es ankommt:
  *  - Ein Lauf startet LOSGELÖST: die Startfunktion kehrt sofort zurück, ohne auf
  *    das Ende des Laufs zu warten.
- *  - Live-Ereignisse erreichen die Abonnenten über den Bus.
  *  - Ein Abbruch setzt das Signal (der Lauf hört wirklich auf), nicht nur die DB.
  */
 
@@ -47,12 +46,10 @@ describe('starten', () => {
     );
     expect(runId).toBe(7);
     expect(Date.now() - t0).toBeLessThan(500); // nicht blockiert
-    // runFlow wurde mit der bestehenden ID, einem onEvent und einem Signal gestartet.
+    // runFlow wurde mit der bestehenden ID und einem Signal gestartet.
     const arg = run.mock.calls[0][0];
     expect(arg.existingRunId).toBe(7);
-    expect(typeof arg.onEvent).toBe('function');
     expect(arg.signal).toBeInstanceOf(AbortSignal);
-    expect(flowRunner.istAktiv(7)).toBe(true);
   });
 
   it('reicht den Einreicher an den Lauf weiter (Protokoll der Modellaufrufe, J35)', async () => {
@@ -91,60 +88,25 @@ describe('starten', () => {
 
   it('findet den Lauf, auch wenn Postgres die ID als STRING liefert und die Route eine ZAHL nutzt', async () => {
     // Der Fehler, der nur auf dem Gerät auftrat: createRun gibt "8" (String,
-    // BIGSERIAL), die SSE-Route wandelt ihren Pfad-Parameter in die Zahl 8.
-    // Ohne Normalisierung fände abonnieren(8) den unter "8" abgelegten Lauf nie.
-    const store = { createRun: jest.fn(async () => ({ id: '8' })), finishRun: jest.fn() };
-    let onEvent;
+    // BIGSERIAL), die Route wandelt ihren Pfad-Parameter in die Zahl 8.
+    // Ohne Normalisierung fände abbrechen(8) den unter "8" abgelegten Lauf nie.
+    const store = {
+      createRun: jest.fn(async () => ({ id: '8' })),
+      finishRun: jest.fn(),
+      cancelRun: jest.fn(async () => ({ id: 8, status: 'abgebrochen' })),
+    };
+    let signal;
     const run = jest.fn(async p => {
-      onEvent = p.onEvent;
+      signal = p.signal;
       return new Promise(() => {}); // läuft weiter
     });
     const { runId } = await flowRunner.starten({ flowName: 'notiz', userId: 1 }, { run, store });
     expect(runId).toBe(8); // als ZAHL zurückgegeben, nicht als String
     expect(typeof runId).toBe('number');
 
-    // Wie die Route: mit der ZAHL abonnieren.
-    const gesehen = [];
-    const ab = flowRunner.abonnieren(8, e => gesehen.push(e.type));
-    expect(ab).not.toBeNull(); // gefunden!
-    expect(flowRunner.istAktiv(8)).toBe(true);
-    onEvent({ type: 'text', content: 'x' });
-    expect(gesehen).toEqual(['text']);
-  });
-
-  it('verteilt Live-Ereignisse des Laufs an die Abonnenten', async () => {
-    let onEvent;
-    const store = { createRun: jest.fn(async () => ({ id: 8 })), finishRun: jest.fn() };
-    const run = jest.fn(async p => {
-      onEvent = p.onEvent;
-      return { status: 'fertig' };
-    });
-    await flowRunner.starten({ flowName: 'notiz', userId: 1 }, { run, store });
-
-    const gesehen = [];
-    const abmelden = flowRunner.abonnieren(8, e => gesehen.push(e));
-    expect(typeof abmelden).toBe('function');
-
-    onEvent({ type: 'tool_start', tool: 'dateien_suchen' });
-    onEvent({ type: 'text', content: 'hallo' });
-    expect(gesehen.map(e => e.type)).toEqual(['tool_start', 'text']);
-
-    abmelden();
-    onEvent({ type: 'text', content: 'danach' });
-    expect(gesehen).toHaveLength(2); // nach dem Abmelden nichts mehr
-  });
-
-  it('meldet am Ende ein "ende"-Ereignis mit dem End-Status', async () => {
-    const store = { createRun: jest.fn(async () => ({ id: 9 })), finishRun: jest.fn() };
-    // Der Lauf braucht einen Moment — so ist der Abonnent dran, BEVOR er endet
-    // (der Fall „schon fertig beim Verbinden" deckt in der Route die DB ab).
-    const run = jest.fn(() => new Promise(r => setTimeout(() => r({ status: 'fertig' }), 15)));
-    await flowRunner.starten({ flowName: 'notiz', userId: 1 }, { run, store });
-
-    const gesehen = [];
-    flowRunner.abonnieren(9, e => gesehen.push(e));
-    await new Promise(r => setTimeout(r, 40));
-    expect(gesehen.some(e => e.type === 'ende' && e.status === 'fertig')).toBe(true);
+    // Wie die Route: mit der ZAHL abbrechen.
+    await flowRunner.abbrechen({ runId: 8 }, { store });
+    expect(signal.aborted).toBe(true);
   });
 
   it('setzt den Lauf bei einem Hintergrund-Fehler auf "fehler"', async () => {
@@ -161,12 +123,6 @@ describe('starten', () => {
     expect(store.finishRun).toHaveBeenCalledWith(
       expect.objectContaining({ runId: 10, status: 'fehler' })
     );
-  });
-});
-
-describe('abonnieren', () => {
-  it('gibt null für einen nicht (mehr) aktiven Lauf zurück', () => {
-    expect(flowRunner.abonnieren(999, () => {})).toBeNull();
   });
 });
 
