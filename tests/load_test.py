@@ -50,9 +50,11 @@ class LoadTestSummary:
 class LoadTester:
     """Main load testing class"""
 
-    def __init__(self, base_url: str = "http://localhost", token: str = None):
+    def __init__(self, base_url: str = "http://localhost", token: str = None, api_key: str = None):
         self.base_url = base_url.rstrip('/')
         self.token = token
+        # /v1/embeddings nimmt einen API-Schluessel, keine Sitzung.
+        self.api_key = api_key
         self.results: List[TestResult] = []
 
     async def make_request(
@@ -66,7 +68,7 @@ class LoadTester:
         url = f"{self.base_url}{endpoint}"
         headers = kwargs.pop('headers', {})
 
-        if self.token:
+        if self.token and 'Authorization' not in headers:
             headers['Authorization'] = f'Bearer {self.token}'
 
         start_time = time.time()
@@ -135,8 +137,11 @@ class LoadTester:
                 task = self.make_request(
                     session,
                     'POST',
-                    '/api/embeddings',
-                    json={'text': test_texts[i % len(test_texts)]},
+                    # POST /api/embeddings ist am 06.10.2026 gefallen; der
+                    # OpenAI-kompatible Weg mit Schluessel lebt.
+                    '/v1/embeddings',
+                    json={'input': test_texts[i % len(test_texts)]},
+                    headers={'Authorization': f'Bearer {self.api_key}'} if self.api_key else {},
                     timeout=aiohttp.ClientTimeout(total=30)
                 )
                 tasks.append(task)
@@ -153,8 +158,8 @@ class LoadTester:
             '/api/system/status',
             '/api/system/info',
             '/api/system/network',
-            '/api/metrics/live',
-            '/api/services',
+            '/api/ops/overview',
+            '/api/services/all',
             '/api/workflows/activity',
         ]
 
@@ -248,9 +253,9 @@ class LoadTester:
         print(f"\n📄 Results saved to: {filename}")
 
 
-async def run_all_tests(base_url: str, token: str = None):
+async def run_all_tests(base_url: str, token: str = None, api_key: str = None):
     """Run all load tests"""
-    tester = LoadTester(base_url, token)
+    tester = LoadTester(base_url, token, api_key)
     summaries = []
 
     try:
@@ -303,6 +308,7 @@ def main():
     parser = argparse.ArgumentParser(description='Arasul Platform Load Testing')
     parser.add_argument('--url', default='http://localhost', help='Base URL (default: http://localhost)')
     parser.add_argument('--token', help='JWT token for authentication')
+    parser.add_argument('--api-key', help='API-Schluessel fuer /v1/embeddings')
     args = parser.parse_args()
 
     print("="*60)
@@ -311,7 +317,7 @@ def main():
     print(f"Base URL: {args.url}")
     print(f"Started:  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    exit_code = asyncio.run(run_all_tests(args.url, args.token))
+    exit_code = asyncio.run(run_all_tests(args.url, args.token, args.api_key))
     sys.exit(exit_code)
 
 
