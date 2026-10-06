@@ -3,7 +3,6 @@
  *
  *   GET    /api/ausweise        meine Ausweise
  *   POST   /api/ausweise        einen ausstellen -- der Wert kommt EINMAL
- *   GET    /api/ausweise/alle   alle am Geraet, mit Eigentuemer (Administrator)
  *   DELETE /api/ausweise/:id    widerrufen: ich meine, der Administrator jeden;
  *                               ein Ausweis kann sich selbst widerrufen (204)
  *

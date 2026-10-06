@@ -152,7 +152,7 @@ const SENSITIVE_FIELDS = ['password', 'token', 'api_key', 'secret', 'bot_token',
 ```
 
 **Excluded Endpoints** (High-Frequency, Low-Value):
-`/api/health`, `/api/metrics/live-stream`, `/api/models/status`
+`/api/health`, `/api/models/status`, `/api/system/status`
 
 ---
 

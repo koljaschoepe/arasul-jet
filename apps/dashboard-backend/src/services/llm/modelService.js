@@ -1235,12 +1235,10 @@ function createModelService(deps = {}) {
         //     Kontextlaenge. Laeuft nach markAvailableModels, damit ein gerade
         //     als verfuegbar gemeldetes Modell schon einen Eintrag hat, und
         //     stoert den Abgleich nicht, wenn Ollama dabei aussteigt.
-        // Angestossen, nicht abgewartet. `syncWithOllama` haengt auch an
-        // POST /api/models/sync, und diese Route wird im Anfragefaden
-        // abgewartet; fuenf Modelle mal zehn Sekunden Zeitgrenze waeren im
-        // schlechtesten Fall fuenfzig Sekunden obendrauf. Der Steckbrief
-        // beschreibt Modelle, die schon da sind, und darf spaeter fertig
-        // werden. Fehler landen im Protokoll, nicht in der Antwort.
+        // Angestossen, nicht abgewartet: fuenf Modelle mal zehn Sekunden
+        // Zeitgrenze waeren im schlechtesten Fall fuenfzig Sekunden
+        // obendrauf. Der Steckbrief beschreibt Modelle, die schon da sind,
+        // und darf spaeter fertig werden. Fehler landen im Protokoll.
         steckbriefeAnstossen(database);
 
         // 2. Mark models as error if marked available in DB but not in Ollama

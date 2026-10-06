@@ -6,15 +6,12 @@
  * - GET  /api/models/catalog     - Get curated model catalog
  * - GET  /api/models/installed   - Get installed models
  * - GET  /api/models/status      - Get current status (loaded, queue)
- * - GET  /api/models/loaded      - Get currently loaded model
  * - GET  /api/models/verwaltung  - Zeilen der Verwaltung: Faehigkeiten, warm, Flows, Sperre
  * - POST /api/models/pruefen     - Passt ein Modell auf das Geraet (Speicher, Platte)?
  * - POST /api/models/download    - Download model with SSE progress
  * - DELETE /api/models/:modelId  - Delete a model
- * - GET  /api/models/recommended  - Get recommended model for device profile
  * - POST /api/models/default     - Set default model
  * - GET  /api/models/default     - Get default model
- * - POST /api/models/sync        - Sync with Ollama
  *
  * Laden und Entladen von Hand gibt es seit M5 (04.10.2026, Verwaltung Modelle)
  * nicht mehr: `/:id/load`, `/unload`, `/activate` und `/deactivate` sind weg.
