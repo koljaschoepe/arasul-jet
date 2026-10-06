@@ -8,16 +8,26 @@
  *
  * Diese Abnahme fuehrte bis B2 echte Aktionen in drei Bereichen aus: Ordner
  * anlegen, Ordner loeschen (mit der Rueckfrage aus J5), eine Erweiterung ein-
- * und ausschalten. Der Explorer ist mit B2 gefallen; geblieben ist der
- * Schalter der Erweiterung. D6 schneidet die Abnahme auf die neue Oberflaeche
- * neu.
+ * und ausschalten. Der Explorer ist mit B2 gefallen, der Store mit dem Umbau
+ * vom 26.08.2026; sie suchte danach noch den Schalter „Beispiel-App
+ * aktivieren" unter `/store`, den es nicht mehr gibt.
+ *
+ * Seit dem 06.10.2026 (M5, Auftrag app-protokoll-abrufen) schaltet sie in der
+ * App-Ansicht der Verwaltung einen Flow aus und wieder an, und beide Male muss
+ * eine Rueckmeldung kommen. Die App spielt sie sich SELBST ein, als
+ * `probe-beispiel-<STEMPEL>` ueber den Weg des Kits, und entfernt sie am Ende
+ * (`beispielapp-probe.sh`); eine vorhandene misst sie mit
+ * `ARASUL_BEISPIELAPP=<id>`.
  *
  * Sie raeumt hinter sich auf.
  *
- * Aufruf (SSH-Tunnel auf 8443 vorausgesetzt):
+ * Aufruf (SSH-Tunnel auf 8443 vorausgesetzt, Konto aus der Umgebung):
  *   node scripts/test/rueckmeldung-abnahme.mjs
  */
 
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import {
   anmeldenFallsNoetig,
@@ -28,7 +38,9 @@ import {
 
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const { benutzer: BENUTZER, passwort: PASSWORT } = zugangAusUmgebung();
-const APP = process.env.ARASUL_APP || 'Beispiel-App';
+const HELFER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'beispielapp-probe.sh');
+// Der Flow, der geschaltet wird; die Beispielapp bringt ihn mit.
+const FLOW = 'freigabe';
 
 const ergebnisse = [];
 const pruefe = (was, ok, detail = '') => {
@@ -77,6 +89,43 @@ const meldungsTexte = async seite =>
     t.replace(/\s+/g, ' ').trim()
   );
 
+/** Die Beispielapp einspielen; die letzte Zeile der Ausgabe ist JSON. */
+function einspielen() {
+  const aus = execFileSync('bash', [HELFER, 'einspielen'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+    timeout: 20 * 60 * 1000,
+  });
+  return JSON.parse(aus.trim().split('\n').pop());
+}
+
+function entfernen(probe) {
+  if (!probe || probe.eigen !== 'ja') {
+    return;
+  }
+  execFileSync('bash', [HELFER, 'entfernen'], {
+    stdio: ['ignore', 'inherit', 'inherit'],
+    timeout: 10 * 60 * 1000,
+    env: {
+      ...process.env,
+      BEISPIEL_APP: probe.app,
+      BEISPIEL_KEY_ID: probe.key_id,
+      BEISPIEL_SCHLUESSEL: probe.schluessel,
+      BEISPIEL_EIGEN: 'ja',
+    },
+  });
+}
+
+let probe = null;
+try {
+  probe = einspielen();
+  pruefe('die Beispielapp steht am Gerät', Boolean(probe?.app), probe?.app);
+} catch (err) {
+  pruefe('die Beispielapp steht am Gerät', false, String(err.message).slice(0, 200));
+  process.exit(1);
+}
+const APP = probe.app;
+
 const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({
   ignoreHTTPSErrors: true,
@@ -105,48 +154,53 @@ try {
   await seite.waitForTimeout(5000);
 
   // Bis B2 standen hier zwei Schritte im Datei-Explorer (Ordner anlegen,
-  // Loeschen mit Rueckfrage). Der Explorer ist gefallen; was bleibt, ist der
-  // Schalter einer Erweiterung im Store.
+  // Loeschen mit Rueckfrage), bis zum Umbau der Schalter einer Erweiterung im
+  // Store. Was heute dieselbe Art Handgriff ist: ein Schalter in der
+  // Verwaltung, der sofort wirkt.
   let vorher;
 
-  // --- 1. Eine Erweiterung schalten -----------------------------------------
-  await seite.goto(`${URL}/store`, { waitUntil: 'domcontentloaded' });
-  await seite.waitForTimeout(4000);
-  const aus = seite.locator(`[aria-label="${APP} deaktivieren"]`).first();
-  const ein = seite.locator(`[aria-label="${APP} aktivieren"]`).first();
-  const warAn = (await aus.count()) > 0;
-  const schalter = warAn ? aus : ein;
-  const schalterDa = (await schalter.count()) > 0;
-  pruefe(`der Schalter fuer „${APP}" ist da`, schalterDa, warAn ? 'stand an' : 'stand aus');
-  if (schalterDa) {
-    vorher = await meldungsTexte(seite);
-    await schalter.click();
-    // Ausschalten fragt nach, wenn Tabs offen sind (H5). Beides ist erlaubt;
-    // gemessen wird, dass eine Rueckmeldung KOMMT.
-    const dialog = seite.locator('[role="dialog"]').last();
-    if (await dialog.isVisible().catch(() => false)) {
-      const knopf = dialog.getByRole('button').last();
-      await knopf.click().catch(() => {});
-    }
-    const m3 = await rueckmeldung(seite, vorher, 15000);
-    pruefe('das Schalten einer Erweiterung meldet sich', Boolean(m3), m3 || 'keine Rueckmeldung');
+  // --- 1. Einen Flow der App aus- und wieder einschalten --------------------
+  await seite.goto(`${URL}/workspace/settings?tab=apps`, { waitUntil: 'domcontentloaded' });
+  const zeile = seite.locator(`[data-testid="app-oeffnen-${APP}"]`);
+  const zeileDa = await zeile
+    .waitFor({ timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
+  pruefe(`die Verwaltung nennt ${APP}`, zeileDa);
+  if (zeileDa) {
+    await zeile.click();
+    const schalter = seite.locator(`[data-testid="flow-aktiv-${FLOW}"]`).first();
+    const schalterDa = await schalter
+      .waitFor({ timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+    pruefe(`der Schalter für den Flow „${FLOW}" ist da`, schalterDa);
+    if (schalterDa) {
+      const zeileFlow = seite.locator(`[data-testid="flow-${FLOW}"]`).first();
+      const warAn = (await zeileFlow.getAttribute('data-aktiv')) !== 'false';
 
-    // Zurueck in den Ausgangszustand.
-    await seite.waitForTimeout(2000);
-    const zurueck = warAn
-      ? seite.locator(`[aria-label="${APP} aktivieren"]`).first()
-      : seite.locator(`[aria-label="${APP} deaktivieren"]`).first();
-    if ((await zurueck.count()) > 0) {
-      await zurueck.click();
-      const d2 = seite.locator('[role="dialog"]').last();
-      if (await d2.isVisible().catch(() => false)) {
-        await d2
-          .getByRole('button')
-          .last()
-          .click()
-          .catch(() => {});
-      }
-      await seite.waitForTimeout(2000);
+      vorher = await meldungsTexte(seite);
+      await schalter.click();
+      const m1 = await rueckmeldung(seite, vorher, 15000);
+      pruefe(
+        warAn
+          ? 'das Ausschalten eines Flows meldet sich'
+          : 'das Einschalten eines Flows meldet sich',
+        Boolean(m1),
+        m1 || 'keine Rückmeldung'
+      );
+
+      // Zurück in den Ausgangszustand, und auch das meldet sich.
+      await seite.waitForTimeout(1500);
+      vorher = await meldungsTexte(seite);
+      await schalter.click();
+      const m2 = await rueckmeldung(seite, vorher, 15000);
+      pruefe('das Zurückschalten meldet sich ebenso', Boolean(m2), m2 || 'keine Rückmeldung');
+      await seite.waitForTimeout(1500);
+      pruefe(
+        'und der Flow steht wieder, wie er stand',
+        ((await zeileFlow.getAttribute('data-aktiv')) !== 'false') === warAn
+      );
     }
   }
 } catch (err) {
@@ -155,6 +209,11 @@ try {
   }
 } finally {
   await browser.close();
+  try {
+    entfernen(probe);
+  } catch (err) {
+    pruefe('die Beispielapp ist wieder entfernt', false, String(err.message).slice(0, 200));
+  }
 }
 
 const rot = ergebnisse.filter(e => !e.ok).length;

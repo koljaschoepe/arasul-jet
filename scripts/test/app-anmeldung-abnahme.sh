@@ -29,8 +29,10 @@
 # und ein 429 wird hier ausdruecklich als 429 gemeldet: ein Waechter, der die
 # Ursache verschweigt, kostet mehr Zeit als er spart.
 #
-# Voraussetzung: die Beispielapp ist eingespielt.
-#   bash scripts/test/beispielapp.sh einspielen     (auf dem Geraet)
+# Die Beispielapp spielt sich die Abnahme seit dem 06.10.2026 SELBST ein, als
+# `probe-beispiel-<STEMPEL>` ueber den Weg des Kits, und entfernt sie am Ende
+# (`beispielapp-probe.sh`). Eine schon eingespielte misst sie mit
+# `ARASUL_BEISPIELAPP=<id>`.
 #
 # Aufruf vom Arbeitsrechner ueber einen SSH-Tunnel:
 #   ssh -f -N -L 8443:localhost:443 jetson
@@ -42,9 +44,11 @@ set -uo pipefail
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=scripts/test/anmeldung.sh
 source "$WURZEL/scripts/test/anmeldung.sh"
+# shellcheck source=scripts/test/beispielapp-probe.sh
+source "$WURZEL/scripts/test/beispielapp-probe.sh"
 
 BASIS="$ARASUL_URL"
-APP="${ARASUL_BEISPIELAPP:-beispielapp}"
+APP=""
 STEMPEL="$(date +%s)"
 DRIN="abnahme-drin-$STEMPEL"
 DRAUSSEN="abnahme-draussen-$STEMPEL"
@@ -153,11 +157,14 @@ pruefe 'Anmeldung als Administrator' "$([ -n "$TOK" ] && echo ja || echo nein)" 
   "${ARASUL_TOKEN:+geteilter Token}${ARASUL_TOKEN:-HTTP $(arasul_anmeldecode)}"
 [ -z "$TOK" ] && { echo; echo "Ohne Anmeldung gibt es nichts zu messen."; exit 1; }
 
+trap 'beispielapp_wegraeumen "$TOK"' EXIT
+beispielapp_bereitstellen "$TOK"
+APP="$BEISPIEL_APP"
+pruefe "Die Beispielapp steht am Geraet" "$([ -n "$APP" ] && echo ja || echo nein)" "${APP:-nicht eingespielt}"
 hole "/api/apps/$APP" "$TOK"
 if [ "$CODE" != "200" ]; then
   echo
-  echo "Die App $APP ist nicht eingespielt (HTTP $CODE). Auf dem Geraet:"
-  echo "  bash scripts/test/beispielapp.sh einspielen"
+  echo "Die App $APP ist nicht eingespielt (HTTP $CODE)."
   exit 1
 fi
 VERSION=$(feld data.staende.live.version)
@@ -177,6 +184,7 @@ aufraeumen() {
     # Die Freigabe faellt mit dem Benutzer (ON DELETE CASCADE, Migration 168).
     printf 'aufgeraeumt  Benutzer %s geloescht (HTTP %s)\n' "$id" "$code"
   done
+  beispielapp_wegraeumen "$TOK"
 }
 trap aufraeumen EXIT
 
