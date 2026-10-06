@@ -423,7 +423,11 @@ verlangt (Art. 15), wendet sich an die Verwaltung.
 
 **Person löschen** (Art. 17) steht im abgesetzten Teil darunter. Der Knopf
 bleibt gesperrt, bis der Name der Person genau eingetippt ist. Gelöscht werden
-Konto, Läufe, Schlüssel und Freigaben; Protokolle bleiben ohne Namen stehen.
+Konto, Läufe, die eigenen Schlüssel der Person und ihre Freigaben; Protokolle
+bleiben ohne Namen stehen. Die Schlüssel der Apps, die sie eingespielt hat,
+bleiben und gehören danach Ihnen: die Apps laufen weiter. Die Meldung nach dem
+Löschen nennt beides. Hat die Person mit einem eigenen Schlüssel Apps
+eingespielt (das Kit eines Partners), braucht das Kit danach einen neuen.
 
 ## 5a. Werksreset
 

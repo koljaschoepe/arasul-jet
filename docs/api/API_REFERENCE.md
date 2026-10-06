@@ -383,9 +383,14 @@ Admin-Wege; ein Mitarbeiter bekommt 403.
 
 Das eigene Konto löscht jeder über `DELETE /api/gdpr/me`;
 `DELETE /api/benutzer/:id` ist für andere und läuft durch dieselbe Löschung
-(`services/auth/benutzerService.js`): Flow-Läufe, API-Schlüssel, Freigaben und
-Sitzungen weg, Protokolle anonymisiert. Der letzte aktive Administrator behält
-seine Zugangs-Zeile (`zugangBleibt: true`).
+(`services/auth/benutzerService.js`): Flow-Läufe, eigene API-Schlüssel,
+Freigaben und Sitzungen weg, Protokolle anonymisiert. Der letzte aktive
+Administrator behält seine Zugangs-Zeile (`zugangBleibt: true`). Die Schlüssel
+der Apps, die die Person eingespielt hat (`api_keys.app_id` gesetzt), bleiben:
+sie gehen auf den Administrator über, der löscht, bei `DELETE /api/gdpr/me` auf
+den ältesten aktiven (M5, 07.10.2026). Sonst verlöre eine App mitten im Betrieb
+ihren Zugang zum Gerät. In `summary` zählt `api_keys` die gelöschten eigenen
+Schlüssel (etwa den des Kits), `api_keys_uebernommen` die übernommenen.
 
 Sein eigenes Passwort wechselt jeder über `POST /api/auth/change-password` —
 dort wird das alte geprüft und das neue muss den Komplexitätsregeln genügen.

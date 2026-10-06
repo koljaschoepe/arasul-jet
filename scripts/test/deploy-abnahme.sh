@@ -123,7 +123,10 @@ baue_paket() {
   local ordner="$ARBEIT/paket-$version"
   rm -rf "$ordner"
   mkdir -p "$ordner"
-  cp -R "$QUELLE/frontend" "$QUELLE/backend" "$ordner/"
+  # `flows/` gehoert dazu, seit das Manifest der Beispielapp ihn nennt: ohne
+  # den Ordner weist das Geraet das Paket mit 400 ab („verspricht Flows …"),
+  # Fund der Ernte vom 06.10.2026.
+  cp -R "$QUELLE/frontend" "$QUELLE/backend" "$QUELLE/flows" "$ordner/"
   # Das Designsystem gehoert ins Paket (Phase D7): das Frontend der
   # Beispielapp laedt `marken.js` und `marken.css`, und ein Paket ohne sie
   # waere eine App, die im Rahmen weiss bleibt.

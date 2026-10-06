@@ -19,7 +19,7 @@ jest.mock('../../src/services/llm/modelService', () => ({
   getLoadedModels: jest.fn(),
 }));
 jest.mock('../../src/services/flows/schrittModelle', () => ({ installierte: jest.fn() }));
-jest.mock('../../src/services/llm/freiesModell', () => ({ pruefe: jest.fn() }));
+jest.mock('../../src/services/llm/freiesModell', () => ({ pruefeKatalog: jest.fn() }));
 
 const db = require('../../src/database');
 const modelService = require('../../src/services/llm/modelService');
@@ -180,7 +180,9 @@ describe('modellVerwaltung', () => {
         }
         return { rows: [] };
       });
-      freiesModell.pruefe.mockResolvedValue({ passt: false, grund: 'Zu groß. Kleiner wählen.' });
+      freiesModell.pruefeKatalog.mockResolvedValue(
+        new Map([['riesig', { passt: false, grund: 'Zu groß. Kleiner wählen.' }]])
+      );
 
       const aus = await verwaltung.uebersicht();
 

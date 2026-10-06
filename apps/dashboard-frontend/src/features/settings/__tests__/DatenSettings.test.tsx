@@ -172,7 +172,30 @@ describe('DatenSettings', () => {
 
     await nutzer.click(bestaetigen);
     await waitFor(() => expect(apiMock.del).toHaveBeenCalledWith('/benutzer/7'));
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Mia Muster gelöscht'));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Mia Muster gelöscht', undefined)
+    );
+  });
+
+  it('nennt nach dem Löschen, welche Schlüssel blieben und welche gingen', async () => {
+    apiMock.del.mockResolvedValue({
+      deleted: true,
+      zugangBleibt: false,
+      summary: { api_keys: 1, api_keys_uebernommen: 2 },
+    });
+    render(<DatenSettings />, { wrapper: huelle() });
+    const nutzer = await waehle('loeschen-person', /Mia Muster/);
+    await nutzer.click(screen.getByTestId('loeschen-oeffnen'));
+    fireEvent.change(await screen.findByTestId('loeschen-eingabe'), {
+      target: { value: 'Mia Muster' },
+    });
+    await nutzer.click(screen.getByTestId('loeschen-bestaetigen'));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        'Mia Muster gelöscht. 2 Schlüssel von Apps gehören jetzt Ihnen, die Apps laufen weiter. Ein eigener Schlüssel der Person ist mit gelöscht; wer damit Apps einspielte, braucht einen neuen.',
+        10000
+      )
+    );
   });
 
   it('rot ist im Ruhezustand nur der abgesetzte Teil', async () => {

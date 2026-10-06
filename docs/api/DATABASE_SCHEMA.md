@@ -701,7 +701,10 @@ keinen Fremdschlüssel: der Lauf ist Geschichte, wie bei `flow_runs.app_id`.
 `ergebnis` (`CHECK`): `gestartet` (pünktlich, bis fünf Minuten nach dem Termin),
 `nachgeholt` (nach einem Ausfall, höchstens einer je Flow, höchstens eine Stunde
 zurück) oder `uebersprungen` (mit `grund`: verpasst, ein Lauf läuft noch, der
-Lauf startete nicht). Wer die Zeile anlegt (`INSERT … ON CONFLICT DO NOTHING`),
+Lauf startete nicht, der Start wurde unterbrochen). Eine Zeile `gestartet` oder
+`nachgeholt` ohne `run_id`, älter als zwei Minuten, ist ein Start, den ein
+Neustart unterbrach; der Zeitplaner ordnet ihr den Lauf zu, holt sie nach oder
+überspringt sie (`zeitplaner.liegenGebliebene`). Wer die Zeile anlegt (`INSERT … ON CONFLICT DO NOTHING`),
 startet den Lauf; ein zweiter Takt oder ein Neustart findet sie vor. Einträge
 älter als 90 Tage räumt der Zeitplaner stündlich weg. Regeln:
 [FLOWS.md](../features/FLOWS.md#zeitplaner-flows-nach-uhrzeit-m5-04102026).

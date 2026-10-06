@@ -221,25 +221,60 @@ function versatz(ms, zone) {
 }
 
 /**
- * Der Zeitpunkt, an dem die Wanduhr `lokal` zeigt. Gibt es sie zweimal, der
- * fruehere; gibt es sie nicht (uebersprungene Stunde), die erste Minute danach.
+ * Die Zeitpunkte, an denen die Wanduhr `lokal` zeigt, aufsteigend. Meist einer;
+ * in der Nacht zur Winterzeit zwei (die Stunde kommt zweimal); gibt es sie
+ * nicht (uebersprungene Stunde), die erste Minute danach.
  */
-function wandZuZeitpunkt(lokal, zone) {
+function wandZuZeitpunkten(lokal, zone) {
   const roh = lokal * MIN;
-  const kandidaten = [roh - TAG, roh + TAG]
-    .map(ref => roh - versatz(ref, zone))
-    .filter(t => wand(t, zone).lokal === lokal);
+  const kandidaten = [
+    ...new Set(
+      [roh - TAG, roh + TAG]
+        .map(ref => roh - versatz(ref, zone))
+        .filter(t => wand(t, zone).lokal === lokal)
+    ),
+  ].sort((a, b) => a - b);
   if (kandidaten.length > 0) {
-    return Math.min(...kandidaten);
+    return kandidaten;
   }
   // Luecke: ab dort suchen, wo die Wanduhr `lokal` ueberschreitet.
   const mitte = roh - versatz(roh, zone);
   for (let t = mitte - 3 * 60 * MIN; t <= mitte + 3 * 60 * MIN; t += MIN) {
     if (wand(t, zone).lokal >= lokal) {
-      return t;
+      return [t];
     }
   }
-  return mitte;
+  return [mitte];
+}
+
+/**
+ * Die naechste Wanduhr ab `w` (einschliesslich), die zum Plan passt, oder null,
+ * wenn bis `ende` keine kommt.
+ */
+function naechsteWand(plan, w, ende) {
+  let zaehler = 0;
+  while (zaehler++ < 100000) {
+    const tagLokal = Math.floor(w.lokal / 1440) * 1440;
+    if (!plan.monat.has(w.monat)) {
+      w = ausLokal(Date.UTC(w.jahr, w.monat, 1) / MIN);
+    } else if (
+      !(plan.tagOderWochentag
+        ? plan.tag.has(w.tag) || plan.wochentag.has(w.wochentag)
+        : plan.tag.has(w.tag) && plan.wochentag.has(w.wochentag))
+    ) {
+      w = ausLokal(tagLokal + 1440);
+    } else if (!plan.stunde.has(w.stunde)) {
+      w = ausLokal(w.lokal - w.minute + 60);
+    } else if (!plan.minute.has(w.minute)) {
+      w = ausLokal(w.lokal + 1);
+    } else {
+      return w;
+    }
+    if (w.lokal * MIN > ende + TAG) {
+      return null;
+    }
+  }
+  return null;
 }
 
 /**
@@ -253,46 +288,44 @@ function naechster(plaene, ab, zone = ZEITZONE) {
   ab = Math.floor(ab / MIN) * MIN;
   let besten = null;
   const ende = ab + 4 * 366 * TAG;
+  // Stellt die Uhr in den naechsten drei Stunden um, zaehlt dort Minute fuer
+  // Minute dieselbe Regel wie im Zeitplaner (`faellige`): eine Wanduhr, die
+  // zurueckspringt, findet die Suche nach Wanduhrzeit sonst nicht. Sonst nicht,
+  // denn das kostet 180 Schritte je Plan und Anzeige.
+  const umstellungBald = versatz(ab, zone) !== versatz(ab + 3 * 60 * MIN, zone);
   for (const plan of plaene) {
     if (!plan.fest && passt(plan, wand(ab + MIN, zone))) {
       besten = besten === null ? ab + MIN : Math.min(besten, ab + MIN);
       continue;
     }
+    if (umstellungBald) {
+      const t = faellige([plan], ab, ab + 3 * 60 * MIN, zone)[0];
+      if (t !== undefined) {
+        besten = besten === null ? t : Math.min(besten, t);
+        continue;
+      }
+    }
+    // Ab der Wanduhr nach `ab` suchen, und jede gefundene in einen Zeitpunkt
+    // umrechnen. Liegt der nicht nach `ab`, war es die Wanduhrzeit vor einer
+    // Rueckstellung: ein fester Plan lief da schon (nur beim ERSTEN Mal, wie
+    // in `faellige`), also weiter zur naechsten; ein Plan mit Stern laeuft
+    // auch beim zweiten Mal (Befund 11 der zweiten Pruefung, 05.10.2026: bis
+    // dahin hiess es hier "in einer Minute").
     let w = ausLokal(wand(ab, zone).lokal + 1);
-    let zaehler = 0;
-    while (zaehler++ < 100000) {
-      const tagLokal = Math.floor(w.lokal / 1440) * 1440;
-      if (!plan.monat.has(w.monat)) {
-        w = ausLokal(Date.UTC(w.jahr, w.monat, 1) / MIN);
-      } else if (
-        !(plan.tagOderWochentag
-          ? plan.tag.has(w.tag) || plan.wochentag.has(w.wochentag)
-          : plan.tag.has(w.tag) && plan.wochentag.has(w.wochentag))
-      ) {
-        w = ausLokal(tagLokal + 1440);
-      } else if (!plan.stunde.has(w.stunde)) {
-        w = ausLokal(w.lokal - w.minute + 60);
-      } else if (!plan.minute.has(w.minute)) {
-        w = ausLokal(w.lokal + 1);
-      } else {
+    for (let runde = 0; runde < 4 && w; runde++) {
+      w = naechsteWand(plan, w, ende);
+      if (!w) {
         break;
       }
-      if (w.lokal * MIN > ende + TAG) {
-        w = null;
+      const zeitpunkte = wandZuZeitpunkten(w.lokal, zone);
+      const t = (plan.fest ? zeitpunkte.slice(0, 1) : zeitpunkte).find(z => z > ab);
+      if (t !== undefined) {
+        if (t <= ende && (besten === null || t < besten)) {
+          besten = t;
+        }
         break;
       }
-    }
-    if (!w || zaehler >= 100000) {
-      continue;
-    }
-    let t = wandZuZeitpunkt(w.lokal, zone);
-    // Eine Wanduhrzeit kurz vor `ab`, die erst jetzt (nach einer Umstellung)
-    // zaehlt, darf nicht zurueckfallen: dann weiter.
-    if (t <= ab) {
-      t = ab + MIN;
-    }
-    if (t <= ende && (besten === null || t < besten)) {
-      besten = t;
+      w = ausLokal(w.lokal + 1);
     }
   }
   return besten;
