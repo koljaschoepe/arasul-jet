@@ -430,10 +430,9 @@ jobs:
       - name: Install dependencies
         working-directory: services/${{ matrix.service }}
         run: |
-          # document-indexer: seine Tests stubben die schweren Abhaengigkeiten
-          # (PyMuPDF, spacy, qdrant-client, psycopg2, …) selbst und laufen
-          # bewusst in einer nackten Umgebung. Sie zu installieren waere nur
-          # ein paar Minuten CI-Zeit fuer nichts.
+          # document-indexer: seine Tests stubben Pillow, pytesseract und
+          # pdf2image selbst; was sie echt brauchen (auch PyMuPDF fuer die
+          # Grenzen von /pdf-seiten), steht in requirements-test.txt.
           #
           # Der Satz stimmt fuer die Tests, aber er hat ein Loch hinterlassen:
           # bis zum 24.08.2026 war das der EINZIGE Ort, an dem die Requirements

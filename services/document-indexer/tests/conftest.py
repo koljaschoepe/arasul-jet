@@ -1,8 +1,8 @@
 """Gemeinsames Test-Geruest fuer den document-indexer.
 
-Die Tests laufen bewusst OHNE die schweren Parser-Abhaengigkeiten (PyMuPDF,
-pdfplumber, python-docx, Pillow, pytesseract). Statt sie zu installieren,
-werden sie hier durch leichte Stubs ersetzt; Flask und PyYAML sind echt
+Die Tests laufen bewusst OHNE Pillow, pytesseract und pdf2image; die werden
+hier durch leichte Stubs ersetzt. Echt sind Flask, PyYAML und, fuer den
+Kindprozess von `render_pdf_pages`, PyMuPDF, pdfplumber und python-docx
 (requirements-test.txt).
 
 ``_stub`` fuellt nur Luecken (``hasattr``-Pruefung): ist ein Modul echt

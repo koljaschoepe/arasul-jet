@@ -1,6 +1,6 @@
-# Nur was die Tests wirklich brauchen. Die schweren Parser-Abhaengigkeiten
-# (PyMuPDF, pdfplumber, python-docx, pytesseract) stubben die Tests selbst,
-# siehe tests/conftest.py.
+# Nur was die Tests wirklich brauchen. Die uebrigen Parser-Abhaengigkeiten
+# (Pillow, pytesseract, pdf2image) stubben die Tests selbst, siehe
+# tests/conftest.py.
 #
 # MUSS zu den Versionen in requirements.txt passen, sonst pruefen die Tests
 # andere Pakete als die, die im Container laufen.
@@ -9,3 +9,11 @@
 PyYAML==6.0.3
 flask==3.1.3
 flask-cors==6.0.5
+# PyMuPDF, pdfplumber, python-docx: `render_pdf_pages` rendert in einem
+# forkserver-Kindprozess, der `document_parsers` frisch importiert, ohne die
+# Attrappen aus conftest. Die Grenzen gegen eine PDF-Bombe
+# (test_pdf_seiten_grenzen.py) lassen sich nur mit echtem MuPDF pruefen, und
+# das Kind braucht dafuer alle Module, die document_parsers oben importiert.
+PyMuPDF==1.28.2
+pdfplumber==0.11.0
+python-docx==1.2.0
