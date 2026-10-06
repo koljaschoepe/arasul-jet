@@ -35,7 +35,11 @@ function Wahl({
     <label className="col-span-2 flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted-foreground md:col-span-1">
       {beschriftung}
       <Select value={wert || ALLE} onValueChange={w => onWahl(w === ALLE ? '' : w)}>
-        <SelectTrigger aria-label={beschriftung} data-testid={`laeufe-filter-${name}`}>
+        <SelectTrigger
+          aria-label={beschriftung}
+          className="w-full"
+          data-testid={`laeufe-filter-${name}`}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
