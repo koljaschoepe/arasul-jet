@@ -49,7 +49,6 @@ const { NotFoundError, ValidationError } = require('../../utils/errors');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { getLlmRamGB } = require('../../utils/hardware');
-const externeModelle = require('../../services/llm/extern/externeModelle');
 const freiesModell = require('../../services/llm/freiesModell');
 const modellVerwaltung = require('../../services/llm/modellVerwaltung');
 
@@ -107,15 +106,9 @@ router.get(
   cacheMiddleware(CACHE_KEYS.INSTALLED, CACHE_TTLS.INSTALLED),
   asyncHandler(async (req, res) => {
     const models = await modelService.getInstalledModels();
-    // Plan 023 D9: externe Modelle stehen in derselben Liste, sonst müsste
-    // jede Modellauswahl im Produkt zwei Quellen kennen. Sie tragen
-    // `extern: true` und sind daran erkennbar. Ist kein Anbieter
-    // eingeschaltet, kommt hier nichts dazu, und zwar von selbst: ohne
-    // Schlüssel gibt es niemanden, den man nach Modellen fragen könnte.
-    const externe = await externeModelle.modelleListen();
     res.json({
-      models: [...models, ...externe],
-      total: models.length + externe.length,
+      models,
+      total: models.length,
       timestamp: new Date().toISOString(),
     });
   })

@@ -584,8 +584,7 @@ const ExternesModell = z
      * Die OpenAI-kompatible Basis-Adresse OHNE `/chat/completions`, z. B.
      * `https://api.openai.com/v1`. Keine Anbieter-Liste im Code: ein Kunde
      * waehlt sein eigenes Gateway an, und eine gepflegte Liste waere am Tag
-     * ihres Schreibens veraltet (dieselbe Regel wie in
-     * `services/llm/extern/providerRegistry.js`).
+     * ihres Schreibens veraltet.
      */
     basis_url: z
       .string()
