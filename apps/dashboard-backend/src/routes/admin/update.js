@@ -21,7 +21,7 @@ const { UpdateFassungBody, UpdateNachtsBody } = require('../../schemas/admin-upd
 // ein `.araupdate`-Paket (Hochladen, USB-Stick); der lief am Geraet nie, weil
 // das Backend kein `docker`-Programm hat, und ist mit der Totcode-Pruefung vom
 // 06.10.2026 gefallen. Aktualisiert wird ueber `/api/update/fassung` darunter,
-// ohne Netz an der Konsole mit `./arasul update`.
+// ohne Netz ueber das Artefakt (`install.sh`, docs/ops/AUSLIEFERUNG.md).
 router.get(
   '/status',
   requireAuth,
