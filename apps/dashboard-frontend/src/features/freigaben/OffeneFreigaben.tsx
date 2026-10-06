@@ -158,6 +158,21 @@ function Eingereicht() {
 }
 
 /**
+ * Bei wem eine Karte liegt, als Satz (Handtest 06.10.2026).
+ *
+ * `liegt_bei` null heißt „bei allen im Kreis" — und der Kreis kann einer sein:
+ * die App hat ihn beim Start auf eine Person gezogen (`freigabe.entscheider`).
+ * Dort stand „Liegt bei allen mit Zugang.", obwohl ein Kollege mit Zugang die
+ * Freigabe gar nicht sah. Der Satz nennt deshalb den Kreis, wie er ist.
+ */
+function liegtBeiSatz(f: OffeneFreigabe, ich: string): string {
+  const kreis = f.kreis ?? [];
+  if (f.liegt_bei || (kreis.length === 1 && kreis[0] === ich)) return 'Liegt bei Ihnen.';
+  if (kreis.length > 0) return `Liegt bei allen im Kreis: ${kreis.join(', ')}.`;
+  return 'Liegt bei allen mit Zugang.';
+}
+
+/**
  * Unter jeder Karte: bei wem sie liegt, und an wen sie weitergehen kann (M5).
  *
  * Weitergeben geht nur an jemanden aus dem Kreis — das Backend prüft es, und
@@ -192,7 +207,7 @@ function Zustaendigkeit({
     >
       <span className="flex items-center gap-1">
         <UserRound className="size-3.5 shrink-0" aria-hidden="true" />
-        {f.liegt_bei ? 'Liegt bei Ihnen.' : 'Liegt bei allen mit Zugang.'}
+        {liegtBeiSatz(f, ich)}
       </span>
       {!f.liegt_bei && istAdmin && (
         <span data-testid={`freigabe-${f.id}-hinweis`}>

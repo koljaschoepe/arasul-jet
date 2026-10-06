@@ -232,7 +232,7 @@ describe('OffeneFreigaben: Stufen, übernehmen, weitergeben (M5)', () => {
     listen([{ ...EINE, stufe: 'leitung', liegt_bei: null, kreis: ['probe-admin', 'bernd'] }]);
     render(<OffeneFreigaben />, { wrapper: huelle() });
     expect(await screen.findByTestId('freigabe-7-zustaendig')).toHaveTextContent(
-      'Liegt bei allen mit Zugang.'
+      'Liegt bei allen im Kreis: probe-admin, bernd.'
     );
     expect(screen.getByTestId('freigabe-7-hinweis')).toHaveTextContent(
       'Keine Standardperson für die Stufe leitung'
@@ -243,7 +243,11 @@ describe('OffeneFreigaben: Stufen, übernehmen, weitergeben (M5)', () => {
     angemeldet({ role: 'mitarbeiter', username: 'clara' });
     listen([{ ...EINE, stufe: 'leitung', liegt_bei: null, kreis: ['clara'] }]);
     render(<OffeneFreigaben />, { wrapper: huelle() });
-    expect(await screen.findByTestId('freigabe-7-zustaendig')).toBeInTheDocument();
+    // Die App hat den Kreis auf clara gezogen: dann liegt sie bei ihr, nicht
+    // „bei allen mit Zugang" (Handtest 06.10.2026, B3).
+    expect(await screen.findByTestId('freigabe-7-zustaendig')).toHaveTextContent(
+      'Liegt bei Ihnen.'
+    );
     expect(screen.queryByTestId('freigabe-7-hinweis')).not.toBeInTheDocument();
     // Niemand sonst im Kreis: nichts zum Weitergeben.
     expect(screen.queryByTestId('freigabe-7-weitergeben')).not.toBeInTheDocument();
