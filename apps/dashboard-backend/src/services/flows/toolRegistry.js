@@ -20,35 +20,8 @@ const {
 const { DateiSuchenTool } = require('./tools/suche');
 const { SymbolSuchenTool } = require('./tools/symbolIndex');
 const SubagentTool = require('./subagent');
-const FrageNutzerTool = require('./tools/frage');
 const FreigabeAnfordernTool = require('./tools/freigabe');
 const RouteAufrufenTool = require('./tools/route');
-const BaseTool = require('../../tools/baseTool');
-
-/**
- * Platzhalter für ein Werkzeug, das der Plan vorsieht, das aber noch nicht
- * gebaut ist. Meldet den Grund als Text, damit ein Lauf nicht kommentarlos
- * ins Leere greift.
- */
-class NochNichtVerfuegbarTool extends BaseTool {
-  constructor(toolName, schritt) {
-    super();
-    this._name = toolName;
-    this._schritt = schritt;
-  }
-  get name() {
-    return this._name;
-  }
-  get description() {
-    return `${this._name} (noch nicht verfügbar)`;
-  }
-  async execute() {
-    return (
-      `Das Werkzeug "${this._name}" ist noch nicht verfügbar ` +
-      `(kommt mit Plan 011, Schritt ${this._schritt}).`
-    );
-  }
-}
 
 /** name → Fabrik. Muss zu VALID_TOOLS in schemas/flows.js passen. */
 const FACTORIES = {
@@ -59,12 +32,10 @@ const FACTORIES = {
   dateien_suchen: () => new DateiSuchenTool(),
   symbol_suche: () => new SymbolSuchenTool(),
   subagent: () => new SubagentTool(),
-  frage_nutzer: () => new FrageNutzerTool(),
-  // Phase C7. Anders als `frage_nutzer` in JEDER Betriebsart: eine Freigabe
-  // ist der Halt selbst, und ein Flow, der sie anfordert, will angehalten
-  // werden -- auch ein autonomer. Die Rueckfrage fehlt in `autonom`, weil ein
-  // Lauf ohne Zuschauer nicht auf eine Antwort warten soll; eine Freigabe hat
-  // dagegen einen Kreis von Adressaten und eine Frist.
+  // Phase C7: eine Freigabe ist der Halt selbst, und ein Flow, der sie
+  // anfordert, will angehalten werden. Sie hat einen Kreis von Adressaten und
+  // eine Frist. (Die Rueckfrage `frage_nutzer` ist am 06.10.2026 gefallen:
+  // beantworten liess sie sich nur ueber eine Route, die niemand rief.)
   freigabe_anfordern: () => new FreigabeAnfordernTool(),
   // Kontrakt 13 (M5): nur die Routen, die der Kopf unter `routen` nennt, und
   // nur mit Zugang des Menschen zur Ziel-App (`tools/route.js`).
@@ -74,10 +45,9 @@ const FACTORIES = {
 /**
  * Baut die Werkzeuge für eine Liste deklarierter Namen.
  * @param {string[]} namen
- * @param {{betriebsart?: 'autonom'|'rueckfragen'}} [opts]
  * @returns {import('../../tools/baseTool')[]}
  */
-function buildTools(namen = [], { betriebsart = 'autonom' } = {}) {
+function buildTools(namen = []) {
   const seen = new Set();
   const tools = [];
   for (const name of namen) {
@@ -85,14 +55,6 @@ function buildTools(namen = [], { betriebsart = 'autonom' } = {}) {
       continue;
     }
     seen.add(name);
-    // Plan 023 I2: in der Betriebsart `autonom` gibt es `frage_nutzer` NICHT.
-    // Nicht als gesperrte Variante, die eine Fehlermeldung liefert, sondern
-    // gar nicht: ein Modell, das ein Werkzeug sieht, benutzt es irgendwann,
-    // und die Zusage "autonom stellt er keine Frage" haelt nur, wenn es die
-    // Frage nicht geben kann.
-    if (name === 'frage_nutzer' && betriebsart !== 'rueckfragen') {
-      continue;
-    }
     const factory = FACTORIES[name];
     // Unbekannte Namen werden schon vom Schema abgewiesen; hier still
     // überspringen statt werfen, damit eine künftige Schema-Erweiterung nicht
@@ -104,9 +66,4 @@ function buildTools(namen = [], { betriebsart = 'autonom' } = {}) {
   return tools;
 }
 
-/** Welche Werkzeuge sind heute wirklich benutzbar? */
-function implementedTools() {
-  return Object.keys(FACTORIES).filter(n => !(FACTORIES[n]() instanceof NochNichtVerfuegbarTool));
-}
-
-module.exports = { buildTools, implementedTools, FACTORIES, NochNichtVerfuegbarTool };
+module.exports = { buildTools, FACTORIES };

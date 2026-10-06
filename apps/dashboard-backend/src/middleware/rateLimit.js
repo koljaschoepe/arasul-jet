@@ -74,30 +74,6 @@ const loginLimiter = createLimiter(
   { skipSuccessfulRequests: true }
 );
 
-/** API rate limiter - 100 requests per minute per IP */
-const apiLimiter = createLimiter(
-  'API',
-  60 * 1000,
-  100,
-  'Too many requests from this IP, please try again later'
-);
-
-/** LLM API rate limiter - 10 requests per second per IP */
-const llmLimiter = createLimiter(
-  'LLM',
-  1000,
-  10,
-  'LLM request rate limit exceeded, please slow down'
-);
-
-/** Metrics API rate limiter - 20 requests per second per IP */
-const metricsLimiter = createLimiter('Metrics', 1000, 20, 'Metrics request rate limit exceeded', {
-  skipSuccessfulRequests: true,
-});
-
-/** Webhook rate limiter (self-healing agent) - 100 requests per minute */
-const webhookLimiter = createLimiter('Webhook', 60 * 1000, 100, 'Webhook rate limit exceeded');
-
 /**
  * BUG-003 FIX: Global store for user rate limiters with automatic cleanup
  */
@@ -238,10 +214,6 @@ const uploadLimiter = createLimiter('Upload', 60 * 1000, 20, 'Zu viele Uploads, 
 
 module.exports = {
   loginLimiter,
-  apiLimiter,
-  llmLimiter,
-  metricsLimiter,
-  webhookLimiter,
   generalAuthLimiter,
   probeLimiter,
   tailscaleLimiter,

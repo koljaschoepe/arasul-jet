@@ -45,10 +45,10 @@ BENUTZER = os.environ.get('ARASUL_BENUTZER', '')
 PASSWORT = os.environ.get('ARASUL_PASSWORT', '')
 
 # Ein Strom endet nicht von selbst. Ihn hier aufzurufen hiesse, auf das
-# Zeitlimit zu warten und es als Befund zu zaehlen.
-STROEME = {
-    '/api/logs/stream',
-}
+# Zeitlimit zu warten und es als Befund zu zaehlen. Seit der Totcode-Pruefung
+# vom 06.10.2026 (mit ihr fiel `/api/logs/stream`) gibt es keinen parameterlosen
+# Strom mehr; wer einen anlegt, traegt ihn hier ein.
+STROEME = set()
 
 # Dienste, deren 503 die richtige Antwort waere. Seit dem 24.08.2026 leer:
 # `embedding-service` laeuft wieder ohne Profil (die OpenAI-kompatible
@@ -67,22 +67,17 @@ ERWARTET_503 = {}
 #
 # Phase B6 (26.08.2026): die Quellen fuer Chats, Dokumente, Wissensgraph,
 # Erweiterungen, Projekte, Git, Wissensraeume, Sandbox und /api/llm/jobs sind
-# mit ihren Bereichen gefallen. Uebrig sind vier.
+# mit ihren Bereichen gefallen. Mit der Totcode-Pruefung vom 06.10.2026
+# gingen `/api/flows/:name`, `/api/flows/laeufe/:id`,
+# `/api/services/llm/models/:name` und `/api/models/:id`; die Laeufe liest die
+# Verwaltung seither unter `/api/laeufe/:id`.
 ID_QUELLEN = [
     ('/api/apps/', '/api/apps', 'data', 'id'),
-    ('/api/flows/laeufe/', '/api/flows/laeufe', 'data', 'id'),
-    ('/api/flows/', '/api/flows', 'data', 'name'),
-    ('/api/services/llm/models/', '/api/services/llm/models', 'models', 'name'),
-    # Am 23.08.2026 dazugekommen: stand vorher unter "nicht gemessen, keine
-    # Quelle hinterlegt". Es HATTE eine, es hatte nur niemand nachgesehen. Ein
-    # ungemessener Endpunkt ist keine Ruhe, sondern eine offene Frage.
-    ('/api/models/', '/api/models/catalog', 'models', 'id'),
+    ('/api/laeufe/', '/api/laeufe', 'data', 'id'),
 ]
 
 # Pfade mit `:x`, die hier nicht gemessen werden, jeweils mit Grund.
 NICHT_MESSBAR = {
-    '/api/flows/laeufe/:x/stream': 'endloser Strom',
-    '/api/license/check/:x': 'braucht einen Merkmalsnamen, keine Id aus einer Liste',
     # Die externe API verlangt einen API-Schluessel, kein Keksglas. Ihr 401
     # waere hier ein stilles Gruen; gemessen wird sie im PR-Text mit Schluessel.
     '/api/v1/external/flows/runs/:x': 'braucht einen API-Schluessel, nicht die Anmeldung',
@@ -144,21 +139,22 @@ def erste_id(pfad: str, token: str, zwischenspeicher: dict):
 # Jeder Fall hier ist bewusst so gewaehlt, dass er NICHTS veraendert: die
 # Eingabe wird geprueft und abgelehnt, bevor irgendetwas geschrieben oder
 # irgendwohin gesendet wird. Wer einen Fall ergaenzt, prueft das zuerst.
+#
+# Mit der Totcode-Pruefung vom 06.10.2026 fielen die Faelle unter
+# `/api/alerts`, `/api/services/llm/models/pull`, `/api/flows/laeufe` und
+# `/api/logs/search`. An ihre Stelle treten Faelle derselben Art auf den
+# Wegen, die geblieben sind.
 FALSCHE_EINGABEN = [
-    ('POST', '/api/alerts/test-webhook', {'webhook_url': 'http://127.0.0.1/x'},
-     'interne Adresse, wird vor jeder Anfrage abgelehnt'),
-    ('POST', '/api/alerts/test-webhook', {'webhook_url': 'ftp://example.invalid/x'},
-     'kein HTTP, wird vor jeder Anfrage abgelehnt'),
-    ('POST', '/api/services/llm/models/pull', {'model_name': ''},
+    ('POST', '/api/models/download', {'model_id': ''},
      'leerer Modellname, Rumpfpruefung lehnt ab'),
-    ('POST', '/api/flows/laeufe', {'flow': 'gibt-es-nicht'},
-     'Flow gibt es nicht, faellt vor dem Anlegen des Laufs durch'),
+    ('POST', '/api/laeufe/keine-zahl/abbrechen', {},
+     'kaputte Id, faellt vor dem Abbrechen durch'),
     ('POST', '/api/apps/gibt-es-nicht/einspielen', {'version': '9.9.9'},
      'App gibt es nicht, faellt vor dem Starten eines Containers durch'),
-    ('GET', '/api/flows/laeufe/keine-zahl', None,
+    ('GET', '/api/laeufe/keine-zahl', None,
      'kaputte Id in der Adresse'),
-    ('GET', '/api/logs/search', None,
-     'Pflichtangabe query fehlt'),
+    ('GET', '/api/laeufe?von=gestern', None,
+     'Zeitpunkt, der keiner ist, Abfragepruefung lehnt ab'),
 ]
 
 

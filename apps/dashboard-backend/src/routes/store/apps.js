@@ -36,8 +36,6 @@ const {
   EntfernenSitzungQuery,
   FlowQuery,
   KiAufrufeQuery,
-  LaeufeQuery,
-  LaufQuery,
   LogsQuery,
   SchaltenBody,
   ZugangQuery,
@@ -51,7 +49,6 @@ const appZugang = require('../../services/app/appZugang');
 const appStufen = require('../../services/app/appStufen');
 const flowSettings = require('../../services/flows/flowSettings');
 const schrittModelle = require('../../services/flows/schrittModelle');
-const runStore = require('../../services/flows/runStore');
 const abschluss = require('../../services/flows/abschluss');
 const kiProtokoll = require('../../services/app/kiProtokoll');
 const { logSecurityEvent } = require('../../utils/auditLog');
@@ -666,39 +663,6 @@ router.get(
 );
 
 /**
- * GET /api/apps/:id/laeufe — was diese App hat laufen lassen (Phase D4).
- *
- * NICHT `GET /api/flows/laeufe`, und das ist der Grund, warum es diese Route
- * gibt: die dortige Liste ist die des ANGEMELDETEN Menschen. Ein App-Lauf
- * traegt als Nutzer den, dem der App-Schluessel gehoert -- also den
- * Administrator, der die App eingespielt hat. Ein zweiter Administrator saehe
- * die Laeufe der App dort nie, obwohl beide dasselbe Geraet verwalten.
- *
- * Die App muss es geben: sonst waere eine leere Liste die Antwort auf eine
- * Kennung mit Tippfehler.
- */
-router.get(
-  '/:id/laeufe',
-  requireAuth,
-  requireRole('admin'),
-  validateParams(AppParams),
-  validateQuery(LaeufeQuery),
-  asyncHandler(async (req, res) => {
-    // `pruefeVorhanden` und nicht `holeApp`: hier soll nur die Kennung geprueft
-    // werden, und `holeApp` faehrt dafuer den Docker-Proxy und die Platte an.
-    await appStore.pruefeVorhanden(req.params.id);
-    const data = await runStore.listRunsFuerApp({
-      appId: req.params.id,
-      stand: req.query.stand ?? null,
-      flowName: req.query.flow ?? null,
-      status: req.query.status ?? null,
-      limit: req.query.limit,
-    });
-    res.json({ data, timestamp: new Date().toISOString() });
-  })
-);
-
-/**
  * GET /api/apps/:id/ki-aufrufe — jeder Modellaufruf dieser App (J35).
  *
  * Die Laeufe zeigen, was ein FLOW getan hat. Ein Aufruf von
@@ -722,31 +686,6 @@ router.get(
       appId: req.params.id,
       stand: req.query.stand ?? null,
       limit: req.query.limit,
-    });
-    res.json({ data, timestamp: new Date().toISOString() });
-  })
-);
-
-/**
- * GET /api/apps/:id/laeufe/:runId — ein Lauf mit seinen Schritten (Phase D4).
- *
- * Der Gedankengang steht in denselben Schritten: was das Modell sagte, bevor
- * es ein Werkzeug rief, liegt als Schritt der Art `modell` dazwischen
- * (`services/flows/runFlow.js`). `?raw=1` holt zusaetzlich die Rohdaten der
- * Subagent-Schritte -- die Ansicht laedt sie erst, wenn jemand einen Schritt
- * aufklappt.
- */
-router.get(
-  '/:id/laeufe/:runId',
-  requireAuth,
-  requireRole('admin'),
-  validateParams(AppLaufParams),
-  validateQuery(LaufQuery),
-  asyncHandler(async (req, res) => {
-    const data = await runStore.getRunFuerApp({
-      runId: req.params.runId,
-      appId: req.params.id,
-      includeRaw: req.query.raw,
     });
     res.json({ data, timestamp: new Date().toISOString() });
   })

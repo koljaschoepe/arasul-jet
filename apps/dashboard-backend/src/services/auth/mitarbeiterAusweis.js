@@ -168,24 +168,6 @@ async function liste(benutzerId) {
 }
 
 /**
- * Alle Ausweise am Geraet, mit dem Menschen, dem sie gehoeren.
- *
- * Fuer den Administrator: er sieht, wer wo einen Ausweis liegen hat und wann
- * er zuletzt gebraucht wurde. Den Wert sieht auch er nicht -- es gibt ihn
- * nicht mehr.
- */
-async function listeAlle() {
-  const ergebnis = await db.query(
-    `SELECT a.id, a.name, a.praefix, a.angelegt_am, a.zuletzt_benutzt_am,
-            a.user_id, u.username, u.role
-       FROM public.mitarbeiter_ausweise a
-       JOIN public.admin_users u ON u.id = a.user_id
-      ORDER BY a.angelegt_am DESC`
-  );
-  return ergebnis.rows;
-}
-
-/**
  * Einen Ausweis widerrufen: die Zeile faellt weg.
  *
  * `nurBenutzer` schneidet den Aufruf auf den Eigentuemer zu. Ein
@@ -216,6 +198,5 @@ module.exports = {
   pruefe,
   siehtAusWieAusweis,
   liste,
-  listeAlle,
   widerrufe,
 };

@@ -584,8 +584,7 @@ const ExternesModell = z
      * Die OpenAI-kompatible Basis-Adresse OHNE `/chat/completions`, z. B.
      * `https://api.openai.com/v1`. Keine Anbieter-Liste im Code: ein Kunde
      * waehlt sein eigenes Gateway an, und eine gepflegte Liste waere am Tag
-     * ihres Schreibens veraltet (dieselbe Regel wie in
-     * `services/llm/extern/providerRegistry.js`).
+     * ihres Schreibens veraltet.
      */
     basis_url: z
       .string()
@@ -687,29 +686,6 @@ const KiAufrufeQuery = z
   })
   .strict();
 
-const LaeufeQuery = z
-  .object({
-    stand: Stand.optional(),
-    flow: z
-      .string()
-      .trim()
-      .regex(FLOW_NAME_RE, 'Flow-Name: Kleinbuchstaben, Ziffern und Bindestriche')
-      .optional(),
-    status: z
-      .enum([
-        'laeuft',
-        'wartend',
-        'fertig',
-        'fehler',
-        'abgebrochen',
-        'abgelaufen',
-        'nicht_uebergeben',
-      ])
-      .optional(),
-    limit: z.coerce.number().int().min(1).max(200).default(50),
-  })
-  .strict();
-
 /** Ein Lauf einer App. Die Nummer kommt aus der Adresse, also als Text. */
 const AppLaufParams = z.object({
   id: AppId,
@@ -801,7 +777,6 @@ module.exports = {
   FlowZeitplanBody,
   FlowQuery,
   KiAufrufeQuery,
-  LaeufeQuery,
   LaufQuery,
   EinspielenBody,
   SchaltenBody,

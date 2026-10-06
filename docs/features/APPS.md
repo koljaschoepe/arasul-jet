@@ -630,10 +630,11 @@ Seit M5 gelesen im Bereich **Läufe** der Verwaltung, über alle Apps
 (`GET /api/laeufe`, Abschnitt Läufe in `FLOWS.md`); die Seite einer App
 verweist dorthin, mit der App als Filter.
 
-`GET /api/apps/<id>/laeufe` nennt die Läufe **dieser App** (nicht die des
-angemeldeten Menschen — ein App-Lauf trägt als Nutzer den, dem der Schlüssel
-gehört), `GET /api/apps/<id>/laeufe/<nr>` einen davon samt Schritten. Vier
-Arten von Schritt:
+`GET /api/laeufe?app=<id>` nennt die Läufe **dieser App** (nicht die des
+angemeldeten Menschen: ein App-Lauf trägt als Nutzer den, dem der Schlüssel
+gehört), `GET /api/laeufe/<nr>` einen davon samt Schritten. Die früheren Wege
+`GET /api/apps/<id>/laeufe` und `…/laeufe/<nr>` sind am 06.10.2026 gefallen.
+Vier Arten von Schritt:
 
 | `kind`     | was er ist                                                                   |
 | ---------- | ---------------------------------------------------------------------------- |

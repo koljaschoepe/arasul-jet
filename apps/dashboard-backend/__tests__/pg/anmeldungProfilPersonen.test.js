@@ -258,15 +258,14 @@ beschreibe('Anmeldung, Profil und Personen gegen echtes Postgres', () => {
     expect(ohne.body.authenticated).toBe(false);
   });
 
-  test('/api/auth/me, /api/auth/sessions und /api/auth/verify', async () => {
+  test('/api/auth/me und /api/auth/verify', async () => {
     const me = await mitToken(request(app).get('/api/auth/me'), adminToken);
     expect(me.status).toBe(200);
     expect(me.body.user).toMatchObject({ username: 'admin', email: 'admin@firma.test' });
 
+    // `/api/auth/sessions` ist am 06.10.2026 gefallen (kein Aufrufer).
     const sitzungen = await mitToken(request(app).get('/api/auth/sessions'), adminToken);
-    expect(sitzungen.status).toBe(200);
-    expect(sitzungen.body.sessions.length).toBeGreaterThanOrEqual(1);
-    expect(sitzungen.body.sessions.some(s => s.isCurrent)).toBe(true);
+    expect(sitzungen.status).toBe(404);
 
     const verify = await mitToken(request(app).get('/api/auth/verify'), adminToken);
     expect(verify.status).toBe(200);

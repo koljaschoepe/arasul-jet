@@ -283,13 +283,6 @@ function clearUserCache() {
   userCache.clear();
 }
 
-/**
- * Test-only: clear the per-user auth cache so a suite that authenticates as
- * different users under the same userId (e.g. admin vs non-admin) does not
- * leak a stale role between tests. Mirrors systemSettings._setForTest.
- */
-const _clearUserCacheForTest = clearUserCache;
-
 module.exports = {
   requireAuth,
   requireRole,
@@ -297,5 +290,4 @@ module.exports = {
   optionalAuth,
   invalidateUserCache,
   clearUserCache,
-  _clearUserCacheForTest,
 };

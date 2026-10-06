@@ -401,7 +401,7 @@ print("|".join(str(v) for v in [a.get("status"), k.get("feld"), k.get("vorschlag
 pruefe 'Die App liest Vorschlag und Aenderung (GET /freigaben)' \
   "$(ja_wenn "$APP_SICHT" "bestaetigt|datum||01.10.2026|$B|True")" "$APP_SICHT"
 
-ruf "$TOK" GET "/api/apps/$APP/laeufe/$LAUF"
+ruf "$TOK" GET "/api/laeufe/$LAUF"
 LAUF_SICHT=$(rumpf | python3 -c 'import sys,json
 d = json.load(sys.stdin)["data"]
 f = next((x for x in d.get("freigaben", []) if x.get("felder")), {})

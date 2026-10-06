@@ -372,7 +372,7 @@ describe('flowRunner.fortsetzen', () => {
       einreicherId: 5,
       fortsetzenAb: { schritt: 1, name: 'freigeben' },
     });
-    expect(flowRunner.istAktiv(7)).toBe(true);
+    expect(flowRunner.signalAbbruch(7)).toBe(true); // ein Prozess haelt ihn wieder
   });
 
   it('tut nichts, wenn der Lauf schon uebernommen ist (Entscheidung und Hochfahren zugleich)', async () => {

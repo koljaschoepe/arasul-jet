@@ -11,17 +11,19 @@ Seite gilt für beide:
 
 | Herkunft                 | Wo die Datei liegt                           | Wem sie gehört                               |
 | ------------------------ | -------------------------------------------- | -------------------------------------------- |
-| **Plattform** (Plan 011) | `data/flows/` (im Container `/arasul/flows`) | dem Betreiber; die Routen unter `/api/flows` |
+| **Plattform** (Plan 011) | `data/flows/` (im Container `/arasul/flows`) | dem Betreiber; gelesen über `GET /api/flows` |
 | **App** (Phase C6)       | im App-Paket unter `flows/*.md`              | dem Partner, der die App gebaut hat          |
 
-Für die Flows der Plattform ist die **Datei** die Wahrheit; die Routen unter
-`/api/flows` lesen und schreiben sie und prüfen jede Änderung gegen das
-Schema, bevor sie auf die Platte kommt.
+Für die Flows der Plattform ist die **Datei** die Wahrheit. `GET /api/flows`
+listet sie (das Ara-Kit liest die Liste vor und nach einem Update); eine
+fehlerhafte Datei steht dort getrennt unter `fehlerhaft`. Anlegen, Ändern und
+Löschen über die Schnittstelle gibt es seit dem 06.10.2026 nicht mehr: die
+Datei wird auf dem Gerät abgelegt.
 
 Für die Flows einer App ist die **registrierte Zeile** die Wahrheit
 (`app_flows`, je App und Stand beim Einspielen angelegt) — sonst änderte sich
 der Flow eines laufenden Livestandes, sobald jemand unter dem Versionsordner
-etwas editiert. Sie werden über `/api/flows` weder gelesen noch geschrieben;
+etwas editiert. Sie stehen nicht in `GET /api/flows`;
 was ein Administrator daran ändern darf, ist das **Modell** — eines vom Gerät
 oder, seit Phase D4, eines bei einem Anbieter draußen —, und das steht in
 `flow_settings`. Alles Weitere dazu:
@@ -75,9 +77,9 @@ Dateiname).
 
 `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`,
 `dateien_anhaengen`, `dateien_suchen`, `symbol_suche`, `subagent`,
-`frage_nutzer`, `freigabe_anfordern`, `route_aufrufen`. Ein Flow bekommt **genau** die
+`freigabe_anfordern`, `route_aufrufen`. Ein Flow bekommt **genau** die
 deklarierten Werkzeuge; ein unbekannter Name ist ein Schreibfehler und wird
-beim Speichern abgewiesen.
+abgewiesen.
 
 - Die Datei-Werkzeuge und `symbol_suche` verlangen mindestens einen erlaubten
   `ordner`; der erste ist das Arbeitsverzeichnis, relative Pfade lösen sich
@@ -95,9 +97,7 @@ beim Speichern abgewiesen.
   der erlaubten Ordner.
 - `subagent` verlangt `rollen` und umgekehrt: eine Rolle darf nie mehr
   Werkzeuge haben als der Flow selbst.
-- `frage_nutzer` gibt es nur in der Betriebsart `rueckfragen` (unten).
 - `freigabe_anfordern` hält den Lauf an, bis ein Mensch entscheidet (unten).
-  Es gibt das Werkzeug in **jeder** Betriebsart — anders als die Rückfrage.
 - `route_aufrufen` ruft eine Route der eigenen App oder einer anderen, aber
   nur eine, die der Kopf unter `routen` nennt, und nur mit dem Zugang des
   Menschen des Laufs zur Ziel-App
@@ -115,9 +115,8 @@ ein großes wirkt: gezielt wenig Kontext statt „alles ins Modell".
 Im Lauf-Protokoll ist jeder Subagent ein **echter Baum** (Migration 124): sein
 Schritt entsteht schon **vor** der Ausführung, und die inneren Werkzeug-Aufrufe
 der Rolle werden Kind-Schritte (`flow_run_steps.parent_step_id`); `modell` hält
-fest, welches Modell den Schritt getrieben hat. Live meldet der SSE-Strom jeden
-Schritt als `step_start`/`step_end` (die volle Schritt-Zeile, ohne Rohdaten;
-die lädt `?raw=1` nach).
+fest, welches Modell den Schritt getrieben hat. Rohdaten der Schritte liefert
+`GET /api/laeufe/:id?raw=1`.
 
 ### Der Gedankengang (Phase D4)
 
@@ -128,8 +127,7 @@ Protokoll stand damit eine Kette von Handgriffen ohne einen Satz dazu, und die
 Frage „warum hat der Flow das getan" ließ sich nicht beantworten.
 
 Seit D4 wird er als Schritt der Art `modell` mitgeschrieben (die Spalte kennt
-Migration 112 seit jeher) und im Ereignisstrom als `gedanke` gemeldet — ein
-eigenes Ereignis und nicht `text`: `text` ist die **Antwort** des Laufs, der
+Migration 112 seit jeher), getrennt von der **Antwort** des Laufs: der
 Gedankengang ist sein Weg dorthin. Gelesen wird er im Bereich Läufe der
 Verwaltung (Verwaltung → Läufe).
 
@@ -197,13 +195,6 @@ Liste laufen (JSON-Array oder eine Zeile je Element, höchstens 50), mit
 `{{element}}`, `{{index}}`, `{{anzahl}}` im Auftrag; `modell` je Schritt
 überstimmt das Flow-Modell.
 
-**Fehlgeschlagene Läufe ab dem Fehler wiederholen.** Scheitert ein Lauf eines
-Flows **mit** Schritt-Kette, startet `POST /api/flows/laeufe/:id/wiederholen`
-einen **neuen** Lauf mit denselben Argumenten; die Ausgaben der erfolgreichen
-Schritte des alten Laufs werden übernommen (im Protokoll als Schritte mit dem
-Vermerk „übernommen aus Lauf N") und erst ab dem ersten gescheiterten Schritt
-wird wieder echt ausgeführt.
-
 ### Modell und Fähigkeiten je Schritt (M5, 04.10.2026)
 
 Der Entwickler nennt je `subagent`-Schritt das Modell, das er meint (`modell`
@@ -254,14 +245,13 @@ Grund und bisheriges Ergebnis.
 
 ## Läufe
 
-Ein Lauf startet über `POST /api/flows/laeufe` (`{ flow, args,
-conversation_id? }`) und antwortet sofort mit `202 { runId }`; er läuft
-serverseitig weiter, egal ob ein Client zusieht. `GET /api/flows/laeufe/:id`
-liefert Lauf und Schritte, `GET /api/flows/laeufe/:id/stream` den SSE-Strom
-(erst der gespeicherte Verlauf, dann live), `POST …/abbrechen` stoppt ihn
-wirklich. Läufe liegen in `flow_runs` und `flow_run_steps`, gehören ihrem
-Besitzer (fremde Läufe sind ein `404`) und tragen Status `laeuft | fertig |
-fehler | abgebrochen`. Ein Neustart des Backends setzt jeden noch **laufenden**
+Ein Lauf startet über einen Auslöser (unten: HTTP mit Schlüssel, Zeitplan,
+Ereignis der App) und läuft serverseitig weiter, egal ob ein Client zusieht.
+`GET /api/laeufe/:id` liefert Lauf und Schritte, `POST /api/laeufe/:id/abbrechen`
+stoppt ihn wirklich. Läufe liegen in `flow_runs` und `flow_run_steps` und
+tragen Status `laeuft | fertig | fehler | abgebrochen`. Die früheren Wege unter
+`/api/flows/laeufe` (Start, SSE-Strom, Abbrechen, Wiederholen) sind am
+06.10.2026 gefallen. Ein Neustart des Backends setzt jeden noch **laufenden**
 Lauf auf `fehler`; ein Lauf, der auf eine Freigabe **wartet**, bleibt stehen
 (Abschnitt Freigaben).
 
@@ -285,15 +275,14 @@ zeigt keine zweite Liste.
 Jeder Lauf, der Dateien ändern **kann** (schreibendes Datei-Werkzeug oder
 Ausgabe-Dokument), wird vorher und nachher abgezogen; der Unterschied steht
 als `flow_runs.changes` am Lauf (`[{ pfad, art: neu|geaendert|geloescht,
-vorher, nachher, gekuerzt, hinweis }]`) und kommt live als Frame
-`aenderungen`. Das ist die Gegenleistung dafür, dass Flows **ohne
+vorher, nachher, gekuerzt, hinweis }]`). Das ist die Gegenleistung dafür, dass Flows **ohne
 Bestätigungsdialoge** laufen: Du siehst hinterher, was passiert ist.
 
 ## Ausgabe-Dokumente und Stilvorlagen
 
 `ausgabe` erklärt, was am Ende herauskommt: `format` (`keins | markdown |
 pdf | docx`), `dateiname` (Muster mit `{{argument}}` und `{{datum}}`),
-`vorlage` (eine hochgeladene Stilvorlage), `laenge` (`kurz | mittel |
+`vorlage` (eine Stilvorlage aus `FLOWS_DIR/vorlagen/`), `laenge` (`kurz | mittel |
 ausfuehrlich` oder `wortzahl`), `sprache`, `tonalitaet`, `gliederung`. Bei
 einem Dokumentformat liefert das Modell den vollständigen Inhalt als Markdown,
 der Runner rendert ihn (pdfkit, `docx`) und schreibt ihn kollisionsfrei ins
@@ -303,14 +292,13 @@ deshalb einen deklarierten `ordner`.
 Zwischen Entwurf und Ausgabe steht ein fester **Prüfschritt**: deterministische
 Checks (Platzhalter-Reste, offene `[Stellen]`, Gliederung, Ziel-Länge), eine
 Prüfrunde des Modells gegen Auftrag und Vorgaben, höchstens eine Korrekturrunde.
-Getroffene Annahmen landen als `flow_runs.annahmen` am Lauf und im SSE-Strom
-als Frame `annahmen`.
+Getroffene Annahmen landen als `flow_runs.annahmen` am Lauf.
 
-**Stilvorlagen** (`/api/flows/vorlagen`) liegen in `FLOWS_DIR/vorlagen/`
-(im Backup enthalten). Bei `.pdf`/`.docx` wird der Text **beim Hochladen**
-über den Document-Indexer (`POST /extract-text`) gezogen und als
-`<name>.extrahiert.txt` daneben abgelegt; eine Vorlage ohne lesbaren Text wird
-mit `400` abgewiesen, ein Lauf hängt damit nie am Indexer. Zur Laufzeit geht
+**Stilvorlagen** liegen in `FLOWS_DIR/vorlagen/` (im Backup enthalten). Bei
+`.pdf`/`.docx` liest der Lauf den Text aus `<name>.extrahiert.txt` daneben; ein
+Lauf hängt damit nie am Indexer. Eine Route zum Hochladen gibt es seit dem
+06.10.2026 nicht mehr (`/api/flows/vorlagen` ist gefallen); eine Vorlage, die
+schon im Ordner liegt, wird weiter gelesen. Zur Laufzeit geht
 der Text (gedeckelt auf 8 000 Zeichen) als Stil- und Strukturblock in den
 Prompt; eine gelöschte Vorlage wird still übersprungen.
 
@@ -465,41 +453,22 @@ Beim Einspielen weist das Gerät ab: `route_aufrufen` ohne `routen`, `routen`
 ohne das Werkzeug, eine Route der eigenen App ohne `backend` im Manifest.
 Ob eine andere App da ist, prüft es erst beim Aufruf: sie darf später kommen.
 
-## Zwei Betriebsarten (Plan 023 I2)
+## Betriebsart (Plan 023 I2)
 
-Ein Flow erklärt in seiner Datei, ob er zwischendurch fragen darf:
-
-```yaml
-betriebsart: rueckfragen # oder gar nichts, dann gilt "autonom"
-```
-
-|                            |                                                                                                            |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `autonom` (Voreinstellung) | Er fragt **nie**. Fehlt eine Angabe, trifft er eine Annahme und schreibt sie mit (Annahmen-Protokoll oben) |
-| `rueckfragen`              | Er hält an, wenn eine Entscheidung den weiteren Ablauf ändert                                              |
-
-Gefragt wird über das Werkzeug `frage_nutzer`. Es liegt **nur** in der
-Betriebsart `rueckfragen` im Werkzeugkasten, nicht als gesperrte Variante,
-sondern gar nicht. Ein Flow, der `frage_nutzer` deklariert, ohne die
-Betriebsart zu setzen, wird beim Speichern abgewiesen. Die offene Frage eines
-Laufs liefert `GET /api/flows/laeufe/:id/frage` (bis zu vier Optionen, die
-erste ist die Empfehlung, immer ein Freitext), beantwortet wird sie mit
-`POST /api/flows/laeufe/:id/antwort`. Antwortet niemand, gilt nach
-`FLOW_RUECKFRAGE_TIMEOUT_MS` die erste Empfehlung, und der Lauf schreibt das
-mit. Das Warten kostet keine GPU: die Sperre umschließt einen einzelnen
-Modellaufruf, nicht den ganzen Lauf.
+Ein Flow fragt **nie** zwischendurch. Fehlt eine Angabe, trifft er eine
+Annahme und schreibt sie mit (Annahmen-Protokoll oben). Das Feld
+`betriebsart` wird im Kopf weiter angenommen, damit vorhandene Flow-Dateien
+gültig bleiben; `rueckfragen` wirkt seit dem 06.10.2026 wie `autonom`. Das
+Werkzeug `frage_nutzer`, über das ein Flow in `rueckfragen` anhielt, ist an
+diesem Tag gefallen: beantworten ließ sich die Frage nur über eine Route, die
+keine Oberfläche rief.
 
 ## Freigaben (Phase C7)
 
-Ein Flow kann anhalten und um Freigabe bitten. Das ist etwas anderes als eine
-Rückfrage, und der Unterschied ist nicht technisch, sondern die Sache:
-
-|              | `frage_nutzer`                          | `freigabe_anfordern`                                 |
-| ------------ | --------------------------------------- | ---------------------------------------------------- |
-| Adressat     | wer gerade zusieht                      | die Standardperson der Stufe, sonst jeder mit Zugang |
-| liegt        | im Speicher des Prozesses               | in der Tabelle `approvals`                           |
-| ohne Antwort | der Flow läuft mit einer Annahme weiter | **nichts** läuft weiter, der Lauf endet              |
-| Betriebsart  | nur `rueckfragen`                       | jede — eine Freigabe **ist** der Halt                |
+Ein Flow kann anhalten und um Freigabe bitten (Werkzeug `freigabe_anfordern`).
+Die Anfrage liegt in der Tabelle `approvals` bei der Standardperson der Stufe,
+sonst bei jedem mit Zugang; ohne Antwort läuft **nichts** weiter, der Lauf
+endet.
 
 ```yaml
 schritte:
@@ -577,8 +546,8 @@ Die Frist wählt der Lauf in dieser Reihenfolge: `frist_minuten` am Schritt,
 sonst die `frist_minuten` der benannten **Stufe** (`parameter.stufe`, Stufen
 im Flow-Kopf, Kontrakt 8), sonst `FLOW_FREIGABE_FRIST_MINUTEN` (Vorgabe 10080 =
 sieben Tage). Höchstens ein Jahr. Eine Stufe, die der Flow nicht führt, weist
-der Schritt mit einem Satz ab. Das Warten kostet keine GPU — dieselbe Begründung
-wie bei der Rückfrage.
+der Schritt mit einem Satz ab. Das Warten kostet keine GPU: die Sperre
+umschließt einen einzelnen Modellaufruf, nicht den ganzen Lauf.
 
 ### Stufen und Standardperson (M5, 04.10.2026)
 
@@ -779,7 +748,7 @@ das Original**:
    Gerät kein Bildmodell, ruft das Gerät **kein Modell** auf. Der Lauf hält
    mit einer Freigabe an: Titel `Original fehlt`, `Original zu groß`,
    `Original nicht lesbar`, `Original nicht abrufbar` oder `Kein Bildmodell am
-   Gerät`, der Grund als Satz im Zusammenhang, die Felder leer und als fehlend
+Gerät`, der Grund als Satz im Zusammenhang, die Felder leer und als fehlend
    markiert. Bestätigt ein Mensch (mit den Feldern, die er ändern darf), geht
    der Lauf damit weiter; lehnt er ab, endet er.
 

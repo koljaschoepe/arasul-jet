@@ -1,6 +1,6 @@
 /**
  * Angaben ueber das Geraet fuer `routes/system/system.js`: JetPack-Fassung,
- * Internet, Jetson-Modell, Plattenbelegung, CA-Zertifikat.
+ * Internet, CA-Zertifikat.
  *
  * Aus der Route hierher gezogen (M5, Auftrag jet-fehlerklassen): Routen
  * fangen keine Fehler. Alles ausser dem Zertifikat ist Best-Effort -- eine
@@ -56,62 +56,6 @@ async function internetErreichbar() {
 }
 
 /**
- * Welches Jetson-Modell? `null`, wenn es keines ist oder sich nicht erkennen
- * laesst.
- *
- * @returns {Promise<{deviceType: string, deviceName: string}|null>}
- */
-async function jetsonModell() {
-  try {
-    return await jetsonModellLesen();
-  } catch {
-    // Not a Jetson device or could not detect
-    return null;
-  }
-}
-
-async function jetsonModellLesen() {
-  // SECURITY: Use fs.readFile instead of exec('cat ...') to prevent shell injection
-  // fire-and-forget: files may not exist on non-Jetson devices; empty string = not found
-  const tegrastats = await fs.readFile('/etc/nv_tegra_release', 'utf8').catch(() => '');
-  if (!tegrastats.includes('TEGRA')) {
-    return null;
-  }
-  const modelInfo = await fs.readFile('/proc/device-tree/model', 'utf8').catch(() => '');
-  if (modelInfo.includes('AGX Orin')) {
-    return { deviceType: 'jetson_agx_orin', deviceName: 'NVIDIA Jetson AGX Orin' };
-  }
-  if (modelInfo.includes('Orin Nano')) {
-    return { deviceType: 'jetson_orin_nano', deviceName: 'NVIDIA Jetson Orin Nano' };
-  }
-  if (modelInfo.includes('Orin NX')) {
-    return { deviceType: 'jetson_orin_nx', deviceName: 'NVIDIA Jetson Orin NX' };
-  }
-  if (modelInfo.includes('Xavier')) {
-    return { deviceType: 'jetson_xavier', deviceName: 'NVIDIA Jetson Xavier' };
-  }
-  if (modelInfo.includes('Nano')) {
-    return { deviceType: 'jetson_nano', deviceName: 'NVIDIA Jetson Nano' };
-  }
-  return { deviceType: 'jetson_generic', deviceName: 'NVIDIA Jetson Device' };
-}
-
-/** Belegung der Wurzel laut `df -h /`, sonst `{}`. */
-async function plattenBelegung() {
-  try {
-    const { stdout } = await execFileAsync('df', ['-h', '/']);
-    const lines = stdout.trim().split('\n');
-    if (lines.length >= 2) {
-      const parts = lines[1].split(/\s+/);
-      return { total: parts[1], used: parts[2], available: parts[3], percent: parts[4] };
-    }
-    return {};
-  } catch {
-    return {};
-  }
-}
-
-/**
  * Das CA-Zertifikat als PEM. 404 mit Satz, wenn es fehlt oder beschaedigt
  * ist; der Befehl dazu (`./arasul zertifikat`) steht im Handbuch, nicht hier
  * (J35).
@@ -134,7 +78,5 @@ async function caZertifikatLesen(pfad) {
 module.exports = {
   jetpackVersion,
   internetErreichbar,
-  jetsonModell,
-  plattenBelegung,
   caZertifikatLesen,
 };

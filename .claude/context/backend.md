@@ -18,7 +18,7 @@
 4. Helmet → CORS (RFC 1918 + `.local` mDNS) → cookie parser →
    JSON body (10 MB) → request log (non-prod) → audit log → CSRF →
    `/api` routes → `notFoundHandler` → `errorHandler`.
-5. HTTP server attached, then WebSocket via `noServer` mode (`server.on('upgrade')`).
+5. HTTP server attached (no WebSocket since 2026-10-06; the metrics stream fell).
 6. `migrationRunner` runs unapplied SQL from `services/postgres/init/`.
 7. `eventLoopMonitor` (`perf_hooks`) starts — multi-month uptime guard.
 
@@ -31,7 +31,6 @@
 | Sessions     | `active_sessions` (JTI, IP, UA); revoke = blacklist JTI                   |
 | API key      | `aras_<32-hex>`, header `X-API-Key`, route via `requireApiKey`            |
 | Forward-auth | `/api/auth/verify` for Traefik → returns `X-User-Id`/`X-User-Name`        |
-| WebSocket    | token via `?token=` query param (cookie unreliable for upgrades)          |
 
 ## Inter-service URLs (`src/config/services.js`)
 
@@ -62,15 +61,14 @@ structure at runtime.
 
 ## Reference files for common patterns
 
-| Pattern           | File                                                           |
-| ----------------- | -------------------------------------------------------------- |
-| Simple CRUD       | `routes/admin/settings.js`                                     |
-| SSE streaming     | `routes/flows.js` (`laeufe/:id/stream`) + `utils/sseHelper.js` |
-| File upload       | `routes/external/externalApi.js` (`document/extract`)          |
-| WebSocket upgrade | `src/index.js` (search `'upgrade'`)                            |
-| Queue-based job   | `services/llm/llmQueueService.js`                              |
-| GDPR / audit      | `routes/admin/gdpr.js` + `utils/auditLog.js`                   |
-| Circuit breaker   | `utils/retry.js` (see `circuitBreakers.get('ollama')`)         |
+| Pattern         | File                                                      |
+| --------------- | --------------------------------------------------------- |
+| Simple CRUD     | `routes/admin/settings.js`                                |
+| SSE streaming   | `routes/ai/models.js` (`download`) + `utils/sseHelper.js` |
+| File upload     | `routes/external/externalApi.js` (`document/extract`)     |
+| Queue-based job | `services/llm/llmQueueService.js`                         |
+| GDPR / audit    | `routes/admin/gdpr.js` + `utils/auditLog.js`              |
+| Circuit breaker | `utils/retry.js` (see `circuitBreakers.get('ollama')`)    |
 
 ## Things that have bitten us
 

@@ -3,7 +3,6 @@
  *
  *   GET    /api/ausweise        meine Ausweise
  *   POST   /api/ausweise        einen ausstellen -- der Wert kommt EINMAL
- *   GET    /api/ausweise/alle   alle am Geraet, mit Eigentuemer (Administrator)
  *   DELETE /api/ausweise/:id    widerrufen: ich meine, der Administrator jeden;
  *                               ein Ausweis kann sich selbst widerrufen (204)
  *
@@ -45,23 +44,6 @@ router.get(
   requireRole('admin', 'mitarbeiter'),
   asyncHandler(async (req, res) => {
     const data = await mitarbeiterAusweis.liste(req.user.id);
-    res.json({ data, timestamp: new Date().toISOString() });
-  })
-);
-
-/**
- * GET /api/ausweise/alle — alle Ausweise am Geraet.
- *
- * VOR `/:id` gibt es hier nichts zu klaeren -- `:id` ist eine Zahl und hat
- * nur ein DELETE. Die Route steht trotzdem hier oben, weil sie zur Liste
- * daneben gehoert und nicht zum Widerruf darunter.
- */
-router.get(
-  '/alle',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const data = await mitarbeiterAusweis.listeAlle();
     res.json({ data, timestamp: new Date().toISOString() });
   })
 );

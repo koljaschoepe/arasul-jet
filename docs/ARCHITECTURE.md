@@ -21,14 +21,13 @@ migrations always backward-compatible, no rewrites — only incremental change.
 Dreizehn Container. `document-indexer` ist ein zustandsloser Extraktionsdienst
 (`GET /health`, `POST /extract-text`): PDF/DOCX/OCR-Text auf Anfrage, ohne
 Datenbank, ohne GPU. `embedding-service` läuft ohne Profil, weil die
-OpenAI-kompatible `/v1/embeddings` (`GET /api/embeddings` reicht seine
-Auskunft durch) ihn braucht. Logs kommen aus `docker compose logs`; es gibt
+OpenAI-kompatible `/v1/embeddings` ihn braucht. Logs kommen aus `docker compose logs`; es gibt
 keine zentrale Log-Aggregation und keinen Objektspeicher.
 
 | #   | Service            | Port         | Technology          | Entry Point           | Purpose                                                               |
 | --- | ------------------ | ------------ | ------------------- | --------------------- | --------------------------------------------------------------------- |
 | 1   | dashboard-frontend | 3000         | React 19            | `src/App.tsx`         | Web UI                                                                |
-| 2   | dashboard-backend  | 3001         | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket                                            |
+| 2   | dashboard-backend  | 3001         | Node.js/Express     | `src/index.js`        | REST API + SSE                                                        |
 | 3   | postgres-db        | 5432         | PostgreSQL 16       | `init/*.sql`          | Relational database                                                   |
 | 4   | llm-service        | 11434, 11436 | Ollama + Flask      | `api_server.py`       | LLM inference                                                         |
 | 5   | embedding-service  | 11435        | Flask               | `embedding_server.py` | Text vectorization                                                    |
@@ -275,13 +274,13 @@ apps/dashboard-backend/
 │   ├── index.js              # Central router (mounts all routes)
 │   ├── appAusliefern.js      # /apps/<id>/ und /apps/<id>/test/ (statisch, Phase C3)
 │   ├── auth.js               # /api/auth/login, /logout, /me
-│   ├── flows.js              # /api/flows (Definitionen, Läufe, Vorlagen)
+│   ├── flows.js              # /api/flows (nur die Liste der Plattform-Flows)
 │   ├── docs.js               # /api/docs
-│   ├── system/               # system, services, metrics, logs, database, tailscale
-│   ├── admin/                # settings, audit, update, selfhealing, backup, gdpr, werksreset
-│   ├── ai/                   # models, embeddings
-│   ├── store/                # apps (Apps am Geraet), store (Modellkatalog)
-│   └── external/             # externalApi, openaiCompat, events, alerts
+│   ├── system/               # system, services, tailscale
+│   ├── admin/                # settings, update, selfhealing, backup, gdpr, werksreset, laeufe, ops, ...
+│   ├── ai/                   # models
+│   ├── store/                # apps (Apps am Geraet)
+│   └── external/             # externalApi, openaiCompat, deploy
 ├── src/middleware/
 │   ├── auth.js               # JWT validation
 │   ├── audit.js              # Request logging

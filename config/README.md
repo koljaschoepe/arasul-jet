@@ -17,7 +17,7 @@ config/
 │   └── dynamic/
 │       ├── routes.yml
 │       ├── middlewares.yml
-│       └── websockets.yml
+│       └── tls.yml
 ├── logrotate.d/               # Log rotation configuration
 │   └── arasul
 ├── docker-logging.yml         # Docker logging configuration
@@ -25,8 +25,7 @@ config/
 │   ├── .gitignore
 │   ├── admin.hash            # Admin password hash
 │   ├── jwt_secret            # JWT secret key
-│   ├── postgres_password     # PostgreSQL password
-│   └── public_update_key.pem # Public key for update verification
+│   └── postgres_password     # PostgreSQL password
 └── app/                       # Application-specific configuration
     ├── dashboard.json        # Dashboard configuration
     └── system.json          # System configuration
@@ -46,7 +45,6 @@ Sensitive configuration is stored in `config/secrets/` directory:
 - `admin.hash` - bcrypt hash of admin password
 - `jwt_secret` - Secret key for JWT token signing
 - `postgres_password` - PostgreSQL database password
-- `public_update_key.pem` - Public key for update package verification
 
 **Security**: This directory should have `700` permissions and is excluded from git.
 

@@ -456,116 +456,6 @@ async function getRun(
 }
 
 /**
- * Lädt die neuesten Läufe eines Nutzers (ohne Schritte, für eine Übersicht).
- *
- * `app_id`/`stand` stehen seit C6 in der Auswahl, aber es gibt keinen Filter
- * darauf — die Liste eines Nutzers ist die Liste eines Nutzers, und ein Lauf,
- * den eine seiner Apps gestartet hat, gehört sichtbar dazu. Die Spalten sagen,
- * WOHER er kam. Ein Filter ohne Aufrufer wäre eine Verzweigung, die niemand je
- * durchläuft und die beim nächsten Umbau falsch stehenbleibt; wenn die
- * D-Phasen eine Ansicht je App bauen, kommt er mit ihr.
- */
-async function listRuns(
-  { userId, limit = 50, status = null, flowName = null },
-  { db = database } = {}
-) {
-  const params = [userId];
-  let filter = '';
-  if (status != null) {
-    params.push(status);
-    filter += `AND status = $${params.length} `;
-  }
-  if (flowName != null) {
-    params.push(flowName);
-    filter += `AND flow_name = $${params.length} `;
-  }
-  params.push(Math.min(Math.max(1, limit), 200));
-  const { rows } = await db.query(
-    `SELECT id, flow_name, app_id, stand, status, steps_used, created_at, finished_at, arguments,
-            ausloeser, ereignis
-       FROM flow_runs
-      WHERE user_id = $1 ${filter}
-      ORDER BY id DESC
-      LIMIT $${params.length}`,
-    params
-  );
-  return rows;
-}
-
-/**
- * Die Laeufe EINER App, unabhaengig davon, wer sie gestartet hat (Phase D4).
- *
- * DER UNTERSCHIED ZU `listRuns` IST DER SCHNITT, und er ist keine Bequemlichkeit:
- * `listRuns` beantwortet "was habe ICH laufen lassen", diese Funktion "was hat
- * DIESE APP getan". Ein App-Lauf traegt als `user_id` den Menschen, dem der
- * App-Schluessel gehoert -- also den Administrator, der die App eingespielt
- * hat. Ein zweiter Administrator saehe die Laeufe der App ueber `listRuns`
- * deshalb NIE, obwohl beide dasselbe Geraet verwalten, und die App-Ansicht
- * waere je nach Anmeldung eine andere.
- *
- * DIE BERECHTIGUNG STEHT AN DER ROUTE (`requireRole('admin')`), nicht hier.
- * Diese Funktion siebt nach App und Stand, mehr nicht -- so wie `listeApps`
- * alle Apps des Geraets aufzaehlt.
- *
- * @param {{appId: string, stand?: 'test'|'live'|null, flowName?: string|null,
- *          status?: string|null, limit?: number}} p
- */
-async function listRunsFuerApp(
-  { appId, stand = null, flowName = null, status = null, limit = 50 },
-  { db = database } = {}
-) {
-  const params = [appId];
-  let filter = '';
-  if (stand != null) {
-    params.push(stand);
-    filter += `AND stand = $${params.length} `;
-  }
-  if (flowName != null) {
-    params.push(flowName);
-    filter += `AND flow_name = $${params.length} `;
-  }
-  if (status != null) {
-    params.push(status);
-    filter += `AND status = $${params.length} `;
-  }
-  params.push(Math.min(Math.max(1, limit), 200));
-  const { rows } = await db.query(
-    `SELECT id, flow_name, app_id, stand, status, steps_used, created_at, finished_at,
-            arguments, error, abschluss, ausloeser, ereignis
-       FROM flow_runs
-      WHERE app_id = $1 ${filter}
-      ORDER BY id DESC
-      LIMIT $${params.length}`,
-    params
-  );
-  return rows;
-}
-
-/**
- * Ein Lauf EINER App samt Schritten (Phase D4).
- *
- * Ohne `userId` und mit derselben Begruendung wie `listRunsFuerApp`: die Frage
- * lautet "was hat diese App getan", nicht "was habe ich getan". `appId` ist
- * hier die ganze Einschraenkung, und sie ist eine echte -- ein Lauf der
- * Plattform (`app_id IS NULL`) oder einer anderen App faellt heraus und ist ein
- * NotFound, kein Forbidden: wer nicht darf, erfaehrt nicht, was es gibt.
- *
- * `includeRaw` holt die Rohdaten der Schritte dazu. Sie koennen je Subagent
- * einige Dutzend Kilobyte sein; die Ansicht laedt sie deshalb erst, wenn
- * jemand einen Schritt aufklappt.
- */
-async function getRunFuerApp({ runId, appId, includeRaw = false }, { db = database } = {}) {
-  const runRes = await db.query(`SELECT * FROM flow_runs WHERE id = $1 AND app_id = $2`, [
-    runId,
-    appId,
-  ]);
-  if (runRes.rows.length === 0) {
-    throw new NotFoundError(`Flow-Lauf ${runId} nicht gefunden`);
-  }
-  return { ...runRes.rows[0], ...(await schritteUndFreigaben(runId, includeRaw, db)) };
-}
-
-/**
  * Wer hinter einem Lauf steht, als eine Spalte: der Mensch, für den eine App
  * ihn auslöste (`einreicher_id`), bei einem Lauf der Plattform ohne App der
  * Nutzer selbst. Ein Lauf aus Zeitplan oder Ereignis hat keinen: sein
@@ -663,9 +553,6 @@ module.exports = {
   bumpSteps,
   cancelRun,
   getRun,
-  getRunFuerApp,
-  listRuns,
-  listRunsFuerApp,
   ENDZUSTAENDE,
   LAEUFT_NOCH,
 };

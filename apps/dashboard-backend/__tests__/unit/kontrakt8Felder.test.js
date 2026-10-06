@@ -5,7 +5,7 @@
  */
 const { AppManifest, Aenderungstext } = require('../../src/schemas/apps');
 const { FlowDefinition } = require('../../src/schemas/flows');
-const { parseFlowFile, serializeFlowFile } = require('../../src/services/flows/flowFile');
+const { parseFlowFile } = require('../../src/services/flows/flowFile');
 const appKontrakt = require('../../src/services/app/appKontrakt');
 
 const MANIFEST = {
@@ -109,14 +109,20 @@ describe('arten, ausloeser, stufen je Flow', () => {
     );
   });
 
-  it('geht durch die Flow-Datei hin und zurueck', () => {
-    const flow = FlowDefinition.parse({
-      ...FLOW,
-      arten: ['autonom'],
-      ausloeser: [{ typ: 'hand' }],
-      stufen: [{ name: 'pruefung' }],
-    });
-    const zurueck = parseFlowFile(serializeFlowFile(flow), { name: 'beleg' });
+  it('steht so in der Flow-Datei', () => {
+    const text = [
+      '---',
+      'name: beleg',
+      'arten: [autonom]',
+      'ausloeser:',
+      '  - typ: hand',
+      'stufen:',
+      '  - name: pruefung',
+      '---',
+      'Lies den Beleg.',
+      '',
+    ].join('\n');
+    const zurueck = parseFlowFile(text, { name: 'beleg' });
     expect(zurueck.arten).toEqual(['autonom']);
     expect(zurueck.ausloeser).toEqual([{ typ: 'hand' }]);
     expect(zurueck.stufen).toEqual([{ name: 'pruefung' }]);

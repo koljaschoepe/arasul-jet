@@ -2,9 +2,8 @@
  * Unit tests for Docs Routes (Swagger UI)
  *
  * Tests the API documentation endpoints:
- * - GET /api/docs - Swagger UI (requires auth)
- * - GET /api/docs/openapi.json - OpenAPI spec as JSON (requires auth)
- * - GET /api/docs/openapi.yaml - OpenAPI spec as YAML (requires auth)
+ * - GET /api/docs - Swagger UI (requires auth); das Dokument steht inline,
+ *   openapi.json und openapi.yaml als eigene Wege sind am 06.10.2026 gefallen
  */
 
 const request = require('supertest');
@@ -68,127 +67,4 @@ describe('Docs Routes (Swagger UI)', () => {
     });
   });
 
-  // ============================================================================
-  // GET /api/docs/openapi.json
-  // ============================================================================
-  describe('GET /api/docs/openapi.json', () => {
-    test('should return OpenAPI specification as JSON', async () => {
-      const response = await request(app)
-        .get('/api/docs/openapi.json')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(response.status).toBe(200);
-      expect(response.headers['content-type']).toMatch(/application\/json/);
-    });
-
-    test('should include OpenAPI version', async () => {
-      const response = await request(app)
-        .get('/api/docs/openapi.json')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('openapi');
-      expect(response.body.openapi).toMatch(/^3\./);
-    });
-
-    test('should include API info', async () => {
-      const response = await request(app)
-        .get('/api/docs/openapi.json')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('info');
-      expect(response.body.info).toHaveProperty('title');
-      expect(response.body.info).toHaveProperty('version');
-    });
-
-    test('should include paths object', async () => {
-      const response = await request(app)
-        .get('/api/docs/openapi.json')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('paths');
-      expect(typeof response.body.paths).toBe('object');
-    });
-
-    test('should require authentication', async () => {
-      const response = await request(app).get('/api/docs/openapi.json');
-
-      expect(response.status).toBe(401);
-    });
-  });
-
-  // ============================================================================
-  // GET /api/docs/openapi.yaml
-  // ============================================================================
-  describe('GET /api/docs/openapi.yaml', () => {
-    test('should return OpenAPI specification as YAML or 404', async () => {
-      const response = await request(app)
-        .get('/api/docs/openapi.yaml')
-        .set('Authorization', `Bearer ${token}`);
-
-      // May return 404 if yaml file doesn't exist
-      expect([200, 404]).toContain(response.status);
-    });
-
-    test('should require authentication', async () => {
-      const response = await request(app).get('/api/docs/openapi.yaml');
-
-      // Should return 401 without auth token
-      expect(response.status).toBe(401);
-    });
-  });
-
-  // ============================================================================
-  // Content Validation
-  // ============================================================================
-  describe('OpenAPI Content Validation', () => {
-    test('should have valid title in info', async () => {
-      const response = await request(app)
-        .get('/api/docs/openapi.json')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.info.title).toContain('ARASUL');
-    });
-
-    test('should return proper content-type for JSON', async () => {
-      const response = await request(app)
-        .get('/api/docs/openapi.json')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(response.status).toBe(200);
-      expect(response.headers['content-type']).toMatch(/application\/json/);
-    });
-  });
-
-  // ============================================================================
-  // Error Handling
-  // ============================================================================
-  describe('Error Handling', () => {
-    test('should handle missing openapi.yaml gracefully', async () => {
-      const response = await request(app)
-        .get('/api/docs/openapi.yaml')
-        .set('Authorization', `Bearer ${token}`);
-
-      // Should return 404 with proper error message, not 500
-      if (response.status === 404) {
-        expect(response.body).toHaveProperty('error');
-        expect(response.body).toHaveProperty('timestamp');
-      }
-    });
-
-    test('should not expose internal errors', async () => {
-      const response = await request(app)
-        .get('/api/docs/openapi.yaml')
-        .set('Authorization', `Bearer ${token}`);
-
-      // Should not contain stack trace or internal paths in error
-      if (response.status === 404) {
-        expect(response.text).not.toContain('node_modules');
-        expect(response.text).not.toContain('at ');
-      }
-    });
-  });
 });

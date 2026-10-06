@@ -283,7 +283,7 @@ describe('getRun', () => {
   });
 });
 
-describe('getRunFuerApp (Laeufe-Ansicht der Verwaltung)', () => {
+describe('getRunAlle (Laeufe-Ansicht der Verwaltung)', () => {
   it('traegt die Freigaben mit Feldern und Korrekturen wie getRun', async () => {
     const freigabe = {
       id: 5,
@@ -292,21 +292,10 @@ describe('getRunFuerApp (Laeufe-Ansicht der Verwaltung)', () => {
       korrekturen: [{ feld: 'datum', vorschlag: '', wert: '01.10.2026', von: 'b' }],
     };
     const db = fakeDb({ rows: [{ id: 7, app_id: 'belege' }] }, { rows: [] }, { rows: [freigabe] });
-    const run = await runStore.getRunFuerApp({ runId: 7, appId: 'belege' }, { db });
+    const run = await runStore.getRunAlle({ runId: 7 }, { db });
     expect(run.freigaben).toEqual([freigabe]);
     expect(db.calls[2].sql).toMatch(/FROM public\.approvals/);
     expect(db.calls[2].params).toEqual([7]);
-  });
-});
-
-describe('listRuns', () => {
-  it('bindet auf den Nutzer und deckelt das Limit', async () => {
-    const db = fakeDb({ rows: [] });
-    await runStore.listRuns({ userId: 1, limit: 9999 }, { db });
-    const { sql, params } = db.calls[0];
-    expect(sql).toMatch(/WHERE user_id = \$1/);
-    expect(params[0]).toBe(1);
-    expect(params[params.length - 1]).toBe(200); // hart gedeckelt
   });
 });
 

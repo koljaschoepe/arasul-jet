@@ -17,8 +17,6 @@ info:
     ## Rate Limits
 
     - **Auth endpoints**: 5 requests per 15 minutes
-    - **LLM API**: 10 requests per second
-    - **Metrics API**: 20 requests per second
     - **General API**: 100 requests per minute
 
     ## Base URL
@@ -50,22 +48,14 @@ tags:
     description: User authentication and session management
   - name: System
     description: System status, info, and configuration
-  - name: Metrics
-    description: System metrics (CPU, RAM, GPU, temperature, disk)
   - name: Services
     description: Service status and management
-  - name: Database
-    description: Database connection pool monitoring
-  - name: Logs
-    description: Log file access and streaming
   - name: Self-Healing
     description: Self-healing events and status
   - name: Updates
     description: System update management
   - name: LLM
     description: Large Language Model inference
-  - name: Embeddings
-    description: Text embedding generation
 
 components:
   securitySchemes:
@@ -209,49 +199,6 @@ components:
           type: string
           format: date-time
 
-    MetricsLive:
-      type: object
-      properties:
-        cpu:
-          type: number
-          format: float
-          description: CPU usage percentage
-          example: 45.2
-        ram:
-          type: number
-          format: float
-          description: RAM usage percentage
-          example: 62.8
-        gpu:
-          type: number
-          format: float
-          description: GPU usage percentage
-          example: 78.5
-        temperature:
-          type: number
-          format: float
-          description: Temperature in Celsius
-          example: 65.3
-        disk:
-          type: object
-          properties:
-            used:
-              type: integer
-              description: Used disk space in bytes
-            free:
-              type: integer
-              description: Free disk space in bytes
-            total:
-              type: integer
-              description: Total disk space in bytes
-            percent:
-              type: number
-              format: float
-              description: Disk usage percentage
-        timestamp:
-          type: string
-          format: date-time
-
 paths:
   /auth/login:
     post:
@@ -378,25 +325,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemInfo'
-        '401':
-          description: Unauthorized
-
-  /metrics/live:
-    get:
-      tags:
-        - Metrics
-      summary: Get current metrics
-      description: Returns current CPU, RAM, GPU, temperature, and disk metrics
-      operationId: getMetricsLive
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Metrics retrieved
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MetricsLive'
         '401':
           description: Unauthorized
 

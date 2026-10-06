@@ -238,24 +238,13 @@ curl -H "Authorization: Bearer <token>" http://arasul.local/api/system/status
 
 Token validity: 24 hours.
 
-### WebSocket Streaming
-
-```javascript
-// Real-time metrics (5s interval)
-const ws = new WebSocket(`ws://arasul.local/api/metrics/live-stream?token=${token}`);
-ws.onmessage = event => {
-  const metrics = JSON.parse(event.data);
-  // { cpu, ram, gpu, temperature, disk, timestamp }
-};
-```
-
 ### Common Workflows
 
 **Monitor system health:**
 
 ```bash
-curl -H "Authorization: Bearer <token>" http://arasul.local/api/metrics/live
-curl -H "Authorization: Bearer <token>" http://arasul.local/api/services/status
+curl -H "Authorization: Bearer <token>" http://arasul.local/api/ops/overview
+curl -H "Authorization: Bearer <token>" http://arasul.local/api/services/all
 ```
 
 **Self-healing events:**
@@ -264,11 +253,10 @@ curl -H "Authorization: Bearer <token>" http://arasul.local/api/services/status
 curl -H "Authorization: Bearer <token>" "http://arasul.local/api/self-healing/events?limit=10"
 ```
 
-**System logs (SSE):**
+**System logs:**
 
 ```bash
-curl -H "Authorization: Bearer <token>" -H "Accept: text/event-stream" \
-  "http://arasul.local/api/logs/stream?log_type=system"
+docker compose logs -f dashboard-backend
 ```
 
 ---
@@ -297,21 +285,21 @@ keinen eigenen Chat.
 
 ### Flows
 
-| Method | Path                    | Auth | Description                   |
-| ------ | ----------------------- | ---- | ----------------------------- |
-| GET    | `/api/flows`            | Yes  | List flow definitions         |
-| POST   | `/api/flows/laeufe`     | Yes  | Start a run (`202 { runId }`) |
-| GET    | `/api/flows/laeufe/:id` | Yes  | Run with steps                |
+| Method | Path                               | Auth    | Description                     |
+| ------ | ---------------------------------- | ------- | ------------------------------- |
+| GET    | `/api/flows`                       | Yes     | List flow definitions           |
+| POST   | `/api/v1/external/flows/:name/run` | API Key | Start a run                     |
+| GET    | `/api/laeufe/:id`                  | Admin   | Run with steps                  |
+| POST   | `/api/laeufe/:id/abbrechen`        | Admin   | Cancel a running or waiting run |
 
 ### System & Monitoring
 
-| Method | Path                       | Auth | Description      |
-| ------ | -------------------------- | ---- | ---------------- |
-| GET    | `/api/health`              | No   | Health check     |
-| GET    | `/api/metrics/live`        | Yes  | Current metrics  |
-| WS     | `/api/metrics/live-stream` | Yes  | Real-time (5s)   |
-| GET    | `/api/services/status`     | Yes  | Container status |
-| POST   | `/api/services/restart`    | Yes  | Restart service  |
+| Method | Path                          | Auth | Description      |
+| ------ | ----------------------------- | ---- | ---------------- |
+| GET    | `/api/health`                 | No   | Health check     |
+| GET    | `/api/ops/overview`           | Yes  | Health snapshot  |
+| GET    | `/api/services/all`           | Yes  | Container status |
+| POST   | `/api/services/restart/:name` | Yes  | Restart service  |
 
 Full reference: [API_REFERENCE.md](../api/API_REFERENCE.md)
 

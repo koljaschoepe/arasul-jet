@@ -59,7 +59,6 @@ OEFFENTLICH = {
     ),
     'GET /api/ausgang/regeln': 'Regeln fuer den Ausgangs-Proxy, gesichert ueber seinen Token (HMAC aus dem Geraetegeheimnis, J38)',
     'POST /api/ausgang/ereignisse': 'Zaehler vom Ausgangs-Proxy, gesichert ueber denselben Token (J38)',
-    'POST /api/events/webhook/self-healing': 'Webhook des Selbstheilungs-Agenten, gesichert ueber sein Geheimnis',
 }
 
 

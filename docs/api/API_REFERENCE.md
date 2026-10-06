@@ -90,18 +90,15 @@ Stand: 2026-08-27. Quelle: `apps/dashboard-backend/src/utils/version.js`.
 | POST   | `/api/auth/logout`          | Logout (blacklists token, clears cookie) — auch ohne Sitzung 200     | 30/min        |
 | POST   | `/api/auth/logout-all`      | Invalidate all sessions for current user (auch Mitarbeiter)          | -             |
 | POST   | `/api/auth/change-password` | Change own password (invalidates all sessions) (auch Mitarbeiter)    | 3/15min, user |
-| POST   | `/api/auth/refresh-cookie`  | Re-sync session cookie from Bearer token (auch Mitarbeiter)          | -             |
 | GET    | `/api/auth/verify`          | Verify token (for Traefik forward-auth)                              | -             |
 | GET    | `/api/auth/me`              | Get current user info (auch Mitarbeiter)                             | -             |
 | GET    | `/api/auth/csrf`            | Re-mint the CSRF token cookie for this session (auch Mitarbeiter)    | -             |
-| GET    | `/api/auth/sessions`        | List active sessions for current user (auch Mitarbeiter)             | -             |
 
 > Stand: 2026-08-28 · Quelle: `src/routes/auth.js`, `src/middleware/rateLimit.js`
 >
 > Beim Eintragen von `/api/auth/session` (Plan 023 C3) gegengeprüft: drei
 > Angaben in dieser Tabelle waren falsch. `logout` steht auf 30 **pro Minute**,
-> nicht 30 pro 15 Minuten, und `logout-all` und `refresh-cookie` haben
-> überhaupt keinen Limiter. `change-password` zählt je Nutzer, nicht je IP.
+> nicht 30 pro 15 Minuten, und `logout-all` hat überhaupt keinen Limiter. `change-password` zählt je Nutzer, nicht je IP.
 > Alle Werte oben stammen jetzt aus dem Code, nicht aus dem vorigen Stand
 > dieser Datei.
 >
@@ -231,18 +228,6 @@ dem frischen Token noch bis zu einer Minute `passwortWechselNoetig: true`.
 | 404    | `NOT_FOUND`        | Den Benutzer gibt es nicht mehr                                                                                                 |
 | 429    | `RATE_LIMITED`     | Mehr als drei Versuche in fünfzehn Minuten                                                                                      |
 
-**POST /api/auth/refresh-cookie:**
-
-Re-syncs the `arasul_session` HttpOnly cookie from the current Bearer token. The frontend calls this right before navigating to a Traefik forward-auth-gated route when the user may have logged in under a different hostname and the cookie is missing for the current origin.
-
-```json
-// Response
-{
-  "success": true,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
 **GET /api/auth/csrf:**
 
 Mints a fresh CSRF token, sets it as the non-HttpOnly `arasul_csrf` cookie (4 h, matching the session), and returns it in the body. The CSRF cookie is otherwise only created at login and rotated on state-changing requests; if it expires or is cleared while the session/Bearer auth is still valid, mutations fail with `403 CSRF_INVALID`. `useApi` calls this automatically to re-mint the token and retry the failed request exactly once — no re-login needed. Auth required.
@@ -266,16 +251,13 @@ Returns user info headers on success:
 
 ### System
 
-| Method | Endpoint                        | Description                            |
-| ------ | ------------------------------- | -------------------------------------- |
-| GET    | `/api/system/status`            | System health (OK/WARNING/CRITICAL)    |
-| GET    | `/api/system/info`              | Version, build hash, uptime            |
-| GET    | `/api/system/network`           | IP addresses, mDNS, connectivity       |
-| GET    | `/api/system/thresholds`        | Device-specific metric thresholds      |
-| GET    | `/api/system/heartbeat`         | Lebenszeichen, ohne Anmeldung          |
-| GET    | `/api/system/ca-zertifikat`     | CA-Zertifikat des Geräts, als Datei    |
-| GET    | `/api/system/diagnostics/quick` | Lagebild als JSON, ohne Archiv         |
-| POST   | `/api/system/diagnostics`       | Diagnosearchiv erzeugen und ausliefern |
+| Method | Endpoint                    | Description                         |
+| ------ | --------------------------- | ----------------------------------- |
+| GET    | `/api/system/status`        | System health (OK/WARNING/CRITICAL) |
+| GET    | `/api/system/info`          | Version, build hash, uptime         |
+| GET    | `/api/system/network`       | IP addresses, mDNS, connectivity    |
+| GET    | `/api/system/heartbeat`     | Lebenszeichen, ohne Anmeldung       |
+| GET    | `/api/system/ca-zertifikat` | CA-Zertifikat des Geräts, als Datei |
 
 **GET /api/system/ca-zertifikat:**
 
@@ -304,53 +286,6 @@ Betriebssystems, nicht des Dienstes) und `timestamp`.
 ```json
 { "status": "ok", "uptime": 864000, "timestamp": "2026-08-23T10:00:00.000Z" }
 ```
-
-**GET /api/system/diagnostics/quick:**
-
-Auth: erforderlich. Vier Quellen in einer Antwort, jede einzeln abgesichert:
-`system` (Hostname, Plattform, Last, Speicher), `services` (Docker-Zustand,
-bei Fehler `{}`), `database` (Verbindungen, Datenbankgröße,
-Selbstheilungs-Ereignisse und Dienstausfälle der letzten 24 Stunden, bei
-Fehler `{}`) und `disk` (aus `df -h /`). Kein Archiv, keine Datei.
-
-**POST /api/system/diagnostics:**
-
-Auth: erforderlich. Ruft `scripts/system/diagnostics.sh` auf (Zeitlimit 120 s)
-und liefert das erzeugte Archiv als Download aus
-(`Content-Type: application/gzip`). Der Aufruf wird im Sicherheitsprotokoll
-vermerkt.
-
-Request Body (beides optional):
-
-```json
-{ "days": 3, "includeLogs": true }
-```
-
-**GET /api/system/thresholds:**
-
-Returns device-specific thresholds for metrics based on auto-detected hardware.
-
-```json
-{
-  "device": {
-    "type": "jetson_agx_orin",
-    "name": "NVIDIA Jetson AGX Orin",
-    "cpu_cores": 12,
-    "total_memory_gb": 64
-  },
-  "thresholds": {
-    "cpu": { "warning": 75, "critical": 90 },
-    "ram": { "warning": 75, "critical": 90 },
-    "gpu": { "warning": 80, "critical": 95 },
-    "storage": { "warning": 70, "critical": 85 },
-    "temperature": { "warning": 65, "critical": 80 }
-  },
-  "source": "device_auto_detected",
-  "timestamp": "2026-01-05T12:00:00.000Z"
-}
-```
-
-Supported devices: Jetson AGX Orin, Orin Nano, Orin NX, Xavier, Nano, Generic Linux
 
 ### System Setup — gestrichen (Phase D4)
 
@@ -383,30 +318,11 @@ Seitenladung. Gesetzt wird er über `PUT /api/settings/firmenname`.
 { "needsSetup": false, "firmenname": "Muster GmbH", "timestamp": "…" }
 ```
 
-### Metrics
-
-| Method | Endpoint                   | Description                       | Rate Limit |
-| ------ | -------------------------- | --------------------------------- | ---------- |
-| GET    | `/api/metrics/live`        | Current CPU, RAM, GPU, temp, disk | 20/s       |
-| GET    | `/api/metrics/history`     | Historical metrics                | 20/s       |
-| WS     | `/api/metrics/live-stream` | WebSocket stream (5s interval)    | -          |
-
-**Query Parameters (history):**
-
-- `range`: Time range (default: `24h`, options: `1h`, `6h`, `24h`, `7d`)
-
 ### Services
 
 | Method | Endpoint                             | Description                                        |
 | ------ | ------------------------------------ | -------------------------------------------------- |
-| GET    | `/api/services`                      | Status of all services                             |
-| GET    | `/api/services/ai`                   | AI services with GPU load                          |
 | GET    | `/api/services/all`                  | Alle Dienste als Liste, mit `canRestart` je Dienst |
-| GET    | `/api/services/llm/models`           | Modelle, die auf dem Gerät liegen                  |
-| GET    | `/api/services/llm/models/:name`     | Ein Modell im Einzelnen (Modelfile, Parameter)     |
-| POST   | `/api/services/llm/models/pull`      | Ein Modell nachladen, im Hintergrund               |
-| DELETE | `/api/services/llm/models/:name`     | Ein Modell vom Gerät löschen                       |
-| GET    | `/api/services/embedding/info`       | Auskunft des Embedding-Dienstes                    |
 | POST   | `/api/services/restart/:serviceName` | Einen Dienst neu starten (nur Admin)               |
 
 **GET /api/services/all:**
@@ -416,24 +332,6 @@ Auth: erforderlich. Liste statt Objekt, mit `id`, `name`, `anzeige`, `status`,
 Zugehörigkeit zur Liste unten. `anzeige` ist der deutsche Name des Dienstes
 („Datenbank" statt `postgres-db`, seit J35), aus der einen Tabelle
 `utils/dienstNamen.js`; ein unbekannter Dienst behält seinen `name`.
-
-**POST /api/services/llm/models/pull:**
-
-Auth: erforderlich. Body: `{ "model_name": "gemma3:1b" }`. Antwortet sofort mit
-`status: "started"` und lädt danach im Hintergrund (Zeitlimit eine Stunde). Der
-Fortschritt steht nicht in dieser Antwort; nachsehen über
-`GET /api/services/llm/models`.
-
-**DELETE /api/services/llm/models/:name:**
-
-Auth: erforderlich. Löscht das Modell im LLM-Dienst. `404`, wenn es das Modell
-nicht gibt, `503`, wenn der Dienst nicht erreichbar ist.
-
-**GET /api/services/embedding/info:**
-
-Auth: erforderlich. Reicht die Auskunft des Embedding-Dienstes durch. Der
-Dienst läuft seit dem 24.08.2026 wieder ohne Compose-Profil; ist er nicht
-erreichbar, antwortet der Endpunkt mit `503`.
 
 **POST /api/services/restart/:serviceName:**
 
@@ -459,32 +357,11 @@ bis zu den D-Phasen des Überordner-Plans nicht.
 
 ---
 
-### Embeddings
-
-| Method | Endpoint          | Description              |
-| ------ | ----------------- | ------------------------ |
-| POST   | `/api/embeddings` | Generate text embeddings |
-
-**POST /api/embeddings:**
-
-```json
-{
-  "text": "Text to embed"
-}
-```
-
 ### Self-Healing
 
-| Method | Endpoint                             | Description                                |
-| ------ | ------------------------------------ | ------------------------------------------ |
-| GET    | `/api/self-healing/events`           | Event history                              |
-| GET    | `/api/self-healing/status`           | Current status                             |
-| GET    | `/api/self-healing/recovery-actions` | Was der Wächter unternommen hat            |
-| GET    | `/api/self-healing/service-failures` | Ausfälle je Dienst, filterbar              |
-| GET    | `/api/self-healing/reboot-history`   | Neustarts des Geräts                       |
-| GET    | `/api/self-healing/metrics`          | Verfügbarkeit, Erfolgsquote, Verlauf (7 d) |
-
-Die vier unteren verlangen **Admin**, nicht nur eine Anmeldung.
+| Method | Endpoint                   | Description   |
+| ------ | -------------------------- | ------------- |
+| GET    | `/api/self-healing/events` | Event history |
 
 **GET /api/self-healing/events:** jedes Ereignis trägt seit J35 zusätzlich
 `dienst_anzeige`, den deutschen Namen zu `service_name` (dieselbe Tabelle wie
@@ -494,156 +371,10 @@ Die vier unteren verlangen **Admin**, nicht nur eine Anmeldung.
 Sätze für einen Menschen („Die letzte Sicherung ist 50 Stunden alt", „Ein Dienst
 ist ausgefallen: Datenbank"), keine Logzeilen.
 
-**GET /api/self-healing/recovery-actions, /service-failures, /reboot-history:**
-
-Alle drei blättern gleich: Query `limit` und `offset`, Antwort mit `count` (was
-diese Seite enthält), `total` (was es insgesamt gibt), `limit` und `offset`.
-Standard-`limit`: 20 für Aktionen, 50 für Ausfälle, 10 für Neustarts.
-`/service-failures` nimmt zusätzlich `service_name`.
-
-**GET /api/self-healing/metrics:**
-
-Drei Auswertungen über die letzten sieben Tage: `failures_by_service`
-(`failure_count`, `recovered`, `not_recovered`, `last_failure`),
-`recovery_success_rates` je Art der Maßnahme und `event_trends` je Tag,
-getrennt nach `CRITICAL` und `WARNING`.
-
-Eine Verfügbarkeit in Prozent steht hier bewusst **nicht**.
-`service_failures` kennt den Zeitpunkt der Störung, nicht den der Behebung —
-eine Ausfalldauer ist daraus nicht zu rechnen. Bis zum 23.08.2026 stand hier
-eine Rechnung auf einer Spalte `resolved_at`, die es nie gab; der Endpunkt
-antwortete auf jedem Gerät mit `500`. Stand: 2026-08-23, Quelle:
-`services/postgres/init/003_self_healing_schema.sql`.
-
 **Query Parameters (events):**
 
 - `limit`: Max results (default: 100)
 - `severity`: Filter by severity (INFO, WARNING, CRITICAL)
-
-### Alerts
-
-| Method | Endpoint                              | Description                                    |
-| ------ | ------------------------------------- | ---------------------------------------------- |
-| GET    | `/api/alerts/settings`                | Get global alert settings                      |
-| PUT    | `/api/alerts/settings`                | Update global alert settings                   |
-| GET    | `/api/alerts/thresholds`              | Get all threshold configurations               |
-| PUT    | `/api/alerts/thresholds/:metricType`  | Update threshold (cpu, ram, disk, temperature) |
-| GET    | `/api/alerts/quiet-hours`             | Get quiet hours for all days                   |
-| PUT    | `/api/alerts/quiet-hours/:dayOfWeek`  | Update quiet hours for single day (0-6)        |
-| PUT    | `/api/alerts/quiet-hours`             | Bulk update quiet hours                        |
-| GET    | `/api/alerts/history`                 | Get alert history                              |
-| POST   | `/api/alerts/history/:id/acknowledge` | Acknowledge single alert                       |
-| POST   | `/api/alerts/history/acknowledge-all` | Acknowledge all alerts                         |
-| GET    | `/api/alerts/statistics`              | Get alert statistics                           |
-| POST   | `/api/alerts/test-webhook`            | Test webhook configuration                     |
-| POST   | `/api/alerts/trigger-check`           | Manually trigger alert check                   |
-| GET    | `/api/alerts/status`                  | Get alert engine status                        |
-
-**PUT /api/alerts/settings:**
-
-```json
-{
-  "alerts_enabled": true,
-  "webhook_enabled": false,
-  "webhook_url": "https://...",
-  "in_app_notifications": true
-}
-```
-
-**PUT /api/alerts/thresholds/:metricType:**
-
-```json
-{
-  "warning_threshold": 75,
-  "critical_threshold": 90,
-  "enabled": true
-}
-```
-
-**PUT /api/alerts/quiet-hours/:dayOfWeek:**
-
-```json
-{
-  "enabled": true,
-  "start_time": "22:00",
-  "end_time": "07:00"
-}
-```
-
-**GET /api/alerts/history Query Parameters:**
-
-- `limit`: Max results (default: 100, max: 500)
-- `offset`: Pagination offset
-- `metric_type`: Filter by type (cpu, ram, disk, temperature)
-- `severity`: Filter by severity (warning, critical)
-- `unacknowledged`: Boolean, show only unacknowledged
-
-**GET /api/alerts/status Response:**
-
-```json
-{
-  "enabled": true,
-  "in_quiet_hours": false,
-  "webhook_enabled": false,
-  "in_app_notifications": true,
-  "statistics": {
-    "total_24h": 5,
-    "unacknowledged": 2
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-### Events (Notifications)
-
-| Method | Endpoint                           | Auth | Description                       |
-| ------ | ---------------------------------- | ---- | --------------------------------- |
-| GET    | `/api/events`                      | Yes  | Get recent notification events    |
-| GET    | `/api/events/stats`                | Yes  | Event and notification statistics |
-| GET    | `/api/events/settings`             | Yes  | User notification settings        |
-| PUT    | `/api/events/settings`             | Yes  | Update notification settings      |
-| POST   | `/api/events/test`                 | Yes  | Send test notification            |
-| POST   | `/api/events/webhook/self-healing` | IP   | Self-healing agent webhook        |
-| POST   | `/api/events/manual`               | Yes  | Create manual notification        |
-| GET    | `/api/events/service-status`       | Yes  | Service status cache              |
-| GET    | `/api/events/boot-history`         | Yes  | System boot history               |
-| DELETE | `/api/events/:id`                  | Yes  | Delete specific event             |
-| POST   | `/api/events/cleanup`              | Yes  | Cleanup old events                |
-
-**GET /api/events Query Parameters:**
-
-- `limit`: Max results (default: 50)
-- `event_type`: Filter by event type
-- `severity`: Filter by severity
-
-**PUT /api/events/settings:**
-
-```json
-{
-  "channel": "webhook",
-  "enabled": true,
-  "event_types": ["service_status", "alert"],
-  "min_severity": "warning",
-  "rate_limit_per_minute": 10,
-  "quiet_hours_start": "22:00",
-  "quiet_hours_end": "07:00"
-}
-```
-
-**POST /api/events/webhook/self-healing:**
-
-Only accepts requests from localhost or Docker network IPs.
-
-```json
-{
-  "action_type": "container_restart",
-  "service_name": "llm-service",
-  "reason": "Memory threshold exceeded",
-  "success": true,
-  "duration_ms": 3000,
-  "error_message": null
-}
-```
 
 ### Benutzer (Phasen C1 und C2)
 
@@ -803,7 +534,6 @@ Gegen das Gerät misst das `scripts/test/mitarbeiter-abnahme.sh`.
 | ------ | ------------------------------------- | ---------------------------------------- | ---------- |
 | POST   | `/api/settings/password/dashboard`    | Change Dashboard password                | 3/15min    |
 | GET    | `/api/settings/password-requirements` | Get password rules                       | -          |
-| GET    | `/api/settings/firmenname`            | Firmenname der Anmeldeseite (admin)      | -          |
 | PUT    | `/api/settings/firmenname`            | Firmenname setzen, leer = keiner (admin) | -          |
 | PUT    | `/api/settings/logo`                  | Logo des Hauses setzen (admin)           | -          |
 | DELETE | `/api/settings/logo`                  | Logo des Hauses entfernen (admin)        | -          |
@@ -853,14 +583,7 @@ mehr (`404`): die Seite „KI" der Verwaltung ist gestrichen, der Administrator
 
 | Method | Endpoint                                 | Description                                                         |
 | ------ | ---------------------------------------- | ------------------------------------------------------------------- |
-| POST   | `/api/update/upload`                     | Upload .araupdate file                                              |
-| GET    | `/api/update/status`                     | Current update status                                               |
-| GET    | `/api/update/history`                    | Update history                                                      |
-| GET    | `/api/update/usb-devices`                | Scan for USB devices with updates                                   |
-| POST   | `/api/update/install-from-usb`           | Install update from USB device                                      |
-| GET    | `/api/update/check`                      | Nach Aktualisierungen sehen                                         |
-| POST   | `/api/update/download`                   | Aktualisierung herunterladen                                        |
-| POST   | `/api/update/apply`                      | Ein Paket einspielen                                                |
+| GET    | `/api/update/status`                     | Die eigene Fassung (`fassung.version`, `anzeige`, `bekannt`)        |
 | GET    | `/api/update/fassung`                    | Stand und Fortschritt der Plattform-Aktualisierung                  |
 | GET    | `/api/update/fassung/neueste`            | Die neueste Fassung im Netz                                         |
 | POST   | `/api/update/fassung/einspielen`         | Das Gerät auf eine neue Fassung bringen (202)                       |
@@ -893,198 +616,22 @@ dieselbe Vorprüfung wie das Einspielen, fragt, ob gerade eine Sicherung läuft
 verändert nichts. Gestartet wird im Fenster nur bis 03:30. Der Schalter ist aus als Vorgabe. Die Regeln des Fensters:
 [ADMIN_HANDBUCH.md](../ops/ADMIN_HANDBUCH.md#6-system-updates).
 
-**GET /api/update/check** und **POST /api/update/download** verlangen
-**Admin**, nicht nur eine Anmeldung.
-
-**Zwei Dinge, die dieser Weg seit Phase C9 (27.08.2026) ehrlich sagt.**
-
-_Erstens: kennt das Gerät seine eigene Fassung?_ `SYSTEM_VERSION` setzt der Bau,
-und der versioniert erst ab Phase C10. Bis dahin lautet die Antwort
-`fassung.bekannt: false`, und `check` fragt den Aktualisierungsserver gar nicht
-erst — er bekäme `current_version=0.0.0` und böte jede Fassung an, die es je
-gab. Ein Paket wird dann mit genau dieser Begründung abgelehnt: das Gerät kennt
-seine eigene Fassung nicht. Vorher stand dort „Current version 0.0.0 is below
-minimum required version 1.0.0", und wer das liest, sucht den Fehler im Paket.
-
-_Zweitens: kann dieses Gerät ein Paket überhaupt einspielen?_
-`einspielenMoeglich` beantwortet das **vor** dem ersten Handgriff. Der Ablauf
-ruft `docker` und `docker-compose` als Programme auf; im Backend-Container gibt
-es beide nicht. Bis C9 antwortete `apply` trotzdem `started` und starb danach
-still. Was am Gerät wirklich aktualisiert, ist der Deploy
-(`scripts/deploy/deploy-local.sh`) beziehungsweise `./arasul update`.
-
-**GET /api/update/status Response (Auszug):**
+**GET /api/update/status** nennt nur die eigene Fassung; das Ara-Kit liest
+`fassung.version` vor und nach einem Update. `SYSTEM_VERSION` setzt der Bau
+(seit Phase C10); fehlt sie, lautet die Antwort `fassung.bekannt: false` und
+`version: null`. Den Offline-Weg über ein `.araupdate`-Paket (Hochladen,
+USB-Stick) gibt es seit dem 06.10.2026 nicht mehr: er lief an keinem Gerät,
+weil der Backend-Container kein `docker`-Programm hat. Ein Gerät ohne Netz
+bekommt eine neue Fassung als Artefakt am Gerät
+([AUSLIEFERUNG.md](../ops/AUSLIEFERUNG.md)).
 
 ```json
 {
   "status": "idle",
   "fassung": { "version": null, "anzeige": "Vorserie", "bekannt": false },
-  "einspielenMoeglich": false,
-  "einspielenGrund": "Ein Paket lässt sich an diesem Gerät nicht über die Schnittstelle einspielen: …",
   "timestamp": "2026-08-27T10:00:00.000Z"
 }
 ```
-
-**POST /api/update/download:**
-
-Body: `downloadUrl`, `version`. Nur `https://` ist erlaubt, alles andere ist ein
-`VALIDATION_ERROR`. Antwortet sofort mit `status: "downloading"` und lädt im
-Hintergrund; danach prüft der Dienst die Signatur selbst und trägt den Stand
-`downloaded` in `update_events` ein. Der Fortschritt steht in
-`GET /api/update/status`.
-
-**POST /api/update/apply:**
-
-Auth: erforderlich, **Admin**. Body: `file_path`. Der Pfad muss unterhalb von
-`/arasul/updates` oder `/tmp/updates` liegen, sonst `VALIDATION_ERROR`; das ist
-die Sperre gegen Pfadausbruch. Läuft bereits eine Aktualisierung, antwortet der
-Endpunkt mit `409 CONFLICT`; fehlt die Datei, mit `404`.
-
-Kann das Gerät gar nicht einspielen (siehe `einspielenMoeglich` oben), antwortet
-er mit `503 SERVICE_UNAVAILABLE` und der Begründung — **bevor** irgendetwas
-gesichert oder ersetzt wird.
-
-**POST /api/update/upload:**
-
-- Content-Type: `multipart/form-data`
-- Field: `file` (.araupdate package)
-
-**GET /api/update/usb-devices:**
-
-Auth: Required
-
-Scans `/media/` and `/mnt/` directories for `.araupdate` files with accompanying `.sig` signature files.
-
-Response:
-
-```json
-{
-  "devices": [
-    {
-      "path": "/media/usb/update.araupdate",
-      "name": "update.araupdate",
-      "size": 1073741824,
-      "mountPoint": "/media/usb",
-      "device": "/dev/sda1",
-      "modified": "2026-01-15T10:00:00.000Z"
-    }
-  ],
-  "count": 1,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**POST /api/update/install-from-usb:**
-
-Auth: Required
-
-Installs an update package from a USB device. Security restriction: only paths under `/media/` or `/mnt/` are allowed. Requires corresponding `.sig` signature file alongside the `.araupdate` file.
-
-Request Body:
-
-```json
-{
-  "file_path": "/media/usb/update.araupdate"
-}
-```
-
-Response (same as POST /upload):
-
-```json
-{
-  "file_path": "/media/usb/update.araupdate",
-  "version": "2.1.0",
-  "components": [
-    {
-      "name": "frontend",
-      "version": "2.1.0"
-    },
-    {
-      "name": "backend",
-      "version": "2.1.0"
-    }
-  ],
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**Notes:**
-
-- USB device paths must be under `/media/` or `/mnt/` (security restriction)
-- Each `.araupdate` file must have a matching `.sig` signature file
-- Signature verification is performed before installation
-
-### Logs
-
-| Method | Endpoint              | Description                                   |
-| ------ | --------------------- | --------------------------------------------- |
-| GET    | `/api/logs`           | List available log files                      |
-| GET    | `/api/logs/:filename` | Get log file content                          |
-| GET    | `/api/logs/list`      | Protokolldateien mit Größe und Änderungsdatum |
-| GET    | `/api/logs/search`    | In einem Protokoll suchen                     |
-| GET    | `/api/logs/stream`    | Ein Protokoll mitlesen (SSE)                  |
-
-Alle verlangen eine angemeldete Sitzung.
-
-**GET /api/logs/list:**
-
-Je bekanntem Dienst eine Zeile mit `service`, `path`, `size`, `size_mb`,
-`modified` und `accessible`. Eine nicht vorhandene Datei fehlt nicht, sie steht
-mit `accessible: false` da — der Unterschied zwischen „kein Protokoll" und
-„Dienst unbekannt" bleibt so sichtbar.
-
-**GET /api/logs/search:**
-
-Query: `service` (Standard `system`), `query` (Pflicht), `lines` (Standard 100,
-höchstens 10 000), `case_sensitive` (`true`/`false`, Standard `false`). Sucht
-als Teilzeichenkette, nicht als regulärer Ausdruck.
-
-**GET /api/logs/stream:**
-
-Server-Sent Events. Query: `service`, `lines` (Standard 50, höchstens 1000).
-Schickt zuerst die letzten Zeilen, danach jede neue. Ein Keepalive alle
-15 Sekunden hält den Traefik-Leerlauf offen.
-
-Bekannte Dienstnamen (Stand: 2026-08-26, Quelle:
-`apps/dashboard-backend/src/routes/system/logs.js`, `LOG_FILES`): `system`,
-`self_healing`, `update`, `traefik`, `traefik-access`, `metrics-collector`,
-`dashboard-backend`, `dashboard-frontend`, `llm-service`, `embedding-service`,
-`self-healing-agent`, `postgres-db`. Ein anderer Name ist ein
-`VALIDATION_ERROR`, ein fehlendes Protokoll ein `404`.
-
-### Database
-
-| Method | Endpoint                    | Description                                 |
-| ------ | --------------------------- | ------------------------------------------- |
-| GET    | `/api/database/status`      | Database connection status                  |
-| GET    | `/api/database/metrics`     | Database size & stats                       |
-| GET    | `/api/database/health`      | Erreichbarkeit mit Latenz, `503` wenn krank |
-| GET    | `/api/database/pool`        | Kennzahlen des Verbindungspools             |
-| GET    | `/api/database/connections` | Verbindungen aus Sicht von PostgreSQL       |
-| GET    | `/api/database/queries`     | Langsame Abfragen                           |
-
-Alle verlangen eine angemeldete Sitzung.
-
-**GET /api/database/health:**
-
-Der einzige hier, der den Zustand auch im HTTP-Code sagt: `200` mit
-`status: "healthy"` oder **`503`** mit `status: "unhealthy"` und `error`. Dazu
-`latency_ms` und `pool_stats`. Wer den Zustand überwacht, wertet den Code aus,
-nicht den Text.
-
-**GET /api/database/connections:**
-
-Zählt in `pg_stat_activity` nach: `total`, `active`, `idle`,
-`idle_in_transaction` und `arasul_apps` (Anwendungsname beginnt mit
-`arasul-`), dazu `limits.max_connections` aus `SHOW max_connections` und die
-Auslastung in Prozent.
-
-**GET /api/database/queries:**
-
-Braucht die Erweiterung `pg_stat_statements`. Fehlt sie, ist
-`pg_stat_statements_enabled` falsch und `slow_queries` leer — das ist kein
-Fehler, sondern eine Auskunft. Sonst die zehn langsamsten Abfragen über
-100 ms Mittelwert, auf 200 Zeichen gekürzt.
 
 ### Apps
 
@@ -1119,8 +666,6 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | GET    | `/api/apps/modell-hinweise`                          | Schritte, deren Modell fehlt oder deren Wahl nicht mehr passt, über alle Apps (M5)                            |
 | GET    | `/api/apps/:id/stufen`                               | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)                            |
 | PUT    | `/api/apps/:id/stufen/:stufe`                        | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)                             |
-| GET    | `/api/apps/:id/laeufe`                               | Die Flow-Läufe dieser App (Phase D4)                                                                          |
-| GET    | `/api/apps/:id/laeufe/:runId`                        | Ein Lauf samt Schritten und Gedankengang (Phase D4)                                                           |
 | POST   | `/api/apps/:id/laeufe/:runId/erneut`                 | Die Übergabe eines Laufs auf `nicht_uebergeben` noch einmal an die App (M5, Kontrakt 11)                      |
 | GET    | `/api/laeufe`                                        | Die Läufe aller Apps mit Filtern, Fehler zuerst (Admin, M5)                                                   |
 | GET    | `/api/laeufe/:id`                                    | Ein Lauf samt Schritten, Freigaben und Person, aus jeder App (Admin, M5)                                      |
@@ -1350,8 +895,8 @@ und steht im Sicherheitsprotokoll als `flow_zeitplan_pausiert` bzw.
 `laeuft_nicht` ist `null`, `"teststand"`, `"pausiert"` oder `"ausgeschaltet"`
 und sagt, warum `naechster_termin` (ISO, in der Zeit des Geräts zu lesen) fehlt;
 `letzter_termin` ist `{ termin, ergebnis, grund, run_id }` mit `ergebnis`
-`gestartet`, `nachgeholt` oder `uebersprungen`. Die Läufe einer App
-(`GET /api/apps/:id/laeufe`, `…/laeufe/:runId`) tragen `ausloeser`: `hand` oder
+`gestartet`, `nachgeholt` oder `uebersprungen`. Die Läufe
+(`GET /api/laeufe`, `GET /api/laeufe/:id`) tragen `ausloeser`: `hand` oder
 `zeitplan`. Regeln: [FLOWS.md](../features/FLOWS.md#zeitplaner-flows-nach-uhrzeit-m5-04102026).
 
 **Modell je Schritt** (nur Admin, M5, Migration 205). Der Entwickler nennt je
@@ -1446,27 +991,30 @@ danach die neueste Nummer zuerst. Jede Zeile trägt `app_id`, `stand`,
 `person_konto`). Die Person ist der Mensch, für den eine App den Lauf auslöste
 (`einreicher_id`), bei einem Lauf der Plattform ohne App der Nutzer selbst.
 
-**GET /api/laeufe/:id** (Admin): derselbe Lauf wie unter der App, aber ohne
-Einschränkung auf eine App; `?raw=1` holt die Rohdaten der Schritte. `404`,
-wenn es ihn nicht gibt.
+**GET /api/laeufe/:id** (Admin): ein Lauf samt Schritten, aus jeder App.
+`404`, wenn es ihn nicht gibt. Query `?raw=1` liefert zusätzlich die Rohdaten
+der Schritte (sie können je Subagent einige Dutzend Kilobyte sein). Seit M5
+trägt der Lauf `freigaben`: je Freigabe `id`, `titel`, `stufe`, `status`,
+`angefragt_am`, `entschieden_am`, `entschieden_von`, `begruendung`,
+`felder_schritt`, `felder` (Vorschlag der KI) und `korrekturen` (was der Mensch
+änderte, wer, wann); die Läufe-Ansicht zeigt beides nebeneinander. Die Schritte
+tragen `kind`:
+
+| `kind`     | was es ist                                                                   |
+| ---------- | ---------------------------------------------------------------------------- |
+| `werkzeug` | ein Werkzeug-Aufruf mit `input` und `output`                                 |
+| `subagent` | eine Delegation an eine Rolle; ihre inneren Schritte tragen `parent_step_id` |
+| `modell`   | der **Gedankengang**: was das Modell sagte, bevor es ein Werkzeug rief       |
+| `hinweis`  | ein Vermerk des Runners (Prüfschritt, übernommener Schritt)                  |
 
 **POST /api/laeufe/:id/abbrechen** (Admin): bricht einen Lauf ab, der läuft
 oder wartet, gleich von wem er stammt (auch Zeitplan und Ereignis, deren
 `user_id` nur der technische Besitzer ist). `404`, wenn er nicht (mehr) läuft.
-Im Sicherheitsprotokoll als `lauf_abgebrochen`. `GET /api/flows/laeufe/:id`,
-`…/stream` und `…/abbrechen` gelten für den Administrator seit M5 ebenfalls für
-jeden Lauf; ein Mitarbeiter sieht dort weiter nur seine eigenen.
+Im Sicherheitsprotokoll als `lauf_abgebrochen`.
 
-#### Die Läufe einer App (Phase D4)
-
-**GET /api/apps/:id/laeufe:** Query `?stand=`, `?flow=`, `?status=`,
-`?limit=1..200` (Vorgabe 50). Sortiert nach Nummer absteigend.
-
-Warum es diesen Weg neben `GET /api/flows/laeufe` gibt: die dortige Liste ist
-die des **angemeldeten Menschen**. Ein App-Lauf trägt als Nutzer den, dem der
-App-Schlüssel gehört — also den Administrator, der die App eingespielt hat. Ein
-zweiter Administrator sähe die Läufe der App dort nie, obwohl beide dasselbe
-Gerät verwalten.
+Die Läufe einer einzelnen App liest `GET /api/laeufe?app=<kennung>`; die
+früheren Wege `GET /api/apps/:id/laeufe` und `…/laeufe/:runId` sind am
+06.10.2026 gefallen.
 
 #### Die Modellaufrufe einer App (J35, 26.09.2026)
 
@@ -1522,21 +1070,6 @@ Lauf trägt `abschluss` (`route`, `versuche`, `letzter_versuch`, `status_code`,
 `fehler`, `uebergeben_am`; `null` bei einem Flow ohne Abschluss-Route); `?status=`
 der Läufe-Liste kennt `nicht_uebergeben`. Dieselbe Angabe liefert
 `GET /api/v1/external/flows/runs/:id` der App unter `abschluss`.
-
-**GET /api/apps/:id/laeufe/:runId:** Query `?raw=1` liefert zusätzlich die
-Rohdaten der Schritte (sie können je Subagent einige Dutzend Kilobyte sein).
-Seit M5 trägt der Lauf `freigaben`: je Freigabe `id`, `titel`, `stufe`,
-`status`, `angefragt_am`, `entschieden_am`, `entschieden_von`, `begruendung`,
-`felder_schritt`, `felder` (Vorschlag der KI) und `korrekturen` (was der Mensch
-änderte, wer, wann); die Läufe-Ansicht zeigt beides nebeneinander.
-Die Schritte tragen `kind`:
-
-| `kind`     | was es ist                                                                   |
-| ---------- | ---------------------------------------------------------------------------- |
-| `werkzeug` | ein Werkzeug-Aufruf mit `input` und `output`                                 |
-| `subagent` | eine Delegation an eine Rolle; ihre inneren Schritte tragen `parent_step_id` |
-| `modell`   | der **Gedankengang**: was das Modell sagte, bevor es ein Werkzeug rief       |
-| `hinweis`  | ein Vermerk des Runners (Prüfschritt, übernommener Schritt)                  |
 
 **POST /api/apps/:id/schalten:** Body `{ "ziel": "live" }` nimmt die Version
 aus dem Teststand, `{ "ziel": "zurueck" }` die, die vorher live war. Derselbe
@@ -1640,38 +1173,20 @@ seinen eigenen: `/apps/<id>/test/api/me`.
 Vergeben ist genau dieser Weg. `/apps/urlaub/api/meine-antraege` gehört weiter
 der App.
 
-### Store
-
-| Method | Endpoint                     | Description                          |
-| ------ | ---------------------------- | ------------------------------------ |
-| GET    | `/api/store/recommendations` | Empfohlene Modelle nach dem KI-RAM   |
-| GET    | `/api/store/search`          | Suche im Modellkatalog               |
-| GET    | `/api/store/info`            | RAM und Plattenplatz für die Anzeige |
-
-Bis Phase C3 (27.08.2026) standen hier Modelle **und** Apps nebeneinander: der
-Laden bot beides zum Aussuchen an. Einen App-Katalog gibt es nicht mehr — eine
-App kommt vom Partner auf das Gerät, sie wird nicht ausgesucht.
-
 ### Model Management
 
-| Method | Endpoint                       | Description                                                                                |
-| ------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
-| GET    | `/api/models/catalog`          | List curated model catalog                                                                 |
-| GET    | `/api/models/installed`        | List installed models                                                                      |
-| GET    | `/api/models/status`           | Current loaded model + queue stats                                                         |
-| GET    | `/api/models/memory-budget`    | KI-RAM-Lage, geladene Modelle, letzter Wechsel                                             |
-| GET    | `/api/models/loaded`           | Get currently loaded model                                                                 |
-| GET    | `/api/models/default`          | Standardmodell der Flows                                                                   |
-| POST   | `/api/models/default`          | Standardmodell der Flows setzen (nur `task` text/coding, sonst 400)                        |
-| GET    | `/api/models/verwaltung`       | Zeilen der Verwaltung: Fähigkeiten, warm, nutzende Flows, Sperre; die geprüfte Liste (M5)  |
-| POST   | `/api/models/pruefen`          | `{ model_id }`: passt das Modell auf das Gerät (Speicher, Platte)? `{ passt, grund }` (M5) |
-| POST   | `/api/models/download`         | Modell hinzufügen (SSE-Fortschritt); prüft vorher Speicher und Platte, 400 mit zwei Sätzen |
-| DELETE | `/api/models/:id`              | Modell entfernen; 409, solange ein Flow es nutzt oder es der Standard ist (M5)             |
-| GET    | `/api/models/:id`              | Ein Modell im Einzelnen (Katalogeintrag plus Installationsstand)                           |
-| GET    | `/api/models/:id/capabilities` | Was das Modell kann: Werkzeugaufrufe, Denkschritte, Kontextlänge                           |
-| GET    | `/api/models/recommended`      | Empfehlung für diese Hardware, aus RAM und Rechenwerk abgeleitet                           |
-| GET    | `/api/models/lifecycle`        | Lade- und Entladeverlauf, für die Ursachensuche bei RAM-Engpässen                          |
-| POST   | `/api/models/sync`             | Katalog und Installationsstand abgleichen, wenn jemand am CLI nachgeholfen hat             |
+| Method | Endpoint                    | Description                                                                                |
+| ------ | --------------------------- | ------------------------------------------------------------------------------------------ |
+| GET    | `/api/models/catalog`       | List curated model catalog                                                                 |
+| GET    | `/api/models/installed`     | List installed models                                                                      |
+| GET    | `/api/models/status`        | Current loaded model + queue stats                                                         |
+| GET    | `/api/models/memory-budget` | KI-RAM-Lage, geladene Modelle, letzter Wechsel                                             |
+| GET    | `/api/models/default`       | Standardmodell der Flows                                                                   |
+| POST   | `/api/models/default`       | Standardmodell der Flows setzen (nur `task` text/coding, sonst 400)                        |
+| GET    | `/api/models/verwaltung`    | Zeilen der Verwaltung: Fähigkeiten, warm, nutzende Flows, Sperre; die geprüfte Liste (M5)  |
+| POST   | `/api/models/pruefen`       | `{ model_id }`: passt das Modell auf das Gerät (Speicher, Platte)? `{ passt, grund }` (M5) |
+| POST   | `/api/models/download`      | Modell hinzufügen (SSE-Fortschritt); prüft vorher Speicher und Platte, 400 mit zwei Sätzen |
+| DELETE | `/api/models/:id`           | Modell entfernen; 409, solange ein Flow es nutzt oder es der Standard ist (M5)             |
 
 **Laden und Entladen von Hand gibt es nicht (M5, 04.10.2026).** `/:id/load`,
 `/unload`, `/activate` und `/deactivate` sind entfernt (404): das Gerät hält
@@ -1731,12 +1246,10 @@ Bis zum 27.08.2026 gab es zwei Wege daran vorbei, und beide sind weg:
   (`importUnknownModels`). Das nahm C8 weg; **seit M5 (05.10.2026) tut es der
   Abgleich wieder**, aber anders: er legt eine Zeile mit Größe und Fähigkeiten
   aus Ollama (`/api/tags`, `/api/show`: Bild, Werkzeuge, Denken, Kontext) an,
-  beim Start des Backends, beim periodischen Abgleich und nach
-  `POST /api/models/sync`. **Regel:** er legt nur neue Zeilen an. Eine
-  bestehende Zeile, kuratiert oder von Hand gepflegt, überschreibt er nie. Eine
-  nachgetragene Zeile ist `ungemessen` und `frei_geladen` (geht also mit dem
-  Entfernen des Modells wieder weg). `POST /api/models/sync` nennt sie unter
-  `nachgetragen`.
+  beim Start des Backends und beim periodischen Abgleich. **Regel:** er legt
+  nur neue Zeilen an. Eine bestehende Zeile, kuratiert oder von Hand gepflegt,
+  überschreibt er nie. Eine nachgetragene Zeile ist `ungemessen` und
+  `frei_geladen` (geht also mit dem Entfernen des Modells wieder weg).
 
 ### Jedes offene Modell laden (J4, 30.09.2026)
 
@@ -1785,186 +1298,11 @@ Was am Gerät liegt, bleibt liegen — die Migration räumt die Datenbank, nicht
 die Platte. Die gestrichenen Gewichte nimmt
 `scripts/util/modelle-aufraeumen.sh` von Hand, mit Liste und Rückfrage.
 
-**Hinweis zu `/api/models/installed`:** Die Antwort enthaelt seit Plan 023 D9
-auch die externen Cloud-Modelle, sofern ein Anbieter eingeschaltet ist. Sie
-tragen `"extern": true`, eine Id mit dem Praefix `extern:<anbieter>/<modell>`
-und `ram_required_gb: 0`, weil sie auf diesem Geraet keinen Speicher belegen.
-Ist kein Anbieter eingeschaltet, kommt nichts dazu.
-
-### Store (Unified)
-
-The Store API provides a unified interface for browsing models and apps.
-
-| Method | Endpoint                     | Description                   |
-| ------ | ---------------------------- | ----------------------------- |
-| GET    | `/api/store/recommendations` | Get recommended models + apps |
-| GET    | `/api/store/search`          | Search across models and apps |
-| GET    | `/api/store/info`            | Get system info (RAM, disk)   |
-
-**GET /api/store/recommendations:**
-Returns models recommended for the system's RAM capacity and featured apps.
-
-```json
-{
-  "models": [
-    { "id": "gemma4:26b-q4", "name": "Qwen 3 14B", ... }
-  ],
-  "apps": [
-    { "id": "beispiel-app", "name": "Beispiel-App", "featured": true, ... }
-  ],
-  "systemInfo": { "availableRamGB": 64 }
-}
-```
-
-**GET /api/store/search?q=query:**
-
-```json
-{
-  "models": [...],
-  "apps": [...],
-  "query": "qwen"
-}
-```
-
-**GET /api/store/info:**
-
-```json
-{
-  "availableRamGB": 64,
-  "availableDiskGB": 120,
-  "totalDiskGB": 500
-}
-```
-
-### Audit Logging
-
-| Method | Endpoint                     | Description                                  |
-| ------ | ---------------------------- | -------------------------------------------- |
-| GET    | `/api/audit/logs`            | Get audit logs with pagination and filtering |
-| GET    | `/api/audit/stats/daily`     | Get daily aggregated statistics              |
-| GET    | `/api/audit/stats/endpoints` | Get endpoint usage statistics                |
-
-**GET /api/audit/logs:**
-
-Query Parameters:
-
-- `limit`: Number of records (default: 50, max: 500)
-- `offset`: Number of records to skip (default: 0)
-- `date_from`: Start date (ISO 8601)
-- `date_to`: End date (ISO 8601)
-- `action_type`: HTTP method filter (GET, POST, PUT, DELETE, PATCH)
-- `user_id`: Filter by user ID
-- `endpoint`: Filter by endpoint (partial match)
-- `status_min`: Minimum response status code
-- `status_max`: Maximum response status code
-
-Response:
-
-```json
-{
-  "logs": [
-    {
-      "id": 1,
-      "timestamp": "2026-01-15T10:30:00.000Z",
-      "user_id": 1,
-      "username": "admin",
-      "action_type": "POST",
-      "target_endpoint": "/api/flows",
-      "request_method": "POST",
-      "request_payload": { "title": "New Chat" },
-      "response_status": 201,
-      "duration_ms": 45,
-      "ip_address": "192.168.1.100",
-      "user_agent": "Mozilla/5.0...",
-      "error_message": null
-    }
-  ],
-  "pagination": {
-    "total": 150,
-    "limit": 50,
-    "offset": 0,
-    "has_more": true
-  },
-  "filters": {
-    "date_from": null,
-    "date_to": null,
-    "action_type": null,
-    "user_id": null,
-    "endpoint": null,
-    "status_min": null,
-    "status_max": null
-  },
-  "timestamp": "2026-01-15T10:35:00.000Z"
-}
-```
-
-**GET /api/audit/stats/daily:**
-
-Query Parameters:
-
-- `days`: Number of days to include (default: 30, max: 90)
-
-Response:
-
-```json
-{
-  "stats": [
-    {
-      "date": "2026-01-15",
-      "total_requests": 1250,
-      "unique_users": 5,
-      "success_count": 1180,
-      "client_error_count": 50,
-      "server_error_count": 20,
-      "avg_duration_ms": 45.23,
-      "max_duration_ms": 2500
-    }
-  ],
-  "days_included": 30,
-  "timestamp": "2026-01-15T10:35:00.000Z"
-}
-```
-
-**GET /api/audit/stats/endpoints:**
-
-Query Parameters:
-
-- `days`: Number of days to include (default: 7, max: 30)
-- `limit`: Number of endpoints to return (default: 20, max: 100)
-
-Response:
-
-```json
-{
-  "endpoints": [
-    {
-      "target_endpoint": "/api/flows",
-      "action_type": "GET",
-      "request_count": 500,
-      "unique_users": 3,
-      "error_count": 5,
-      "avg_duration_ms": 35.5,
-      "last_called": "2026-01-15T10:30:00.000Z"
-    }
-  ],
-  "days_included": 7,
-  "timestamp": "2026-01-15T10:35:00.000Z"
-}
-```
-
-**Notes:**
-
-- All `/api/*` requests are automatically logged (except `/api/health` and `/api/metrics/*`)
-- Sensitive data (passwords, tokens, API keys) is automatically masked as `***REDACTED***`
-- Audit logs are stored for 90 days by default
-- Only authenticated users can access audit logs
-
 ### Tailscale
 
 | Method | Endpoint                    | Auth     | Description                             |
 | ------ | --------------------------- | -------- | --------------------------------------- |
 | GET    | `/api/tailscale/status`     | Required | Get current Tailscale connection status |
-| GET    | `/api/tailscale/peers`      | Required | List connected Tailscale peers          |
 | POST   | `/api/tailscale/install`    | Required | Install Tailscale on the host system    |
 | POST   | `/api/tailscale/connect`    | Required | Connect with auth key                   |
 | POST   | `/api/tailscale/disconnect` | Required | Disconnect from Tailscale               |
@@ -2000,21 +1338,6 @@ All endpoints require authentication. The route group uses a dedicated `tailscal
 > the response is `{ ...empty, installed: false, detectionError: true }`. This is
 > a transient/retryable condition and must **not** be treated as "Tailscale not
 > installed" — clients keep the last-known status and offer a retry.
-
-**GET /api/tailscale/peers Response:**
-
-```json
-{
-  "peers": [
-    {
-      "id": "nodekey:abc123",
-      "hostname": "laptop",
-      "ip": "100.x.x.y",
-      "online": true
-    }
-  ]
-}
-```
 
 **POST /api/tailscale/connect:**
 
@@ -2100,13 +1423,12 @@ Aufgabe des Proxys und kein Fehler.
 
 All endpoints require admin authentication (`requireAuth` + `requireRole('admin')`).
 
-| Method | Endpoint                      | Description                                 |
-| ------ | ----------------------------- | ------------------------------------------- |
-| GET    | `/api/license/info`           | Get current license status + HW fingerprint |
-| GET    | `/api/license/fingerprint`    | Get device hardware fingerprint             |
-| POST   | `/api/license/activate`       | Activate a license key                      |
-| DELETE | `/api/license`                | Lizenz entfernen, Geraet wieder community   |
-| GET    | `/api/license/check/:feature` | Check if a feature gate is allowed          |
+| Method | Endpoint                   | Description                                 |
+| ------ | -------------------------- | ------------------------------------------- |
+| GET    | `/api/license/info`        | Get current license status + HW fingerprint |
+| GET    | `/api/license/fingerprint` | Get device hardware fingerprint             |
+| POST   | `/api/license/activate`    | Activate a license key                      |
+| DELETE | `/api/license`             | Lizenz entfernen, Geraet wieder community   |
 
 **GET /api/license/info Response:**
 
@@ -2231,16 +1553,6 @@ Datei ist das kein Fehler (`entfernt: false`). Protokolliert als
     "code": "VALIDATION_ERROR",
     "message": "Die Signatur der Lizenz ist ungültig: sie stammt nicht vom Lizenzschlüssel dieses Produkts. Das Gerät bleibt community."
   }
-}
-```
-
-**GET /api/license/check/:feature Response:**
-
-```json
-{
-  "feature": "externalApi",
-  "allowed": true,
-  "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
 
@@ -2979,37 +2291,26 @@ Ergebnis für die Modelle (falls `modelleLoeschen`), dazu die Dauer.
 
 ### Flows
 
-Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. Ein Mitarbeiter darf Flows lesen (`GET /api/flows`, `GET /api/flows/:name`) und seine eigenen Läufe (`/laeufe/*`); anlegen, ändern, löschen, Vorlagen, Werkzeuge und die rohe Datei sind Admin.
+Flows der Plattform sind Markdown-Dateien mit YAML-Kopf unter `data/flows/`
+(Pfad im Container `FLOWS_DIR`, Vorgabe `/arasul/flows`); **eine Tabelle gibt
+es nicht**, die Datei ist die Quelle. Geblieben ist eine einzige Route: die
+Liste, die das Ara-Kit vor und nach einem Update liest (`lib/upgrade.mjs`), um
+zu sehen, dass kein Flow verloren ging.
 
-| Method | Endpoint                            | Description                                                                                                                             |
-| ------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/flows`                        | List all flows; broken files reported separately                                                                                        |
-| GET    | `/api/flows/werkzeuge`              | Tool names a flow may declare, each with `verfuegbar`                                                                                   |
-| GET    | `/api/flows/:name`                  | Get a single flow                                                                                                                       |
-| GET    | `/api/flows/:name/datei`            | Get the raw Markdown file (`text/markdown`)                                                                                             |
-| GET    | `/api/flows/vorlagen`               | List uploaded style templates (`{ name, groesse, hochgeladen }`)                                                                        |
-| POST   | `/api/flows/vorlagen`               | Upload a style template (multipart field `datei`; .docx/.pdf/.md/.txt/.html, 20 MB)                                                     |
-| DELETE | `/api/flows/vorlagen/:name`         | Delete a style template                                                                                                                 |
-| POST   | `/api/flows`                        | Create a flow (409 if the name exists)                                                                                                  |
-| PUT    | `/api/flows/:name`                  | Update an existing flow (404 if it does not exist)                                                                                      |
-| DELETE | `/api/flows/:name`                  | Delete a flow                                                                                                                           |
-| GET    | `/api/flows/laeufe`                 | List the caller's runs (`?limit`, `?conversation_id`, `?status`, `?flow` = Flow-Name-Filter); rows include the run's `arguments` (JSON) |
-| POST   | `/api/flows/laeufe`                 | Start a run detached; returns `202 { runId }` immediately                                                                               |
-| GET    | `/api/flows/laeufe/:id`             | One run with its steps (`?raw=1` includes raw step data)                                                                                |
-| GET    | `/api/flows/laeufe/:id/stream`      | SSE event stream: replay stored history, then live steps                                                                                |
-| POST   | `/api/flows/laeufe/:id/abbrechen`   | Cancel a running run (404 if not running/owned)                                                                                         |
-| GET    | `/api/flows/laeufe/:id/frage`       | Die offene Rückfrage eines Laufs, oder `null` (Plan 023 I3). Für den Fall, dass die Seite neu geladen wird, während der Flow wartet     |
-| POST   | `/api/flows/laeufe/:id/antwort`     | Eine Rückfrage beantworten (`{antwort}`). 404, wenn nichts offen ist                                                                    |
-| POST   | `/api/flows/laeufe/:id/wiederholen` | Retry a **failed** run of a flow with a declared step chain (body `{}`); `202 { runId, uebernommeneSchritte }`                          |
+| Method | Endpoint     | Description                                                                           |
+| ------ | ------------ | ------------------------------------------------------------------------------------- |
+| GET    | `/api/flows` | Alle Flows (auch Mitarbeiter); fehlerhafte Dateien stehen getrennt unter `fehlerhaft` |
 
-**Flows starten.** Ein Flow läuft von Hand, über den externen Auslöser
+**Flows starten.** Ein Plattform-Flow läuft über den externen Auslöser
 `POST /api/v1/external/flows/:name/run` (API-Schlüssel, Bereich `flow:run`, siehe
 Externe API), nach Uhrzeit über den **Zeitplaner** des Geräts (Auslöser `zeitplan`
 im Kopf, [FLOWS.md](../features/FLOWS.md#zeitplaner-flows-nach-uhrzeit-m5-04102026))
 oder durch ein **Ereignis der App** (`POST /api/v1/external/ereignisse/:name`,
-Kontrakt 13). Die alte Zeitplanung von 2026-07-28 (`flow_schedules`,
-`/flows/zeitplaene`) gibt es nicht mehr; der heutige Zeitplaner hat eigene Wege
-unter `/api/apps/:id/flows`.
+Kontrakt 13). Gelesen und abgebrochen wird ein Lauf über `GET /api/laeufe/:id`
+und `POST /api/laeufe/:id/abbrechen`. Anlegen, Ändern und Löschen über die
+Schnittstelle, die Läufe unter `/api/flows/laeufe` samt SSE-Strom, Rückfrage
+und Wiederholen sowie das Hochladen von Stilvorlagen sind am 06.10.2026
+gefallen: keine Oberfläche und kein Werkzeug rief sie.
 
 **Prüfschritt & Annahmen-Protokoll (Plan 014, Phase 2).** Bei Dokument-Flows
 (`ausgabe.format ≠ keins`) steht zwischen Entwurf und Ausgabe ein fester
@@ -3018,38 +2319,13 @@ Gliederung, Ziel-Länge), eine LLM-Prüfrunde gegen Auftrag und Vorgaben,
 höchstens **eine** Korrekturrunde. Das Laufprotokoll zeigt die Einzelprüfungen
 als Schritt `pruefung` (plus ggf. `korrektur`). Statt Rückfragen gilt das
 Annahmen-Protokoll: getroffene Annahmen landen als `flow_runs.annahmen`
-(JSON-Array) am Lauf, kommen im SSE-Strom als Frame `{type:'annahmen'}` und in
-den Lauf-Antworten der externen API (`annahmen`-Feld) mit. Der Prüfschritt
-wirft nie — scheitert die Prüfrunde selbst, läuft der Entwurf unverändert
-weiter und das Protokoll benennt das.
+(JSON-Array) am Lauf und kommen in den Lauf-Antworten der externen API
+(`annahmen`-Feld) mit. Der Prüfschritt wirft nie: scheitert die Prüfrunde
+selbst, läuft der Entwurf unverändert weiter und das Protokoll benennt das.
 
-**Runs stream live and survive the tab (Plan 011, Schritt 12).** `POST /laeufe`
-(`{ flow, args, conversation_id? }`) starts the run **server-side**
-and returns its `runId` at once — the run keeps going regardless of the client.
-Das Arbeitsverzeichnis ist der erste im Flow deklarierte `ordner`; unbekannte
-Felder im Body ergeben `400`. The client
-then opens `GET /laeufe/:id/stream` (SSE, consumed via `fetch`+`getReader`, not
-`EventSource`, so the Bearer token is sent). The stream sends a `verlauf` frame
-with the stored run+steps first (so a **reconnecting** client sees everything up
-to now), then live frames (`step_start`/`step_end`/`text`/`done`/`error`/`aenderungen`/`annahmen`),
-and closes on `ende`. `step_start` fires when a step is **created** (for a
-subagent: before it executes), `step_end` when it finishes; both carry the full
-step row (including `parent_step_id` and `modell`) but never `raw_output` — the
-view loads raw data on demand via `?raw=1`. The former `tool_start`/`tool_result`
-frames are replaced by these step frames. Disconnecting does **not** stop the run. `abbrechen` sets
-the run's abort signal, so a running flow actually stops rather than only being
-marked cancelled in the DB. A backend restart marks any still-`laeuft` run as
-`fehler` (a detached run cannot survive the process).
-
-**Retry from failure (2026-07-29).** `POST /laeufe/:id/wiederholen` retries a
-run with `status: 'fehler'` of a flow that declares a `schritte` chain (the
-deterministic step editor is the default way to build flows). It starts a **new**
-run of the same flow with the same arguments; the outputs of the old run's
-successful top-level steps are reused (`vorabErgebnisse` in the step executor) —
-they appear in the new run's log as steps with input
-`(übernommen aus Lauf <id>)` and status `fertig` — and execution resumes at the
-first failed step. `400` if the run is not failed or the flow has no step chain;
-`404` if the run is unknown/foreign. Response: `202 { runId, uebernommeneSchritte }`.
+Ein Lauf läuft **auf dem Server** und hängt an keinem Client. Ein Neustart des
+Backends setzt jeden Lauf, der noch auf `laeuft` steht, auf `fehler` (ein
+losgelöster Lauf überlebt den Prozess nicht).
 
 ### Freigabe-Anfragen (Phase C7)
 
@@ -3162,12 +2438,11 @@ einer, gesendet als `Authorization: Bearer ausweis_…`. Er sagt „ich bin dies
 Mensch" und nichts weiter; was er damit darf, entscheidet wie immer die
 Freigabe (`app_members`).
 
-| Method | Endpoint             | Description                                         |
-| ------ | -------------------- | --------------------------------------------------- |
-| GET    | `/api/ausweise`      | Meine Ausweise, ohne Werte                          |
-| POST   | `/api/ausweise`      | Einen ausstellen, Body `{ name }` — Wert **einmal** |
-| GET    | `/api/ausweise/alle` | Alle am Gerät, mit Eigentümer (Administrator)       |
-| DELETE | `/api/ausweise/:id`  | Widerrufen: meinen, als Administrator jeden         |
+| Method | Endpoint            | Description                                         |
+| ------ | ------------------- | --------------------------------------------------- |
+| GET    | `/api/ausweise`     | Meine Ausweise, ohne Werte                          |
+| POST   | `/api/ausweise`     | Einen ausstellen, Body `{ name }` — Wert **einmal** |
+| DELETE | `/api/ausweise/:id` | Widerrufen: meinen, als Administrator jeden         |
 
 **Ein Ausweis widerruft sich selbst** (J34): `DELETE /api/ausweise/<eigene Nummer>`
 mit dem Ausweis als Bearer antwortet `204` ohne Rumpf, derselbe Wert danach
@@ -3576,19 +2851,12 @@ bevor sie das erste Mal malt.
 Administrator stellt hier auch nichts für einen anderen ein: wie jemand seinen
 Bildschirm sieht, ist keine Verwaltungsfrage.
 
-> The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
-> `werkzeuge`, `vorlagen`) is a reserved segment: a flow named
-> exactly `laeufe` could not be fetched via `GET /:name`.
->
-> The former preview endpoints `POST /api/flows/vorschau` and
-> `POST /api/flows/vorschau-laufzeit` were removed with the 2026-08-02 flows
-> rework (the editor no longer shows a file/runtime preview).
+### Flow-Dateien und Läufe
 
 **Runs (Plan 011, Schritt 9).** A run persists in the database (`flow_runs` +
-`flow_run_steps`) so it survives closing the browser tab; the live stream
-(Schritt 12) reloads the stored history on reconnect. Runs are scoped by owner:
-a run belonging to another user returns `404`, never `403` — its existence is
-not revealed. Each step stores a condensed `output` (what reaches the
+`flow_run_steps`) so it survives closing the browser tab; it is read through
+`GET /api/laeufe/:id` (see [Die Läufe aller Apps](#die-läufe-aller-apps-m5-verwaltung--läufe)).
+Each step stores a condensed `output` (what reaches the
 orchestrator) separately from `raw_output` (page/file content, log-only, loaded
 only with `?raw=1`). Statuses: `laeuft | wartend | fertig | fehler | abgebrochen | abgelaufen`.
 `wartend` und `abgelaufen` kamen mit Phase C7 (Freigaben) dazu: `wartend` hält
@@ -3603,9 +2871,7 @@ created **before** the role executes, and the role's inner tool calls become
 child steps via `flow_run_steps.parent_step_id`; `modell` records which model
 drove a subagent/model step. The run views that rendered each agent as a
 collapsible tree (chat run card, Flow-Zentrale run detail) left the frontend
-with phases B2 and B3 on 2026-08-26; the data stays: live via the
-`step_start`/`step_end` frames, afterwards from the stored steps. D4 decides
-how runs are read in the target picture.
+with phases B2 and B3 on 2026-08-26; the data stays in the stored steps.
 
 **File changes overview (Plan 011, Schritt 16).** A flow writes and deletes
 files without confirmation, so every run that _can_ change files (declares
@@ -3613,12 +2879,10 @@ a writing `dateien_*` tool or a document-producing `ausgabe`) is
 snapshotted before and after; the diff is
 stored on `flow_runs.changes` and returned inside the run object
 (`[{ pfad, art: neu|geaendert|geloescht, vorher, nachher, gekuerzt, hinweis }]`).
-A finishing run also emits it live as an `aenderungen` frame so the open run card
-shows it without a refetch; on reconnect it arrives inside the `verlauf` run.
 Bounded in count and per-file preview length; `null` (column) means not tracked
 (a read-only run). Never fails a run — a failed snapshot just omits the overview.
 
-`:name` and the `name` field are restricted to lowercase letters, digits and hyphens (1–50 chars), and must start and end with a letter or digit — the name becomes both the filename and the `/name` slash command in chat.
+The `name` field is restricted to lowercase letters, digits and hyphens (1–50 chars), and must start and end with a letter or digit; the name becomes the filename.
 
 **File format** (`data/flows/zusammenfassung.md`) — the YAML head declares what the flow needs and may do, the Markdown body is the prompt and carries `{{argument}}` placeholders. Every placeholder must have a matching entry in `argumente`, otherwise the file is rejected.
 
@@ -3669,27 +2933,13 @@ Recherchiere gründlich zum Thema {{thema}}.
 
 **Output (`ausgabe`, 2026-08-02).** Declares what a run produces. Before the run, the runner appends plain-language writing instructions to the system prompt (language, tonality, length band — `kurz` ≈ 300–600 words, `mittel` ≈ 800–2000, `ausfuehrlich` ≥ 2500, a concrete `wortzahl` wins —, the `gliederung` section list, and the extracted text of the `vorlage` as a style/structure reference). With a document format (`markdown|pdf|docx`) the model is additionally required to return the **complete document content as Markdown** as its final answer; after a successful run the runner renders that Markdown (pdfkit for PDF, the pure-JS `docx` package for Word) and writes it collision-free into the working directory (`fix.pdf`, `fix-2.pdf`, …). The write is recorded as a `dokument_ausgabe` step and shows up in the run's file-changes overview; a failed document render marks the run `fehler`. Filename pattern placeholders: `{{argument}}` and `{{datum}}` (YYYY-MM-DD).
 
-**Style templates (`/api/flows/vorlagen`).** Uploaded files live in `FLOWS_DIR/vorlagen/` (same volume as the flows, included in backups). For `.pdf`/`.docx` the text is extracted **at upload time** via the Document Indexer (`POST /extract-text`, multipart) and stored as a `<name>.extrahiert.txt` sidecar — a template whose text cannot be read is rejected with `400`, and runs never depend on the indexer. At run time the template text (capped at 8 000 chars) is injected into the prompt as a clearly delimited style/structure block; a missing template is silently skipped (the run must not fail because a template was deleted).
+**Style templates.** Templates are read from `FLOWS_DIR/vorlagen/` (same volume as the flows, included in backups). For `.pdf`/`.docx` the run reads the text from a `<name>.extrahiert.txt` sidecar next to the file, so runs never depend on the indexer. There is no upload route any more: `/api/flows/vorlagen` fell on 2026-10-06; a template that already lies in the folder is still used. At run time the template text (capped at 8 000 chars) is injected into the prompt as a clearly delimited style/structure block; a missing template is silently skipped (the run must not fail because a template was deleted).
 
-Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`, `dateien_anhaengen`, `dateien_suchen`, `symbol_suche`, `subagent`, `frage_nutzer` (nur in `betriebsart: rueckfragen`). Declaring `rollen` requires `subagent` and vice versa; `dateien_*` and `symbol_suche` require at least one entry in `ordner`.08.2026) together with the knowledge base, the sandbox container and the invoice flow; a flow declaring them is rejected. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers). `dateien_bearbeiten` (Harness v2, 2026-07-30) replaces one exact text block via search/replace (whitespace-tolerant fallback, `alle: true` for all occurrences); `dateien_anhaengen` appends a section to the end of a file (creates it if missing, file cap 16 MB) — the building block for generating long documents section by section instead of one giant write.
+Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`, `dateien_anhaengen`, `dateien_suchen`, `symbol_suche`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` and `symbol_suche` require at least one entry in `ordner`.08.2026) together with the knowledge base, the sandbox container and the invoice flow; a flow declaring them is rejected. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers). `dateien_bearbeiten` (Harness v2, 2026-07-30) replaces one exact text block via search/replace (whitespace-tolerant fallback, `alle: true` for all occurrences); `dateien_anhaengen` appends a section to the end of a file (creates it if missing, file cap 16 MB) — the building block for generating long documents section by section instead of one giant write.
 
 The optional `schritte` array (B7) makes orchestration deterministic: each step is either `typ: subagent` (delegates to a declared `rolle` with an `auftrag` template) or `typ: werkzeug` (calls one tool directly with `parameter`). Steps run in fixed order; a step's output is threaded into later steps as `{{stepname}}` (and `{{vorher}}` across `iterationen`), then the body prompt synthesizes the final answer. A `subagent` step requires the `subagent` tool and a matching role; a `werkzeug` step may only use a tool the flow itself declares. Empty `schritte` → the flow stays model-driven.
 
-**Map over a list (`wiederhole_ueber`, Harness v2 2026-07-30).** A step may declare `wiederhole_ueber: <name>` referencing a flow argument or an EARLIER step. Its value is parsed as a list (JSON array — also when embedded in prose/code fences — else one entry per line, bullets/numbering stripped) and the step runs once per element (max 50) with `{{element}}`, `{{index}}`, `{{anzahl}}` and `{{vorher}}` in scope; the step's output is the concatenation of all element outputs. Mutually exclusive with `iterationen > 1`; the reference is schema-validated. "Ab Fehler wiederholen" adopts completed steps only UP TO the first `wiederhole_ueber` step (its entry count is dynamic). A step-level `modell` overrides the flow model for that step's delegation (a role's own `modell` still wins). Typical long-document pipeline: step 1 (`gliederung`) produces the outline as a JSON array, step 2 loops over it (`wiederhole_ueber: gliederung`) and appends each section via `dateien_anhaengen`.
-
-`GET /api/flows/werkzeuge` returns each tool with a `verfuegbar` flag:
-
-```json
-{
-  "data": [
-    { "name": "dateien_lesen", "verfuegbar": true },
-    { "name": "dateien_suchen", "verfuegbar": true }
-  ],
-  "timestamp": "2026-07-21T10:00:00.000Z"
-}
-```
-
-A flow may declare a tool that is not built yet — the definition stays valid and saveable, and the tool reports why it did nothing when the flow runs. Every tool in the list above is built, so each entry currently reports `verfuegbar: true`.
+**Map over a list (`wiederhole_ueber`, Harness v2 2026-07-30).** A step may declare `wiederhole_ueber: <name>` referencing a flow argument or an EARLIER step. Its value is parsed as a list (JSON array — also when embedded in prose/code fences — else one entry per line, bullets/numbering stripped) and the step runs once per element (max 50) with `{{element}}`, `{{index}}`, `{{anzahl}}` and `{{vorher}}` in scope; the step's output is the concatenation of all element outputs. Mutually exclusive with `iterationen > 1`; the reference is schema-validated. A step-level `modell` overrides the flow model for that step's delegation (a role's own `modell` still wins). Typical long-document pipeline: step 1 (`gliederung`) produces the outline as a JSON array, step 2 loops over it (`wiederhole_ueber: gliederung`) and appends each section via `dateien_anhaengen`.
 
 **Folders and paths.** A flow may declare several folders in `ordner`; the **first one is the working directory**. Relative paths in the file tools resolve against it, deliberately not against whichever folder happens to contain a matching file — otherwise the same path would write to different places depending on what exists. Another declared folder is addressed by its full path. Every access is symlink-checked, so a symlink pointing out of the allowed folders is rejected even though the link itself sits inside one.
 
@@ -3721,25 +2971,6 @@ A flow may declare a tool that is not built yet — the definition stays valid a
   "timestamp": "2026-07-21T10:00:00.000Z"
 }
 ```
-
-**POST /api/flows** — body is the API shape above with `prompt` instead of the Markdown body; everything except `name` and `prompt` is optional. Returns `201` with the normalized, saved definition in `data`.
-
-```json
-{
-  "name": "zusammenfassung",
-  "beschreibung": "Liest die Dateien im Arbeitsordner und fasst sie zu einem Thema zusammen.",
-  "argumente": [{ "name": "thema", "typ": "freitext", "pflicht": true }],
-  "ordner": ["/arasul/flows/arbeit/demo"],
-  "werkzeuge": ["dateien_lesen", "dateien_suchen"],
-  "prompt": "Fasse die Dateien zum Thema {{thema}} zusammen."
-}
-```
-
-`PUT /api/flows/:name` takes the same body without `name` (it comes from the URL) and **merges**: fields omitted from the body keep their stored value. This is deliberate — sending only `{ "prompt": "…" }` to fix a typo must not silently wipe `werkzeuge`, `rollen`, `argumente`, `ordner` or `grenzen`. To actually clear a field, send it explicitly as an empty list.
-
-`DELETE /api/flows/:name` responds with `{ "deleted": true, "timestamp": "..." }`.
-
-**Errors:** `VALIDATION_ERROR` (400) for an invalid name, an unknown placeholder or any schema violation (with a `details.issues` list of `{ pfad, meldung }`), `NOT_FOUND` (404) for an unknown flow, `CONFLICT` (409) when creating a flow that already exists.
 
 ---
 
@@ -4399,11 +3630,9 @@ Ein Schlüssel für das Ara-Kit entsteht am Gerät auch ohne Sitzung:
 
 **Base Path:** `/api/docs`
 
-| Method | Endpoint                 | Description              |
-| ------ | ------------------------ | ------------------------ |
-| GET    | `/api/docs/`             | OpenAPI documentation UI |
-| GET    | `/api/docs/openapi.json` | OpenAPI spec (JSON)      |
-| GET    | `/api/docs/openapi.yaml` | OpenAPI spec (YAML)      |
+| Method | Endpoint     | Description              |
+| ------ | ------------ | ------------------------ |
+| GET    | `/api/docs/` | OpenAPI documentation UI |
 
 ---
 
@@ -4440,12 +3669,14 @@ All responses include:
 
 ## Rate Limits
 
-| Category         | Limit   | Window |
-| ---------------- | ------- | ------ |
-| General API      | 100 req | 1 min  |
-| LLM API          | 10 req  | 1 sec  |
-| Metrics API      | 20 req  | 1 sec  |
-| Password Changes | 3 req   | 15 min |
+| Category         | Limit  | Window |
+| ---------------- | ------ | ------ |
+| Password Changes | 3 req  | 15 min |
+| Tailscale        | 5 req  | 1 min  |
+| Deploy-Upload    | 20 req | 1 min  |
+
+Die übrigen Drosseln stehen bei ihren Routen (Anmeldung, Proben).
+Quelle: `src/middleware/rateLimit.js`.
 
 ---
 

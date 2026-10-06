@@ -33,29 +33,6 @@ http:
         - websecure
       tls: {}
 
-    # Streaming-Endpunkte (SSE) OHNE body-limit (Harness v2, 2026-07-30).
-    # Traefiks buffering-Middleware (body-limit) puffert nicht nur Requests,
-    # sondern hält auch die RESPONSE zurück — SSE kam dadurch erst als
-    # End-Burst an ("der Lauf wirkt tot, dann steht alles auf einmal da").
-    # Für die Stream-Pfade gilt deshalb ein eigener Router ohne buffering;
-    # den Request-Größenschutz übernimmt dort das Express-JSON-Limit.
-    #
-    # Bis Phase B6 (26.08.2026) standen hier auch `/api/llm` (der Chat-Strom
-    # der Oberfläche), `/api/rag`, `/api/document-analysis` und die KI-Brücke
-    # der Erweiterungen; alle vier sind mit ihren Routen gefallen. Übrig ist
-    # der Ereignis-Strom der Flow-Läufe.
-    dashboard-api-stream:
-      rule: 'PathPrefix(`/api/flows/laeufe`)'
-      service: dashboard-backend-service
-      priority: 15
-      middlewares:
-        - security-headers
-        - rate-limit-api
-        - compress
-      entryPoints:
-        - websecure
-      tls: {}
-
     # OpenAI-compatible API (/v1/chat/completions, /v1/embeddings, /v1/models)
     # Mounted at /v1 in dashboard-backend's app.js. API-key auth, no CSRF.
     dashboard-v1-openai:
@@ -96,47 +73,6 @@ http:
       middlewares:
         - security-headers
         - rate-limit-auth
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # Metrics API (with rate limiting)
-    metrics-api:
-      rule: 'PathPrefix(`/api/metrics`)'
-      service: dashboard-backend-service
-      priority: 15
-      middlewares:
-        - security-headers
-        - rate-limit-metrics
-        - compress
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # LLM Service Direct Access (requires dashboard login)
-    llm-direct:
-      rule: 'PathPrefix(`/models`)'
-      service: llm-service
-      priority: 25
-      middlewares:
-        - forward-auth
-        - strip-models-prefix
-        - rate-limit-llm
-        - security-headers
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # Embeddings Service Direct Access (requires dashboard login)
-    embeddings-direct:
-      rule: 'PathPrefix(`/embeddings`)'
-      service: embeddings-service
-      priority: 25
-      middlewares:
-        - forward-auth
-        - strip-embeddings-prefix
-        - rate-limit-llm
-        - security-headers
       entryPoints:
         - websecure
       tls: {}
@@ -205,17 +141,6 @@ http:
       middlewares:
         - security-headers
         - rate-limit-api
-        - compress
-      entryPoints:
-        - websecure
-      tls: {}
-
-    # Dashboard Frontend Static Files
-    dashboard-static:
-      rule: 'PathPrefix(`/static/js`) || PathPrefix(`/static/css`) || PathPrefix(`/static/media`)'
-      service: dashboard-frontend-service
-      priority: 65
-      middlewares:
         - compress
       entryPoints:
         - websecure
@@ -310,24 +235,3 @@ http:
           flushInterval: 1ms
         passHostHeader: true
         serversTransport: sse-transport
-
-    # LLM Service (Ollama on port 11434)
-    llm-service:
-      loadBalancer:
-        servers:
-          - url: 'http://llm-service:11434'
-        healthCheck:
-          path: /api/tags
-          interval: 30s
-          timeout: 5s
-        serversTransport: llm-transport
-
-    # Embeddings Service
-    embeddings-service:
-      loadBalancer:
-        servers:
-          - url: 'http://embedding-service:11435'
-        healthCheck:
-          path: /health
-          interval: 30s
-          timeout: 5s

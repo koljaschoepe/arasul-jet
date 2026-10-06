@@ -217,12 +217,11 @@ let laeuft = false;
 /**
  * Den Nachtrag anstossen, ohne auf ihn zu warten.
  *
- * `syncWithOllama` haengt an POST /api/models/sync, und diese Route wird im
- * Anfragefaden abgewartet. Fuenf Modelle mal zehn Sekunden Zeitgrenze waeren im
- * schlechtesten Fall fuenfzig Sekunden obendrauf; das Frontend bricht nach
- * dreissig ab (`useApi`), der Server nach sechzig. Der Steckbrief ist aber kein
- * Teil dessen, was der Aufrufer wissen will: er beschreibt Modelle, die schon
- * da sind, und darf beliebig spaeter fertig werden.
+ * `syncWithOllama` laeuft beim Start und im Takt des Abgleichs. Fuenf Modelle
+ * mal zehn Sekunden Zeitgrenze waeren im schlechtesten Fall fuenfzig Sekunden
+ * obendrauf. Der Steckbrief ist aber kein Teil dessen, was der Abgleich wissen
+ * will: er beschreibt Modelle, die schon da sind, und darf beliebig spaeter
+ * fertig werden.
  *
  * Bewusst ohne Rueckgabewert. Wer darauf warten will, ruft
  * `steckbriefeNachtragen` direkt, so wie die Tests es tun.

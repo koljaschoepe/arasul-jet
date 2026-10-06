@@ -82,9 +82,8 @@ All config under `config/traefik/`:
 | ------------------------- | ------------------------------------------------------- |
 | `traefik.yml`             | Static config: entrypoints, providers, logging, metrics |
 | `dynamic/routes.yml`      | HTTP routers and service definitions (priority 1-110)   |
-| `dynamic/middlewares.yml` | Rate limits, auth, CORS, security headers, strip-prefix |
+| `dynamic/middlewares.yml` | Rate limits, forward-auth, security headers, compress   |
 | `dynamic/tls.yml`         | Self-signed cert, TLS 1.2+ with strong cipher suites    |
-| `dynamic/websockets.yml`  | WebSocket router for the metrics live-stream            |
 
 **Entrypoints**:
 
@@ -99,16 +98,20 @@ All config under `config/traefik/`:
 
 **Router priorities** (higher wins on overlap):
 
-| Priority | Router                        | Rule                              |
-| -------- | ----------------------------- | --------------------------------- |
-| 65       | dashboard-static              | `/static/js`, `/static/css`, etc. |
-| 50       | all websocket routers         | WS upgrade header match           |
-| 35       | traefik-dashboard             | `/api/traefik`, `/dashboard`      |
-| 25       | llm-direct, embeddings-direct | `/models`, `/embeddings`          |
-| 20       | auth-api                      | `/api/auth`                       |
-| 15       | metrics-api                   | `/api/metrics`                    |
-| 10       | dashboard-api                 | `/api`                            |
-| 1        | dashboard-frontend            | `/` (catch-all)                   |
+| Priority | Router                | Rule                                          |
+| -------- | --------------------- | --------------------------------------------- |
+| 50       | apps-me, apps-me-test | `/apps/<id>/api/me`, `/apps/<id>/test/api/me` |
+| 35       | traefik-dashboard     | `/api/traefik`                                |
+| 30       | apps-frontend         | `/apps`                                       |
+| 25       | auth-probe-api        | `/api/auth/session`, `/api/auth/needs-setup`  |
+| 20       | auth-api              | `/api/auth`                                   |
+| 12       | dashboard-v1-openai   | `/v1/chat`, `/v1/embeddings`, `/v1/models`    |
+| 10       | dashboard-api         | `/api`                                        |
+| 1        | dashboard-frontend    | `/` (catch-all)                               |
+
+The direct routes `/models` and `/embeddings` (straight to Ollama and the
+embedding service, past backend and queue) were removed on 2026-10-06; models
+go through `/api/models`, embeddings through `/v1/embeddings`.
 
 **Authentication middlewares**:
 
@@ -292,7 +295,7 @@ Checklist for adding a Docker service to the platform:
 
 5. **Add health check**: every service must have one (required for `depends_on: condition: service_healthy`)
 
-6. **Add Traefik route** (if externally accessible): create a router in `config/traefik/dynamic/routes.yml` with appropriate priority, middlewares, and TLS. Add a WebSocket router in `websockets.yml` if needed.
+6. **Add Traefik route** (if externally accessible): create a router in `config/traefik/dynamic/routes.yml` with appropriate priority, middlewares, and TLS.
 
 7. **Add secrets** (if needed): create secret file in `config/secrets/`, declare in `compose.secrets.yaml`, reference via `*_FILE` env var
 

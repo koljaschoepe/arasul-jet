@@ -823,19 +823,7 @@ class CategoryHandlersMixin:
             logger.error(f"Safety check failed: Database not accessible - {e}")
             return False
 
-        # Check 3: No update in progress
-        try:
-            update_state_file = '/arasul/updates/update_state.json'
-            if os.path.exists(update_state_file):
-                with open(update_state_file, 'r') as f:
-                    update_state = json.load(f)
-                    if update_state.get('status') == 'in_progress':
-                        logger.error("Safety check failed: Update in progress")
-                        return False
-        except Exception as e:
-            logger.warning(f"Failed to check update state: {e}")
-
-        # Check 4: Sufficient disk space
+        # Check 3: Sufficient disk space
         try:
             disk = psutil.disk_usage('/')
             if disk.percent >= 98:

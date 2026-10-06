@@ -115,21 +115,4 @@ router.delete(
   })
 );
 
-// GET /api/license/check/:feature - Check if a feature is allowed
-router.get(
-  '/check/:feature',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const { feature } = req.params;
-    const allowed = await licenseService.isFeatureAllowed(feature);
-
-    res.json({
-      feature,
-      allowed,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
 module.exports = router;

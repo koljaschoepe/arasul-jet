@@ -181,9 +181,8 @@ if [ -n "$TOKEN" ]; then
     "GET /chats"
     "GET /documents"
     "GET /settings"
-    "GET /services"
-    "GET /metrics"
-    "GET /logs/list"
+    "GET /services/all"
+    "GET /ops/overview"
     "GET /llm/models"
   )
 fi

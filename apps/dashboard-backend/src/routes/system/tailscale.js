@@ -28,18 +28,6 @@ router.get(
 );
 
 /**
- * GET /api/tailscale/peers
- * Get list of connected Tailscale peers
- */
-router.get(
-  '/peers',
-  asyncHandler(async (req, res) => {
-    const peers = await tailscaleService.getPeers();
-    res.json({ peers });
-  })
-);
-
-/**
  * POST /api/tailscale/install
  * Install Tailscale on the host system
  */

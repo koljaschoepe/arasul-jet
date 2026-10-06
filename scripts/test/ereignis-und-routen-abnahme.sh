@@ -200,7 +200,7 @@ warte_lauf() {
   STATUS=""
   FEHLER=""
   while [ "$SECONDS" -lt "$ende" ]; do
-    ruf "$TOK" GET "/api/apps/$APP_A/laeufe/$lauf"
+    ruf "$TOK" GET "/api/laeufe/$lauf"
     STATUS=$(rumpf | feld data.status)
     FEHLER=$(rumpf | feld data.error)
     case "$STATUS" in laeuft | wartend | "") sleep 2 ;; *) return 0 ;; esac
@@ -208,12 +208,12 @@ warte_lauf() {
   return 1
 }
 lauf_feld() { # lauf feld
-  ruf "$TOK" GET "/api/apps/$APP_A/laeufe/$1"
+  ruf "$TOK" GET "/api/laeufe/$1"
   rumpf | feld "data.$2"
 }
 # Ausgabe und Status eines Schritts (nach Name) eines Laufs: "status|ausgabe".
 schritt() { # lauf name
-  ruf "$TOK" GET "/api/apps/$APP_A/laeufe/$1"
+  ruf "$TOK" GET "/api/laeufe/$1"
   rumpf | python3 -c 'import sys,json
 d = json.load(sys.stdin)["data"]
 s = [x for x in d.get("steps", []) if x.get("name") == "route_aufrufen"]
@@ -279,14 +279,14 @@ aufraeumen() {
   if [ -n "$TOK" ]; then
     for app in "$APP_A" "$APP_B"; do
       for id in $(curl -sk --max-time 30 -H "authorization: Bearer $TOK" \
-        "$BASIS/api/apps/$app/laeufe?limit=200" | python3 -c 'import sys,json
+        "$BASIS/api/laeufe?app=$app&limit=200" | python3 -c 'import sys,json
 try: d = json.load(sys.stdin)["data"]
 except Exception: raise SystemExit
 for l in d:
     if l["status"] in ("laeuft", "wartend") and l["created_at"][:19] >= sys.argv[1]:
         print(l["id"])' "$BEGINN" 2>/dev/null); do
         curl -sk -o /dev/null --max-time 30 -X POST -H "authorization: Bearer $TOK" \
-          "$BASIS/api/flows/laeufe/$id/abbrechen"
+          "$BASIS/api/laeufe/$id/abbrechen"
       done
     done
   fi
@@ -468,7 +468,7 @@ melden "$TOK_A" Beleg.Gross '{}'
 pruefe 'Ein Name in falscher Form: 400' "$(ja_wenn "$GERAET_CODE" 400)" "Geraet $GERAET_CODE"
 ruf "schluessel:$SCHLUESSEL" POST /api/v1/external/ereignisse/beleg.eingegangen '{"daten":{"nummer":"x"}}'
 pruefe 'Der Schluessel eines Menschen meldet kein Ereignis: 403' "$(ja_wenn "$CODE" 403)" "HTTP $CODE"
-ruf "$TOK" GET "/api/apps/$APP_A/laeufe?limit=200"
+ruf "$TOK" GET "/api/laeufe?app=$APP_A&limit=200"
 VONHAND=$(rumpf | python3 -c 'import sys,json
 d = json.load(sys.stdin)["data"]
 print(sum(1 for l in d if l["flow_name"] in ("von-hand", "pflicht") and l["created_at"][:19] >= sys.argv[1]))' "$BEGINN" 2>/dev/null)

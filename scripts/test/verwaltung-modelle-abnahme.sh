@@ -435,9 +435,16 @@ else
     "$([ -n "$(zeile "$KLEIN" name)" ] && [ "$(zeile "$KLEIN" groesse_bytes)" -lt 1000000000 ] 2>/dev/null && [ "$(zeile "$KLEIN" faehigkeiten | feld text)" = true ] && [ "$(zeile "$KLEIN" flows)" = '[]' ] && [ -z "$(zeile "$KLEIN" sperre)" ] && echo ja || echo nein)"
   pruefe "$KLEIN ist als frei geladen im Katalog vermerkt" \
     "$(ja_wenn "$(db "SELECT frei_geladen FROM llm_model_catalog WHERE id = '$KLEIN';")" t)"
-  # Der Abgleich der Faehigkeiten laeuft nach einem Sync; hier einmal anstossen.
-  ruf "$TOK" POST /api/models/sync '{}'
-  sleep 15
+  # Der Abgleich der Faehigkeiten laeuft nach einem Sync. `POST /api/models/sync`
+  # ist am 06.10.2026 gefallen; der Steckbrief-Nachtrag, den der Sync nur
+  # anstiess, wird deshalb direkt im Container gerufen und abgewartet.
+  ssh -o BatchMode=yes -o ConnectTimeout=15 "$GERAET" "docker exec -i dashboard-backend node -" >/dev/null 2>&1 <<'JS'
+const database = require('./src/database');
+const { steckbriefeNachtragen } = require('./src/services/llm/modelProfile');
+steckbriefeNachtragen(database, { hoechstens: 50 })
+  .then(() => process.exit(0))
+  .catch(() => process.exit(1));
+JS
   verwaltung
   pruefe 'Die Faehigkeiten der neuen Zeile stimmen mit Ollama (Bild, Werkzeuge) nach dem Abgleich' \
     "$([ "$(zeile "$KLEIN" faehigkeiten | feld bild)" = "$(ollama_faehigkeit "$KLEIN" vision)" ] && [ "$(zeile "$KLEIN" faehigkeiten | feld werkzeuge)" = "$(ollama_faehigkeit "$KLEIN" tools)" ] && echo ja || echo nein)" \

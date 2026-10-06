@@ -1,10 +1,9 @@
 /**
  * Läufe über alle Apps (M5, Verwaltung → Läufe).
  *
- * `GET /api/flows/laeufe` ist die Liste des ANGEMELDETEN Menschen, und
- * `GET /api/apps/:id/laeufe` die EINER App. Der Administrator braucht die
- * dritte Sicht: alles, was auf dem Gerät gelaufen ist, gefiltert nach App,
- * Ergebnis, Person und Zeitraum, mit einem Link auf jeden Lauf. Läufe aus
+ * Der Administrator sieht hier alles, was auf dem Gerät gelaufen ist,
+ * gefiltert nach App, Ergebnis, Person und Zeitraum, mit einem Link auf jeden
+ * Lauf. Läufe aus
  * Zeitplan oder Ereignis gehören keinem Menschen; er sieht und bricht auch sie.
  *
  * Alles hier ist Admin-Sache (`requireRole('admin')`).

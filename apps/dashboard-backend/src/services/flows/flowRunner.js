@@ -4,17 +4,12 @@
  * Bisher lief ein Flow SYNCHRON im Request: schloss der Browser den Tab, war
  * der Lauf weg. Ab hier läuft er SERVERSEITIG weiter, losgelöst vom Request.
  *
- * Zwei Dinge macht dieses Modul:
- *
- *  1. LOSGELÖST STARTEN. `starten` legt den Lauf an, stößt `runFlow` im
- *     Hintergrund an (NICHT awaited) und gibt sofort die Lauf-ID zurück. Der
- *     Request ist damit fertig; der Lauf läuft weiter.
- *
- *  2. LIVE VERTEILEN. Jeder Schritt (`onEvent`) wird an einen Ereignis-Bus
- *     gemeldet, auf den die SSE-Route hört. Bricht die Verbindung ab, läuft der
- *     Lauf weiter; beim Wiederverbinden liest die Route den gespeicherten
- *     Verlauf aus der DB (Schritt 9) und hängt sich ab dem letzten Schritt
- *     wieder an den Bus.
+ * LOSGELÖST STARTEN. `starten` legt den Lauf an, stößt `runFlow` im
+ * Hintergrund an (NICHT awaited) und gibt sofort die Lauf-ID zurück. Der
+ * Request ist damit fertig; der Lauf läuft weiter. Seinen Stand liest man aus
+ * der DB (Schritt 9). Den Ereignis-Bus für die Live-Übertragung gibt es seit
+ * dem 06.10.2026 nicht mehr: die SSE-Route, die als einzige zuhörte, ist mit
+ * der Totcode-Prüfung gefallen.
  *
  * ABBRUCH ist damit echt: `abbrechen` setzt das AbortSignal des Laufs. Die
  * Werkzeug-Schleife prüft es VOR jedem Modell-Aufruf und hört dann auf — statt
@@ -33,20 +28,14 @@
  * wartender Lauf der Werkzeug-Schleife hat keinen Prüfpunkt und endet wie bisher.
  */
 
-const EventEmitter = require('events');
 const logger = require('../../utils/logger');
 const runStore = require('./runStore');
 const { runFlow } = require('./runFlow');
 const flowSettings = require('./flowSettings');
 const { FlowInaktivError, ConflictError } = require('../../utils/errors');
 
-// Aktive Läufe: runId → { bus, controller }. Der Bus verteilt die Ereignisse
-// an die SSE-Abonnenten; der controller bricht den Lauf ab.
+// Aktive Läufe: runId → { controller }. Der controller bricht den Lauf ab.
 const aktive = new Map();
-
-// Wie lange ein beendeter Lauf noch im Speicher bleibt, damit ein knapp zu spät
-// verbindender Client sein Schluss-Ereignis noch mitbekommt.
-const NACHLAUF_MS = 30 * 1000;
 
 /**
  * Startet einen Flow-Lauf LOSGELÖST vom Request.
@@ -64,10 +53,6 @@ async function starten(
     // Plattform. Nur durchgereicht: was sie bedeutet, weiss `runFlow`.
     appId = null,
     stand = null,
-    // „Ab Fehler wiederholen": übernommene Schritt-Ausgaben eines alten Laufs
-    // (siehe stepExecutor.berechneVorabErgebnisse) — nur durchgereicht.
-    vorabErgebnisse = null,
-    vorabQuelleLaufId = null,
     // Einreicher und Freigaberegel (J35) -- nur festgehalten, siehe `createRun`.
     einreicherId = null,
     freigabeRegel = null,
@@ -93,8 +78,7 @@ async function starten(
     );
   }
 
-  // Den Lauf ZUERST anlegen, damit die zurückgegebene ID sofort streambar ist —
-  // die SSE-Route kann sich verbinden, noch bevor der erste Schritt da ist.
+  // Den Lauf ZUERST anlegen, damit die zurückgegebene ID sofort lesbar ist.
   const angelegt = await store.createRun({
     userId,
     flowName,
@@ -107,11 +91,10 @@ async function starten(
     ereignis,
     titel,
   });
-  // WICHTIG: Postgres liefert BIGSERIAL als STRING ("7"). Die SSE-Route wandelt
+  // WICHTIG: Postgres liefert BIGSERIAL als STRING ("7"), die Routen wandeln
   // ihren Pfad-Parameter dagegen in eine ZAHL. Würde die Registry unter dem
-  // String verschlüsselt, fände `abonnieren(7)` den Lauf nie — die
-  // Live-Übertragung liefe ins Leere (der Lauf selbst läuft weiter, aber ohne
-  // Strom). Deshalb hier und in allen Registry-Zugriffen konsequent als Zahl.
+  // String verschlüsselt, fände `abbrechen(7)` den Lauf nie. Deshalb hier und
+  // in allen Registry-Zugriffen konsequent als Zahl.
   const runId = Number(angelegt.id);
 
   anstossen(
@@ -123,8 +106,6 @@ async function starten(
       appId,
       stand,
       einreicherId,
-      vorabErgebnisse,
-      vorabQuelleLaufId,
     },
     { run, store }
   );
@@ -133,28 +114,14 @@ async function starten(
 
 /**
  * Stößt `runFlow` für einen schon angelegten Lauf im Hintergrund an und hängt
- * Bus und Abbruch-Signal an. Gemeinsam für `starten` und `fortsetzen`.
+ * das Abbruch-Signal an. Gemeinsam für `starten` und `fortsetzen`.
  */
 function anstossen(
   { runId, flowName, args, userId, appId, stand, einreicherId, ...weitere },
   { run = runFlow, store = runStore } = {}
 ) {
-  const bus = new EventEmitter();
-  // Ein SSE-Abonnent pro Verbindung; mehrere Tabs sind möglich.
-  bus.setMaxListeners(0);
   const controller = new AbortController();
-  aktive.set(runId, { bus, controller });
-
-  // Jedes Schleifen-Ereignis an den Bus weiterreichen. runFlow schreibt den
-  // Schritt bereits in die DB (Schritt 9); hier kommt nur die Live-Verteilung
-  // dazu. Der Bus wirft nie in die Schleife zurück.
-  const onEvent = evt => {
-    try {
-      bus.emit('evt', evt);
-    } catch (err) {
-      logger.debug(`flowRunner: Bus-Emit fehlgeschlagen: ${err.message}`);
-    }
-  };
+  aktive.set(runId, { controller });
 
   // BEWUSST NICHT await: Der Lauf läuft im Hintergrund weiter.
   run(
@@ -164,7 +131,6 @@ function anstossen(
       userId,
       appId,
       stand,
-      onEvent,
       existingRunId: runId,
       signal: controller.signal,
       // Fuer das Protokoll der Modellaufrufe (J35, Migration 189): jeder
@@ -174,21 +140,14 @@ function anstossen(
     },
     {}
   )
-    .then(fertig => {
-      bus.emit('evt', { type: 'ende', status: fertig ? fertig.status : 'fertig', runId });
-    })
     .catch(err => {
       logger.error(`Flow-Lauf ${runId} (${flowName}) im Hintergrund gescheitert: ${err.message}`);
       // Der Lauf konnte nicht sauber abschließen — Status hart auf Fehler setzen,
       // damit er nicht ewig als „laeuft" gilt.
-      store
-        .finishRun({ runId, status: 'fehler', error: err.message })
-        .catch(() => {})
-        .finally(() => bus.emit('evt', { type: 'ende', status: 'fehler', runId }));
+      return store.finishRun({ runId, status: 'fehler', error: err.message }).catch(() => {});
     })
     .finally(() => {
-      // Nachlauf: den Bus noch kurz halten, dann aufräumen.
-      setTimeout(() => aktive.delete(runId), NACHLAUF_MS).unref?.();
+      aktive.delete(runId);
     });
 }
 
@@ -285,27 +244,6 @@ async function fortsetzen({ runId }, deps = {}) {
 }
 
 /**
- * Abonniert die Live-Ereignisse eines laufenden Laufs.
- * @param {number} runId
- * @param {(evt:object)=>void} handler
- * @returns {(()=>void)|null} Abmelde-Funktion, oder null wenn der Lauf nicht
- *   (mehr) aktiv ist (dann gibt es nur noch den DB-Verlauf).
- */
-function abonnieren(runId, handler) {
-  const eintrag = aktive.get(Number(runId));
-  if (!eintrag) {
-    return null;
-  }
-  eintrag.bus.on('evt', handler);
-  return () => eintrag.bus.removeListener('evt', handler);
-}
-
-/** Läuft dieser Lauf gerade aktiv im Speicher? */
-function istAktiv(runId) {
-  return aktive.has(Number(runId));
-}
-
-/**
  * Bricht einen laufenden Lauf ab: erst in der DB (Eigentümer-geprüft, Schritt 9),
  * dann das Abort-Signal setzen, damit die Schleife wirklich aufhört.
  *
@@ -321,7 +259,6 @@ async function abbrechen({ runId, userId = null }, deps = {}) {
   const eintrag = aktive.get(Number(runId));
   if (eintrag) {
     eintrag.controller.abort();
-    eintrag.bus.emit('evt', { type: 'ende', status: 'abgebrochen', runId });
   } else {
     // Kein Prozess hält den Lauf (er wartete über einen Neustart hinweg): seine
     // offene Freigabe-Anfrage wäre sonst weiter zu bestätigen, obwohl nichts
@@ -348,7 +285,6 @@ function signalAbbruch(runId) {
     return false;
   }
   eintrag.controller.abort();
-  eintrag.bus.emit('evt', { type: 'ende', status: 'abgebrochen', runId });
   return true;
 }
 
@@ -420,11 +356,8 @@ function _reset() {
 module.exports = {
   starten,
   fortsetzen,
-  abonnieren,
-  istAktiv,
   abbrechen,
   signalAbbruch,
   verwaisteAufraeumen,
-  _aktive: aktive,
   _reset,
 };

@@ -287,37 +287,10 @@ async function blacklistAllUserTokens(userId) {
   }
 }
 
-/**
- * Get active sessions for user
- */
-async function getUserSessions(userId) {
-  try {
-    const result = await db.query(
-      `SELECT
-                token_jti,
-                ip_address,
-                user_agent,
-                created_at,
-                expires_at,
-                last_activity
-             FROM active_sessions
-             WHERE user_id = $1 AND expires_at > NOW()
-             ORDER BY last_activity DESC`,
-      [userId]
-    );
-
-    return result.rows;
-  } catch (error) {
-    logger.error(`Error getting user sessions: ${error.message}`);
-    throw new ServiceUnavailableError('Die Sitzungen konnten nicht gelesen werden.');
-  }
-}
-
 module.exports = {
   tokenLebensdauerMs,
   generateToken,
   verifyToken,
   blacklistToken,
   blacklistAllUserTokens,
-  getUserSessions,
 };

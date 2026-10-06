@@ -388,14 +388,6 @@ async function getStatus() {
 }
 
 /**
- * Get only peer list
- */
-async function getPeers() {
-  const status = await getStatus();
-  return status.peers;
-}
-
-/**
  * Install Tailscale on the host system
  */
 async function install() {
@@ -578,7 +570,6 @@ async function disconnect() {
 module.exports = {
   isInstalled,
   getStatus,
-  getPeers,
   connect,
   disconnect,
   install,

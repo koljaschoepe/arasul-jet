@@ -369,7 +369,14 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // `ergebnis_bestaetigen` hat genau eine Pruefung, `titel` beim Start und
     // eine Fassung dazu, wo und von wem entschieden wird. Die Zahl geht mit,
     // weil der Start `.strict()` ist und sich ein Verhalten aendert.
-    expect(abdruck).toBe('66b96771795646e18ea6060ffa9511d60929bf11c81d4768d6d57999c7679308');
+    //
+    // 06.10.2026 (M5, Auftrag jet-totcode-entfernen): das Werkzeug
+    // `frage_nutzer` faellt aus der Liste. Beantworten liess sich die
+    // Rueckfrage nur ueber eine Route, die niemand rief, und kein Kit-Werkzeug
+    // und keine Vorlage nennt es. Die Liste wird enger, nicht weiter: ein Kit
+    // auf Fassung 14 weist nichts ab, was das Geraet annimmt, und eine hoehere
+    // Nummer hielte jedes Kit an. Die Zahl bleibt bei 14.
+    expect(abdruck).toBe('ea40edf5758903b35c1b5a93fd322f276afe29ae73b2144609d272a2e2b694f0');
   });
 
   /**

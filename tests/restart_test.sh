@@ -230,12 +230,12 @@ test_telemetry_after_restart() {
         return 1
     fi
 
-    # Verify metrics API
-    if check_api_endpoint "/api/metrics/live" 200; then
-        test_pass "Metrics API responding"
+    # Verify dashboard API (/api/metrics/live ist am 06.10.2026 gefallen)
+    if check_api_endpoint "/api/health" 200; then
+        test_pass "Dashboard API responding"
         return 0
     else
-        test_fail "Metrics API not responding"
+        test_fail "Dashboard API not responding"
         return 1
     fi
 }
@@ -255,7 +255,8 @@ test_data_persistence() {
     sleep 10
 
     # Check if we can still query the database
-    if check_api_endpoint "/api/metrics/history?range=1h" 200; then
+    # /api/health prueft die Datenbank mit (/api/metrics/history ist gefallen).
+    if check_api_endpoint "/api/health" 200; then
         test_pass "Data persisted through restart"
         return 0
     else

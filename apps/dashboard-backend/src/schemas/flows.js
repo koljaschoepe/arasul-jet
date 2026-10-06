@@ -25,12 +25,10 @@ const VALID_TOOLS = [
   // `web_suche` und `web_lesen` sind mit SearXNG in Phase B5 (26.08.2026)
   // gefallen; ein Flow, der sie noch nennt, wird hier abgewiesen.
   'subagent',
-  // Plan 023 I3: EINE Rückfrage an den Nutzer, mit bis zu vier Optionen. Nur
-  // wirksam in der Betriebsart `rueckfragen`; in `autonom` legt die Registry
-  // es gar nicht erst in den Kasten (siehe `betriebsart` unten).
-  'frage_nutzer',
-  // Phase C7: der Lauf haelt an, bis ein Mensch bestaetigt oder ablehnt. In
-  // jeder Betriebsart erlaubt -- siehe `services/flows/toolRegistry.js`.
+  // Die Rueckfrage `frage_nutzer` (Plan 023 I3) ist am 06.10.2026 gefallen:
+  // beantworten liess sie sich nur ueber eine Route, die niemand rief.
+  // Phase C7: der Lauf haelt an, bis ein Mensch bestaetigt oder ablehnt --
+  // siehe `services/flows/toolRegistry.js`.
   'freigabe_anfordern',
   // Kontrakt 13 (M5): eine Route der eigenen App oder einer anderen, die der
   // Kopf unter `routen` nennt -- geprueft gegen deren Rechte. Kein freier
@@ -411,10 +409,10 @@ const FlowStep = z
     auftrag: z.string().trim().max(4000).optional(),
     // werkzeug-Schritt:
     werkzeug: z.enum(VALID_TOOLS).optional(),
-    // Werte eines Werkzeug-Schritts. Listen von Zeichenketten sind erlaubt,
-    // seit `frage_nutzer` seine `optionen` als Liste erwartet (Plan 023 I4):
-    // ein Werkzeug mit einem Listen-Parameter ist nichts Ungewöhnliches, und
-    // ohne diese Zeile liesse es sich in einer Schritt-Kette gar nicht rufen.
+    // Werte eines Werkzeug-Schritts. Listen von Zeichenketten sind erlaubt
+    // (Plan 023 I4): ein Werkzeug mit einem Listen-Parameter ist nichts
+    // Ungewöhnliches, und ohne diese Zeile liesse es sich in einer
+    // Schritt-Kette gar nicht rufen.
     parameter: z
       .record(
         z.string(),
@@ -610,14 +608,11 @@ const FlowDefinition = z
     // der Rumpf-Prompt die Antwort aus ihren Ausgaben.
     schritte: z.array(FlowStep).max(20).default([]),
     grenzen: FlowLimits,
-    // Plan 023 I2: zwei Betriebsarten. `autonom` ist die Voreinstellung und das
-    // bisherige Verhalten: der Flow fragt nie, er trifft die Annahme und
-    // schreibt sie mit (Annahmen-Protokoll, `pruefung.js`). `rueckfragen`
-    // erlaubt ihm, anzuhalten und zu fragen.
-    //
-    // Die Voreinstellung ist Absicht: jeder vorhandene Flow bleibt genau so,
-    // wie er war, und ein Flow, der ungefragt anhält, wäre für einen
-    // externen Start oder einen nächtlichen Lauf das Ende.
+    // Plan 023 I2: zwei Betriebsarten. Seit die Rueckfrage `frage_nutzer`
+    // gefallen ist (06.10.2026), fragt kein Flow mehr, er trifft die Annahme
+    // und schreibt sie mit (Annahmen-Protokoll, `pruefung.js`). Das Feld
+    // bleibt angenommen, damit eine vorhandene Datei, die es nennt, gueltig
+    // bleibt; `rueckfragen` wirkt wie `autonom`.
     betriebsart: z.enum(['autonom', 'rueckfragen']).default('autonom'),
     ausgabe: FlowAusgabe.optional(),
     // Kontrakt 8 (M5): Arten, Ausloeser und Stufen, alle freiwillig.
@@ -631,18 +626,6 @@ const FlowDefinition = z
   })
   .strict()
   .superRefine((flow, ctx) => {
-    // Plan 023 I2: `frage_nutzer` in einem autonomen Flow ist ein Widerspruch,
-    // kein Detail. Ihn beim Anlegen zu melden ist besser, als ihn zur Laufzeit
-    // stillschweigend aufzulösen — der Autor glaubt sonst, sein Flow frage.
-    if (flow.betriebsart !== 'rueckfragen' && flow.werkzeuge.includes('frage_nutzer')) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['werkzeuge'],
-        message:
-          '"frage_nutzer" braucht die Betriebsart "rueckfragen". Ein autonomer ' +
-          'Flow stellt keine Frage, er trifft die Annahme und schreibt sie mit.',
-      });
-    }
     // Doppelte Argumentnamen — sonst überschreibt die Platzhalter-Ersetzung
     // still den einen mit dem anderen.
     const argNames = flow.argumente.map(a => a.name);
@@ -821,122 +804,8 @@ const FlowDefinition = z
     }
   });
 
-/** Body zum Anlegen/Ändern eines Flows über die API (ohne den Namen aus der URL). */
-const SaveFlowBody = z
-  .object({
-    beschreibung: z.string().trim().max(300).optional(),
-    modell: z.string().trim().max(100).optional(),
-    argumente: z.array(FlowArgument).max(10).optional(),
-    ordner: z.array(z.string().trim().min(1).max(500)).max(10).optional(),
-    werkzeuge: z.array(z.enum(VALID_TOOLS)).max(VALID_TOOLS.length).optional(),
-    rollen: z.array(SubagentRole).max(10).optional(),
-    schritte: z.array(FlowStep).max(20).optional(),
-    grenzen: FlowLimitsShape.optional(),
-    ausgabe: FlowAusgabe.optional(),
-    // Plan 023 I2, nachgetragen am 22.08.2026.
-    //
-    // `betriebsart` stand in `FlowDefinition`, aber nicht hier. Da dieses
-    // Schema `.strict()` ist, wies die API jeden Flow ab, der die
-    // Betriebsart nennt:
-    //
-    //   POST /api/flows  ->  Unrecognized key: "betriebsart"
-    //
-    // Damit war die gesamte Rueckfrage-Betriebsart ueber den normalen Weg
-    // unerreichbar, einschliesslich des `angebot`-Beispiels, das genau sie
-    // vorfuehren soll. Aufgefallen beim Versuch, es aus dem Katalog anzulegen.
-    betriebsart: z.enum(['autonom', 'rueckfragen']).optional(),
-    // Kontrakt 8 (M5): dieselben Felder wie in `FlowDefinition`; ohne sie wiese
-    // die API einen Flow ab, den das Paket mitbringen darf (siehe oben).
-    arten: FlowArten.optional(),
-    ausloeser: FlowAusloeserListe.optional(),
-    stufen: FlowStufen.optional(),
-    abschluss: FlowAbschluss.optional(),
-    routen: FlowRouten.optional(),
-    prompt: z.string().trim().min(1).max(50000),
-  })
-  .strict();
-
-/** Beim Anlegen kommt der Name im Body dazu. */
-const CreateFlowBody = SaveFlowBody.extend({ name: FlowName });
-
-/**
- * Name einer Stilvorlage unter `data/flows/vorlagen/` (URL-Parameter).
- * Bewusst eng — der Name wird zum Dateinamen, keine Pfade, keine Tricks.
- */
-const VorlageNameParams = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(1)
-      .max(200)
-      .refine(v => !v.includes('/') && !v.includes('\\') && !v.includes('..'), {
-        message: 'Vorlagenname darf keine Pfade enthalten',
-      }),
-  })
-  .strict();
-
-/** `:name` in der URL. */
-const FlowNameParams = z.object({ name: FlowName }).strict();
-
 /** `:id` eines Laufs in der URL (Plan 011, Schritt 9). */
 const RunIdParams = z.object({ id: z.coerce.number().int().positive() }).strict();
-
-/**
- * Die Antwort auf eine Rückfrage (Plan 023 I3).
- *
- * Ob der Text einer der angebotenen Optionen entspricht, prüft NIEMAND: das
- * Freitextfeld ist Teil der Zusage, und eine Antwort, die keine Option ist, ist
- * genau der Fall, für den es da ist.
- */
-const FlowAntwortBody = z
-  .object({
-    antwort: z.string().trim().min(1, 'Eine leere Antwort hilft dem Lauf nicht weiter').max(2000),
-  })
-  .strict();
-
-/**
- * Body von POST /flows/laeufe/:id/wiederholen („Ab Fehler wiederholen",
- * 2026-07-29). Bewusst leer und `.strict()`: Der Lauf bestimmt Flow und
- * Argumente selbst — ein Body-Feld hier wäre ein Missverständnis des Aufrufers
- * und soll als 400 auffallen, nicht still ignoriert werden.
- */
-const WiederholenBody = z.object({}).strict();
-
-/** Einen Lauf starten (Plan 011, Schritt 12). */
-const StartRunBody = z
-  .object({
-    flow: FlowName,
-    // Argumentwerte als name→Wert. Werte kommen als Strings aus dem Chat; der
-    // Runner prüft sie gegen die Deklaration des Flows.
-    args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
-  })
-  .strict();
-
-/** Query der Lauf-Liste. */
-const ListRunsQuery = z
-  .object({
-    limit: z.coerce.number().int().min(1).max(200).default(50),
-    // Optionaler Status-Filter, z. B. `?status=laeuft` für die „laufende Flows"-
-    // Anzeige im Chat (Plan 013, B8).
-    // `wartend` und `abgelaufen` seit Phase C7 (Freigaben): der eine haelt an,
-    // der andere ist vorbei, ohne dass jemand entschieden hat.
-    status: z
-      .enum([
-        'laeuft',
-        'wartend',
-        'fertig',
-        'fehler',
-        'abgebrochen',
-        'abgelaufen',
-        'nicht_uebergeben',
-      ])
-      .optional(),
-    // Optionaler Flow-Filter — die Flow-Zentrale zeigt „Letzte Läufe" EINES
-    // Flows, statt client-seitig aus der Gesamtliste zu sieben.
-    flow: FlowName.optional(),
-  })
-  .strict();
 
 /**
  * Query der Läufe-Liste der Verwaltung (M5): über alle Apps, nach App,
@@ -985,15 +854,7 @@ module.exports = {
   FlowStufe,
   FlowRoute,
   SchrittFaehigkeiten,
-  SaveFlowBody,
-  CreateFlowBody,
-  FlowNameParams,
-  VorlageNameParams,
   RunIdParams,
-  FlowAntwortBody,
-  WiederholenBody,
-  ListRunsQuery,
-  StartRunBody,
   VALID_TOOLS,
   ARG_TYPES,
   AUSGABE_FORMATE,

@@ -382,19 +382,6 @@ class LicenseService {
   }
 
   /**
-   * Check if a specific feature is allowed by the current license.
-   * @param {string} feature - Feature key from FEATURE_TIERS
-   * @returns {Promise<boolean>}
-   */
-  async isFeatureAllowed(feature) {
-    const result = await this.validateLicense();
-    if (!result.valid && !result.graceMode) {
-      return false;
-    }
-    return !!result.features[feature];
-  }
-
-  /**
    * Check if a numeric limit is exceeded.
    * @param {string} limitKey - Key from FEATURE_TIERS (e.g., 'maxUsers')
    * @param {number} currentCount - Current count

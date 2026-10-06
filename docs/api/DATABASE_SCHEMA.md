@@ -2635,6 +2635,12 @@ das Ergebnis nach dem Neustart.
 
 ## `externe_modell_anbieter`
 
+> **Kein Code liest oder schreibt diese Tabelle mehr** (seit 06.10.2026,
+> Totcode-Prüfung): die externen Modellanbieter (`services/llm/extern/`) sind
+> entfernt, es gab nie eine Route, die einen Schlüssel hinterlegte. Die Tabelle
+> bleibt, weil Migrationen nie geändert werden. Der Weg „ein Flow rechnet
+> extern" (Phase D4) liegt in `flow_settings` und hängt nicht an ihr.
+
 > Plan 023 D9: je Anbieter ein verschlüsselter Cloud-Schlüssel. Geräteweit, nicht je Nutzer (Entscheidung E1: ein Zugang je Gerät). Modellnamen stehen NICHT hier, sie kommen zur Laufzeit vom Anbieter. Jede Anfrage an ein externes Modell steht in `api_audit_logs` mit `action_type = 'externes_modell'`.
 
 | Column                        | Type                     | Nullable | Default |

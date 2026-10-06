@@ -3,19 +3,21 @@
 # Tests system stability under sustained load and edge conditions.
 #
 # Tests:
-#   1. WebSocket connection storm (20 simultaneous WS connections)
-#   2. DB pool exhaustion (concurrent DB-heavy requests)
-#   3. Memory stability (repeated requests, check for heap growth)
+#   1. DB pool exhaustion (concurrent DB-heavy requests)
+#   2. Memory stability (repeated requests, check for heap growth)
+#
+# Bis zum 06.10.2026 stand hier als erster Test ein Sturm aus zwanzig
+# WebSocket-Verbindungen auf /api/metrics/live-stream. Der WebSocket ist mit
+# der Totcode-Pruefung gefallen, und das Backend hat seither keinen mehr; der
+# Test hatte damit kein Ziel.
 #
 # Usage:
 #   ./scripts/test/stress-test.sh
-#   ./scripts/test/stress-test.sh --ws-only    # WebSocket test only
 #   ./scripts/test/stress-test.sh --db-only    # DB pool test only
 
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost}"
-WS_URL="${WS_URL:-ws://localhost/api/metrics/live-stream}"
 AUTH_TOKEN="${AUTH_TOKEN:-}"
 
 RED='\033[0;31m'
@@ -41,55 +43,11 @@ if [ -z "$AUTH_TOKEN" ] && [ -n "${ARASUL_BENUTZER:-}" ] && [ -n "${ARASUL_PASSW
 fi
 
 # =============================================================================
-# Test 1: WebSocket Connection Storm
-# =============================================================================
-ws_stress_test() {
-    echo ""
-    echo -e "${BLUE}=== Test 1: WebSocket Connection Storm ===${NC}"
-    echo -e "  Opening 20 simultaneous WebSocket connections..."
-
-    local ws_pids=()
-    local ws_count=20
-    local ws_duration=15  # seconds
-
-    for i in $(seq 1 $ws_count); do
-        # Use curl with upgrade to WebSocket, timeout after duration
-        (timeout $ws_duration curl -sf -N \
-            -H "Connection: Upgrade" \
-            -H "Upgrade: websocket" \
-            -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
-            -H "Sec-WebSocket-Version: 13" \
-            "$WS_URL" > /dev/null 2>&1 || true) &
-        ws_pids+=($!)
-    done
-
-    echo -e "  ${ws_count} connections opened, waiting ${ws_duration}s..."
-    sleep $ws_duration
-
-    # Check if server is still healthy
-    local health_status
-    health_status=$(curl -sf -o /dev/null -w '%{http_code}' "${BASE_URL}/api/health" 2>/dev/null || echo "000")
-
-    # Cleanup
-    for pid in "${ws_pids[@]}"; do
-        kill "$pid" 2>/dev/null || true
-    done
-    wait 2>/dev/null || true
-
-    if [ "$health_status" = "200" ]; then
-        echo -e "  ${GREEN}PASS: Server healthy after WS storm (HTTP ${health_status})${NC}"
-    else
-        echo -e "  ${RED}FAIL: Server unhealthy after WS storm (HTTP ${health_status})${NC}"
-        return 1
-    fi
-}
-
-# =============================================================================
-# Test 2: DB Pool Exhaustion
+# Test 1: DB Pool Exhaustion
 # =============================================================================
 db_pool_test() {
     echo ""
-    echo -e "${BLUE}=== Test 2: DB Pool Stress ===${NC}"
+    echo -e "${BLUE}=== Test 1: DB Pool Stress ===${NC}"
     echo -e "  Sending 50 concurrent requests to DB-heavy endpoints..."
 
     local auth_args=()
@@ -136,11 +94,11 @@ db_pool_test() {
 }
 
 # =============================================================================
-# Test 3: Memory Stability
+# Test 2: Memory Stability
 # =============================================================================
 memory_test() {
     echo ""
-    echo -e "${BLUE}=== Test 3: Memory Stability ===${NC}"
+    echo -e "${BLUE}=== Test 2: Memory Stability ===${NC}"
     echo -e "  Sending 200 sequential requests, checking for memory leaks..."
 
     local auth_args=()
@@ -177,11 +135,9 @@ memory_test() {
 FAILED=0
 
 case "$TEST_MODE" in
-    --ws-only) ws_stress_test || FAILED=1 ;;
     --db-only) db_pool_test || FAILED=1 ;;
     --memory-only) memory_test || FAILED=1 ;;
     *)
-        ws_stress_test || FAILED=1
         db_pool_test || FAILED=1
         memory_test || FAILED=1
         ;;

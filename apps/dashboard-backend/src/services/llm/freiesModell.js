@@ -357,18 +357,6 @@ async function vorbereiten(kennung) {
 }
 
 /**
- * Nach dem Entfernen: eine frei geladene Zeile geht mit. Die vier der
- * Kurzliste bleiben im Katalog, auch ohne Gewicht.
- */
-async function nachEntfernen(modelId) {
-  const { rowCount } = await database.query(
-    'DELETE FROM llm_model_catalog WHERE id = $1 AND frei_geladen = true',
-    [modelId]
-  );
-  return rowCount > 0;
-}
-
-/**
  * Nach einem Fehlschlag: war die Zeile erst fuer diesen Versuch entstanden,
  * geht sie samt der Fehlerzeile in `llm_installed_models` wieder weg, damit
  * ein Tippfehler in der Kennung nicht im Katalog stehen bleibt.
@@ -391,7 +379,6 @@ async function nachFehlschlag(modelId) {
 module.exports = {
   vorbereiten,
   pruefe,
-  nachEntfernen,
   nachFehlschlag,
   kennungLesen,
   budgetPruefen,

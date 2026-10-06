@@ -9,9 +9,10 @@
 #      Kurzliste -- keines fehlt, keines steht zuviel darin.
 #   2. `GET /api/v1/external/models` (Schluessel) zeigt nur Modelle der
 #      Kurzliste und nennt den Standard.
-#   3. `GET /api/models/recommended` empfiehlt fuer jede Rolle ein Modell der
-#      Kurzliste. Das ist die Seite der Plattformprofile, die sich am
-#      laufenden Geraet ueberhaupt messen laesst.
+#   3. Die Empfehlung des Geraets (`getRecommendedModel`, seit dem 06.10.2026
+#      ohne eigene Route, am Geraet im Container gelesen) nennt fuer jede
+#      Rolle ein Modell der Kurzliste. Das ist die Seite der Plattformprofile,
+#      die sich am laufenden Geraet ueberhaupt messen laesst.
 #   4. Ein Download ausserhalb der Kurzliste geht nicht -- weder ueber
 #      `POST /api/models/download` (der Katalog kennt das Modell nicht) noch
 #      ueber den frueheren Weg `POST /api/models/katalog`, den es nicht mehr
@@ -143,17 +144,49 @@ pruefe 'und nennt vier als Gesamtzahl' \
   "$(ja_wenn "$ANZAHL" "$(printf '%s\n' "$ERWARTET" | wc -l | tr -d ' ')")" "total=$ANZAHL"
 
 # --- 3. Der Standard je Aufgabe ---------------------------------------------
-sitzungs_ruf GET /api/models/recommended
-pruefe 'GET /api/models/recommended antwortet' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
-for rolle in recommended_model recommended_fast_model recommended_vision_model \
-  recommended_embedding_model; do
-  WERT=$(rumpf | python3 -c 'import sys,json
+# `GET /api/models/recommended` ist mit der Totcode-Pruefung vom 06.10.2026
+# gefallen (kein Aufrufer). Die Empfehlung selbst lebt weiter als letzter
+# Rueckfall des Standardmodells (`utils/hardware.js`, getRecommendedModel) und
+# wird deshalb am Geraet direkt im Backend-Container gelesen: ueber ssh, wenn
+# ARASUL_GERAET gesetzt ist (Lauf vom Arbeitsrechner durch den Tunnel), sonst
+# hier (Lauf auf dem Geraet selbst).
+im_backend() {
+  if [ -n "${ARASUL_GERAET:-}" ]; then
+    ssh -o BatchMode=yes -o ConnectTimeout=15 "$ARASUL_GERAET" "docker exec -i dashboard-backend $*"
+  else
+    docker exec -i dashboard-backend "$@"
+  fi
+}
+if ! im_backend true </dev/null >/dev/null 2>&1; then
+  uebergehen 'Die Empfehlungen je Rolle stehen in der Kurzliste' \
+    'nur am Geraet oder mit ARASUL_GERAET: dashboard-backend nicht erreichbar'
+else
+  EMPFEHLUNG=$(im_backend node - 2>/dev/null <<'JS' | tail -n1
+require('./src/utils/hardware')
+  .getRecommendedModel()
+  .then(r => {
+    console.log(JSON.stringify({
+      recommended_model: r.model,
+      recommended_fast_model: r.fast_model || null,
+      recommended_vision_model: r.vision_model || null,
+      recommended_embedding_model: r.embedding_model || null,
+    }));
+    process.exit(0);
+  })
+  .catch(() => process.exit(1));
+JS
+)
+  pruefe 'Die Empfehlung laesst sich lesen' "$([ -n "$EMPFEHLUNG" ] && echo ja || echo nein)"
+  for rolle in recommended_model recommended_fast_model recommended_vision_model \
+    recommended_embedding_model; do
+    WERT=$(printf '%s' "$EMPFEHLUNG" | python3 -c 'import sys,json
 try: d = json.load(sys.stdin)
 except Exception: print(""); raise SystemExit
 print(d.get(sys.argv[1]) or "")' "$rolle" 2>/dev/null)
-  pruefe "Die Empfehlung $rolle steht in der Kurzliste" \
-    "$(grep -qxF "$WERT" <<<"$ERWARTET" && echo ja || echo nein)" "${WERT:-—}"
-done
+    pruefe "Die Empfehlung $rolle steht in der Kurzliste" \
+      "$(grep -qxF "$WERT" <<<"$ERWARTET" && echo ja || echo nein)" "${WERT:-—}"
+  done
+fi
 
 # --- 4. Die externe Schnittstelle -------------------------------------------
 SCHLUESSEL=""

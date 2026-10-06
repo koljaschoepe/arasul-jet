@@ -1,21 +1,11 @@
 /**
  * Das Werkzeug, mit dem ein Flow eine Freigabe anfordert (Phase C7).
  *
- * Der Unterschied zur Rueckfrage (`frage_nutzer`, Plan 023 I3) ist nicht die
- * Technik, sondern die Sache:
- *
- *   frage_nutzer         „Welchen Kunden meinst du?" -- an den, der zusieht,
- *                        nach einer halben Stunde gegenstandslos, und ohne
- *                        Antwort laeuft der Flow mit einer Annahme weiter.
- *   freigabe_anfordern   „Darf das raus?" -- an jeden, dem die App freigegeben
- *                        ist, mit Frist und Beleg, und ohne Antwort laeuft
- *                        GAR NICHTS weiter.
- *
- * Deshalb steht die Freigabe in einer Tabelle und die Rueckfrage nicht, und
- * deshalb gibt es dieses Werkzeug in JEDER Betriebsart. `frage_nutzer` fehlt in
- * `autonom` mit gutem Grund: ein autonomer Flow soll nicht auf einen Menschen
- * warten, der gerade nicht hinsieht. Eine Freigabe ist genau umgekehrt gemeint
- * -- sie IST der Halt, und ein Flow, der sie anfordert, will angehalten werden.
+ * „Darf das raus?" -- an jeden, dem die App freigegeben ist, mit Frist und
+ * Beleg, und ohne Antwort laeuft GAR NICHTS weiter. Deshalb steht die Freigabe
+ * in einer Tabelle, und deshalb gibt es dieses Werkzeug in jeder Betriebsart:
+ * sie IST der Halt, und ein Flow, der sie anfordert, will angehalten werden.
+ * (Die Rueckfrage `frage_nutzer`, Plan 023 I3, ist am 06.10.2026 gefallen.)
  *
  * Wer entscheidet, sagt dieses Werkzeug nicht. Es nennt keine Person und keine
  * Rolle (Entscheidung Kolja vom 27.08.2026); der Kreis steht in `app_members`.

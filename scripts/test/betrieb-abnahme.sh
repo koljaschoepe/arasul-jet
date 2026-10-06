@@ -262,13 +262,11 @@ pruefe 'Der Weg sagt, ob er hier ueberhaupt einspielen kann' \
   "$(ja_wenn "$([ -n "$(rumpf | feld einspielenMoeglich)" ] && echo ja || echo nein)" ja)" \
   "$(rumpf | feld einspielenMoeglich)$(rumpf | feld einspielenGrund | cut -c1-70)"
 
-ruf GET /api/update/check
-pruefe 'Aktualisierungspruefung antwortet' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
-if [ "$BEKANNT" != "True" ]; then
-  pruefe 'Ohne eigene Fassung wird der Server gar nicht erst gefragt' \
-    "$(ja_wenn "$(rumpf | feld versionBekannt)" False)" \
-    "$(rumpf | feld error | cut -c1-70)"
-fi
+# Die Frage nach einer neueren Fassung. `GET /api/update/check` (der alte
+# OTA-Weg samt `versionBekannt`) ist am 06.10.2026 gefallen; die Oberflaeche
+# fragt `fassung/neueste`. Ohne Netz ist `data` null, die Antwort aber 200.
+ruf GET /api/update/fassung/neueste
+pruefe 'Aktualisierungspruefung antwortet' "$(ja_wenn "$CODE" 200)" "HTTP $CODE $(rumpf | feld data.fassung)"
 
 # --- Ergebnis ----------------------------------------------------------------
 echo

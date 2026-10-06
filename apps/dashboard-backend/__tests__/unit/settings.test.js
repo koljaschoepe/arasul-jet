@@ -54,7 +54,6 @@ jest.mock('axios');
 // Mock services that have side effects at module load time
 jest.mock('../../src/services/core/eventListenerService', () => ({
   getStatus: jest.fn(),
-  getRecentEvents: jest.fn().mockResolvedValue([]),
   sendTestNotification: jest.fn(),
 }));
 
@@ -136,24 +135,6 @@ describe('Settings Routes', () => {
   // Firmenname (Auftrag anmeldung-ohne-slogan, 30.08.2026)
   // ============================================================================
   describe('/api/settings/firmenname', () => {
-    test('GET returns 401 without token', async () => {
-      const res = await request(app).get('/api/settings/firmenname');
-      expect(res.status).toBe(401);
-    });
-
-    test('GET liefert den gesetzten Namen', async () => {
-      setupMocksWithAuth(query => {
-        if (query.includes('company_name')) {
-          return Promise.resolve({ rows: [{ company_name: 'Muster GmbH' }] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
-      const res = await request(app)
-        .get('/api/settings/firmenname')
-        .set('Authorization', `Bearer ${token}`);
-      expect(res.status).toBe(200);
-      expect(res.body.firmenname).toBe('Muster GmbH');
-    });
 
     test('PUT schreibt den Namen und laedt den Cache neu', async () => {
       const systemSettings = require('../../src/services/system-settings/systemSettingsService');

@@ -7,7 +7,6 @@ Traefik serves as the central reverse proxy for the Arasul Platform, handling:
 - HTTP/HTTPS routing
 - TLS termination
 - Rate limiting
-- WebSocket upgrades
 - Load balancing
 - Health checks
 
@@ -20,9 +19,8 @@ Internet/LAN
     ↓
   Traefik
     ├─→ Dashboard Frontend (/)
-    ├─→ Dashboard Backend API (/api)
-    ├─→ LLM Service (/models)
-    └─→ Embeddings (/embeddings)
+    ├─→ Dashboard Backend API (/api, /v1/*)
+    └─→ Apps (/apps, über das Backend)
 ```
 
 ## Configuration Files
@@ -45,10 +43,16 @@ HTTP routers and services:
 
 - **dashboard-frontend**: `/` → dashboard-frontend:3000
 - **dashboard-api**: `/api` → dashboard-backend:3001
+- **dashboard-v1-openai**: `/v1/chat`, `/v1/embeddings`, `/v1/models` → dashboard-backend:3001
 - **auth-api**: `/api/auth` → dashboard-backend:3001 (stricter rate limit)
-- **metrics-api**: `/api/metrics` → dashboard-backend:3001
-- **llm-direct**: `/models` → llm-service:11434
-- **embeddings-direct**: `/embeddings` → embedding-service:11435
+- **auth-probe-api**: `/api/auth/session`, `/api/auth/needs-setup` → dashboard-backend:3001
+- **apps-frontend**, **apps-me**, **apps-me-test**: `/apps` → dashboard-backend:3001
+- **traefik-dashboard**: `/api/traefik` → `api@internal` (forward-auth)
+
+Sprachmodell und Einbettungen erreicht niemand mehr an Backend und
+Warteschlange vorbei: die Direktwege `/models` und `/embeddings` sind am
+06.10.2026 gefallen. Modelle gehen über `/api/models`, Einbettungen über
+`/v1/embeddings`.
 
 #### `dynamic/middlewares.yml`
 
@@ -56,10 +60,9 @@ Rate limiting and security:
 
 **Rate Limits:**
 
-- LLM API: 10 req/s
-- Metrics API: 20 req/s
-- Auth API: 5 req/min (brute force prevention)
-- General API: 100 req/s
+- Auth API: 30 req/min, burst 10 (`rate-limit-auth`)
+- Auth-Proben: 120 req/min (`rate-limit-auth-probe`)
+- General API: 100 req/s (`rate-limit-api`)
 
 **Security Headers:**
 
@@ -71,31 +74,24 @@ Rate limiting and security:
 
 **Other Middlewares:**
 
-- CORS headers
-- Path prefix stripping
 - Compression (gzip)
-- Circuit breaker
-- IP whitelist (admin routes)
-
-#### `dynamic/websockets.yml`
-
-WebSocket support:
-
-- Dashboard metrics live-stream: `/api/metrics/live-stream`
-- Automatic upgrade handling
+- Body limit (50 MB)
+- Forward-Auth (`/api/auth/verify`)
 
 ## Routing Priority
 
 Routes are matched by priority (higher = first):
 
-| Priority | Route            | Path                                             |
-| -------- | ---------------- | ------------------------------------------------ |
-| 50       | WebSocket routes | `/api/metrics/live-stream` (with Upgrade header) |
-| 25       | AI services      | `/models`, `/embeddings`                         |
-| 20       | Auth             | `/api/auth`                                      |
-| 15       | Metrics API      | `/api/metrics`                                   |
-| 10       | General API      | `/api`                                           |
-| 1        | Frontend         | `/`                                              |
+| Priority | Route         | Path                                          |
+| -------- | ------------- | --------------------------------------------- |
+| 50       | App-Anmeldung | `/apps/<id>/api/me`, `/apps/<id>/test/api/me` |
+| 35       | Traefik       | `/api/traefik`                                |
+| 30       | Apps          | `/apps`                                       |
+| 25       | Auth-Proben   | `/api/auth/session`, `/api/auth/needs-setup`  |
+| 20       | Auth          | `/api/auth`                                   |
+| 12       | OpenAI-Weg    | `/v1/chat`, `/v1/embeddings`, `/v1/models`    |
+| 10       | General API   | `/api`                                        |
+| 1        | Frontend      | `/`                                           |
 
 ## TLS/HTTPS
 
@@ -151,11 +147,11 @@ entryPoints:
 Rate limits use Traefik's `rateLimit` middleware with token bucket algorithm:
 
 ```yaml
-rate-limit-llm:
+rate-limit-api:
   rateLimit:
-    average: 10 # 10 requests per period
+    average: 100 # 100 requests per period
     period: 1s # Period duration
-    burst: 5 # Allow 5 burst requests
+    burst: 50 # Allow 50 burst requests
 ```
 
 ### Die zwei Proben jeder Seitenladung
@@ -192,40 +188,11 @@ Kopfzeilen kam aus dem Vorbau und steht nicht im Backend-Log.
 ### Testing Rate Limits
 
 ```bash
-# Test LLM rate limit (10 req/s)
-for i in {1..15}; do
-  curl -s -o /dev/null -w "%{http_code}\n" https://arasul.local/models/api/generate
-done
-# First 15 should be 200/429
-
 # Test auth rate limit (30 req/min, burst 10 — die Proben haben ihre eigene)
 for i in {1..10}; do
   curl -s -o /dev/null -w "%{http_code}\n" https://arasul.local/api/auth/login
 done
 # After 5 requests, should get 429 Too Many Requests
-```
-
-## WebSocket Support
-
-Traefik automatically upgrades HTTP connections to WebSocket when:
-
-1. Client sends `Connection: Upgrade` header
-2. Client sends `Upgrade: websocket` header
-
-### Tested Routes:
-
-- **Dashboard Metrics**: `wss://arasul.local/api/metrics/live-stream`
-
-### Configuration:
-
-No special configuration needed - WebSocket upgrade is automatic.
-
-For explicit configuration (already in `websockets.yml`):
-
-```yaml
-dashboard-websocket:
-  rule: 'Host(`arasul.local`) && PathPrefix(`/api/metrics/live-stream`)'
-  service: dashboard-backend-service
 ```
 
 ## Health Checks
@@ -236,8 +203,6 @@ All backend services have health checks:
 | ------------------ | ------------- | -------- | ------- |
 | Dashboard Backend  | `/api/health` | 10s      | 2s      |
 | Dashboard Frontend | `/`           | 30s      | 3s      |
-| LLM Service        | `/health`     | 30s      | 5s      |
-| Embeddings         | `/health`     | 30s      | 5s      |
 
 Unhealthy backends are automatically removed from load balancing.
 
@@ -298,13 +263,9 @@ sum(rate(traefik_service_requests_total{code=~"5.."}[5m]))
 
 ### Traefik Dashboard
 
-URL: `http://arasul.local:8080/dashboard/`
-
-**Security:** Only accessible from:
-
-- localhost (127.0.0.1)
-- Docker network (172.30.0.0/24)
-- Local network (192.168.0.0/16, 10.0.0.0/8)
+Die API des Dashboards läuft nicht offen (`api.insecure: false`). Erreichbar ist
+sie über den Router `traefik-dashboard` unter `/api/traefik`, hinter
+`forward-auth` (eine gültige Sitzung des Geräts) und `rate-limit-auth`.
 
 Shows:
 
@@ -334,9 +295,6 @@ curl -I https://arasul.local/
 
 # Dashboard API
 curl -I https://arasul.local/api/system/status
-
-# LLM service
-curl -I https://arasul.local/models/api/version
 ```
 
 ### Verify TLS
@@ -360,7 +318,7 @@ docker exec traefik traefik version
 docker exec traefik cat /etc/traefik/dynamic/routes.yml
 
 # Test middleware
-curl -H "Host: arasul.local" http://localhost/api/metrics/live
+curl -I https://arasul.local/api/health
 ```
 
 ### Common Issues
@@ -400,7 +358,7 @@ curl -H "Host: arasul.local" http://localhost/api/metrics/live
    ```
 
 2. **Restrict Dashboard Access**
-   - Keep `admin-whitelist` middleware enabled
+   - The dashboard route `/api/traefik` sits behind `forward-auth`
    - Never expose port 8080 externally
    - Use SSH tunnel for remote access
 
@@ -416,7 +374,6 @@ curl -H "Host: arasul.local" http://localhost/api/metrics/live
 
 5. **Secure Headers**
    - Keep `security-headers` middleware on all routes
-   - Adjust CORS for production domains
    - Never disable TLS in production
 
 ## See Also

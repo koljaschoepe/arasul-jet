@@ -79,7 +79,6 @@ router.post(
 );
 
 /**
- * GET /api/settings/firmenname
  * PUT /api/settings/firmenname
  *
  * Der Name des Unternehmens, das dieses Geraet betreibt (Auftrag
@@ -96,16 +95,6 @@ router.post(
  * Seitenladung den neuen Namen sieht. Leer speichert NULL: dann zeigt die
  * Anmeldeseite den Produktnamen.
  */
-router.get(
-  '/firmenname',
-  requireAuth,
-  requireRole('admin'),
-  asyncHandler(async (req, res) => {
-    const { rows } = await db.query('SELECT company_name FROM system_settings WHERE id = 1');
-    res.json({ firmenname: rows[0]?.company_name || null });
-  })
-);
-
 router.put(
   '/firmenname',
   requireAuth,

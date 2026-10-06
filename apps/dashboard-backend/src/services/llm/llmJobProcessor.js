@@ -168,23 +168,6 @@ async function processChatJob(ctx, job) {
   const { id: jobId, request_data: requestData, requested_model } = job;
   const { messages, temperature, max_tokens, thinking, images } = requestData;
 
-  // Plan 023 D9: ein externes Cloud-Modell rechnet nicht auf diesem Gerät.
-  // Die Abzweigung steht GANZ vorn, vor allem, was Speicher, GPU-Sperre oder
-  // Lebenszyklus anfasst: nichts davon gilt für ein Modell, das anderswo läuft.
-  const { istExtern } = require('./extern/providerRegistry');
-  if (istExtern(requested_model)) {
-    const { externenChatFahren } = require('./extern/externerChat');
-    const { buildSystemPrompt: baueSystemPrompt } = require('./systemPromptBuilder');
-    const externerSystemPrompt = await baueSystemPrompt();
-    await externenChatFahren(ctx, job, {
-      nachrichten: (messages || []).filter(m => m && m.role !== 'system'),
-      systemPrompt: externerSystemPrompt,
-      temperatur: temperature,
-      maxTokens: max_tokens,
-    });
-    return;
-  }
-
   // P2-001: Check if model supports thinking mode
   let modelSupportsThinking = true; // Default to true for backwards compatibility
   if (requested_model) {
