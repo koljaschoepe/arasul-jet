@@ -17,7 +17,6 @@ Autonomous service monitoring and recovery engine.
 self-healing-agent/
 ├── healing_engine.py         # Main recovery engine
 ├── gpu_recovery.py           # NVIDIA GPU error handling
-├── usb_monitor.py            # USB update detection
 ├── heartbeat.py              # Service health checks
 ├── post_reboot_validation.py # Post-reboot system validation
 ├── verify_healing.py         # Manual verification tool
@@ -149,16 +148,6 @@ Handles NVIDIA GPU errors:
 - Driver failures → Container restart
 - Memory leaks → Cache clear + restart
 - Temperature throttling → Workload reduction
-
-## USB Update Detection
-
-Monitors USB devices for `.araupdate` files:
-
-1. Detect USB mount
-2. Scan for update packages
-3. Validate signature
-4. Trigger update process
-5. Log result
 
 ## Health Check
 

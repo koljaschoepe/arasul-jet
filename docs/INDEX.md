@@ -69,7 +69,6 @@ docs/
 | [`ops/QUICK_START.md`](ops/QUICK_START.md)                         | Customer quick start (German, end-user-facing)                                      |
 | [`ops/ADMIN_HANDBUCH.md`](ops/ADMIN_HANDBUCH.md)                   | Operator handbook (German, 8 chapters)                                              |
 | [`ops/TROUBLESHOOTING.md`](ops/TROUBLESHOOTING.md)                 | Symptom-to-fix lookup                                                               |
-| [`ops/UPDATE_SYSTEM.md`](ops/UPDATE_SYSTEM.md)                     | OTA / package update mechanism                                                      |
 | [`ops/REMOTE_MAINTENANCE.md`](ops/REMOTE_MAINTENANCE.md)           | SSH, Cloudflared, VPN setup                                                         |
 | [`ops/LOGGING.md`](ops/LOGGING.md)                                 | Logger configuration, log paths, rotation                                           |
 | [`ops/BACKUP_SYSTEM.md`](ops/BACKUP_SYSTEM.md)                     | Automated backup engine                                                             |

@@ -483,11 +483,11 @@ Daten; die Sicherung vom Einspielen liegt unter Verwaltung → Daten. Dasselbe g
 Oberfläche mit einem Schlüssel im Bereich `system:update`
 ([AUSLIEFERUNG.md](AUSLIEFERUNG.md#das-geraet-aktualisiert-sich-selbst-j39)).
 
-**Ein .araupdate-Paket von Hand einspielen geht nicht über die Oberfläche**
-(seit 04.10.2026 steht der Weg dort nicht mehr). Er brauchte ein
-`docker`-Programm im Backend-Container, das das ausgelieferte Gerät nicht hat,
-und zeigte deshalb nur den Satz, dass er nicht geht. Ein Gerät ohne Netz
-aktualisiert der Betreuer am Gerät (siehe unten).
+**Ein .araupdate-Paket von Hand oder vom USB-Stick einspielen gibt es nicht
+mehr** (aus der Oberfläche seit 04.10.2026, aus dem Gerät seit 06.10.2026). Der
+Weg brauchte ein `docker`-Programm im Backend-Container, das das ausgelieferte
+Gerät nicht hat, und lief deshalb nie. Ein Gerät ohne Netz aktualisiert der
+Betreuer am Gerät (siehe unten).
 
 **Nachts selbst einspielen (seit M5, aus als Vorgabe).** Unter dem Knopf steht
 ein Schalter „Nachts selbst einspielen“. Ist er an und liegt in der Nacht eine
@@ -551,19 +551,6 @@ wird erst danach, und der Wechsel kostet ein paar Minuten. Findet `install.sh`
 etwas Zweideutiges, Daten ohne auffindbares Gerät, oder zwei Verzeichnisse,
 die beide das Gerät sein könnten, hält es an und sagt, was zu tun ist.
 Es installiert dann lieber nicht, als eine Datenbank unbrauchbar zu machen.
-
-### Paket einspielen (wenn der Weg offen ist)
-
-1. Stecken Sie den USB-Stick mit dem Paket ein, oder wählen Sie die
-   `.araupdate`-Datei und die zugehörige `.sig` von Hand
-2. **Hochladen und prüfen**, Signatur und Manifest werden geprüft
-3. **Einspielen**, und die Seite offen lassen: das Gerät startet sich dabei
-   selbst neu, und die Verbindung bricht kurz weg. Das ist erwartbar.
-
-### Verlauf
-
-Darunter steht, was bisher eingespielt wurde: Fassung vorher und nachher,
-Ausgang, Datum, Quelle und Dauer.
 
 ### Hinweise
 

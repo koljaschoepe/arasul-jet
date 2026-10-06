@@ -109,14 +109,11 @@ services:
       - ../scripts/security:/arasul/scripts/security:ro
       - /sys:/host/sys:ro
       - /proc:/host/proc:ro
-      - /media:/media:ro
-      - /mnt:/mnt:ro
-      - ${DATA_PATH:-../data}/updates:/arasul/updates
       - ${BACKUP_PATH:-${DATA_PATH:-../data}/backups}:/arasul/backups
-    # Kein `devices: /dev/bus/usb` (J41): der Dienst liest USB-Datentraeger ueber
-    # die Einhaengepunkte in /media und /mnt (usb_monitor.py), nie den Bus. Wo
-    # /dev/bus/usb fehlt (VM, Geraet ohne USB-Controller), lehnt Docker den
-    # Container sonst ab, und die Selbstheilung startet nie.
+    # Kein `devices: /dev/bus/usb` (J41): wo /dev/bus/usb fehlt (VM, Geraet ohne
+    # USB-Controller), lehnt Docker den Container sonst ab, und die
+    # Selbstheilung startet nie. /media, /mnt und /arasul/updates waren nur fuer
+    # den USB-Monitor eingehaengt, der am 06.10.2026 gefallen ist.
     cap_drop:
       - ALL
     cap_add:

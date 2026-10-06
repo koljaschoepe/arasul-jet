@@ -322,19 +322,6 @@ else
   check_warn "Updates directory missing"
 fi
 
-# Update signing key
-if [ -f "config/update-keys/public_key.pem" ]; then
-  check_pass "Update signing public key present"
-else
-  check_warn "Update signing key not found"
-fi
-
-# Create-update script
-if [ -x "scripts/deploy/create-update-package.sh" ]; then
-  check_pass "Update package creation script available"
-else
-  check_warn "Update package creation script missing"
-fi
 
 ###############################################################################
 # 7. OLLAMA / AI MODELS

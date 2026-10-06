@@ -1,43 +1,5 @@
 const { z } = require('zod');
 
-// POST /apply
-const ApplyUpdateBody = z
-  .object({
-    file_path: z
-      .string({ error: 'Der Pfad der Update-Datei fehlt.' })
-      .trim()
-      .min(1, 'Der Pfad der Update-Datei fehlt.')
-      .max(4096),
-  })
-  .strict();
-
-// POST /install-from-usb
-const InstallFromUsbBody = z
-  .object({
-    file_path: z
-      .string({ error: 'Der Dateipfad fehlt.' })
-      .trim()
-      .min(1, 'Der Dateipfad fehlt.')
-      .max(4096),
-  })
-  .strict();
-
-// POST /download
-const DownloadUpdateBody = z
-  .object({
-    downloadUrl: z
-      .string({ error: 'downloadUrl and version are required' })
-      .trim()
-      .min(1, 'downloadUrl and version are required')
-      .max(4096),
-    version: z
-      .string({ error: 'downloadUrl and version are required' })
-      .trim()
-      .min(1, 'downloadUrl and version are required')
-      .max(200),
-  })
-  .strict();
-
 // POST /api/v1/external/update und POST /api/update/fassung/einspielen
 const UpdateFassungBody = z
   .object({
@@ -55,7 +17,4 @@ const UpdateNachtsBody = z.object({ aktiv: z.boolean() }).strict();
 module.exports = {
   UpdateFassungBody,
   UpdateNachtsBody,
-  ApplyUpdateBody,
-  InstallFromUsbBody,
-  DownloadUpdateBody,
 };

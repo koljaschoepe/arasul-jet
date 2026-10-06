@@ -364,12 +364,6 @@ if [ ! -f "config/secrets/jwt_secret" ]; then
     WARNINGS=$((WARNINGS + 1))
 fi
 
-# Check if public key exists
-if [ ! -f "config/secrets/public_update_key.pem" ]; then
-    log_warning "Update public key not found - update system will not work"
-    WARNINGS=$((WARNINGS + 1))
-fi
-
 echo ""
 
 ###############################################################################

@@ -58,5 +58,5 @@ RUN chmod +x start.sh
 
 USER arasul
 
-# Start both healing engine and USB monitor
+# Start the healing engine
 CMD ["./start.sh"]
