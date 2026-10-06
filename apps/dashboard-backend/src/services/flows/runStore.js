@@ -79,13 +79,16 @@ async function createRun(
     // `ereignis` (Migration 204, dann mit dem Namen des Ereignisses).
     ausloeser = 'hand',
     ereignis = null,
+    // Ein kurzer Titel, den die App beim Start mitgibt (Kontrakt 14, Migration
+    // 211): er steht vorn an jeder Freigabe des Laufs.
+    titel = null,
   },
   { db = database } = {}
 ) {
   const { rows } = await db.query(
     `INSERT INTO flow_runs (user_id, flow_name, app_id, stand, arguments,
-                            einreicher_id, freigabe_regel, ausloeser, ereignis)
-     VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb, $8, $9)
+                            einreicher_id, freigabe_regel, ausloeser, ereignis, titel)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb, $8, $9, $10)
      RETURNING *`,
     [
       userId,
@@ -97,9 +100,30 @@ async function createRun(
       freigabeRegel ? JSON.stringify(freigabeRegel) : null,
       ausloeser,
       ereignis,
+      titel ? String(titel).trim().slice(0, 120) || null : null,
     ]
   );
   return rows[0];
+}
+
+/**
+ * Den Titel eines Laufs setzen, wenn er noch keinen hat (M5, Kontrakt 14):
+ * aus den erkannten Feldern, wenn die App beim Start keinen mitgab. Was die App
+ * nannte, bleibt.
+ *
+ * @returns {Promise<string|null>} der Titel, der jetzt gilt
+ */
+async function titelSetzen({ runId, titel }, { db = database } = {}) {
+  const text = String(titel || '')
+    .trim()
+    .slice(0, 120);
+  const { rows } = await db.query(
+    `UPDATE flow_runs SET titel = COALESCE(titel, NULLIF($2, ''))
+      WHERE id = $1
+      RETURNING titel`,
+    [runId, text]
+  );
+  return rows[0]?.titel ?? null;
 }
 
 /**
@@ -568,12 +592,23 @@ async function listRunsAlle(
     params.push(wert);
     bedingungen.push(sql.replace('?', `$${params.length}`));
   };
-  if (app != null) {dazu('r.app_id = ?', app);}
-  if (status != null) {dazu('r.status = ?', status);}
-  if (person === 'ohne') {bedingungen.push(`${PERSON_ID} IS NULL`);}
-  else if (person != null) {dazu(`${PERSON_ID} = ?`, person);}
-  if (von != null) {dazu('r.created_at >= ?::timestamptz', von);}
-  if (bis != null) {dazu('r.created_at < ?::timestamptz', bis);}
+  if (app != null) {
+    dazu('r.app_id = ?', app);
+  }
+  if (status != null) {
+    dazu('r.status = ?', status);
+  }
+  if (person === 'ohne') {
+    bedingungen.push(`${PERSON_ID} IS NULL`);
+  } else if (person != null) {
+    dazu(`${PERSON_ID} = ?`, person);
+  }
+  if (von != null) {
+    dazu('r.created_at >= ?::timestamptz', von);
+  }
+  if (bis != null) {
+    dazu('r.created_at < ?::timestamptz', bis);
+  }
   const wo = bedingungen.length ? `WHERE ${bedingungen.join(' AND ')}` : '';
   const gesamt = await db.query(`SELECT count(*)::int AS n FROM flow_runs r ${wo}`, [...params]);
   params.push(Math.min(Math.max(1, limit), 200), Math.max(0, offset));
@@ -615,6 +650,7 @@ async function getRunAlle({ runId, includeRaw = false }, { db = database } = {})
 }
 
 module.exports = {
+  titelSetzen,
   createRun,
   getRunAlle,
   listRunsAlle,

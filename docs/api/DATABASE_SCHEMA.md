@@ -2159,6 +2159,7 @@ Ollama und keine Selbstheilung.
 | `ausloeser`      | text                     | ⛔       | `'hand'::text`                          |
 | `abschluss`      | jsonb                    | ✅       |                                         |
 | `ereignis`       | text                     | ✅       |                                         |
+| `titel`          | text                     | ✅       |                                         |
 | `created_at`     | timestamp with time zone | ⛔       | `now()`                                 |
 | `finished_at`    | timestamp with time zone | ✅       |                                         |
 
@@ -2185,6 +2186,13 @@ Ollama und keine Selbstheilung.
 > meldete ein Ereignis (`POST /api/v1/external/ereignisse/:name`); sein Name
 > steht in `ereignis` (bei den anderen beiden `NULL`), seine Daten als
 > Argumente in `arguments`.
+
+> `titel` (Migration 211, M5, Kontrakt 14): ein kurzer Titel des Laufs für
+> die Freigabekarten, höchstens 120 Zeichen (`CHECK flow_runs_titel_laenge`).
+> Die App gibt ihn beim Start mit (`titel`), sonst setzt ihn ein erkennender
+> Schritt aus den ersten drei erkannten Werten (`runStore.titelSetzen`, nur
+> wenn noch keiner steht). `freigabeAnfragen.anfordern` setzt ihn in derselben
+> Anweisung vor den Titel jeder neuen Freigabe des Laufs (`<titel> – <Grund>`).
 
 > `abschluss` (Migration 198, M5, Kontrakt 11): die Übergabe des Ergebnisses an
 > die Abschluss-Route der App — `{route, versuche, letzter_versuch, status_code,

@@ -127,11 +127,18 @@ function datenAlsObjekt(daten) {
   }
 }
 
-/** Der Mensch, in dessen Namen gerufen wird. */
-async function personDesLaufs({ einreicherId, userId }, datenbank = db) {
+/**
+ * Der Mensch, in dessen Namen gerufen wird. `vorsatz` steht vor jedem Grund:
+ * dieselbe Frage stellt auch das Holen des Originals (`flows/original.js`).
+ */
+async function personDesLaufs(
+  { einreicherId, userId },
+  datenbank = db,
+  vorsatz = 'Route abgewiesen'
+) {
   const id = einreicherId ?? userId;
   if (id == null) {
-    throw new ForbiddenError('Route abgewiesen: der Lauf hat weder Einreicher noch Besitzer');
+    throw new ForbiddenError(`${vorsatz}: der Lauf hat weder Einreicher noch Besitzer`);
   }
   const { rows } = await datenbank.query(
     'SELECT id, username, role, is_active FROM public.admin_users WHERE id = $1',
@@ -139,7 +146,7 @@ async function personDesLaufs({ einreicherId, userId }, datenbank = db) {
   );
   const wer = rows[0];
   if (!wer || !wer.is_active) {
-    throw new ForbiddenError(`Route abgewiesen: das Konto ${id} des Laufs ist nicht aktiv`);
+    throw new ForbiddenError(`${vorsatz}: das Konto ${id} des Laufs ist nicht aktiv`);
   }
   return wer;
 }
@@ -329,3 +336,4 @@ module.exports = RouteAufrufenTool;
 module.exports.genannteRoute = genannteRoute;
 module.exports.datenAlsObjekt = datenAlsObjekt;
 module.exports.passt = passt;
+module.exports.personDesLaufs = personDesLaufs;

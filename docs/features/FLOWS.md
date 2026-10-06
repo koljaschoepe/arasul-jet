@@ -663,8 +663,13 @@ Kontrakt (`flow_frontmatter.regeln`):
   Grund „Erkennung unsicher: Feld X" an, **auch in `autonom`**, bevor der nächste
   Schritt läuft. Fehlend ist ein deklariertes Feld der Rolle ohne Wert, unsicher
   eines, das die Rolle im JSON unter `unsicher` (Liste von Feldnamen) nennt, und
-  kam gar kein JSON zurück, gelten alle Felder als unsicher. Das Gerät hängt der
-  Rolle dazu einen Satz an den Prompt. Die Freigabe liegt in der ersten Stufe des
+  kam gar kein JSON zurück oder scheiterte die Rolle, gelten alle Felder als
+  unsicher. Das Gerät hängt der Rolle dazu einen Satz an den Prompt. **In der
+  Art `ergebnis_bestaetigen`** (seit Kontrakt 14) legt der erkennende Schritt
+  diese Freigabe **immer** an, auch wenn alles sicher erkannt ist, mit den
+  Feldern und dem Titel „Ergebnis bestätigen: <Flow>"; sie ist die Bestätigung
+  des Laufs, am Ende kommt **keine zweite** (Fremdtest 06.10.2026: zwei
+  Freigaben für einen Beleg). Die Freigabe liegt in der ersten Stufe des
   Flows, sonst ohne Stufe; sie steht als Schritt mit `automatisch` im Protokoll
   und zählt nicht zur Kette (die Wiederaufnahme überspringt sie).
 - Ein Flow **erzeugt** (Texte, Dokumente), wenn kein Schritt ein Bild liest. Er
@@ -729,10 +734,69 @@ Verwaltung zeigt beides als Tabelle (Feld, Vorschlag der KI, Geändert, wer,
 wann), die App liest es unter `GET /api/v1/external/freigaben`.
 
 **Grenzen, ehrlich benannt:** Felder trägt nur die Freigabe **aus der
-Erkennung**. Ist alles sicher erkannt, gibt es keine, und eine spätere Stufe
-(`freigabe_anfordern`) oder „Ergebnis bestätigen" zeigt den Text, keine
-Felder. Ein Original, das nach dem Einsetzen kein Pfad relativ zur App ist
-(`..`, Schema, Leerzeichen, `%`, `?`, `#`), fällt weg; die Freigabe entsteht ohne Bild.
+Erkennung**. In der Art `ergebnis_bestaetigen` kommt sie seit Kontrakt 14
+immer, auch wenn alles sicher erkannt ist; in `autonom` nur bei fehlender oder
+unsicherer Erkennung. Eine spätere Stufe (`freigabe_anfordern`) zeigt den
+Text, keine Felder. Ein Original, das nach dem Einsetzen kein Pfad relativ zur
+App ist (`..`, Schema, Leerzeichen, `%`, `?`, `#`), fällt weg: ohne Kontrakt-14-Original
+entsteht die Freigabe ohne Bild, mit Original hält der Lauf mit dem Grund
+„Original fehlt" an (Abschnitt unten).
+
+### Das Original lesen (M5, 06.10.2026, Kontrakt 14)
+
+Bis Kontrakt 13 war `original` nur die Anzeige links in der Freigabe; das
+Modell bekam den Auftrag als Text. Im Fremdtest vom 06.10.2026 antwortete es
+„Fehlt Beleg", und der Kunde musste das Modell anweisen, immer „unsicher" zu
+melden, um überhaupt Felder zu bekommen. Seit Kontrakt 14 **liest das Modell
+das Original**:
+
+1. **Holen.** Vor dem Modellaufruf holt das Gerät die Datei über die Adresse
+   der App, im Stand des Laufs (Teststand und Livestand getrennt), mit
+   denselben Pfaden wie bisher (relativ zur App). Ein Pfad unter `api/` geht
+   an das Backend der App: `GET` an ihren Container im Netz `arasul-apps`
+   (ohne `api/`), mit `X-Arasul-User` und `X-Arasul-Role` des Menschen des
+   Laufs (Einreicher, sonst Besitzer) und nur, wenn er die App in diesem Stand
+   benutzen darf, dazu `X-Arasul-Lauf` und `X-Arasul-App`; kein Geheimnis,
+   keine Weiterleitung, 30 Sekunden. Jeder andere Pfad ist eine Datei des
+   Frontends, aus dem Ordner, den Arasul selbst ausliefert
+   (`apps/dashboard-backend/src/services/flows/original.js`).
+2. **Umwandeln.** Erkannt wird an den ersten Bytes, nicht am Namen. PNG und
+   JPEG gehen unverändert ans Modell. Ein PDF rendert der Document-Indexer
+   (`POST /pdf-seiten`, PyMuPDF) in seine **ersten 3 Seiten** als PNG (lange
+   Kante höchstens 1600 Pixel); das Modell bekommt dazu den Satz, welche
+   Seiten es sieht. Höchstens **10 MB** je Original.
+3. **Modell.** Die Bilder gehen als `images` an das Modell des Schritts, wenn
+   es Bilder liest (`supports_vision_input`), sonst an das Bildmodell des
+   Geräts (`bildvorgabe`, am Orin `gemma4:e4b`); ein Textmodell bekommt nie
+   ein Bild. Hat der Administrator den Flow auf ein externes Modell gestellt
+   (D4), geht das Bild dorthin mit, als Bildteil im OpenAI-Format: das ist
+   seine Entscheidung für diesen Flow, nicht die des Schritts. Im Protokoll steht am
+   Schritt der Rolle unter `input.original`, was sie bekam (Pfad, Art,
+   Seiten, Größe, Modell), nie das Bild selbst.
+4. **Scheitern ist ein Grund.** Fehlt das Original (404, nicht erreichbar,
+   kein Backend), ist es zu groß, kein PNG, JPEG oder PDF, lässt sich das PDF
+   nicht öffnen, hat der Mensch des Laufs keinen Zugang zur App oder liegt am
+   Gerät kein Bildmodell, ruft das Gerät **kein Modell** auf. Der Lauf hält
+   mit einer Freigabe an: Titel `Original fehlt`, `Original zu groß`,
+   `Original nicht lesbar`, `Original nicht abrufbar` oder `Kein Bildmodell am
+   Gerät`, der Grund als Satz im Zusammenhang, die Felder leer und als fehlend
+   markiert. Bestätigt ein Mensch (mit den Feldern, die er ändern darf), geht
+   der Lauf damit weiter; lehnt er ab, endet er.
+
+Ohne `original` (jedes Paket bis Kontrakt 13) bleibt alles, wie es war.
+
+**Der Titel des Laufs.** Zwei Karten „Erkennung unsicher: Felder konto,
+buchungstext" waren im Handtest nicht zu unterscheiden. Ein Lauf trägt jetzt
+einen kurzen `titel` (`flow_runs.titel`, Migration 211): die App gibt ihn beim
+Start mit (`POST …/flows/:name/run` oder `…/ereignisse/:name`, höchstens 120
+Zeichen), sonst bildet der erkennende Schritt ihn aus den ersten drei erkannten
+Werten in der Reihenfolge von `ergebnis.felder` („Deutsche Post, 4,95,
+01.10.2026"). Er steht vorn an jeder Freigabe des Laufs (`<titel> – <Grund>`),
+in „Für Sie" wie in der App.
+
+Gemessen am Orin: `scripts/test/original-abnahme.sh` (Beispielbeleg als PNG
+und als PDF mit `gemma4:e4b`: Betrag, Datum und Lieferant kommen aus dem Bild,
+nicht aus dem Auftrag).
 
 Gemessen am Orin: `scripts/test/korrektur-abnahme.sh`.
 

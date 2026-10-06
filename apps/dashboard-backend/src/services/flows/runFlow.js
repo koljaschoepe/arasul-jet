@@ -26,7 +26,12 @@ const appFlows = require('../app/appFlows');
 const runStore = require('./runStore');
 const { buildTools } = require('./toolRegistry');
 const { runFlowLoop } = require('./toolLoop');
-const { executeSteps, berechneVorabErgebnisse, korrigiereVorab } = require('./stepExecutor');
+const {
+  executeSteps,
+  berechneVorabErgebnisse,
+  korrigiereVorab,
+  istErkennend,
+} = require('./stepExecutor');
 const freigabeAnfragen = require('./freigabeAnfragen');
 const { fillPlaceholders } = require('./flowFile');
 const changeTracker = require('./changeTracker');
@@ -698,7 +703,12 @@ async function runFlow(
     !ergebnis.aborted &&
     !ergebnis.error &&
     appId &&
-    !(Array.isArray(flow.schritte) && flow.schritte.at(-1)?.werkzeug === 'freigabe_anfordern')
+    !(Array.isArray(flow.schritte) && flow.schritte.at(-1)?.werkzeug === 'freigabe_anfordern') &&
+    // Ein erkennender Flow hat seine Bestaetigung schon gehabt (Kontrakt 14):
+    // in dieser Art haelt jeder erkennende Schritt an, mit den Feldern, auch
+    // wenn alles sicher erkannt ist. Eine zweite Pruefung am Ende waere
+    // dieselbe Frage ohne die Felder (Fremdtest 06.10.2026: zwei Freigaben).
+    !istErkennend(flow)
   ) {
     try {
       await recordWerkzeug({

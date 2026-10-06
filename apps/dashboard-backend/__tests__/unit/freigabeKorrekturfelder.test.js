@@ -344,7 +344,7 @@ describe('der Lauf arbeitet mit dem geaenderten Wert', () => {
     class FakeSubagent {
       async execute(params, context) {
         auftraege.push(params.auftrag);
-        if (params.rolle === 'leser' && context.onErgebnis && auftraege.length === 1) {
+        if (params.rolle === 'leser' && context.onErgebnis && context.bilder) {
           context.onErgebnis(erkannt);
           return felderText(erkannt.felder, { felder: ['betrag', 'datum'] }).text;
         }
@@ -362,6 +362,17 @@ describe('der Lauf arbeitet mit dem geaenderten Wert', () => {
       recordWerkzeug,
       SubagentToolClass: FakeSubagent,
       felderNachFreigabe,
+      // Das Original selbst steht in erkennungOriginal.test.js.
+      holeOriginal: jest.fn().mockResolvedValue({
+        bilder: ['iVBORw0KGgo='],
+        art: 'png',
+        seiten: 1,
+        gesamt: 1,
+        bytes: 8,
+        pfad: 'api/belege/4711.png',
+      }),
+      modellMitBild: jest.fn().mockResolvedValue({ modell: 'gemma4:e4b', gewechselt: false }),
+      titelSetzen: jest.fn().mockResolvedValue(null),
     });
     return { recordWerkzeug, auftraege };
   }

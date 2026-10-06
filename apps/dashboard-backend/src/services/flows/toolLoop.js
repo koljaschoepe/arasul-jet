@@ -283,6 +283,33 @@ async function callOllama({ model, messages, tools, think = false, extern = null
 }
 
 /**
+ * Die erste Nutzer-Nachricht, mit den Bildern eines Originals (Kontrakt 14).
+ *
+ * An der ersten Nachricht und nur dort: jede Runde schickt den ganzen Verlauf,
+ * das Bild ist also in jeder Runde dabei, ohne doppelt dazustehen. Die beiden
+ * Protokolle tragen Bilder verschieden: Ollama als `images` (Base64 ohne
+ * Vorsatz) neben dem Text, OpenAI als Teile von `content` mit data:-Adresse.
+ */
+function ersteNachricht(text, bilder, extern) {
+  if (!Array.isArray(bilder) || bilder.length === 0) {
+    return { role: 'user', content: text };
+  }
+  if (!extern) {
+    return { role: 'user', content: text, images: bilder };
+  }
+  return {
+    role: 'user',
+    content: [
+      { type: 'text', text },
+      ...bilder.map(b => ({
+        type: 'image_url',
+        image_url: { url: `data:${b.startsWith('/9j/') ? 'image/jpeg' : 'image/png'};base64,${b}` },
+      })),
+    ],
+  };
+}
+
+/**
  * Ein Modellschritt eines Laufs, mit seiner Zeile im Protokoll der
  * Modellaufrufe (J35, Migration 189).
  *
@@ -331,6 +358,10 @@ async function modellFragen({ model, messages, toolDefs, think, extern, context 
  *   {type:'tool_start', tool, params} · {type:'tool_result', tool, result} ·
  *   {type:'text', content} · {type:'done', result, truncated?} · {type:'error', message}
  * @param {() => number} [args.now] - Zeitquelle (für Tests); Standard Date.now.
+ * @param {string[]|null} [args.bilder] - Bilder als Base64 (PNG/JPEG) zur ersten
+ *   Nutzer-Nachricht, als `images` fuer Ollama (M5, Kontrakt 14: das Original
+ *   eines erkennenden Schritts). Bei einem externen Modell als Bildteile im
+ *   OpenAI-Format (`ersteNachricht`).
  * @returns {Promise<{result:string, runden:number, truncated?:boolean, error?:string}>}
  */
 async function runFlowLoop({
@@ -346,6 +377,7 @@ async function runFlowLoop({
   now = () => Date.now(),
   signal,
   think = false,
+  bilder = null,
 } = {}) {
   // BEWUSST await: Der Ereignis-Handler schreibt jeden Schritt in den
   // Lauf-Speicher. Würde nicht gewartet, könnte ein `tool_result` eintreffen,
@@ -369,7 +401,7 @@ async function runFlowLoop({
 
   const messages = [
     { role: 'system', content: systemPrompt || '' },
-    { role: 'user', content: String(userInput || '') },
+    ersteNachricht(String(userInput || ''), bilder, extern),
   ];
 
   try {
@@ -532,4 +564,11 @@ async function runFlowLoop({
   }
 }
 
-module.exports = { runFlowLoop, callOllama, zuOllamaName, CALL_TIMEOUT_MS, _clearOllamaNameCache };
+module.exports = {
+  runFlowLoop,
+  ersteNachricht,
+  callOllama,
+  zuOllamaName,
+  CALL_TIMEOUT_MS,
+  _clearOllamaNameCache,
+};

@@ -75,6 +75,8 @@ async function starten(
     // `ereignis` mit dem Namen des Ereignisses (Migration 204).
     ausloeser = 'hand',
     ereignis = null,
+    // Ein kurzer Titel fuer die Freigabekarten (Kontrakt 14, Migration 211).
+    titel = null,
   },
   deps = {}
 ) {
@@ -103,6 +105,7 @@ async function starten(
     freigabeRegel,
     ausloeser,
     ereignis,
+    titel,
   });
   // WICHTIG: Postgres liefert BIGSERIAL als STRING ("7"). Die SSE-Route wandelt
   // ihren Pfad-Parameter dagegen in eine ZAHL. Würde die Registry unter dem

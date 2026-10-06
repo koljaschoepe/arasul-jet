@@ -3779,7 +3779,13 @@ scope is `flow:run` (included in the default endpoint set for new keys).
 | POST   | `/api/v1/external/ereignisse/:name` | API Key einer App | Ein Ereignis melden: startet die Flows, die darauf hören (Kontrakt 13) |
 | GET    | `/api/v1/external/freigaben`        | API Key           | Die Freigaben dieser App nachlesen (`?lauf=<id>`); nur lesen           |
 
-**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300, "einreicher"?: "anna", "freigabe"?: {…} }`.
+**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300, "einreicher"?: "anna", "freigabe"?: {…}, "titel"?: "Beleg 7, Deutsche Post" }`.
+
+`titel` (M5, Kontrakt 14, freiwillig, 1 bis 120 Zeichen) ist ein kurzer Titel
+des Laufs. Er steht vorn an jeder Freigabe des Laufs (`Beleg 7, Deutsche Post –
+Erkennung unsicher: Feld konto`), damit zwei Karten in „Für Sie" und in der App
+zu unterscheiden sind, und `GET /flows/runs/:id` nennt ihn. Ohne `titel` bildet
+ein erkennender Schritt einen aus den ersten drei erkannten Werten.
 
 `einreicher` und `freigabe` (J35) gelten nur für den Schlüssel einer App und
 regeln, wer die Freigaben dieses Laufs entscheidet:
@@ -3813,7 +3819,8 @@ are owned by the API key's creator; an orphaned key (creator deleted) gets
 > the device, recurring starts come from outside through this endpoint.
 
 **POST /api/v1/external/ereignisse/:name** (M5, Kontrakt 13) — body
-`{ "daten"?: {…}, "einreicher"?: "anna" }`. Nur mit dem Schlüssel einer App
+`{ "daten"?: {…}, "einreicher"?: "anna", "titel"?: "…" }` (`titel` seit Kontrakt 14, für
+jeden gestarteten Lauf wie oben). Nur mit dem Schlüssel einer App
 (sonst `403`), Bereich `flow:run`. Das Gerät startet jeden Flow dieser App in
 diesem Stand, dessen Kopf `ausloeser: [{typ: ereignis, ereignis: <name>}]`
 nennt; `daten` werden seine Argumente gleichen Namens (Werte Zeichenkette, Zahl
@@ -3835,7 +3842,7 @@ oben (unbekannt: `400`). Gewartet wird nicht:
 Flow-Kopf tragen kann (Großbuchstaben, Leerzeichen), ist `400`. Der Lauf trägt
 `ausloeser: "ereignis"` und den Namen in `ereignis`; `GET
 /api/v1/external/flows/runs/:id` nennt beides (`ausloeser` auch bei `hand` und
-`zeitplan`). Regeln:
+`zeitplan`), seit Kontrakt 14 dazu `titel` (oder `null`). Regeln:
 [FLOWS.md](../features/FLOWS.md#ereignisse-flows-auf-zuruf-der-app-m5-04102026-kontrakt-13).
 Das Werkzeug `route_aufrufen`, mit dem ein Flow Routen von Apps ruft, hat keinen
 eigenen Endpunkt; es steht in
