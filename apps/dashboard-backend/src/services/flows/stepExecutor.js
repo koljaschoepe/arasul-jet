@@ -264,7 +264,7 @@ function originalPfad(vorlage, scope) {
  *
  * @returns {Promise<string|null>} null, wenn es nichts einzusetzen gibt
  */
-async function korrigierteAusgabe({ flow, schritt, runId, lesen }) {
+async function korrigierteAusgabe({ flow, schritt, runId, lesen, aenderungen = null }) {
   if (
     !schritt ||
     schritt.typ !== 'subagent' ||
@@ -282,7 +282,37 @@ async function korrigierteAusgabe({ flow, schritt, runId, lesen }) {
   if (!nach) {
     return null;
   }
+  if (aenderungen && Array.isArray(nach.korrekturen) && nach.korrekturen.length > 0) {
+    aenderungen[schritt.name] = nach.korrekturen;
+  }
   return felderText(nach.felder, rolle.ergebnis).text;
+}
+
+/**
+ * Der eigene Abschnitt im Kontext der folgenden Schritte: welche Felder ein
+ * Mensch von welchem Vorschlag auf welchen Wert geaendert hat (M5). Ohne
+ * Aenderung leer -- dann steht dort nichts, auch kein „keine Aenderungen".
+ *
+ * @param {Object<string, {feld:string, vorschlag:string, wert:string}[]>} aenderungen je Schritt
+ */
+function aenderungenAbschnitt(aenderungen = {}) {
+  const zeilen = [];
+  for (const [schritt, liste] of Object.entries(aenderungen)) {
+    for (const k of liste) {
+      zeilen.push(
+        `- Schritt „${schritt}", Feld „${k.feld}": von „${k.vorschlag}" (Vorschlag der KI) ` +
+          `auf „${k.wert}" (von einem Menschen geändert)`
+      );
+    }
+  }
+  if (zeilen.length === 0) {
+    return '';
+  }
+  return (
+    '--- Änderungen durch einen Menschen ---\n' +
+    'Ein Mensch hat bei der Freigabe diese Felder korrigiert; die Werte oben sind schon die korrigierten.\n' +
+    zeilen.join('\n')
+  );
 }
 
 /**
@@ -295,12 +325,15 @@ async function korrigiereVorab({ flow, vorab, runId, lesen }) {
   if (!vorab || runId == null) {
     return vorab;
   }
+  // Die Aenderungen reisen als Eigenschaft der Map mit zum Ausfuehrer.
+  vorab.aenderungen = vorab.aenderungen || {};
   for (const index of [...vorab.keys()]) {
     const korrigiert = await korrigierteAusgabe({
       flow,
       schritt: (flow.schritte || [])[index],
       runId,
       lesen,
+      aenderungen: vorab.aenderungen,
     });
     if (korrigiert != null) {
       vorab.set(index, korrigiert);
@@ -310,11 +343,15 @@ async function korrigiereVorab({ flow, vorab, runId, lesen }) {
 }
 
 /** Baut den Synthese-Block aus den gesammelten Schritt-Ausgaben. */
-function buildSynthesisInput(userInput, schritte, outputs) {
+function buildSynthesisInput(userInput, schritte, outputs, aenderungen = {}) {
   const bloecke = schritte.map(
     s => `## Schritt „${s.name}"\n${outputs[s.name] ?? '(keine Ausgabe)'}`
   );
-  return `${userInput}\n\n--- Ergebnisse der Schritte (in Reihenfolge) ---\n${bloecke.join('\n\n')}`;
+  const abschnitt = aenderungenAbschnitt(aenderungen);
+  return (
+    `${userInput}\n\n--- Ergebnisse der Schritte (in Reihenfolge) ---\n${bloecke.join('\n\n')}` +
+    (abschnitt ? `\n\n${abschnitt}` : '')
+  );
 }
 
 /**
@@ -374,6 +411,9 @@ async function executeSteps({
 }) {
   const subagentTool = new SubagentToolClass();
   const outputs = {};
+  // Was Menschen in Freigaben dieses Laufs geaendert haben, je erkennendem
+  // Schritt; uebernommene Schritte bringen es in `vorabErgebnisse.aenderungen` mit.
+  const aenderungen = { ...(vorabErgebnisse?.aenderungen || {}) };
 
   // Modell je Schritt (M5): weicht ein Schritt vom Paket ab, ohne dass der Admin
   // es so gewaehlt hat (das Modell fehlt am Geraet, die Wahl passt nicht mehr),
@@ -452,7 +492,12 @@ async function executeSteps({
     // (schritt.modell) überschreibt das Flow-Modell für diese Delegation.
     const einDurchlauf = async scope => {
       if (schritt.typ === 'subagent') {
-        const auftrag = fillPlaceholders(schritt.auftrag, scope);
+        const abschnitt = aenderungenAbschnitt(aenderungen);
+        const auftrag =
+          fillPlaceholders(schritt.auftrag, { ...scope, aenderungen: abschnitt }) +
+          (abschnitt && !/\{\{\s*aenderungen\s*\}\}/.test(schritt.auftrag || '')
+            ? `\n\n${abschnitt}`
+            : '');
         // Ein Schritt, der ein Bild liest (`faehigkeiten.bild`), ERKENNT. Seine
         // Felder kommen mit zurueck, damit bei fehlender oder unsicherer
         // Erkennung ein Mensch entscheidet -- in jeder Art des Flows (M5).
@@ -553,6 +598,7 @@ async function executeSteps({
             schritt,
             runId: context?.runId,
             lesen: felderNachFreigabe,
+            aenderungen,
           });
           return korrigiert ?? '';
         }
@@ -656,6 +702,7 @@ async function executeSteps({
               schritt,
               runId: context?.runId,
               lesen: felderNachFreigabe,
+              aenderungen,
             });
             if (korrigiert != null) {
               return korrigiert;
@@ -749,7 +796,7 @@ async function executeSteps({
   // Bewusst OHNE Werkzeuge und mit einer Runde — das Sammeln ist deterministisch
   // schon geschehen, hier wird nur noch formuliert.
   const systemPrompt = fillPlaceholders(flow.systemPrompt, werte);
-  const synthInput = buildSynthesisInput(userInput, flow.schritte, outputs);
+  const synthInput = buildSynthesisInput(userInput, flow.schritte, outputs, aenderungen);
 
   return runLoop({
     model,
@@ -774,6 +821,7 @@ module.exports = {
   erkennungsBefund,
   erkennungsTitel,
   korrigierteAusgabe,
+  aenderungenAbschnitt,
   korrigiereVorab,
   originalPfad,
   istErkennend,
