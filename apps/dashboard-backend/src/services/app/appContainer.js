@@ -579,9 +579,7 @@ async function zieheUm(geduld = UMZUG_GEDULD_MS) {
       logger.info(`App-Container ${name} ins Netz ${NETZ} umgezogen`);
     } catch (err) {
       gescheitert.push(name);
-      logger.error(
-        `App-Container ${name} ließ sich nicht ins Netz ${NETZ} ziehen: ${err.message}`
-      );
+      logger.error(`App-Container ${name} ließ sich nicht ins Netz ${NETZ} ziehen: ${err.message}`);
       if (angehalten) {
         // Was wir angehalten haben, soll wieder laufen -- bestmoeglich, und
         // ohne den Fehler oben zu verlieren.
@@ -609,6 +607,139 @@ async function logs(appId, stand, zeilen = 200) {
     }
     throw err;
   }
+}
+
+/**
+ * Die Namen aus der Umgebung eines Containers, deren Wert im Protokoll stehen
+ * DARF. Alles andere ab `GEHEIM_AB` Zeichen wird geschwaerzt.
+ *
+ * Eine Liste der harmlosen Namen und nicht eine der geheimen: das Geraet setzt
+ * vier Geheimnisse selbst (Schluessel, Datenbank, Abschluss, Ausgangs-Proxy),
+ * aber `backend.umgebung` im Manifest und `ENV` im Dockerfile schreibt der
+ * Partner, und ob dort `STRIPE_KEY` oder `MANDANT_ZUGANG` steht, weiss das
+ * Geraet nicht. Ein Wert zu viel geschwaerzt kostet eine Zeile Lesbarkeit,
+ * einer zu wenig steht im Verlauf eines Agenten.
+ */
+const HARMLOSE_UMGEBUNG = new Set([
+  'PATH',
+  'HOME',
+  'HOSTNAME',
+  'LANG',
+  'LC_ALL',
+  'TERM',
+  'TZ',
+  'NODE_ENV',
+  'PORT',
+  'NO_PROXY',
+  'no_proxy',
+  'ARASUL_API_URL',
+]);
+
+/** Kuerzere Werte (`1`, `true`, `8080`) stehen ueberall im Text und sind kein Geheimnis. */
+const GEHEIM_AB = 8;
+
+/** Obergrenze fuer `protokoll`, auch in `schemas/apps.js` (`ProtokollQuery`). */
+const PROTOKOLL_MAX_ZEILEN = 1000;
+
+/**
+ * Die Werte aus `Env`, die im Protokoll nicht stehen duerfen, laengste zuerst
+ * (sonst bliebe vom laengeren nach dem kuerzeren ein Rest stehen). Aus einer
+ * Adresse mit Passwort (`postgresql://u:pw@…`, der Ausgangs-Proxy) zusaetzlich
+ * das Passwort allein: eine App, die beim Start `Verbinde als u mit pw` schreibt,
+ * gibt es.
+ */
+function geheimeWerte(env) {
+  const werte = new Set();
+  for (const eintrag of env || []) {
+    const gleich = eintrag.indexOf('=');
+    if (gleich < 1) {
+      continue;
+    }
+    const name = eintrag.slice(0, gleich);
+    const wert = eintrag.slice(gleich + 1);
+    if (HARMLOSE_UMGEBUNG.has(name) || wert.length < GEHEIM_AB) {
+      continue;
+    }
+    werte.add(wert);
+    const passwort = wert.match(/^[a-z][a-z0-9+.-]*:\/\/[^:/@\s]*:([^@\s]+)@/i);
+    if (passwort && passwort[1].length >= GEHEIM_AB) {
+      werte.add(passwort[1]);
+      try {
+        werte.add(decodeURIComponent(passwort[1]));
+      } catch {
+        // kein gueltiges Prozent-Escape: dann steht es nur roh da
+      }
+    }
+  }
+  return [...werte].sort((a, b) => b.length - a.length);
+}
+
+/**
+ * Das Protokoll eines App-Containers fuer das Kit (M5, Auftrag
+ * app-protokoll-abrufen): die letzten Zeilen, entflochten, ohne Steuerzeichen,
+ * und OHNE die Werte aus der Umgebung des Containers.
+ *
+ * Anders als `logs` (Verwaltung, Administrator mit Sitzung) liest hier ein
+ * Schluessel, und was er bekommt, landet im Verlauf eines Agenten auf einem
+ * fremden Rechner. Die Geheimnisse, die das Geraet der App mitgibt, stehen in
+ * genau diesem Container -- und eine App, die beim Start ihre Umgebung
+ * ausgibt, ist kein Sonderfall. Geschwaerzt wird, was `docker inspect` als
+ * `Env` nennt, nicht was ein Muster als geheim erkennt.
+ *
+ * Dazu der Zustand, denn „leer" und „gerade abgestuerzt" sehen im Protokoll
+ * gleich aus: laeuft er, wie oft neu gestartet, mit welchem Rueckgabewert.
+ *
+ * @returns {Promise<{container: string, laeuft: boolean, status: string|null,
+ *   gesundheit: string|null, neustarts: number, exit_code: number|null,
+ *   gestartet: string|null, zeilen: string[], geschwaerzt: number}>}
+ */
+async function protokoll(appId, stand, zeilen = 200) {
+  const name = containerName(appId, stand);
+  const container = docker.getContainer(name);
+  let info;
+  try {
+    info = await container.inspect();
+  } catch (err) {
+    if (err.statusCode === 404) {
+      throw new NotFoundError(
+        `Kein Container für ${appId} im Stand ${stand}. Eine App ohne \`backend\` hat keinen, ` +
+          'und nach einem gescheiterten Bau gibt es keinen neuen.'
+      );
+    }
+    throw err;
+  }
+
+  const anzahl = Math.min(Math.max(1, Number(zeilen) || 1), PROTOKOLL_MAX_ZEILEN);
+  const rohe = await container.logs({ stdout: true, stderr: true, tail: anzahl, timestamps: true });
+  const ent = entflechter({ grenze: 512 * 1024 });
+  ent.schreibe(rohe);
+
+  let text = ent.text();
+  let geschwaerzt = 0;
+  for (const wert of geheimeWerte(info.Config?.Env)) {
+    const teile = text.split(wert);
+    if (teile.length > 1) {
+      geschwaerzt += teile.length - 1;
+      text = teile.join('[geschwärzt]');
+    }
+  }
+
+  const liste = text.split('\n');
+  if (liste.length && liste[liste.length - 1] === '') {
+    liste.pop();
+  }
+  const zustand = info.State || {};
+  return {
+    container: name,
+    laeuft: zustand.Running === true,
+    status: zustand.Status ?? null,
+    gesundheit: zustand.Health?.Status ?? null,
+    neustarts: info.RestartCount ?? 0,
+    exit_code: zustand.Running ? null : (zustand.ExitCode ?? null),
+    gestartet: zustand.StartedAt ?? null,
+    zeilen: liste.slice(-anzahl),
+    geschwaerzt,
+  };
 }
 
 /**
@@ -880,6 +1011,9 @@ module.exports = {
   zieheUm,
   NETZ,
   logs,
+  protokoll,
+  geheimeWerte,
+  PROTOKOLL_MAX_ZEILEN,
   halteAn,
   starteWieder,
   bleibtGesund,

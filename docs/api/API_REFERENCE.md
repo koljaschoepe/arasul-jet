@@ -3389,17 +3389,44 @@ Schlüssel und ohne Sitzung. Was ein Paket enthalten muss und wie der Schlüssel
 entsteht, steht auf einer eigenen Seite:
 [docs/features/APP-PAKET.md](../features/APP-PAKET.md).
 
-| Method | Endpoint                             | Auth    | Scope        | Description                                            |
-| ------ | ------------------------------------ | ------- | ------------ | ------------------------------------------------------ |
-| GET    | `/api/v1/external/contract`          | API Key | —            | Der Vertrag zwischen Gerät und Kit                     |
-| POST   | `/api/v1/external/apps`              | API Key | `app:deploy` | Ein Paket einspielen; rollt **immer** in `test`        |
-| GET    | `/api/v1/external/apps/:id`          | API Key | `app:deploy` | Dieselbe Antwort wie `GET /api/apps/:id`               |
-| POST   | `/api/v1/external/apps/:id/schalten` | API Key | `app:deploy` | Livestand setzen: `live` oder `zurueck`                |
-| DELETE | `/api/v1/external/apps/:id`          | API Key | `app:deploy` | App weg — beide Container samt Volumes, nach Rückfrage |
+| Method | Endpoint                              | Auth    | Scope        | Description                                             |
+| ------ | ------------------------------------- | ------- | ------------ | ------------------------------------------------------- |
+| GET    | `/api/v1/external/contract`           | API Key | —            | Der Vertrag zwischen Gerät und Kit                      |
+| POST   | `/api/v1/external/apps`               | API Key | `app:deploy` | Ein Paket einspielen; rollt **immer** in `test`         |
+| GET    | `/api/v1/external/apps/:id`           | API Key | `app:deploy` | Dieselbe Antwort wie `GET /api/apps/:id`                |
+| GET    | `/api/v1/external/apps/:id/protokoll` | API Key | `app:deploy` | Letzte Zeilen des Containers, Umgebungswerte geschwärzt |
+| POST   | `/api/v1/external/apps/:id/schalten`  | API Key | `app:deploy` | Livestand setzen: `live` oder `zurueck`                 |
+| DELETE | `/api/v1/external/apps/:id`           | API Key | `app:deploy` | App weg — beide Container samt Volumes, nach Rückfrage  |
 
 `app:deploy` steht **nicht** in den Vorgabe-Bereichen
 (`src/config/apiBereiche.js`). Der Schlüssel, den das Gerät jeder App beim
 Einspielen mitgibt (C4), trägt ihn also nicht: keine App ersetzt eine andere.
+
+**GET /api/v1/external/apps/:id/protokoll** (M5, 06.10.2026) — das Protokoll
+des App-Containers für das Kit, ohne SSH. Abfrage `stand` (`test` oder `live`,
+Vorgabe `test`) und `zeilen` (1 bis 1000, Vorgabe 200). Jeder Wert aus der
+Umgebung des Containers ab acht Zeichen steht als `[geschwärzt]` da, aus einer
+Adresse mit Passwort auch das Passwort allein; ausgenommen sind nur harmlose
+Namen wie `PATH`, `NODE_ENV`, `PORT`, `ARASUL_API_URL`. `404`, wenn es den
+Container nicht gibt.
+
+```json
+{
+  "data": {
+    "app_id": "urlaub",
+    "stand": "test",
+    "container": "arasul-app-urlaub-test",
+    "laeuft": false,
+    "status": "restarting",
+    "gesundheit": null,
+    "neustarts": 4,
+    "exit_code": 1,
+    "gestartet": "2026-10-06T20:00:00.123Z",
+    "zeilen": ["2026-10-06T20:00:00.456Z Error: Cannot find module 'express'"],
+    "geschwaerzt": 0
+  }
+}
+```
 
 **GET /api/v1/external/contract** — die einzige Quelle, gegen die das Kit seine
 Vorlage prüft, und der Weg, auf dem es merkt, dass es zu einem Gerät nicht

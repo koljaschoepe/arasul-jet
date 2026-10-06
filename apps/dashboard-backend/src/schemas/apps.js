@@ -721,6 +721,26 @@ const LogsQuery = z
   .strict();
 
 /**
+ * Das Protokoll eines App-Containers fuer das Kit (M5, app-protokoll-abrufen).
+ *
+ * Vorgabe `test`, anders als `LogsQuery`: wer hier fragt, hat gerade
+ * eingespielt und sieht im Teststand eine leere Seite. Die Obergrenze ist
+ * kleiner als in der Verwaltung, denn die Antwort landet im Verlauf eines
+ * Agenten; sie steht als `PROTOKOLL_MAX_ZEILEN` in `services/app/appContainer.js`.
+ */
+const ProtokollQuery = z
+  .object({
+    stand: Stand.default('test'),
+    zeilen: z.coerce
+      .number({ error: 'zeilen ist eine Zahl' })
+      .int('zeilen ist eine ganze Zahl')
+      .min(1, 'zeilen: mindestens 1')
+      .max(1000, 'zeilen: höchstens 1000')
+      .default(200),
+  })
+  .strict();
+
+/**
  * Der Stand, fuer den die Forward-Auth fragt (Phase C4).
  *
  * Ohne Angabe der Livestand. Die Frage stellt Traefik, und zwar aus dem
@@ -783,5 +803,6 @@ module.exports = {
   EntfernenQuery,
   EntfernenSitzungQuery,
   LogsQuery,
+  ProtokollQuery,
   ZugangQuery,
 };

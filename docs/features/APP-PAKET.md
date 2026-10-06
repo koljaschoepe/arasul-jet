@@ -149,6 +149,7 @@ POST   /api/v1/external/apps/<id>/schalten
                                                        /apps/<id>/
        {"ziel":"zurueck"}                          →  die Version davor
 DELETE /api/v1/external/apps/<id>?bestaetigung=<id>
+GET    /api/v1/external/apps/<id>/protokoll?stand=test&zeilen=200
 ```
 
 **Ein Deploy rollt immer in den Teststand.** Einen Parameter dafür gibt es
@@ -175,6 +176,17 @@ nur `&dateien=false` lässt sie liegen (bis 04.10.2026 war es umgekehrt, und nac
 `app.mjs --remove` blieb sechsmal ein Paketordner liegen). Laufende und
 wartende Läufe der App enden als `abgebrochen` mit dem Grund „App entfernt“,
 ihre offenen Freigaben als `verfallen`.
+
+**Das Protokoll des Containers liest das Kit selbst** (seit 06.10.2026, kein
+SSH): `GET /api/v1/external/apps/<id>/protokoll` mit `app:deploy` gibt die
+letzten Zeilen (Vorgabe 200, höchstens 1000) des Teststandes oder mit
+`?stand=live` des Livestandes, dazu ob der Container läuft, wie oft er neu
+gestartet ist und mit welchem Rückgabewert er zuletzt endete. Das ist der erste
+Blick, wenn im Teststand eine leere Seite oder ein `502` steht. Jeder Wert aus
+der Umgebung des Containers (Schlüssel, Datenbankadresse, eigene Werte aus
+`backend.umgebung`) ist geschwärzt, denn die Antwort landet im Verlauf eines
+Agenten. Die Kontraktversion bleibt 14: ein Kit findet den Weg unter
+`endpunkte`.
 
 ## Der Schlüssel
 
@@ -285,12 +297,12 @@ gab es nur bei „unsicher", und `--felder` mit `ergebnis_bestaetigen` ergab zwe
 Freigaben. Die Regeln im Einzelnen stehen in
 [FLOWS.md](FLOWS.md#das-original-lesen-m5-06102026-kontrakt-14).
 
-| Wo                              | Feld / Verhalten   | Form                                                                                                                                                                 |
-| ------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Schritt (`subagent` mit `bild`) | `original`         | Wie seit Kontrakt 10; jetzt holt das Gerät die Datei und gibt sie dem Bildmodell. PNG, JPEG oder PDF (die ersten 3 Seiten), höchstens 10 MB                          |
-| Flow mit `ergebnis_bestaetigen` | eine Prüfung       | Ein erkennender Schritt legt seine Freigabe immer an, mit den Feldern; am Ende kommt keine zweite                                                                    |
+| Wo                              | Feld / Verhalten   | Form                                                                                                                                                                     |
+| ------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Schritt (`subagent` mit `bild`) | `original`         | Wie seit Kontrakt 10; jetzt holt das Gerät die Datei und gibt sie dem Bildmodell. PNG, JPEG oder PDF (die ersten 3 Seiten), höchstens 10 MB                              |
+| Flow mit `ergebnis_bestaetigen` | eine Prüfung       | Ein erkennender Schritt legt seine Freigabe immer an, mit den Feldern; am Ende kommt keine zweite                                                                        |
 | Start eines Laufs               | `titel`            | Freiwillig, höchstens 120 Zeichen, auch bei `ereignisse/<name>`; sonst aus den erkannten Feldern. Steht vorn an jeder Freigabe des Laufs, `GET flows/runs/:id` nennt ihn |
-| Fehlendes Original              | Freigabe mit Grund | `Original fehlt`, `Original zu groß`, `Original nicht lesbar`, `Original nicht abrufbar`, `Kein Bildmodell am Gerät`; kein Modellaufruf, Felder leer                   |
+| Fehlendes Original              | Freigabe mit Grund | `Original fehlt`, `Original zu groß`, `Original nicht lesbar`, `Original nicht abrufbar`, `Kein Bildmodell am Gerät`; kein Modellaufruf, Felder leer                     |
 
 **Kontraktfassung 14:** der Start ist `.strict()`, ein Kit, das gegen 13 prüft,
 wiese `titel` ab; und eine Vorlage, die für `--felder` einen eigenen Schritt

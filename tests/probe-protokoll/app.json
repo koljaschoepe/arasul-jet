@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "id": "probe-protokoll",
+  "name": "Probe: Protokoll des Containers",
+  "version": "1.0.0",
+  "beschreibung": "Messgeraet fuer scripts/test/protokoll-abnahme.sh: schreibt beim Start einen bekannten Satz und absichtlich ihre Geheimnisse ins Containerprotokoll.",
+  "backend": {
+    "image": "arasul-probe-protokoll:1.0.0",
+    "bauen": {
+      "verzeichnis": "backend"
+    },
+    "gesundheit": "/gesund",
+    "umgebung": {
+      "PROBE_STEMPEL": "0000",
+      "PROBE_GEHEIM": "partner-geheimnis-0000"
+    }
+  },
+  "ports": {
+    "backend": 8080
+  },
+  "ressourcen": {
+    "speicher": "64m",
+    "cpus": 0.25
+  },
+  "modelle": []
+}

@@ -6,6 +6,7 @@
  *   GET    /contract              was dieses Geraet verspricht
  *   POST   /apps                  ein Paket einspielen -> Teststand
  *   GET    /apps/:id              was das Geraet ueber diese App weiss
+ *   GET    /apps/:id/protokoll    die letzten Zeilen ihres Containers, ohne Geheimnisse
  *   POST   /apps/:id/schalten     live schalten oder zurueck
  *   DELETE /apps/:id              App weg, samt Volumes, nach Rueckfrage
  *
@@ -44,10 +45,17 @@ const { requireApiKey, requireEndpoint } = require('../../middleware/apiKeyAuth'
 const { uploadLimiter } = require('../../middleware/rateLimit');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../../middleware/validate');
-const { AppParams, SchaltenBody, EntfernenQuery, Aenderungstext } = require('../../schemas/apps');
+const {
+  AppParams,
+  SchaltenBody,
+  EntfernenQuery,
+  Aenderungstext,
+  ProtokollQuery,
+} = require('../../schemas/apps');
 const { ValidationError, ServiceUnavailableError } = require('../../utils/errors');
 const appPaket = require('../../services/app/appPaket');
 const appStore = require('../../services/app/appStore');
+const appContainer = require('../../services/app/appContainer');
 const liveSchalten = require('../../services/app/liveSchalten');
 const appKontrakt = require('../../services/app/appKontrakt');
 const fassungsdienst = require('../../services/betrieb/fassungsdienst');
@@ -185,6 +193,35 @@ router.get(
   asyncHandler(async (req, res) => {
     const data = await appStore.holeApp(req.params.id);
     res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/v1/external/apps/:id/protokoll?stand=test&zeilen=200 — die letzten
+ * Zeilen des App-Containers (M5, Auftrag app-protokoll-abrufen).
+ *
+ * Der haeufigste Fall eines Laien ist „im Teststand steht eine leere Seite
+ * oder ein 502", und die Ursache steht im Protokoll des Containers. Ohne
+ * diesen Weg brauchte das Kit SSH, und das hat in einer Kanzlei niemand.
+ *
+ * Die Werte aus der Umgebung des Containers sind geschwaerzt
+ * (`appContainer.protokoll`), die Obergrenze ist 1000 Zeilen. Ein Lesen ist
+ * kein Eingriff und steht deshalb nicht im Sicherheitsprotokoll; der Aufruf
+ * selbst steht wie jeder im Zugriffsprotokoll der Schnittstelle.
+ */
+router.get(
+  '/apps/:id/protokoll',
+  requireApiKey,
+  requireEndpoint('app:deploy'),
+  validateParams(AppParams),
+  validateQuery(ProtokollQuery),
+  asyncHandler(async (req, res) => {
+    const { stand, zeilen } = req.query;
+    const data = await appContainer.protokoll(req.params.id, stand, zeilen);
+    res.json({
+      data: { app_id: req.params.id, stand, ...data },
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 
