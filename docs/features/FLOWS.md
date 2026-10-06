@@ -704,7 +704,9 @@ Menschen" (Schritt, Feld, Vorschlag der KI, neuer Wert), ebenso die Synthese am
 Ende; wer die Stelle selbst setzen will, schreibt `{{aenderungen}}` in den
 Auftrag. Ohne Korrektur steht dort nichts. Das gilt im laufenden Prozess, nach
 einem Neustart und beim „Ab Fehler wiederholen". Geprüft gegen echtes Postgres
-in `__tests__/pg/korrekturImKontext.test.js`.
+in `__tests__/pg/korrekturImKontext.test.js`. Am Orin mit dem echten Modell gemessen
+(07.10.2026, `scripts/test/korrektur-kontext-abnahme.sh`, 27 von 27): der Satz des
+nächsten Schritts nannte „von 23,80 Euro auf 23,90 Euro korrigiert".
 
 Im Protokoll des Laufs bleibt der
 Vorschlag am Schritt der Rolle stehen; der Freigabe-Schritt nennt darunter
