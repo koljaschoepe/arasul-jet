@@ -591,7 +591,12 @@ async function zieheUm(geduld = UMZUG_GEDULD_MS) {
   return { umgezogen, gescheitert };
 }
 
-/** Die letzten Zeilen des Containerprotokolls. */
+/**
+ * Die letzten Zeilen des Containerprotokolls fuer die Verwaltung, entflochten
+ * wie `protokoll`. Bis zum 07.10.2026 kam der Strom roh als Text zurueck, und
+ * vor jeder Zeile stand der Vorspann von Docker als fremdes Zeichen (Fund der
+ * Ernte vom 06.10.2026).
+ */
 async function logs(appId, stand, zeilen = 200) {
   try {
     const rohe = await docker.getContainer(containerName(appId, stand)).logs({
@@ -600,7 +605,9 @@ async function logs(appId, stand, zeilen = 200) {
       tail: zeilen,
       timestamps: true,
     });
-    return rohe.toString('utf8');
+    const ent = entflechter({ grenze: 512 * 1024 });
+    ent.schreibe(rohe);
+    return ent.text();
   } catch (err) {
     if (err.statusCode === 404) {
       throw new NotFoundError(`Kein Container für ${appId} im Stand ${stand}`);

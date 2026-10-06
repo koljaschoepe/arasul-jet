@@ -212,3 +212,17 @@ describe('geheimeWerte', () => {
     expect(werte).toEqual(['geheim-12345-und-mehr', 'geheim-12345']);
   });
 });
+
+describe('logs (Verwaltung)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('liefert den Text ohne den Vorspann von Docker', async () => {
+    // Ernte 06.10.2026: vor jeder Zeile stand ein fremdes Zeichen, weil der
+    // Strom roh als Text zurueckkam. Eine Zeile von 65 Byte beginnt mit `A`.
+    const zeile = `2026-10-06T20:00:00Z ${'x'.repeat(43)}`;
+    container({ zeilen: [zeile, 'zweite Zeile'], env: [] });
+    const text = await appContainer.logs('probe', 'test', 20);
+    expect(text).toBe(`${zeile}\nzweite Zeile\n`);
+    expect(text).not.toMatch(/[\x00-\x08]/);
+  });
+});
