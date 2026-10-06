@@ -38,7 +38,7 @@ import { personBezeichnung } from './Auskunft';
  * (etwa der des Kits) sind weg, und wer mit ihnen Apps einspielte, braucht
  * einen neuen.
  */
-export function loeschMeldung(name: string, summe: LoeschSumme | undefined): string {
+function loeschMeldung(name: string, summe: LoeschSumme | undefined): string {
   const teile = [`${name} gelöscht`];
   const uebernommen = summe?.api_keys_uebernommen ?? 0;
   const eigene = summe?.api_keys ?? 0;
