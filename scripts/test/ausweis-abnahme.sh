@@ -519,20 +519,29 @@ LISTE=$(mit_sitzung GET /api/ausweise "$TOK_DRIN")
 pruefe 'nach der Benutzung steht zuletzt_benutzt_am da' \
   "$(enthaelt "$LISTE" '"zuletzt_benutzt_am":null' | sed 's/^ja$/nein/;s/^nein$/ja/')"
 
-# --- Der Administrator sieht alle und widerruft --------------------------
+# --- Jeder sieht nur seine, der Administrator widerruft jeden -------------
+# `GET /api/ausweise/alle` (die Liste aller Ausweise fuer den Administrator)
+# ist mit der Totcode-Pruefung vom 06.10.2026 gefallen: keine Oberflaeche rief
+# sie. Gemessen wird stattdessen, dass die Liste je Mensch nur die eigenen
+# nennt, und die Nummer kommt aus der Liste von `drin` selbst.
 echo
-ALLE=$(mit_sitzung GET /api/ausweise/alle "$TOK")
-pruefe 'der Administrator sieht beide Ausweise' \
-  "$([ "$(enthaelt "$ALLE" "$DRIN")" = ja ] && [ "$(enthaelt "$ALLE" "$DRAUSSEN")" = ja ] && echo ja || echo nein)"
-hole /api/ausweise/alle "$TOK_DRIN"
-pruefe 'ein Mitarbeiter sieht sie nicht (403)' "$(ja_nein "$CODE" 403)" "HTTP $CODE"
+hole /api/ausweise/alle "$TOK"
+pruefe 'die alte Liste aller Ausweise gibt es nicht mehr (404)' "$(ja_nein "$CODE" 404)" "HTTP $CODE"
+LISTE_DRAUSSEN=$(mit_sitzung GET /api/ausweise "$TOK_DRAUSSEN")
+pruefe 'ein Mitarbeiter sieht nur seinen eigenen, nicht den des anderen' \
+  "$([ "$(enthaelt "$LISTE_DRAUSSEN" "Rechner von $DRAUSSEN")" = ja ] && [ "$(enthaelt "$LISTE_DRAUSSEN" "Rechner von $DRIN")" = nein ] && echo ja || echo nein)"
 
-# Die Nummer des Ausweises von `drin`, aus der Sicht des Administrators.
-NUMMER=$(printf '%s' "$ALLE" | python3 -c "import sys,json
+# Die Nummer des Ausweises von `drin`, aus seiner eigenen Liste.
+NUMMER=$(mit_sitzung GET /api/ausweise "$TOK_DRIN" | python3 -c "import sys,json
 try: d = json.load(sys.stdin).get('data', [])
 except Exception: d = []
-print(next((str(a['id']) for a in d if a.get('username') == '$DRIN'), ''))" 2>/dev/null)
-pruefe 'und findet den des einen' "$([ -n "$NUMMER" ] && echo ja || echo nein)" "id=$NUMMER"
+print(next((str(a['id']) for a in d if a.get('name') == 'Rechner von $DRIN'), ''))" 2>/dev/null)
+pruefe 'die Liste von drin nennt die Nummer seines Ausweises' "$([ -n "$NUMMER" ] && echo ja || echo nein)" "id=$NUMMER"
+if [ -n "$NUMMER" ]; then
+  CODE_FREMD=$(curl -sk -o /dev/null -w '%{http_code}' -X DELETE --max-time 25 \
+    -H "authorization: Bearer $TOK_DRAUSSEN" "$BASIS/api/ausweise/$NUMMER")
+  pruefe 'ein Mitarbeiter widerruft keinen fremden Ausweis (404)' "$(ja_nein "$CODE_FREMD" 404)" "HTTP $CODE_FREMD"
+fi
 if [ -n "$NUMMER" ]; then
   CODE_WIDERRUF=$(curl -sk -o /dev/null -w '%{http_code}' -X DELETE --max-time 25 \
     -H "authorization: Bearer $TOK" "$BASIS/api/ausweise/$NUMMER")

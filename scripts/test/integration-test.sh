@@ -254,14 +254,8 @@ else
     test_fail "GET /system/network" "HTTP $STATUS"
   fi
 
-  # System thresholds
-  RESPONSE=$(http_request GET "/system/thresholds")
-  STATUS=$(get_status "$RESPONSE")
-  if [ "$STATUS" = "200" ]; then
-    test_pass "GET /system/thresholds"
-  else
-    test_fail "GET /system/thresholds" "HTTP $STATUS"
-  fi
+  # GET /system/thresholds ist am 06.10.2026 gefallen (kein Aufrufer); die
+  # Schwellen stecken im Zustand, den /ops/overview meldet (Abschnitt 8).
 fi
 
 ###############################################################################
@@ -384,12 +378,13 @@ log_section "8. Metrics"
 if [ -z "$TOKEN" ]; then
   test_skip "Metrics tests" "No auth token"
 else
-  RESPONSE=$(http_request GET "/metrics")
+  # /metrics ist am 06.10.2026 gefallen; die Zahlen liefert /ops/overview.
+  RESPONSE=$(http_request GET "/ops/overview")
   STATUS=$(get_status "$RESPONSE")
   if [ "$STATUS" = "200" ]; then
-    test_pass "GET /metrics"
+    test_pass "GET /ops/overview"
   else
-    test_fail "GET /metrics" "HTTP $STATUS"
+    test_fail "GET /ops/overview" "HTTP $STATUS"
   fi
 fi
 
@@ -399,17 +394,9 @@ fi
 
 log_section "9. Logs"
 
-if [ -z "$TOKEN" ]; then
-  test_skip "Log tests" "No auth token"
-else
-  RESPONSE=$(http_request GET "/logs/list")
-  STATUS=$(get_status "$RESPONSE")
-  if [ "$STATUS" = "200" ]; then
-    test_pass "GET /logs/list"
-  else
-    test_fail "GET /logs/list" "HTTP $STATUS"
-  fi
-fi
+# /logs ist am 06.10.2026 gefallen (kein Aufrufer). Protokolle gibt es noch je
+# App (/apps/:id/logs); die misst app-admin-abnahme.sh gegen eine echte App.
+test_skip "Log tests" "/logs ist entfernt, Protokolle je App unter /apps/:id/logs"
 
 ###############################################################################
 # 10. SERVICES MANAGEMENT
@@ -420,12 +407,12 @@ log_section "10. Services Management"
 if [ -z "$TOKEN" ]; then
   test_skip "Services tests" "No auth token"
 else
-  RESPONSE=$(http_request GET "/services")
+  RESPONSE=$(http_request GET "/services/all")
   STATUS=$(get_status "$RESPONSE")
   if [ "$STATUS" = "200" ]; then
-    test_pass "GET /services"
+    test_pass "GET /services/all"
   else
-    test_fail "GET /services" "HTTP $STATUS"
+    test_fail "GET /services/all" "HTTP $STATUS"
   fi
 fi
 
@@ -446,12 +433,13 @@ else
     test_fail "GET /update/status" "HTTP $STATUS"
   fi
 
-  RESPONSE=$(http_request GET "/update/history")
+  # /update/history ist mit dem OTA-Weg gefallen; der Stand der Fassung lebt.
+  RESPONSE=$(http_request GET "/update/fassung")
   STATUS=$(get_status "$RESPONSE")
   if [ "$STATUS" = "200" ]; then
-    test_pass "GET /update/history"
+    test_pass "GET /update/fassung"
   else
-    test_fail "GET /update/history" "HTTP $STATUS"
+    test_fail "GET /update/fassung" "HTTP $STATUS"
   fi
 fi
 

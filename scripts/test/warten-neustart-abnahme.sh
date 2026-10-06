@@ -295,8 +295,8 @@ neustart() {
   [ "$CODE" = "200" ]
 }
 
-# Die Lauf-Zeile ueber die Sitzung (Besitzer ist der Administrator), samt Schritten.
-lauf_lesen() { sitzungs_ruf GET "/api/flows/laeufe/$1"; }
+# Die Lauf-Zeile ueber die Verwaltung (`GET /api/laeufe/:id`, nur Admin), samt Schritten.
+lauf_lesen() { sitzungs_ruf GET "/api/laeufe/$1"; }
 
 # Die Zeile einer Anfrage aus `GET /api/freigabe-anfragen`, als JSON.
 anfrage_json() {
@@ -454,7 +454,7 @@ if starte_und_warte_auf_halt "$FLOW_STUFE" "$HALT_GEDULD"; then
   sitzungs_ruf GET /api/freigabe-anfragen
   MIN=$(rumpf | anfrage_json "$LAUF" | frist_minuten)
   pruefe 'Frist je Stufe: "leitung" hat 120 Minuten' "$(ja_wenn "$MIN" 120)" "minuten=$MIN"
-  sitzungs_ruf POST "/api/flows/laeufe/$LAUF/abbrechen" '{}'
+  sitzungs_ruf POST "/api/laeufe/$LAUF/abbrechen" '{}'
 else
   uebergehen 'Frist je Stufe' 'der Lauf hielt nicht an'
 fi
@@ -462,7 +462,7 @@ if starte_und_warte_auf_halt "$FLOW_VORGABE" "$HALT_GEDULD"; then
   sitzungs_ruf GET /api/freigabe-anfragen
   MIN=$(rumpf | anfrage_json "$LAUF" | frist_minuten)
   pruefe 'Vorgabe ohne Angabe: 7 Tage (10080 Minuten)' "$(ja_wenn "$MIN" 10080)" "minuten=$MIN"
-  sitzungs_ruf POST "/api/flows/laeufe/$LAUF/abbrechen" '{}'
+  sitzungs_ruf POST "/api/laeufe/$LAUF/abbrechen" '{}'
 else
   uebergehen 'Vorgabe 7 Tage' 'der Lauf hielt nicht an'
 fi

@@ -203,15 +203,19 @@ while read -r verb pfad; do
     FALSCH="$FALSCH
          $verb $pfad -> HTTP $code"
   fi
-  # llmLimiter (10/s) auf /flows, /embeddings: kurz Luft lassen.
-  case "$pfad" in */flows*|*/embeddings*) sleep 0.15 ;; esac
+  # Unter /flows hing bis zum 06.10.2026 der llmLimiter (10/s): kurz Luft lassen.
+  case "$pfad" in */flows*) sleep 0.15 ;; esac
 done <<< "$ADMIN_ROUTEN"
 pruefe "Mitarbeiter bekommt auf jede der $n Admin-Routen 403" \
   "$([ -z "$FALSCH" ] && echo ja || echo nein)"
 [ -n "$FALSCH" ] && printf '       nicht 403:%s\n' "$FALSCH"
 
 # --- 4. Der Mitarbeiter darf, was ihm zusteht ---------------------------------
-for pfad in /api/auth/me /api/auth/sessions /api/flows /api/flows/laeufe /api/gdpr/export; do
+# `/api/auth/sessions` und `/api/flows/laeufe` sind am 06.10.2026 gefallen (kein
+# Aufrufer). Was ein Mitarbeiter von seinen Laeufen sieht, sind die Vorgaenge,
+# die er eingereicht hat; die Laeufe aller Apps (`/api/laeufe`) stehen oben
+# unter den Admin-Routen und geben ihm 403.
+for pfad in /api/auth/me /api/apps/meine /api/flows /api/freigabe-anfragen/eingereicht /api/gdpr/export; do
   code=$(rufe GET "$pfad" "$TOK_MITARB")
   pruefe "Mitarbeiter: GET $pfad" "$([ "$code" = "200" ] && echo ja || echo nein)" "HTTP $code"
 done

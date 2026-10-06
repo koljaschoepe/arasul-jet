@@ -155,10 +155,10 @@ ausrollen() { # version [aenderungstext]
     -H "x-api-key: $SCHLUESSEL" -F "paket=@$paket" ${mit_text[@]+"${mit_text[@]}"} "$BASIS/api/v1/external/apps")
 }
 
-laeufe() { # Zahl der Läufe der App
-  curl -sk --max-time 30 -H "authorization: Bearer $TOK" "$BASIS/api/apps/$APP/laeufe?limit=100" |
+laeufe() { # Zahl der Läufe der App (`gesamt` aus der Verwaltungsliste)
+  curl -sk --max-time 30 -H "authorization: Bearer $TOK" "$BASIS/api/laeufe?app=$APP&limit=1" |
     python3 -c 'import sys,json
-try: print(len(json.load(sys.stdin)["data"]))
+try: print(int(json.load(sys.stdin)["gesamt"]))
 except Exception: print("")' 2>/dev/null
 }
 

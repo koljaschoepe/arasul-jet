@@ -132,7 +132,9 @@ pruefe 'Migration 207 ist gelaufen (drei Spalten fuer das Logo)' \
   "$(ja_wenn "$(db "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='system_settings' AND column_name IN ('company_logo','company_logo_typ','company_logo_stand');")" 3)"
 
 # --- 2. Vorher lesen (fuer das exakte Zuruecksetzen) ---------------------------------
-ruf "$TOK" GET /api/settings/firmenname
+# Gelesen ueber needs-setup: `GET /api/settings/firmenname` ist am 06.10.2026
+# gefallen, needs-setup traegt denselben Wert (company_name oder null).
+ruf ohne GET /api/auth/needs-setup
 NAME_VORHER=$(rumpf | feld firmenname)
 LOGO_VORHER_TYP=$(db "SELECT coalesce(company_logo_typ, '') FROM system_settings WHERE id = 1;")
 LOGO_VORHER_STAND=$(db "SELECT coalesce(company_logo_stand::text, '') FROM system_settings WHERE id = 1;")

@@ -259,11 +259,11 @@ empfangen_feld() {
 }
 # Der Lauf, wie die Verwaltung ihn sieht: $1 = Feld (status, abschluss.versuche, error, …).
 lauf_feld() {
-  ruf "$TOK" GET "/api/apps/$APP/laeufe/$LAUF"
+  ruf "$TOK" GET "/api/laeufe/$LAUF"
   rumpf | feld "data.$1"
 }
 schritte_zahl() {
-  ruf "$TOK" GET "/api/apps/$APP/laeufe/$LAUF"
+  ruf "$TOK" GET "/api/laeufe/$LAUF"
   rumpf | python3 -c 'import sys,json; print(len(json.load(sys.stdin)["data"]["steps"]))' 2>/dev/null
 }
 erneut() { ruf "$TOK" POST "/api/apps/$APP/laeufe/$LAUF/erneut" '{}'; }
@@ -307,7 +307,7 @@ aufraeumen() {
   # Offene Laeufe der Probe abbrechen (nicht_uebergeben, wartend), bevor die App geht.
   for id in "${OFFENE_LAEUFE[@]:-}"; do
     [ -n "$id" ] && curl -sk -o /dev/null --max-time 30 -X POST \
-      -H "authorization: Bearer $TOK" "$BASIS/api/flows/laeufe/$id/abbrechen"
+      -H "authorization: Bearer $TOK" "$BASIS/api/laeufe/$id/abbrechen"
   done
   for id in "${FREIGEGEBEN[@]:-}"; do
     [ -n "$id" ] && curl -sk -o /dev/null --max-time 30 -X DELETE \
@@ -401,7 +401,7 @@ if starten 'flow=buch&thema=Wartung'; then
   # gespeichert, der Lauf aber NOCH nicht fertig.
   ende=$((SECONDS + LAUF_GEDULD)); WAEHREND=""; ERG_WAEHREND=""; ZEIT_UEBERGEBEN=""
   while [ "$SECONDS" -lt "$ende" ]; do
-    ruf "$TOK" GET "/api/apps/$APP/laeufe/$LAUF"
+    ruf "$TOK" GET "/api/laeufe/$LAUF"
     if [ -n "$(rumpf | feld data.abschluss.route)" ] || [ "$(rumpf | feld data.status)" != laeuft ]; then
       WAEHREND=$(rumpf | feld data.status)
       ERG_WAEHREND=$(rumpf | feld data.result)
@@ -483,7 +483,7 @@ if starten 'flow=buch&thema=Ausfall'; then
   pruefe '… ohne uebergeben_am' "$([ -z "$(lauf_feld abschluss.uebergeben_am)" ] && echo ja || echo nein)"
   SCHRITTE=$(schritte_zahl)
   AUSFALL_LAUF="$LAUF"
-  ruf "$TOK" GET "/api/apps/$APP/laeufe?status=nicht_uebergeben"
+  ruf "$TOK" GET "/api/laeufe?app=$APP&status=nicht_uebergeben&limit=200"
   pruefe 'Die Liste der Laeufe filtert nach nicht_uebergeben' \
     "$(grep -Eq "\"id\": *\"?$LAUF\"?[,}]" "$RUMPF_DATEI" && echo ja || echo nein)"
   ruf "$TOK_A" GET "/apps/$APP/api/lauf?lauf=$LAUF"
@@ -542,7 +542,7 @@ if [ -n "$NEUSTART_BEFEHL" ] && [ -n "${SCHWEIGEN_LAUF:-}" ]; then
   ende=$((SECONDS + 240)); da=nein
   sleep 5
   while [ "$SECONDS" -lt "$ende" ]; do
-    ruf "$TOK" GET "/api/apps/$APP/laeufe/$LAUF"
+    ruf "$TOK" GET "/api/laeufe/$LAUF"
     [ "$CODE" = 200 ] && { da=ja; break; }
     TOK=$(arasul_token)
     sleep 4
@@ -564,7 +564,7 @@ modus_setzen 503
 if starten 'flow=buch&thema=Abbruch'; then
   warte_status 'fertig|nicht_uebergeben|fehler' "$LAUF_GEDULD"
   OFFENE_LAEUFE+=("$LAUF")
-  ruf "$TOK" POST "/api/flows/laeufe/$LAUF/abbrechen" '{}'
+  ruf "$TOK" POST "/api/laeufe/$LAUF/abbrechen" '{}'
   pruefe 'Ein nicht uebergebener Lauf laesst sich abbrechen' \
     "$([ "$CODE" = 200 ] && [ "$(lauf_feld status)" = abgebrochen ] && echo ja || echo nein)" "HTTP $CODE"
   erneut
@@ -581,10 +581,10 @@ bilder uebergeben
 # --- 14. Aufraeumen ist Teil der Messung -----------------------------------------------------
 fehl=""
 for id in "${OFFENE_LAEUFE[@]:-}"; do
-  [ -n "$id" ] && ruf "$TOK" POST "/api/flows/laeufe/$id/abbrechen" '{}'
+  [ -n "$id" ] && ruf "$TOK" POST "/api/laeufe/$id/abbrechen" '{}'
 done
 OFFENE_LAEUFE=()
-ruf "$TOK" GET "/api/apps/$APP/laeufe?status=nicht_uebergeben"
+ruf "$TOK" GET "/api/laeufe?app=$APP&status=nicht_uebergeben&limit=200"
 pruefe 'Kein Lauf steht mehr auf nicht_uebergeben' \
   "$(ja_wenn "$(rumpf | python3 -c 'import sys,json
 try: print(len(json.load(sys.stdin)["data"]))

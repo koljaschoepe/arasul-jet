@@ -12,8 +12,9 @@
 #                 Groesse (gleich der von Ollama, `/api/tags`) und mit
 #                 Faehigkeiten, die zu `/api/show` passen (Bild, Werkzeuge,
 #                 Kontext). Die Zeile ist `ungemessen`.
-#   ABGLEICH      `POST /api/models/sync` laeuft, nennt `nachgetragen` und
-#                 traegt beim zweiten Mal nichts mehr nach.
+#   ABGLEICH      Der Nachtrag des Abgleichs (`traegNachModelle`, im Container
+#                 gerufen, seit `POST /api/models/sync` weg ist) laeuft, nennt
+#                 `nachgetragen` und traegt beim zweiten Mal nichts mehr nach.
 #   VON HAND      Die Zeilen, die schon vor dem Abgleich im Katalog standen
 #                 (Name, Beschreibung, Groesse, RAM, Aufgabe, `jetson_tested`),
 #                 sind danach unveraendert.
@@ -100,11 +101,41 @@ VORHER_KATALOG="$(katalog_stand)"
 pruefe 'Ollama am Geraet antwortet und nennt Modelle' "$([ -n "$VORHER_LISTE" ] && echo ja || echo nein)" "$VORHER_LISTE"
 
 # --- 1. Abgleich, zweimal -------------------------------------------------------------
-ruf "$TOK" POST /api/models/sync
-pruefe 'POST /api/models/sync antwortet 200 mit success' \
-  "$([ "$CODE" = 200 ] && [ "$(rumpf | py 'import sys,json; print(json.load(sys.stdin).get("success"))')" = True ] && echo ja || echo nein)" "HTTP $CODE"
-ruf "$TOK" POST /api/models/sync
-ZWEITES="$(rumpf | py 'import sys,json; print(len(json.load(sys.stdin).get("nachgetragen", ["?"])))')"
+# `POST /api/models/sync` ist mit der Totcode-Pruefung vom 06.10.2026 gefallen;
+# der Abgleich laeuft seither nur beim Start und alle MODEL_SYNC_INTERVAL im
+# Backend. Gemessen wird deshalb der Schritt, um den es hier geht, direkt im
+# Container: `traegNachModelle` mit den Eintraegen aus `/api/tags`, in einem
+# eigenen Node-Prozess. Nur der Nachtrag, nicht der ganze Abgleich: der nimmt
+# pausierte Downloads wieder auf, und ein Download aus einem Prozess, der
+# gleich endet, waere genau das, was diese Abnahme ausschliesst.
+abgleich() {
+  ssh -o BatchMode=yes -o ConnectTimeout=15 "$GERAET" "docker exec -i dashboard-backend node -" <<'JS' 2>/dev/null | tail -n1
+const axios = require('axios');
+const database = require('./src/database');
+const logger = require('./src/utils/logger');
+const services = require('./src/config/services');
+const { createSyncHelpers } = require('./src/services/llm/modelSyncHelpers');
+(async () => {
+  const helfer = createSyncHelpers({
+    database,
+    logger,
+    activeDownloadIds: new Set(),
+    modelAvailabilityCache: new Map(),
+  });
+  const antwort = await axios.get(`${services.llm.url}/api/tags`, { timeout: 10000 });
+  const nachgetragen = await helfer.traegNachModelle(antwort.data.models || []);
+  console.log(JSON.stringify({ success: true, nachgetragen }));
+  process.exit(0);
+})().catch(fehler => {
+  console.log(JSON.stringify({ success: false, error: fehler.message }));
+  process.exit(1);
+});
+JS
+}
+ERSTES="$(abgleich)"
+pruefe 'Der Nachtrag (traegNachModelle) laeuft mit success' \
+  "$([ "$(printf '%s' "$ERSTES" | py 'import sys,json; print(json.load(sys.stdin).get("success"))')" = True ] && echo ja || echo nein)" "$(printf '%s' "$ERSTES" | cut -c1-120)"
+ZWEITES="$(abgleich | py 'import sys,json; print(len(json.load(sys.stdin).get("nachgetragen", ["?"])))')"
 pruefe 'der zweite Abgleich traegt nichts mehr nach' "$(ja_wenn "$ZWEITES" 0)" "nachgetragen: $ZWEITES"
 
 # --- 2. Vollstaendig ------------------------------------------------------------------

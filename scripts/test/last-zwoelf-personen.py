@@ -5,9 +5,17 @@ Lastmessung "Zwoelf Personen gleichzeitig" (J40, 02.10.2026)
 
 Misst am Geraet, wie lange eine KI-Anfrage wartet, wenn zwoelf Konten sie
 gleichzeitig stellen: Chat ueber die OpenAI-kompatible Schnittstelle (`/v1`,
-mit Schluessel, wie eine App sie ruft) und Flow-Laeufe (`/api/flows/laeufe`,
-als je eigenes Konto). Beides laeuft durch dieselbe GPU-Sperre
-(`services/flows/gpuQueue.js`), deshalb steht beides in einer Tabelle.
+mit Schluessel, wie eine App sie ruft) und Flow-Laeufe
+(`/api/v1/external/flows/:name/run`, mit demselben Schluessel). Beides laeuft
+durch dieselbe GPU-Sperre (`services/flows/gpuQueue.js`), deshalb steht beides
+in einer Tabelle.
+
+Bis zum 06.10.2026 startete jedes Konto seine Flow-Laeufe selbst ueber
+`/api/flows/laeufe` und der Flow entstand ueber `POST /api/flows`. Beide Wege
+sind mit der Totcode-Pruefung gefallen. Seither gehoeren die Laeufe dem
+Besitzer des Schluessels (probe-admin); die GPU-Sperre ist FIFO und kennt keine
+Konten, die Wartezeit misst sich deshalb gleich. Der Flow wird als Datei in
+FLOWS_DIR des Backend-Containers gelegt und am Ende wieder entfernt.
 
 Szenarien
   einzeln    eine Chat-Anfrage allein (Grundwert)
@@ -48,6 +56,24 @@ CTX.verify_mode = ssl.CERT_NONE
 
 STEMPEL = "probe-j40"
 FLOW = "probe-j40-kurz"
+# Der Flow als Datei, wie `flowFile.js` sie liest; der Weg in FLOWS_DIR wird im
+# Container aufgeloest (Vorgabe /arasul/flows).
+FLOW_DATEI = '"${FLOWS_DIR:-/arasul/flows}/' + FLOW + '.md"'
+FLOW_INHALT = f"""---
+name: {FLOW}
+beschreibung: Messung J40, wird danach entfernt
+argumente:
+  - name: thema
+    typ: freitext
+    pflicht: true
+    beschreibung: Thema
+werkzeuge: []
+grenzen:
+  zeitlimit_s: 600
+---
+
+Schreibe drei kurze Saetze zum Thema {{{{thema}}}}. Keine Anrede, keine Aufzaehlung.
+"""
 ANZAHL = 12
 FRAGEN = [
     "Erklaere in drei Saetzen, wie man eine Urlaubsanfrage im Betrieb sauber dokumentiert.",
@@ -68,7 +94,7 @@ class Gerat:
         self.host, self.port = host, int(port or 443)
         self.ssh = ssh
 
-    def req(self, methode, pfad, token=None, body=None, key=None, timeout=60):
+    def req(self, methode, pfad, token=None, body=None, key=None, timeout=60, xkey=None):
         daten = json.dumps(body).encode() if body is not None else None
         r = urllib.request.Request(self.basis + pfad, data=daten, method=methode)
         r.add_header("content-type", "application/json")
@@ -76,6 +102,8 @@ class Gerat:
             r.add_header("authorization", "Bearer " + token)
         if key:
             r.add_header("authorization", "Bearer " + key)
+        if xkey:
+            r.add_header("x-api-key", xkey)
         try:
             with urllib.request.urlopen(r, context=CTX, timeout=timeout) as a:
                 t = a.read().decode()
@@ -130,24 +158,25 @@ class Gerat:
         finally:
             conn.close()
 
-    def flow(self, token, thema, timeout=900):
+    def flow(self, key, thema, timeout=900):
         """Startet einen Lauf und wartet auf sein Ende. (code, gesamt_s, status)."""
         t0 = time.time()
-        c, d = self.req("POST", "/api/flows/laeufe", token, {"flow": FLOW, "args": {"thema": thema}})
+        c, d = self.req("POST", f"/api/v1/external/flows/{FLOW}/run",
+                        body={"args": {"thema": thema}, "wait_for_result": False}, xkey=key)
         if c != 202:
             return c, time.time() - t0, "abgewiesen"
-        rid = d["data"]["runId"]
+        rid = d["run_id"]
         while time.time() - t0 < timeout:
             time.sleep(2)
-            c, d = self.req("GET", f"/api/flows/laeufe/{rid}", token)
-            st = (d.get("data") or d.get("run") or d).get("status") if c == 200 else None
+            c, d = self.req("GET", f"/api/v1/external/flows/runs/{rid}", xkey=key)
+            st = d.get("status") if c == 200 else None
             if st and st not in ("laeuft", "wartend"):
                 return 200, time.time() - t0, st
         return 200, time.time() - t0, "zeitlimit"
 
-    def am_geraet(self, befehl):
+    def am_geraet(self, befehl, eingabe=None):
         try:
-            return subprocess.run(["ssh", "-o", "BatchMode=yes", self.ssh, befehl],
+            return subprocess.run(["ssh", "-o", "BatchMode=yes", self.ssh, befehl], input=eingabe,
                                   capture_output=True, text=True, timeout=40).stdout
         except Exception:
             return ""
@@ -210,7 +239,7 @@ def main():
         for k in (d.get("api_keys") or []):
             if str(k.get("name", "")).startswith(STEMPEL):
                 g.req("DELETE", f"/api/v1/external/api-keys/{k.get('id') or k.get('key_id')}", admin)
-        g.req("DELETE", f"/api/flows/{FLOW}", admin)
+        g.am_geraet(f"docker exec dashboard-backend sh -c 'rm -f {FLOW_DATEI}'")
         log("aufgeraeumt: Konten, Schluessel, Flow")
 
     if a.nur_aufraeumen:
@@ -219,15 +248,14 @@ def main():
 
     try:
         # --- Aufbau ---------------------------------------------------------
-        c, d = g.req("POST", "/api/flows", admin, {
-            "name": FLOW, "beschreibung": "Messung J40, wird danach entfernt",
-            "argumente": [{"name": "thema", "typ": "freitext", "pflicht": True, "beschreibung": "Thema"}],
-            "werkzeuge": [], "grenzen": {"zeitlimit_s": 600},
-            "prompt": "Schreibe drei kurze Saetze zum Thema {{thema}}. Keine Anrede, keine Aufzaehlung."})
-        log("Flow angelegt", c)
+        g.am_geraet(f"docker exec -i dashboard-backend sh -c 'cat > {FLOW_DATEI}'", eingabe=FLOW_INHALT)
+        c, d = g.req("GET", "/api/flows", admin)
+        if not any(f.get("name") == FLOW for f in d.get("data", [])):
+            raise SystemExit(f"Flow {FLOW} steht nicht in GET /api/flows: {c} {d.get('fehlerhaft')}")
+        log("Flow angelegt (Datei)")
         c, d = g.req("POST", "/api/v1/external/api-keys", admin, {
             "name": STEMPEL + "-schluessel", "description": "Messung J40",
-            "rate_limit_per_minute": 6000, "allowed_endpoints": ["llm:chat", "llm:status"]})
+            "rate_limit_per_minute": 6000, "allowed_endpoints": ["llm:chat", "llm:status", "flow:run"]})
         if c != 200:
             raise SystemExit(f"Schluessel: {c} {d}")
         key, schluessel_id = d["api_key"], d["key_id"]
@@ -302,7 +330,7 @@ def main():
                         else:
                             fehler.append(("chat", c))
                 else:
-                    c, tg, st = g.flow(konten[name], zufall.choice(["Backup", "Urlaub", "Lieferung"]))
+                    c, tg, st = g.flow(key, zufall.choice(["Backup", "Urlaub", "Lieferung"]))
                     with sperre:
                         if c == 200 and st == "fertig":
                             flow_g.append(tg)

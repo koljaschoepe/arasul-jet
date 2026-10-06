@@ -273,7 +273,7 @@ aufraeumen() {
       "$BASIS/api/apps/$APP/flows/$FLOW/zeitplan"
     for id in $(db "SELECT id FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND status IN ('laeuft','wartend');"); do
       curl -sk -o /dev/null --max-time 30 -X POST -H "authorization: Bearer $TOK" \
-        "$BASIS/api/flows/laeufe/$id/abbrechen"
+        "$BASIS/api/laeufe/$id/abbrechen"
     done
   fi
   if [ -n "$SCHLUESSEL" ]; then
@@ -382,10 +382,10 @@ if [ -n "$LAUF" ]; then
     "$([ "$(db "SELECT input->>'original' FROM flow_run_steps WHERE run_id = $LAUF AND kind = 'hinweis';")" = probe-fehlt:1b ] && [ "$(db "SELECT input->>'modell' FROM flow_run_steps WHERE run_id = $LAUF AND kind = 'hinweis';")" = "$(schritt_feld erkennen gilt)" ] && echo ja || echo nein)" "$(db "SELECT input->>'modell' FROM flow_run_steps WHERE run_id = $LAUF AND kind = 'hinweis';")"
   pruefe 'Der Hinweis steht vor dem ersten Schritt (Position 0)' \
     "$(ja_wenn "$(db "SELECT position FROM flow_run_steps WHERE run_id = $LAUF AND kind = 'hinweis' AND name = 'modell';")" 0)"
-  ruf "$TOK" GET "/api/apps/$APP/laeufe/$LAUF"
-  pruefe 'Die Seite der App zeigt den Hinweis im Lauf' \
+  ruf "$TOK" GET "/api/laeufe/$LAUF"
+  pruefe 'Der Lauf in der Verwaltung (GET /api/laeufe/:id) zeigt den Hinweis' \
     "$(enthaelt "$(rumpf)" 'probe-fehlt:1b')"
-  ruf "$TOK" POST "/api/flows/laeufe/$LAUF/abbrechen"
+  ruf "$TOK" POST "/api/laeufe/$LAUF/abbrechen"
   pruefe 'Der Lauf ist abgebrochen, bevor ein Modell gerechnet hat' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
 fi
 pruefe 'Alle Laeufe dieser App seit dem Start haben die Probe als Flow und kein Modell gerechnet (kein Modellschritt)' \

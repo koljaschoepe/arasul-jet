@@ -331,7 +331,7 @@ a = next((x for x in json.load(sys.stdin)["data"] if x.get("lauf") == lauf), {})
 print("%s|%s" % (a.get("pfad"), a.get("benutzer")))' "$LAUF" 2>/dev/null)
   pruefe "PNG: die App sah den Abruf im Namen von $A" "$(ja_wenn "$ABRUF" "/belege/2026-0815.png|$A")" "$ABRUF"
 
-  ruf "$TOK" GET "/api/apps/$APP/laeufe/$LAUF"
+  ruf "$TOK" GET "/api/laeufe/$LAUF"
   PROTOKOLL=$(rumpf | python3 -c 'import sys,json
 d = json.load(sys.stdin)["data"]
 s = next((s for s in d["steps"] if s["kind"] == "subagent" and s["name"] == "leser"), {})
@@ -354,7 +354,7 @@ if starten 'api/belege/2026-0815.pdf'; then
   anfragen_des_laufs
   pruefe 'PDF: genau eine Freigabe' "$(ja_wenn "$ANFRAGEN" 1)" "status=${STATUS:-—} anzahl=${ANFRAGEN:-0}"
   liest_den_beleg PDF
-  ruf "$TOK" GET "/api/apps/$APP/laeufe/$LAUF"
+  ruf "$TOK" GET "/api/laeufe/$LAUF"
   PROTOKOLL=$(rumpf | python3 -c 'import sys,json
 d = json.load(sys.stdin)["data"]
 s = next((s for s in d["steps"] if s["kind"] == "subagent" and s["name"] == "leser"), {})
@@ -398,7 +398,7 @@ for fall in 'api/belege/9999.png|Original fehlt|404' 'api/belege/gross.png|Origi
       "$(printf '%s' "$ANFRAGE_JSON" | feld zusammenhang | head -c 110)"
     pruefe "$titel: die Felder sind leer und fehlen" \
       "$([ -z "$(wert lieferant)$(wert betrag)$(wert datum)" ] && echo ja || echo nein)"
-    ruf "$TOK" GET "/api/apps/$APP/laeufe/$LAUF"
+    ruf "$TOK" GET "/api/laeufe/$LAUF"
     pruefe "$titel: kein Modellaufruf" \
       "$(rumpf | python3 -c 'import sys,json
 d = json.load(sys.stdin)["data"]

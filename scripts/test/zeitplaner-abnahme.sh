@@ -267,7 +267,7 @@ aufraeumen() {
     done
     for id in $(db "SELECT id FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND status IN ('laeuft','wartend');"); do
       curl -sk -o /dev/null --max-time 30 -X POST -H "authorization: Bearer $TOK" \
-        "$BASIS/api/flows/laeufe/$id/abbrechen"
+        "$BASIS/api/laeufe/$id/abbrechen"
     done
     [ -n "$FREIGEGEBEN" ] && curl -sk -o /dev/null --max-time 30 -X DELETE \
       -H "authorization: Bearer $TOK" "$BASIS/api/freigaben/$APP/$FREIGEGEBEN"
@@ -410,8 +410,8 @@ sleep 20
 pruefe 'takt: die Laeufe enden fertig (feste Antwort, ohne Modell)' \
   "$(ja_wenn "$(db "SELECT count(*) FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND flow_name = 'takt' AND ausloeser = 'zeitplan' AND status NOT IN ('fertig','laeuft');")" 0)"
 pruefe 'Die Liste der Laeufe nennt den Ausloeser' \
-  "$(ruf "$TOK" GET "/api/apps/$APP/laeufe?flow=takt" && rumpf | python3 -c 'import sys,json
-d = json.load(sys.stdin)["data"]
+  "$(ruf "$TOK" GET "/api/laeufe?app=$APP&limit=200" && rumpf | python3 -c 'import sys,json
+d = [l for l in json.load(sys.stdin)["data"] if l.get("flow_name") == "takt"]
 print("ja" if d and all(l.get("ausloeser") == "zeitplan" for l in d) else "nein")')"
 
 # --- 5. Kein zweiter Lauf ------------------------------------------------------------
@@ -433,7 +433,7 @@ if warte_bis 150 '[ "$(laeufe warten)" -ge 1 ]'; then
   pruefe 'warten: die Seite der App zeigt den Grund' \
     "$([[ "$(zeitplan_feld live warten letzter_termin.grund)" == *"läuft noch"* ]] && echo ja || echo nein)"
   pause_setzen warten true
-  ruf "$TOK" POST "/api/flows/laeufe/$LAUF_WARTEN/abbrechen"
+  ruf "$TOK" POST "/api/laeufe/$LAUF_WARTEN/abbrechen"
   pruefe 'warten: Zeitplan pausiert, der haltende Lauf abgebrochen' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
 else
   pruefe 'warten: der erste Termin startet einen Lauf' nein 'Zeitgrenze 150s'
@@ -545,7 +545,7 @@ pruefe 'Alle Zeitplaene der Probe-App sind pausiert' "$(ja_wenn "$codes" "$(laut
 sleep 3
 OFFEN=$(db "SELECT id FROM flow_runs WHERE created_at >= '$BEGINN' AND app_id = '$APP' AND status IN ('laeuft','wartend');")
 for id in $OFFEN; do
-  ruf "$TOK" POST "/api/flows/laeufe/$id/abbrechen"
+  ruf "$TOK" POST "/api/laeufe/$id/abbrechen"
 done
 sleep 5
 pruefe 'Offene Laeufe sind abgebrochen' \

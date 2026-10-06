@@ -164,6 +164,12 @@ pruefe 'J1: Anmeldung mit dem neuen Passwort' \
 # an. Beides ist ausgebaut; was ein Nutzer heute hinterlaesst, sind seine
 # Flow-Laeufe. Gestartet wird der erste Flow ohne Pflicht-Argument; der Lauf
 # darf dabei scheitern, er muss nur in der Auskunft stehen und danach weg sein.
+#
+# Gestartet wird er ueber die externe API mit einem Schluessel DIESES Zugangs:
+# `POST /api/flows/laeufe` ist mit der Totcode-Pruefung vom 06.10.2026
+# gefallen. Der Lauf gehoert dem Besitzer des Schluessels, also wieder diesem
+# Zugang; der Schluessel selbst ist ein weiteres Stueck, das die Loeschung
+# mitnehmen muss.
 FLOW=$(curl -sk -H "authorization: Bearer $TOK" "$BASIS/api/flows" |
   python3 -c 'import sys,json
 try:
@@ -173,10 +179,16 @@ try:
 except Exception: pass' 2>/dev/null)
 LAUF_ID=""
 if [ -n "$FLOW" ]; then
-  LAUF_ID=$(curl -sk -X POST -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
-    -d "{\"flow\":\"$FLOW\",\"args\":{}}" "$BASIS/api/flows/laeufe" |
+  SCHLUESSEL=$(curl -sk -X POST -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
+    -d '{"name":"Abnahme J4 (Loeschung)","allowed_endpoints":["flow:run"]}' \
+    "$BASIS/api/v1/external/api-keys" |
     python3 -c 'import sys,json
-try: print(json.load(sys.stdin)["data"]["runId"])
+try: print(json.load(sys.stdin)["api_key"])
+except Exception: print("")' 2>/dev/null)
+  [ -n "$SCHLUESSEL" ] && LAUF_ID=$(curl -sk -X POST -H "x-api-key: $SCHLUESSEL" -H 'content-type: application/json' \
+    -d '{"args":{},"wait_for_result":false}' "$BASIS/api/v1/external/flows/$FLOW/run" |
+    python3 -c 'import sys,json
+try: print(json.load(sys.stdin)["run_id"])
 except Exception: print("")' 2>/dev/null)
 fi
 

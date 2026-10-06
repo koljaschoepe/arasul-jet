@@ -279,7 +279,7 @@ pruefe 'Er hat die App freigegeben und darf deshalb entscheiden' \
   "$(ja_nein "$CODE" 201)" "HTTP $CODE"
 
 # --- 3. Die App startet ihren Flow ------------------------------------------
-# Ueber IHRE Schnittstelle und nicht ueber `/api/flows/laeufe`: ein App-Flow
+# Ueber IHRE Schnittstelle und nicht ueber die Plattform: ein App-Flow
 # gehoert der App, und ihr Schluessel traegt App und Stand (C4/C6). Genau so
 # entsteht ein Lauf, den die App-Ansicht spaeter zeigen soll.
 #
@@ -315,7 +315,7 @@ pruefe 'Die App hat ihren Flow gestartet' \
 ENDE=$((SECONDS + HALT_GEDULD))
 STATUS=""
 while [ "$SECONDS" -lt "$ENDE" ]; do
-  ruf GET "/api/apps/$APP/laeufe/$LAUF" "$TOK"
+  ruf GET "/api/laeufe/$LAUF" "$TOK"
   STATUS=$(feld data.status < "$RUMPF")
   [ "$STATUS" = "wartend" ] && break
   sleep 3
@@ -407,7 +407,7 @@ fi
 ENDE=$((SECONDS + LAUF_GEDULD))
 STATUS=""
 while [ "$SECONDS" -lt "$ENDE" ]; do
-  ruf GET "/api/apps/$APP/laeufe/$LAUF" "$TOK"
+  ruf GET "/api/laeufe/$LAUF" "$TOK"
   STATUS=$(feld data.status < "$RUMPF")
   case "$STATUS" in
     fertig | fehler | abgebrochen | abgelaufen) break ;;

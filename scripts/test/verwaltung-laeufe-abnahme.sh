@@ -32,10 +32,10 @@
 #                Lauf, den es nicht gibt, ist 404; ein schlechter Filter 400.
 #   ABBRECHEN    Die Verwaltung bricht einen Lauf OHNE PERSON ab (der Fund vom
 #                04.10.2026: probe-admin sah ihn nicht und konnte ihn nicht
-#                abbrechen); ein zweites Mal ist 404; `GET /api/flows/laeufe/:id`
-#                zeigt der Verwaltung jetzt jeden Lauf.
+#                abbrechen); ein zweites Mal ist 404; `GET /api/laeufe/:id`
+#                zeigt der Verwaltung jeden Lauf, auch den ohne Person.
 #   RECHTE       Ein Mitarbeiter bekommt 403 auf Liste, Lauf und Abbrechen und
-#                sieht fremde Läufe nicht unter `/api/flows/laeufe/:id`.
+#                sieht fremde Läufe auch unter `/api/laeufe/:id` nicht.
 #   BROWSER      `verwaltung-laeufe-bilder.mjs` läuft gegen dieselben Läufe
 #                (Bilder vom Gerät, Filter, Link, Aufklappen).
 #
@@ -528,10 +528,13 @@ ruf "$TOK" GET /api/laeufe/abc
 pruefe 'Eine Nummer, die keine ist: 400' "$(ja_wenn "$CODE" 400)" "HTTP $CODE"
 
 # --- 10. Abbrechen: auch ein Lauf ohne Person ----------------------------------------------
-ruf "$TOK" GET "/api/flows/laeufe/$L_WARTEN"
-pruefe 'GET /api/flows/laeufe/:id zeigt der Verwaltung auch den Zeitplan-Lauf (vorher 404)' "$(ja_wenn "$CODE" 200)" "HTTP $CODE"
-ruf "$TOK_A" GET "/api/flows/laeufe/$L_WARTEN"
-pruefe "Ein Mitarbeiter sieht den Lauf eines anderen dort weiterhin nicht" "$([ "$ROLLE_A" = admin ] && echo ja || ja_wenn "$CODE" 404)" "$A ist $ROLLE_A, HTTP $CODE"
+# `GET /api/flows/laeufe/:id` ist am 06.10.2026 gefallen; die Verwaltung liest
+# jeden Lauf unter `/api/laeufe/:id`, ein Mitarbeiter keinen.
+ruf "$TOK" GET "/api/laeufe/$L_WARTEN"
+pruefe 'GET /api/laeufe/:id zeigt der Verwaltung den wartenden Zeitplan-Lauf ohne Person' \
+  "$([ "$CODE" = 200 ] && [ "$(rumpf | feld data.status)" = wartend ] && [ -z "$(rumpf | feld data.person_id)" ] && echo ja || echo nein)" "HTTP $CODE $(rumpf | feld data.status)"
+ruf "$TOK_A" GET "/api/laeufe/$L_WARTEN"
+pruefe "Ein Mitarbeiter sieht den Lauf eines anderen nicht" "$([ "$ROLLE_A" = admin ] && echo ja || ja_wenn "$CODE" 403)" "$A ist $ROLLE_A, HTTP $CODE"
 ruf "$TOK" POST "/api/laeufe/$L_WARTEN/abbrechen"
 pruefe 'Die Verwaltung bricht den Lauf OHNE PERSON ab' \
   "$([ "$CODE" = 200 ] && [ "$(rumpf | feld data.status)" = abgebrochen ] && echo ja || echo nein)" "HTTP $CODE $(rumpf | feld data.status)"
@@ -563,9 +566,13 @@ ruf "schluessel:$SCHLUESSEL" GET "/api/laeufe"
 pruefe 'Mit dem Schluessel einer App oder eines Menschen: nicht zugaenglich (401 oder 403)' \
   "$([ "$CODE" = 401 ] || [ "$CODE" = 403 ] && echo ja || echo nein)" "HTTP $CODE"
 
-# --- 12. Die Seite der App zeigt keine zweite Liste, die alte Route bleibt ------------------
+# --- 12. Die Liste einer App ist die gefilterte Verwaltungsliste ---------------------------
+# `GET /api/apps/:id/laeufe` ist am 06.10.2026 gefallen, abgeloest durch
+# `GET /api/laeufe?app=`.
 ruf "$TOK" GET "/api/apps/$APP_A/laeufe?limit=200"
-pruefe 'GET /api/apps/:id/laeufe antwortet weiter (Ereignis und Zeitplan stehen darin)' \
+pruefe 'GET /api/apps/:id/laeufe gibt es nicht mehr (404)' "$(ja_wenn "$CODE" 404)" "HTTP $CODE"
+ruf "$TOK" GET "/api/laeufe?app=$APP_A&limit=200"
+pruefe 'GET /api/laeufe?app= nennt die Laeufe der App (Ereignis und Zeitplan stehen darin)' \
   "$([ "$CODE" = 200 ] && [ "$(rumpf | python3 -c 'import sys,json
 d = json.load(sys.stdin)["data"]
 print(sum(1 for l in d if l["ausloeser"] in ("zeitplan", "ereignis")))')" -ge 2 ] && echo ja || echo nein)"
