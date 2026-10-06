@@ -5,7 +5,7 @@
 # Die Abnahme des Auftrags freigabe-korrekturfelder (04.10.2026), Probe-App
 # `tests/probe-korrektur`: ein erkennender Flow `beleg` mit der Rolle `leser`
 # (Felder betrag und datum, `aenderbar: [datum]`), dem Original
-# `api/belege/<nr>.svg`, einem Schritt `buchen` danach und einer zweiten Stufe
+# `api/belege/<nr>.png`, einem Schritt `buchen` danach und einer zweiten Stufe
 # `leitung`.
 #
 #   KONTRAKT     Fassung 10, die Regeln nennen `aenderbar` und `original`.
@@ -346,10 +346,10 @@ pruefe 'Felder: betrag mit Vorschlag 12,50, nicht aenderbar' \
 pruefe 'Keine Prozentzahl an den Feldern' \
   "$(grep -q '%' <<<"$(printf '%s' "$ANFRAGE_JSON" | feld felder)" && echo nein || echo ja)"
 ORIGINAL=$(printf '%s' "$ANFRAGE_JSON" | feld original)
-pruefe 'Das Original ist eine Adresse der App' "$(ja_wenn "$ORIGINAL" "/apps/$APP/api/belege/4711.svg")" "$ORIGINAL"
+pruefe 'Das Original ist eine Adresse der App' "$(ja_wenn "$ORIGINAL" "/apps/$APP/api/belege/4711.png")" "$ORIGINAL"
 ruf "$TOK_B" GET "$ORIGINAL"
 pruefe "Das Original laedt mit der Sitzung von $B" \
-  "$([ "$CODE" = 200 ] && grep -q '<svg' "$RUMPF_DATEI" && echo ja || echo nein)" "HTTP $CODE"
+  "$([ "$CODE" = 200 ] && grep -q 'PNG' <<<"$(head -c 8 "$RUMPF_DATEI")" && echo ja || echo nein)" "HTTP $CODE"
 
 bilder vorher
 
