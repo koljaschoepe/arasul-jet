@@ -57,8 +57,14 @@ def test_kaputtes_pdf_bleibt_ein_valueerror():
 
 @pytest.mark.skipif(not sys.platform.startswith('linux'), reason='RLIMIT_AS wirkt nur unter Linux')
 def test_ohne_speicher_wird_abgewiesen_statt_zu_haengen():
-    # Ein Kindprozess, der nichts mehr anfordern darf, scheitert oder stirbt.
-    # Beides ist ein abgewiesenes PDF, kein Haenger bis zur Zeitgrenze.
+    # Unter der echten Grenze (1 GiB Adressraum) eine leere Seite in der
+    # groessten Groesse, die PDF erlaubt: bei 200 dpi 40000 x 40000 Pixel, rund
+    # 4,8 GB. Das Oeffnen geht, erst das Rendern scheitert am Speicher. (Mit
+    # `speicher=1` scheiterte schon das Oeffnen, als unlesbares PDF.)
+    doc = fitz.open()
+    doc.new_page(width=14400, height=14400)
+    daten = doc.tobytes()
+    doc.close()
     with pytest.raises(document_parsers.PdfZuAufwendig) as fehler:
-        document_parsers.render_pdf_pages(_pdf_mit_bild(200, 300), 1, speicher=1, zeit_s=20)
+        document_parsers.render_pdf_pages(daten, 1, max_edge=40000, zeit_s=20)
     assert fehler.value.grund == 'zu_gross'
