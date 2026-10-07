@@ -422,10 +422,14 @@ button.ara-karte {
    Pixel und ein Schatten. Die Flaeche bleibt, wie sie ist; angehoben ist
    deutlich genug. Wer weniger Bewegung eingestellt hat, bekommt nur Kante und
    Schatten. */
-button.ara-karte:hover {
-  border-color: color-mix(in srgb, var(--ara-akzent) 45%, var(--ara-kante));
-  box-shadow: var(--ara-schatten-hoch);
-  transform: translateY(-2px);
+/* Nur wo es einen Zeiger gibt: auf einem Touch-Geraet bliebe die Karte nach
+   dem Tippen angehoben stehen, bis man woanders hintippt. */
+@media (hover: hover) {
+  button.ara-karte:hover {
+    border-color: color-mix(in srgb, var(--ara-akzent) 45%, var(--ara-kante));
+    box-shadow: var(--ara-schatten-hoch);
+    transform: translateY(-2px);
+  }
 }
 
 button.ara-karte:focus-visible {

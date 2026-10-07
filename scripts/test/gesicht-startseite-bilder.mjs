@@ -112,7 +112,7 @@ async function anmelden(browser, konto, ansicht, extra = {}) {
 async function abmelden(seite, schmal) {
   try {
     if (schmal) {
-      await seite.getByTestId('leiste-einstellungen').click();
+      await seite.goto(`${URL}/workspace/settings/profil`, { waitUntil: 'domcontentloaded' });
       await seite.getByTestId('einstellungen-bereiche-oeffnen').click();
     } else {
       await seite.getByTestId('workspace-benutzermenue').click();
@@ -399,6 +399,8 @@ try {
       if (konto === ADMIN && APP) {
         await seite.getByTestId(`leiste-app-${APP}-live`).click();
         const rahmen = seite.frameLocator(`iframe[src="/apps/${APP}/"]`);
+        // Am Handy ist die Leiste der App ein Blatt: erst öffnen.
+        if (schmal) await rahmen.getByTestId('probe-umschalten').click();
         await rahmen.getByText('Freigaben', { exact: true }).first().click();
         const knopf = rahmen.locator('[data-variant="solid"]').first();
         await knopf.waitFor({ timeout: 15000 });
