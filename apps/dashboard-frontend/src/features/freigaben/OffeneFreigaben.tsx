@@ -422,7 +422,13 @@ export function OffeneFreigaben() {
 
   if (data.length === 0) {
     return (
-      <section className="mb-6" data-testid="offene-freigaben" data-leer="true">
+      <section
+        id="fuer-sie"
+        tabIndex={-1}
+        className="mb-6 scroll-mt-4 outline-none"
+        data-testid="offene-freigaben"
+        data-leer="true"
+      >
         <h2 className="mb-1 text-sm font-medium text-foreground">Für Sie</h2>
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <ClipboardCheck className="size-4 shrink-0" aria-hidden="true" />
@@ -441,7 +447,13 @@ export function OffeneFreigaben() {
   const imGeraet = data.filter(f => !f.app_zeigt_freigaben);
   if (gewaehlt !== null && imGeraet.some(f => f.id === gewaehlt)) {
     return (
-      <section className="mb-6" data-testid="offene-freigaben" data-einzeln="true">
+      <section
+        id="fuer-sie"
+        tabIndex={-1}
+        className="mb-6 scroll-mt-4 outline-none"
+        data-testid="offene-freigaben"
+        data-einzeln="true"
+      >
         <div data-testid="freigabe-im-geraet">
           <Freigabe
             eintraege={imGeraet.map(f =>
@@ -458,7 +470,12 @@ export function OffeneFreigaben() {
   }
 
   return (
-    <section className="mb-6" data-testid="offene-freigaben">
+    <section
+      id="fuer-sie"
+      tabIndex={-1}
+      className="mb-6 scroll-mt-4 outline-none"
+      data-testid="offene-freigaben"
+    >
       <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
         <ClipboardCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         Für Sie

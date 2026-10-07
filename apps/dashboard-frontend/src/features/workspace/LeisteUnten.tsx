@@ -10,7 +10,7 @@ import {
   useAppReihenfolge,
 } from '@/features/apps/meineApps';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
-import { AppSymbol, appKuerzel } from './AppSymbol';
+import { AppSymbol } from '@/components/AppSymbol';
 
 /** Wie viele Apps neben dem Haus in der Leiste stehen; der Rest liegt unter „mehr". */
 const APPS_IN_DER_LEISTE = 4;
@@ -99,7 +99,7 @@ export function LeisteUnten() {
             className={feldKlasse(aktivId === id)}
           >
             <span className="flex size-5 items-center justify-center">
-              <AppSymbol symbol={e.symbol} kuerzel={appKuerzel(e.name)} />
+              <AppSymbol symbol={e.symbol} />
             </span>
             <span className="max-w-full truncate">{e.name}</span>
           </button>
@@ -133,7 +133,7 @@ export function LeisteUnten() {
                 className={cn(ZEILE, aktivId === id && 'bg-primary/12 text-primary')}
               >
                 <span className="flex size-5 shrink-0 items-center justify-center">
-                  <AppSymbol symbol={e.symbol} kuerzel={appKuerzel(e.name)} />
+                  <AppSymbol symbol={e.symbol} />
                 </span>
                 <span className="min-w-0 truncate">
                   {e.stand === 'test' ? `(Test) ${e.name}` : e.name}

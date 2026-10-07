@@ -7,7 +7,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ActivityBar, appKuerzel } from '../ActivityBar';
+import { ActivityBar } from '../ActivityBar';
+import { AppSymbol } from '@/components/AppSymbol';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { angemeldet } from '@/__tests__/helpers/authMock';
 
@@ -140,10 +141,20 @@ describe('ActivityBar', () => {
   });
 });
 
-describe('appKuerzel', () => {
-  it('nimmt die Anfänge zweier Wörter, sonst zwei Buchstaben', () => {
-    expect(appKuerzel('Rechnung prüfen')).toBe('RP');
-    expect(appKuerzel('Urlaubsantrag')).toBe('Ur');
-    expect(appKuerzel('  rechnungen ')).toBe('Re');
+describe('AppSymbol', () => {
+  it('zeigt ohne Symbol ein neutrales Bild statt Buchstaben', () => {
+    render(<AppSymbol symbol={null} />);
+    expect(screen.getByTestId('app-symbol-neutral')).toBeInTheDocument();
+    expect(screen.queryByTestId('app-kuerzel')).not.toBeInTheDocument();
+  });
+
+  it('zeigt ein Kürzel, das die App selbst nennt, als Text', () => {
+    render(<AppSymbol symbol="RP" />);
+    expect(screen.getByTestId('app-kuerzel')).toHaveTextContent('RP');
+  });
+
+  it('zeigt das neutrale Bild, solange ein Lucide-Name noch lädt', () => {
+    render(<AppSymbol symbol="gibt-es-nicht" />);
+    expect(screen.getByTestId('app-symbol-neutral')).toBeInTheDocument();
   });
 });

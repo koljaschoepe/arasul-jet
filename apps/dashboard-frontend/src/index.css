@@ -399,6 +399,16 @@
     position: relative;
   }
 
+  /* Das Band der Startseite (M5, `Uebersicht.tsx`) trägt den `Kopf` der
+     Seite: ohne dessen Trennlinie und Abstand nach unten, denn die Kante zieht
+     das Band selbst. Gruß und Knopf stehen auf einer Linie. */
+  .ara-startband .ara-kopf {
+    align-items: center;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

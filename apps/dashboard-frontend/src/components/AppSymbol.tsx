@@ -1,13 +1,19 @@
 import { useEffect, useState, type ComponentType } from 'react';
+import { AppWindow } from 'lucide-react';
 
 /**
- * Das Bild einer App in der Aktivitätsleiste (M5, Kontrakt 8).
+ * Das Bild einer App: in der Aktivitätsleiste, in der Leiste unten und auf
+ * der Kachel der Startseite (M5, Kontrakt 8).
  *
  * `symbol` aus `app.json` ist ein Kürzel aus 1 bis 3 Großbuchstaben oder
  * Ziffern (wird als Text gezeichnet) oder ein Lucide-Name wie `file-text`.
- * Ohne Symbol — und solange der Name noch lädt oder die Shell ihn nicht kennt —
- * steht das Kürzel aus dem Namen der App da: ein Tippfehler kostet ein Bild,
- * nie eine App.
+ *
+ * OHNE SYMBOL STEHT EIN NEUTRALES BILD DA, kein Kürzel aus dem Namen (Karte
+ * jet-gesicht-startseite, 07.10.2026). Zwei Buchstaben neben lauter Symbolen
+ * sahen aus wie ein Fehler, und manche App bekommt nie ein Symbol, weil ihre
+ * Quelle fehlt. Dasselbe Bild steht da, solange der Name noch lädt oder die
+ * Shell ihn nicht kennt: ein Tippfehler kostet ein Bild, nie eine App. Ein
+ * Kürzel, das die App selbst nennt, bleibt Text; das hat sie so gewählt.
  *
  * DER LUCIDE-SATZ KOMMT NACH, in einem eigenen Bündel und nur, wenn eine App
  * einen Namen nennt. Ein statischer Import aller Symbole läge in jeder Shell,
@@ -33,7 +39,17 @@ function symbolName(name: string): string {
     .join('');
 }
 
-export function AppSymbol({ symbol, kuerzel }: { symbol?: string | null; kuerzel: string }) {
+/**
+ * @param klasse Größe des Bildes; die Leiste nimmt 18 px, die Kachel ihre
+ *   eigene (das Quadrat der Karte setzt sie).
+ */
+export function AppSymbol({
+  symbol,
+  klasse = 'size-4.5',
+}: {
+  symbol?: string | null;
+  klasse?: string;
+}) {
   const istKuerzel = !!symbol && KUERZEL.test(symbol);
   const lucide = symbol && !istKuerzel ? symbol : null;
   const [Bild, setBild] = useState<ComponentType<{ className?: string }> | null>(null);
@@ -47,32 +63,22 @@ export function AppSymbol({ symbol, kuerzel }: { symbol?: string | null; kuerzel
         if (!weg && b) setBild(() => b);
       })
       .catch(() => {
-        /* das Kürzel bleibt */
+        /* das neutrale Bild bleibt */
       });
     return () => {
       weg = true;
     };
   }, [lucide]);
 
+  if (istKuerzel) {
+    return (
+      <span className="text-xs font-medium" aria-hidden="true" data-testid="app-kuerzel">
+        {symbol}
+      </span>
+    );
+  }
   if (lucide && Bild) {
-    return <Bild className="size-4.5" />;
+    return <Bild className={klasse} />;
   }
-  return (
-    <span className="text-xs font-medium" aria-hidden="true" data-testid="app-kuerzel">
-      {istKuerzel ? symbol : kuerzel}
-    </span>
-  );
-}
-
-/**
- * Das Kürzel einer App, wenn `app.json` kein Symbol nennt: die Anfänge von zwei
- * Wörtern, sonst die ersten zwei Buchstaben.
- */
-export function appKuerzel(name: string): string {
-  const woerter = name.trim().split(/\s+/).filter(Boolean);
-  if (woerter.length >= 2) {
-    return `${woerter[0]?.charAt(0) ?? ''}${woerter[1]?.charAt(0) ?? ''}`.toUpperCase();
-  }
-  const wort = woerter[0] ?? '?';
-  return wort.charAt(0).toUpperCase() + wort.charAt(1).toLowerCase();
+  return <AppWindow className={klasse} aria-hidden="true" data-testid="app-symbol-neutral" />;
 }
