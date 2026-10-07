@@ -177,7 +177,7 @@ describe('Einstellungen, persönlich', () => {
     expect(letzter).toHaveTextContent('Abmelden');
     expect(letzter).toHaveAttribute('data-testid', 'workspace-abmelden');
     await user.click(letzter);
-    expect(abmelden).toHaveBeenCalledOnce();
+    expect(abmelden).toHaveBeenCalledTimes(1);
   });
 
   it('nennt „Meine Ausweise" nicht mehr und erzeugt im Browser keinen Ausweis', async () => {

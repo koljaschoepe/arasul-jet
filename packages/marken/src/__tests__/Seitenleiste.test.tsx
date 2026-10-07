@@ -65,6 +65,6 @@ describe('Seitenleiste', () => {
     const user = userEvent.setup();
     const aufKlick = zeige();
     await user.click(screen.getByTestId('e-neu'));
-    expect(aufKlick).toHaveBeenCalledOnce();
+    expect(aufKlick).toHaveBeenCalledTimes(1);
   });
 });
