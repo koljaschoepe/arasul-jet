@@ -41,6 +41,6 @@ describe('Karte', () => {
     const karte = screen.getByTestId('karte');
     expect(karte.tagName).toBe('BUTTON');
     await userEvent.click(karte);
-    expect(klick).toHaveBeenCalledOnce();
+    expect(klick).toHaveBeenCalledTimes(1);
   });
 });
