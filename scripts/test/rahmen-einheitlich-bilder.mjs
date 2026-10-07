@@ -21,8 +21,7 @@
  * Bibliothek vom Gerät). Sie wird vorher mit
  * `ARASUL_SCHRITTE=einspielen node scripts/test/marken-laufzeit-abnahme.mjs`
  * eingespielt und danach mit `ARASUL_SCHRITTE=entfernen` entfernt; an einer
- * echten App (abschluss, belege, probe-faktum-belege) fotografiert dieses
- * Skript nie.
+ * echten App des Geräts fotografiert dieses Skript nie.
  *
  * Konten nur aus der Umgebung, nie `admin`, kein neues Konto:
  *
