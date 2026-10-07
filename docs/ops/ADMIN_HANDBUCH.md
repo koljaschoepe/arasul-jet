@@ -59,15 +59,20 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
 
 - **Aktivitätsleiste (links):** ganz oben das **Haus** zur Startseite, mit der
   Zahl der Freigaben, die bei Ihnen liegen. Darunter die
-  freigegebenen **Apps** als Kürzel, der Name erscheint beim Überfahren; ein
+  freigegebenen **Apps** als Symbol (ohne Symbol im Manifest ein neutrales
+  Fenster-Symbol), der Name erscheint beim Überfahren; ein
   Teststand trägt einen Punkt und heißt „(Test)". Unten fest:
   **Verwaltung** (nur Administratoren) und das **Zahnrad** (die persönlichen
   Einstellungen).
 - **Ansicht:** immer genau eine: die Startseite, eine App, die Einstellungen
-  oder die Verwaltung. Die **Startseite** grüßt mit dem Vornamen (ohne
-  Vornamen mit dem Anzeigenamen) und zeigt jedem **Für Sie**: die Freigaben,
-  die bei ihm liegen (siehe unten), darunter die eigenen Apps als Kacheln, an
-  einer Kachel höchstens eine Zahl. Als Administrator steht darunter
+  oder die Verwaltung. Die **Startseite** beginnt mit einem blauen Band: der
+  Gruß mit dem Vornamen (ohne Vornamen mit dem Anzeigenamen) und rechts daneben
+  ein Knopf „Zwei Freigaben warten auf Sie", der zur Liste darunter rollt;
+  wartet nichts, steht dort „Alles erledigt". Darunter **Für Sie**: die
+  Freigaben, die bei ihm liegen (siehe unten), dann die eigenen Apps als
+  Kacheln: Symbol, Name und eine Zeile mit den offenen Freigaben dieser App.
+  Im Band steht nie Technik, auch beim Administrator nicht. Als Administrator
+  steht unter den Kacheln
   zusätzlich, **was Aufmerksamkeit braucht**: Sicherung fehlgeschlagen oder
   älter als ein Tag, eine neue Fassung bereit, eine App gestört, eine Fassung,
   die im Test auf Live wartet, Lizenz knapp (30 Tage oder 90 Prozent der
@@ -96,7 +101,7 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
 **Was ein Mitarbeiter sieht.** Die Apps, die ein Administrator ihm freigegeben
 hat, seine Einstellungen und sein Konto. Die Freigaben, die bei ihm liegen,
 stehen auf seiner Startseite unter „Für Sie" (siehe unten), und an der Kachel
-der App steht höchstens ihre Zahl. Keine Fassung, keine Verbindungsanzeige, keine Zahlen der
+der App steht eine Zeile mit ihrer Zahl. Keine Fassung, keine Verbindungsanzeige, keine Zahlen der
 Technik; auch keine Meldung nennt einen Fehlercode oder englischen Text.
 Die Verwaltung (Personen, Apps, Läufe, Firmenordner, Modelle, System, Daten,
 Gerät) ist für ihn nicht da, und zwar nicht nur unsichtbar: das Gerät weist ihn
