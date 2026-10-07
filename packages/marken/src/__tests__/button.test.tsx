@@ -62,4 +62,17 @@ describe('Button', () => {
     const link = screen.getByRole('link', { name: 'Laden' });
     expect(link).toBeInTheDocument();
   });
+
+  it('der Hauptknopf trägt den Blauverlauf aus dem Token, die anderen sind flach', () => {
+    render(
+      <>
+        <Button variant="solid">Ablegen</Button>
+        <Button>Abbrechen</Button>
+      </>
+    );
+    expect(screen.getByRole('button', { name: 'Ablegen' }).className).toContain(
+      'bg-(image:--gradient-primary)'
+    );
+    expect(screen.getByRole('button', { name: 'Abbrechen' }).className).not.toContain('gradient');
+  });
 });
