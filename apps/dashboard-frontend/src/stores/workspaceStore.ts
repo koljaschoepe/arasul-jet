@@ -35,7 +35,12 @@ export interface Ansicht {
    * Freigabe, M5). Steht als `?freigabe=<nummer>` in der Adresse der App.
    */
   vorgang?: number;
-  /** Nur bei `verwaltung`: welcher Bereich. Fehlt er, gilt der erste. */
+  /**
+   * Bei `verwaltung` und `settings`: welcher Bereich. Fehlt er, gilt der erste.
+   * Die Einstellungen haben seit dem 07.10.2026 je Bereich eine Seite
+   * (`/workspace/settings/<bereich>`: profil, passwort, rechner,
+   * erscheinungsbild), wie die Verwaltung.
+   */
   bereich?: string;
   /** Nur bei `verwaltung`: ein Abschnitt im Bereich, der aufgeklappt ankommt. */
   abschnitt?: string;
@@ -85,6 +90,9 @@ export function ansichtZuPfad(a: Ansicht): string {
       `/workspace/verwaltung/${a.bereich}${a.abschnitt ? `/${a.abschnitt}` : ''}` +
       (a.filter ? `?${a.filter}` : '')
     );
+  }
+  if (a.type === 'settings' && a.bereich) {
+    return `/workspace/settings/${a.bereich}`;
   }
   return `/workspace/${a.type}`;
 }
@@ -156,8 +164,10 @@ export function pfadZuAnsicht(subPath: string, search = ''): Ansicht | null {
         ...(Number.isInteger(vorgang) && vorgang > 0 ? { vorgang } : {}),
       };
     }
-    case 'settings':
-      return { type: 'settings' };
+    case 'settings': {
+      const bereich = parts[1] && WORT.test(parts[1]) ? parts[1] : undefined;
+      return { type: 'settings', ...(bereich ? { bereich } : {}) };
+    }
     case 'verwaltung': {
       const bereich = parts[1] && WORT.test(parts[1]) ? parts[1] : undefined;
       // Im Bereich Apps ist der Abschnitt eine App-Kennung (M5): jede App hat

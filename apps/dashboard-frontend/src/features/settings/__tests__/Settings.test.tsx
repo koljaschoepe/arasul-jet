@@ -136,10 +136,26 @@ describe('Verwaltung', () => {
       ]);
     });
 
+    test('dieselbe Leiste wie jede App: Titel „Verwaltung" oben, zwei Gruppen mit Überschrift', () => {
+      zeige();
+      const leiste = screen.getByTestId('verwaltung-bereiche');
+      expect(leiste).toHaveAttribute('role', 'navigation');
+      expect(document.querySelector('[data-slot="sidebar-titel"]')).toHaveTextContent('Verwaltung');
+      const gruppen = Array.from(leiste.querySelectorAll('[data-sidebar="group-label"]')).map(
+        g => g.textContent
+      );
+      expect(gruppen).toEqual(['Arbeit', 'Betrieb']);
+      // Der Eintrag ist der Knopf des Musters (32 px, Symbol 16 px), keine eigene Liste.
+      expect(screen.getByTestId('verwaltung-benutzer')).toHaveAttribute(
+        'data-sidebar',
+        'menu-button'
+      );
+    });
+
     test('ohne Bereich stehen die Personen da', () => {
       zeige();
       expect(screen.getByTestId('personen-settings')).toBeInTheDocument();
-      expect(screen.getByTestId('verwaltung-benutzer')).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByTestId('verwaltung-benutzer')).toHaveAttribute('aria-current', 'page');
     });
 
     test('ein unbekannter Bereich fällt auf Personen', () => {
@@ -156,7 +172,7 @@ describe('Verwaltung', () => {
         bereich: 'geraet',
       });
       expect(screen.getByTestId('geraet-settings')).toBeInTheDocument();
-      expect(screen.getByTestId('verwaltung-geraet')).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByTestId('verwaltung-geraet')).toHaveAttribute('aria-current', 'page');
       expect(screen.getByTestId('verwaltung-benutzer')).not.toHaveAttribute('aria-current');
     });
 
@@ -168,7 +184,7 @@ describe('Verwaltung', () => {
     ])('der alte Bereich %s führt ins Gerät zum Abschnitt %s', (bereich, abschnitt) => {
       zeige({ bereich });
       expect(screen.getByTestId('geraet-settings')).toHaveTextContent(`Gerät ${abschnitt}`);
-      expect(screen.getByTestId('verwaltung-geraet')).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByTestId('verwaltung-geraet')).toHaveAttribute('aria-current', 'page');
     });
 
     test('die Aktualisierung aus System führt ins Gerät', () => {
@@ -187,11 +203,10 @@ describe('Verwaltung', () => {
       expect(screen.getByTestId('modelle-slot')).toBeInTheDocument();
     });
 
-    test('unter 900 px wird die Leiste zur Auswahl über dem Bereich', () => {
+    test('unter 900 px öffnet ein Knopf über dem Bereich die Leiste', () => {
       schmal = true;
       zeige({ bereich: 'daten' });
-      expect(screen.queryByTestId('verwaltung-bereiche')).not.toBeInTheDocument();
-      expect(screen.getByTestId('verwaltung-bereich-wahl')).toHaveTextContent('Daten');
+      expect(screen.getByTestId('verwaltung-bereiche-oeffnen')).toBeInTheDocument();
       expect(screen.getByTestId('daten-settings')).toBeInTheDocument();
     });
   });

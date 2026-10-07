@@ -1,24 +1,31 @@
 /**
  * Die Einstellungen: für alle gleich und nur persönlich (M5).
  *
- * Vier Abschnitte, in dieser Reihenfolge: Profil, Passwort, Angemeldete
- * Rechner, Erscheinungsbild. Alles Gerätebezogene steht in der Verwaltung
- * (`features/settings/`), und keine Funktion steht an beiden Orten.
+ * Gebaut wie die Verwaltung (Karte jet-rahmen-einheitlich, 07.10.2026): links
+ * die Seitenleiste mit dem Titel „Einstellungen", je Bereich eine Seite —
+ * Profil, Passwort, Angemeldete Rechner, Erscheinungsbild. Bis dahin standen
+ * die vier untereinander, und das Erscheinungsbild ganz unten fand niemand.
+ * Alles Gerätebezogene steht in der Verwaltung (`features/settings/`), und
+ * keine Funktion steht an beiden Orten.
  *
- * Kein Kopf mit Logo: oben steht gleich der Name des ersten Abschnitts.
+ * Am Handy ist die Leiste ein Blatt, und dort steht „Abmelden" als letzter
+ * Eintrag: die Fußzeile mit dem Kontomenü gibt es unter 900 px nicht.
  */
-import { LogOut, Monitor, Moon, Palette, Settings, Sun, User } from 'lucide-react';
+import { Lock, LogOut, Monitor, Moon, Palette, Sun, User } from 'lucide-react';
 import { useState } from 'react';
 import {
   Button,
-  Feldgruppe,
-  Formularseite,
   Kopf,
   Label,
   Leerzustand,
   RadioGroup,
   RadioGroupItem,
+  useSchmalesFenster,
+  type SeitenleistenGruppe,
 } from '@marken';
+import { Bereichsrahmen } from '@/components/Bereichsrahmen';
+import { useAuth } from '@/contexts/AuthContext';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi } from '@/hooks/useApi';
@@ -39,7 +46,8 @@ const THEME_WAHLEN: ReadonlyArray<{ wert: ThemeWahl; label: string; icon: typeof
 function Erscheinungsbild() {
   const { wahl, setTheme } = useTheme();
   return (
-    <Feldgruppe titel="Erscheinungsbild" symbol={<Palette />}>
+    <>
+      <Kopf titel="Erscheinungsbild" symbol={<Palette />} />
       <RadioGroup
         value={wahl}
         onValueChange={wert => {
@@ -63,7 +71,7 @@ function Erscheinungsbild() {
           </div>
         ))}
       </RadioGroup>
-    </Feldgruppe>
+    </>
   );
 }
 
@@ -113,24 +121,25 @@ function AngemeldeteRechner() {
   };
 
   return (
-    <Feldgruppe
-      titel="Angemeldete Rechner"
-      symbol={<Monitor />}
-      aktion={
-        liste.length > 0 ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void ueberallAbmelden()}
-            disabled={ueberall}
-            data-testid="ueberall-abmelden"
-          >
-            <LogOut className="size-4" aria-hidden="true" />
-            Überall abmelden
-          </Button>
-        ) : undefined
-      }
-    >
+    <>
+      <Kopf
+        titel="Angemeldete Rechner"
+        symbol={<Monitor />}
+        aktionen={
+          liste.length > 0 ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void ueberallAbmelden()}
+              disabled={ueberall}
+              data-testid="ueberall-abmelden"
+            >
+              <LogOut className="size-4" aria-hidden="true" />
+              Überall abmelden
+            </Button>
+          ) : undefined
+        }
+      />
       {ConfirmDialog}
       <RechnerVerbinden />
       {isLoading ? (
@@ -169,30 +178,94 @@ function AngemeldeteRechner() {
           ))}
         </ul>
       )}
-    </Feldgruppe>
+    </>
   );
 }
 
-export default function Einstellungen() {
-  return (
-    <div className="max-w-225 p-6 animate-in fade-in max-md:p-4" data-testid="einstellungen">
-      <Kopf titel="Einstellungen" symbol={<Settings />} />
-      <Formularseite>
-        <Feldgruppe titel="Profil" symbol={<User />}>
-          <ComponentErrorBoundary componentName="Profil">
-            <ProfilFormular />
-          </ComponentErrorBoundary>
-        </Feldgruppe>
+/** Die Bereiche der Einstellungen, in dieser Reihenfolge (`frontend.md`). */
+const BEREICHE = [
+  { id: 'profil', name: 'Profil', symbol: <User />, gruppe: 'Konto' },
+  { id: 'passwort', name: 'Passwort', symbol: <Lock />, gruppe: 'Konto' },
+  { id: 'rechner', name: 'Angemeldete Rechner', symbol: <Monitor />, gruppe: 'Konto' },
+  { id: 'erscheinungsbild', name: 'Erscheinungsbild', symbol: <Palette />, gruppe: 'Darstellung' },
+] as const;
+
+type BereichId = (typeof BEREICHE)[number]['id'];
+
+function bereichAus(wert: string | undefined): BereichId {
+  return BEREICHE.find(b => b.id === wert)?.id ?? 'profil';
+}
+
+function Bereich({ id }: { id: BereichId }) {
+  switch (id) {
+    case 'passwort':
+      return (
         <ComponentErrorBoundary componentName="Passwort">
+          <Kopf titel="Passwort" symbol={<Lock />} />
           <PasswordManagement />
         </ComponentErrorBoundary>
+      );
+    case 'rechner':
+      return (
         <ComponentErrorBoundary componentName="Angemeldete Rechner">
           <AngemeldeteRechner />
         </ComponentErrorBoundary>
+      );
+    case 'erscheinungsbild':
+      return (
         <ComponentErrorBoundary componentName="Erscheinungsbild">
           <Erscheinungsbild />
         </ComponentErrorBoundary>
-      </Formularseite>
+      );
+    default:
+      return (
+        <ComponentErrorBoundary componentName="Profil">
+          <Kopf titel="Profil" symbol={<User />} />
+          <ProfilFormular />
+        </ComponentErrorBoundary>
+      );
+  }
+}
+
+export default function Einstellungen() {
+  const ansicht = useWorkspaceStore(s => s.ansicht);
+  const oeffne = useWorkspaceStore(s => s.oeffne);
+  const { logout } = useAuth();
+  const schmal = useSchmalesFenster();
+  const bereich = bereichAus(ansicht.bereich);
+
+  const gruppen: SeitenleistenGruppe[] = (['Konto', 'Darstellung'] as const).map(titel => ({
+    titel,
+    eintraege: BEREICHE.filter(b => b.gruppe === titel).map(b => ({
+      kennung: b.id,
+      name: b.name,
+      symbol: b.symbol,
+      aktiv: bereich === b.id,
+      kennzeichen: `einstellungen-${b.id}`,
+      aufKlick: () => oeffne({ type: 'settings', bereich: b.id }),
+    })),
+  }));
+  // Am Handy gibt es keine Fußzeile und damit kein Kontomenü: „Abmelden" ist
+  // dort der letzte Eintrag dieser Leiste (`frontend.md`, Rahmen).
+  if (schmal) {
+    gruppen.push({
+      eintraege: [
+        {
+          kennung: 'abmelden',
+          name: 'Abmelden',
+          symbol: <LogOut />,
+          kennzeichen: 'workspace-abmelden',
+          aufKlick: () => void logout(),
+        },
+      ],
+    });
+  }
+
+  return (
+    <div className="h-full min-h-0" data-testid="einstellungen">
+      <Bereichsrahmen titel="Einstellungen" gruppen={gruppen} kennzeichen="einstellungen-bereiche">
+        <Bereich id={bereich} />
+      </Bereichsrahmen>
     </div>
   );
 }

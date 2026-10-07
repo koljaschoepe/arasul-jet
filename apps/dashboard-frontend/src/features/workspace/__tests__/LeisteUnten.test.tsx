@@ -24,7 +24,7 @@ const APPS = ['eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs'].map(id => ({
   test: null,
 }));
 
-function zeige(onLogout = vi.fn()) {
+function zeige() {
   get.mockImplementation(async (pfad: string) => {
     if (pfad === '/apps/meine') return { data: APPS };
     return { data: [] };
@@ -32,10 +32,9 @@ function zeige(onLogout = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ActivityBar onLogout={onLogout} />
+      <ActivityBar />
     </QueryClientProvider>
   );
-  return onLogout;
 }
 
 describe('Leiste unten', () => {
@@ -63,20 +62,22 @@ describe('Leiste unten', () => {
     expect(within(menue).getByTestId('leiste-app-sechs-live')).toBeInTheDocument();
     expect(within(menue).getByTestId('leiste-verwaltung')).toBeInTheDocument();
     expect(within(menue).getByTestId('leiste-einstellungen')).toBeInTheDocument();
-    expect(within(menue).getByText('Ada Admin')).toBeInTheDocument();
+    // Kein Konto mehr unter „Mehr": Abmelden steht am Handy als letzter Eintrag
+    // der Einstellungen (07.10.2026).
+    expect(within(menue).queryByText('Ada Admin')).not.toBeInTheDocument();
+    expect(within(menue).queryByTestId('workspace-abmelden')).not.toBeInTheDocument();
 
     fireEvent.click(within(menue).getByTestId('leiste-app-fuenf-live'));
     expect(useWorkspaceStore.getState().ansicht).toMatchObject({ type: 'app', appId: 'fuenf' });
   });
 
-  it('dem Mitarbeiter fehlt die Verwaltung; Abmelden steht unter Mehr', async () => {
+  it('dem Mitarbeiter fehlt die Verwaltung', async () => {
     angemeldet({ role: 'mitarbeiter', username: 'mia' });
-    const onLogout = zeige();
+    zeige();
     await screen.findByLabelText('App eins');
     fireEvent.click(screen.getByLabelText('Mehr'));
     const menue = await screen.findByTestId('leiste-mehr-menue');
     expect(within(menue).queryByTestId('leiste-verwaltung')).not.toBeInTheDocument();
-    fireEvent.click(within(menue).getByTestId('workspace-abmelden'));
-    expect(onLogout).toHaveBeenCalledOnce();
+    expect(within(menue).getByTestId('leiste-einstellungen')).toBeInTheDocument();
   });
 });

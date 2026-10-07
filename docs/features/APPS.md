@@ -310,7 +310,10 @@ rendern(
   h(
     SidebarProvider,
     null,
-    h(Seitenleiste, { gruppen: [{ eintraege: [{ kennung: 'a', name: 'Vorgänge' }] }] }),
+    h(Seitenleiste, {
+      titel: 'Belege',
+      gruppen: [{ eintraege: [{ kennung: 'a', name: 'Vorgänge' }] }],
+    }),
     h(SidebarInset, null, h(SidebarTrigger), h(Datenliste, {/* … */}))
   ),
   document.getElementById('app')

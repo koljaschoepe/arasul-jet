@@ -84,7 +84,7 @@
 > setzt. Bestandszeilen bekamen `false`: wer das Passwort in der Vergangenheit
 > gesetzt hat, weiß die Spalte nicht.
 > `theme` (Migration 180, Phase H1) ist die Darstellung der Oberfläche für
-> diesen Menschen: `system` (Vorgabe seit Migration 210, M5; vorher `light`), `light` oder `dark` (`system` seit Migration 194;
+> diesen Menschen: `system` (Vorgabe seit Migration 210, M5; vorher `light`; Migration 212 hat am 07.10.2026 auch jedes bestehende Konto einmal auf `system` gesetzt), `light` oder `dark` (`system` seit Migration 194;
 > `CHECK admin_users_theme_check`). Vorher lag der Wert im `localStorage` des
 > Browsers, war also an den Rechner gebunden statt an den Menschen; »Schwarz«
 > als drittes Theme ist mit H1 gefallen. Geschrieben wird die Spalte über

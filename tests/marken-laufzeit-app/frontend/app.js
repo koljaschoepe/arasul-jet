@@ -120,9 +120,12 @@ function App() {
     SidebarProvider,
     null,
     h(Seitenleiste, {
-      marke: h('div', { style: { padding: '0.25rem 0.5rem', fontWeight: 500 } }, 'Probe'),
+      // Der Titel oben ist der Name der App, wie in Verwaltung und
+      // Einstellungen (5.5.0): dieselbe Leiste für alles auf dem Gerät.
+      titel: 'Marken zur Laufzeit',
       gruppen: [
         {
+          titel: 'Arbeit',
           eintraege: [
             eintrag('vorgaenge', 'Vorgänge', 'V'),
             eintrag('freigaben', 'Freigaben', 'F', offen || undefined),

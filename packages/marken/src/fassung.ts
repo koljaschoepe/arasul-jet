@@ -147,4 +147,15 @@
  * Aenderungen, und Datum und Uhrzeit stehen auf die Minute, ohne Sekunden.
  * Kein Name, keine Eigenschaft aendert sich.
  */
-export const FASSUNG = '5.4.1';
+/*
+ * 5.5.0: eine Seitenleiste fuer alles. `Seitenleiste` nimmt `titel` (oben, in
+ * der Groesse eines Abschnittstitels), `beschriftung` und `kennzeichen`, ein
+ * Eintrag `kennzeichen`; ein Klick schliesst unter 900 px das Blatt. Die Zeilen
+ * stehen mit 2 px Abstand statt 4 px, die Auswahl ist eine getoente Flaeche
+ * (Akzent zu 12 %) statt des neutralen Wischs, das Ueberfahren blendet in
+ * 120 ms ein, und die Leiste ist 240 px breit statt 256 px. Verwaltung,
+ * Einstellungen und jede App zeichnen damit dieselbe Leiste. Keine neue
+ * Hauptzahl: jede neue Eigenschaft ist freiwillig, eine App auf 5.4.1 laeuft
+ * unveraendert weiter und sieht nur ihre Leiste wie die des Geraets.
+ */
+export const FASSUNG = '5.5.0';

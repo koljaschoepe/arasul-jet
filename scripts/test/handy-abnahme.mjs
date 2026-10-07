@@ -166,10 +166,12 @@ async function leiste(page, wer, istAdmin) {
   await page.getByTestId('leiste-mehr').click();
   const menue = page.getByTestId('leiste-mehr-menue');
   await menue.waitFor({ state: 'visible', timeout: 5000 });
+  // Abmelden steht seit dem 07.10.2026 nicht mehr unter Mehr, sondern als
+  // letzter Eintrag in der Leiste der Einstellungen (`einstellungenAbmelden`).
   pruefe(
-    `${wer}: Mehr zeigt Einstellungen und Abmelden`,
+    `${wer}: Mehr zeigt Einstellungen, aber kein Abmelden`,
     (await menue.getByTestId('leiste-einstellungen').count()) === 1 &&
-      (await menue.getByTestId('workspace-abmelden').count()) === 1
+      (await menue.getByTestId('workspace-abmelden').count()) === 0
   );
   pruefe(
     `${wer}: Verwaltung unter Mehr ${istAdmin ? 'ja' : 'nein'}`,
@@ -222,6 +224,22 @@ async function leiste(page, wer, istAdmin) {
   await bild(page, `${wer}-start`);
 }
 
+/** Am Handy ist „Abmelden" der letzte Eintrag der Leiste der Einstellungen. */
+async function einstellungenAbmelden(page, wer) {
+  await geheZu(page, '/workspace/settings');
+  await page.getByTestId('einstellungen-bereiche-oeffnen').click();
+  const leiste = page.getByTestId('einstellungen-bereiche');
+  await leiste.waitFor({ state: 'visible', timeout: 5000 });
+  const letzter = leiste.locator('[data-sidebar="menu-button"]').last();
+  pruefe(
+    `${wer}: Abmelden ist der letzte Eintrag der Einstellungen`,
+    (await letzter.getAttribute('data-testid')) === 'workspace-abmelden'
+  );
+  await page.waitForTimeout(400);
+  await bild(page, `${wer}-einstellungen-leiste`);
+  await page.keyboard.press('Escape');
+}
+
 async function breiten(page, wer, istAdmin) {
   const adressen = ['/workspace/dashboard', '/workspace/settings'];
   if (istAdmin) {
@@ -259,11 +277,13 @@ try {
   const r = await admin.request.get(`${URL}/api/notizen`);
   pruefe('GET /api/notizen antwortet 404', r.status() === 404, `HTTP ${r.status()}`);
   await leiste(admin.page, 'admin', true);
+  await einstellungenAbmelden(admin.page, 'admin');
   await breiten(admin.page, 'admin', true);
   await admin.ctx.close();
 
   const a = await sitzung(A, A_PASS);
   await leiste(a.page, 'mitarbeiter', false);
+  await einstellungenAbmelden(a.page, 'mitarbeiter');
   await breiten(a.page, 'mitarbeiter', false);
   await a.ctx.close();
 } finally {

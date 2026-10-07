@@ -31,27 +31,32 @@ export interface SettingsSection {
   id: SettingsSectionId;
   label: string;
   icon: ReactNode;
+  /**
+   * Die Gruppe in der Leiste (seit 07.10.2026, Karte jet-rahmen-einheitlich):
+   * was der Administrator mit Menschen und Apps tut, und was das Gerät betrifft.
+   */
+  gruppe: 'Arbeit' | 'Betrieb';
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   // Menschen anlegen und Apps freigeben ist der Handgriff, den ein
   // Administrator am häufigsten tut (Phase D3), und die Zielform beginnt hier.
-  { id: 'benutzer', label: 'Personen', icon: <Users /> },
-  { id: 'apps', label: 'Apps', icon: <AppWindow /> },
+  { id: 'benutzer', label: 'Personen', icon: <Users />, gruppe: 'Arbeit' },
+  { id: 'apps', label: 'Apps', icon: <AppWindow />, gruppe: 'Arbeit' },
   // Was auf dem Gerät gelaufen ist, über alle Apps, mit Filtern; jeder Lauf hat
   // eine Adresse (`/workspace/verwaltung/laeufe/<nummer>`).
-  { id: 'laeufe', label: 'Läufe', icon: <ListOrdered /> },
+  { id: 'laeufe', label: 'Läufe', icon: <ListOrdered />, gruppe: 'Arbeit' },
   // Wer welchen Ordner sieht, ist dieselbe Frage wie wer welche App sieht —
   // nur mit drei Stufen statt einem Haken.
-  { id: 'firmenordner', label: 'Firmenordner', icon: <FolderTree /> },
+  { id: 'firmenordner', label: 'Firmenordner', icon: <FolderTree />, gruppe: 'Arbeit' },
   // Welches Modell auf dem Gerät liegt, ist eine Frage an das Gerät.
-  { id: 'modelle', label: 'Modelle', icon: <Cpu /> },
+  { id: 'modelle', label: 'Modelle', icon: <Cpu />, gruppe: 'Betrieb' },
   // Ein Satz, drei Zahlen; Dienste und Selbstheilung aufgeklappt.
-  { id: 'system', label: 'System', icon: <Server /> },
+  { id: 'system', label: 'System', icon: <Server />, gruppe: 'Betrieb' },
   // Sicherung, Auskunft, abgesetzt Löschen und Werksreset.
-  { id: 'daten', label: 'Daten', icon: <Database /> },
+  { id: 'daten', label: 'Daten', icon: <Database />, gruppe: 'Betrieb' },
   // Unternehmen, Aktualisierung, Lizenz, Fernzugriff, „Über Arasul".
-  { id: 'geraet', label: 'Gerät', icon: <HardDrive /> },
+  { id: 'geraet', label: 'Gerät', icon: <HardDrive />, gruppe: 'Betrieb' },
 ];
 
 const SETTINGS_SECTION_IDS: SettingsSectionId[] = SETTINGS_SECTIONS.map(s => s.id);

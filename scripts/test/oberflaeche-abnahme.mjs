@@ -757,13 +757,13 @@ try {
   );
   await seiteM.screenshot({ path: path.join(ZIEL, '1440-nicht-gefunden.png') }).catch(() => {});
 
-  // --- 7. Abmelden über das Konto-Menü der Leiste ---------------------------
+  // --- 7. Abmelden über das Konto-Menü der Fußzeile -------------------------
   await laden(seiteM, '/workspace/dashboard');
   if (await steht(seiteM, '[data-testid="workspace-shell"]', 45000)) {
     const menue =
       (await klick(seiteM.getByTestId('workspace-benutzermenue').first())) &&
       (await steht(seiteM, '[data-testid="workspace-abmelden"]', 15000));
-    pruefe('Das Konto-Menü der Leiste geht auf', menue);
+    pruefe('Das Konto-Menü der Fußzeile geht auf', menue);
     if (menue) {
       await seiteM.screenshot({ path: path.join(ZIEL, '1440-konto-menue.png') }).catch(() => {});
       pruefe(

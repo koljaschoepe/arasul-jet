@@ -1,15 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { House, LogOut, Settings, SlidersHorizontal } from 'lucide-react';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  cn,
-  useSchmalesFenster,
-} from '@marken';
+import { House, Settings, SlidersHorizontal } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger, cn, useSchmalesFenster } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore, ansichtId } from '@/stores/workspaceStore';
 import {
@@ -21,8 +12,6 @@ import {
 } from '@/features/apps/meineApps';
 import { AppSymbol, appKuerzel } from './AppSymbol';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
-import { PersonAvatar } from '@/components/PersonAvatar';
-import { API_BASE } from '@/config/api';
 import { LeisteUnten } from './LeisteUnten';
 import { logoAdresse, useGeraetMarke } from '@/hooks/useGeraetMarke';
 
@@ -114,46 +103,16 @@ function LeistenKnopf({ name, aktiv, onClick, kennzeichen, children, extra }: Le
 
 export { appKuerzel };
 
-/** Bild und Menü der angemeldeten Person: der Name und Abmelden, sonst nichts. */
-function Konto({ onLogout }: { onLogout: () => Promise<void> | void }) {
-  const { user } = useAuth();
-  const name = user?.anzeigeName ?? user?.username ?? '';
-  const bild = user?.hatBild ? `${API_BASE}/profil/bild` : null;
-  return (
-    <Popover>
-      <PopoverTrigger
-        aria-label="Konto"
-        data-testid="workspace-benutzermenue"
-        className={cn(KNOPF, 'hover:bg-accent')}
-      >
-        <PersonAvatar name={name} bild={bild} className="size-7" />
-      </PopoverTrigger>
-      <PopoverContent side="right" align="end" className="w-56 p-1 text-sm">
-        <p className="truncate px-2 py-1.5 font-medium text-foreground">{name || 'Angemeldet'}</p>
-        <div className="my-1 h-px bg-border" aria-hidden="true" />
-        <button
-          type="button"
-          data-testid="workspace-abmelden"
-          onClick={() => {
-            void onLogout();
-          }}
-          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-foreground transition-colors duration-120 ease-out hover:bg-accent motion-reduce:transition-none"
-        >
-          <LogOut className="size-3.5 shrink-0" aria-hidden="true" />
-          Abmelden
-        </button>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 /**
  * Die Aktivitätsleiste (M5): das Einzige, was um eine App herum steht.
  *
  * Oben das Haus zur Startseite mit der Zahl offener Freigaben, darunter die
  * freigegebenen Apps nur als Symbol — ab etwa zehn rollt dieser Teil, die
- * Knöpfe unten bleiben fest: Verwaltung (nur Administrator), Zahnrad (die
- * persönlichen Einstellungen) und das eigene Bild. Jeder Knopf öffnet genau
+ * Knöpfe unten bleiben fest: Verwaltung (nur Administrator) und Zahnrad (die
+ * persönlichen Einstellungen). Das eigene Bild steht seit dem 07.10.2026 nicht
+ * mehr hier, sondern links in der Fußzeile mit Name, Rolle und dem Menü
+ * „Abmelden" (`StatusBar`); unten in der Leiste wirkte es wie ein dritter
+ * Bereich. Jeder Knopf öffnet genau
  * eine Ansicht im Hauptbereich; es gibt keine zweite Seitenleiste mehr, die
  * er auf- oder zuklappen könnte.
  *
@@ -164,17 +123,13 @@ function Konto({ onLogout }: { onLogout: () => Promise<void> | void }) {
  * die, die ihm freigegeben sind. Eine App mit Live- und Teststand steht
  * zweimal da (`zuEintraegen`), der Teststand als „(Test) Name" (M5).
  */
-export function ActivityBar({ onLogout }: { onLogout: () => Promise<void> | void }) {
+export function ActivityBar() {
   // Unter 900 px steht die Leiste unten (`LeisteUnten`); die Aufteilung ist
   // dieselbe Schwelle wie überall im Produkt.
-  return useSchmalesFenster() ? (
-    <LeisteUnten onLogout={onLogout} />
-  ) : (
-    <LeisteLinks onLogout={onLogout} />
-  );
+  return useSchmalesFenster() ? <LeisteUnten /> : <LeisteLinks />;
 }
 
-function LeisteLinks({ onLogout }: { onLogout: () => Promise<void> | void }) {
+function LeisteLinks() {
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
   const ansicht = useWorkspaceStore(s => s.ansicht);
@@ -325,11 +280,11 @@ function LeisteLinks({ onLogout }: { onLogout: () => Promise<void> | void }) {
         name="Einstellungen"
         aktiv={aktivId === 'settings'}
         kennzeichen="leiste-einstellungen"
-        onClick={() => oeffne({ type: 'settings' })}
+        // Wie bei der Verwaltung: stehen die Einstellungen schon da, bleibt der Bereich.
+        onClick={() => aktivId !== 'settings' && oeffne({ type: 'settings' })}
       >
         <Settings className="size-4.5" aria-hidden="true" />
       </LeistenKnopf>
-      <Konto onLogout={onLogout} />
     </nav>
   );
 }
