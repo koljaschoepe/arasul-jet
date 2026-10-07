@@ -79,11 +79,29 @@ const SPALTEN = [
 ];
 
 /** Ein Buchstabe als Symbol: sichtbar auch, wenn die Leiste zugeklappt ist. */
+/**
+ * Ein Symbol wie aus dem Lucide-Satz, ohne Bau als `svg` geschrieben: die
+ * Leiste setzt jedes `svg` am Eintrag auf 16 px, wie in Verwaltung und
+ * Einstellungen. Bis 5.5.0 stand hier ein Buchstabe.
+ */
+const PFADE = {
+  V: ['M8 6h13', 'M8 12h13', 'M8 18h13', 'M3 6h.01', 'M3 12h.01', 'M3 18h.01'],
+  F: ['M9 11l3 3L22 4', 'M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'],
+};
+
 function zeichen(buchstabe) {
   return h(
-    'span',
-    { 'aria-hidden': 'true', style: { width: '1rem', textAlign: 'center', fontWeight: 500 } },
-    buchstabe
+    'svg',
+    {
+      'aria-hidden': 'true',
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    },
+    ...(PFADE[buchstabe] ?? []).map(d => h('path', { key: d, d }))
   );
 }
 

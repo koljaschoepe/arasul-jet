@@ -56,6 +56,15 @@
   html {
     font-size: 106.25%;
   }
+  /* Dieselbe Abstufung wie die Shell (`index.css`, Komfort-Dichte): zwischen
+     1280 und 1511 px 16,5 px statt 17 px. Ohne sie zeichnete eine App im
+     Rahmen ihre Leiste 3 % größer als Verwaltung und Einstellungen daneben
+     (am Orin bei 1440 px gemessen: Zeile 34 statt 33 px, 07.10.2026). */
+  @media (max-width: 1511px) and (min-width: 1280px) {
+    html {
+      font-size: 103.125%;
+    }
+  }
   body {
     background-color: var(--background);
     color: var(--foreground);

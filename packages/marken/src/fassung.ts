@@ -158,4 +158,10 @@
  * Hauptzahl: jede neue Eigenschaft ist freiwillig, eine App auf 5.4.1 laeuft
  * unveraendert weiter und sieht nur ihre Leiste wie die des Geraets.
  */
-export const FASSUNG = '5.5.0';
+/*
+ * 5.5.1: das Stylesheet zur Laufzeit stuft die Wurzelschrift wie die Shell ab
+ * (zwischen 1280 und 1511 px 16,5 px statt 17 px). Eine App im Rahmen zeichnete
+ * ihre Leiste sonst 3 % größer als Verwaltung und Einstellungen daneben. Kein
+ * Name, keine Eigenschaft ändert sich.
+ */
+export const FASSUNG = '5.5.1';
