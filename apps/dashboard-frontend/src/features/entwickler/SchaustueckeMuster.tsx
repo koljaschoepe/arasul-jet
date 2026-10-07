@@ -320,7 +320,7 @@ export function SchaustueckeMuster() {
       >
         <Zustand name="eingebettet">
           {/* BREIT GENUG, DASS DANEBEN NOCH ETWAS STEHT (J31, 30.08.2026).
-            Die Leiste ist 16rem breit, und das Schaustueck soll nicht sie
+            Die Leiste ist 15rem breit, und das Schaustueck soll nicht sie
             zeigen, sondern das NEBENEINANDER. Im 20rem-Kasten blieb daneben
             weniger frei, als `SidebarInset` fuer seinen eigenen Inhalt
             braucht (gemessen 66 px frei gegen 99 px Mindestbreite): die
@@ -331,8 +331,9 @@ export function SchaustueckeMuster() {
             Nebeneinander nicht (dort ist die Leiste ein Blatt, D7), und was
             dann breiter ist als die Seite, rollt im Kasten des
             Schaustuecks. */}
-          <SidebarProvider eingebettet className="h-48 w-[30rem] rounded-md border border-border">
+          <SidebarProvider eingebettet className="h-64 w-[30rem] rounded-md border border-border">
             <Seitenleiste
+              titel="Belege"
               gruppen={[
                 {
                   titel: 'Arbeit',
