@@ -52,10 +52,16 @@ function Startseite() {
   const { user } = useAuth();
   const { data } = useOffeneFreigaben();
   const wartend: Record<string, number> = {};
-  for (const f of data ?? []) wartend[f.app_id] = (wartend[f.app_id] ?? 0) + 1;
+  // Je Stand gezählt: eine Freigabe aus dem Teststand gehört an die Kachel
+  // „(Test) Name", nicht an die der Livefassung.
+  for (const f of data ?? []) {
+    const schluessel = `${f.app_id}:${f.stand}`;
+    wartend[schluessel] = (wartend[schluessel] ?? 0) + 1;
+  }
   return (
     <Uebersicht
       wartend={wartend}
+      offen={data?.length}
       freigaben={<OffeneFreigaben />}
       hinweise={user?.role === 'admin' ? <AdminHinweise /> : undefined}
     />

@@ -271,8 +271,9 @@ src/
                    • **ActivityBar** — oben das Haus (Startseite, mit der
                      Zahl offener Freigaben aus `useOffeneFreigaben`),
                      darunter die eigenen Apps als Symbol (`symbol` aus
-                     `app.json`: Lucide-Name, nachgeladen in `AppSymbol.tsx`,
-                     oder Kürzel; ohne Symbol das Kürzel aus dem Namen) mit dem
+                     `app.json`: Lucide-Name, nachgeladen in
+                     `components/AppSymbol.tsx`, oder Kürzel; ohne Symbol ein
+                     neutrales Fenster-Symbol, keine Buchstaben) mit dem
                      Namen im Tooltip (`GET /api/apps/meine`, ab etwa zehn
                      rollt der Teil). Jeder ordnet sie durch Ziehen oder mit
                      Alt+Pfeil hoch/runter; die Reihenfolge liegt am Gerät
@@ -285,8 +286,12 @@ src/
                      oben das Logo des Hauses, falls hinterlegt (Verwaltung,
                      Gerät, Unternehmen; `GET /api/darstellung/logo?stand=…`,
                      der Stand kommt aus `useGeraetMarke`).
-                   • **Startseite** — Gruß mit Vorname (sonst Anzeigename),
-                     „Für Sie", Kacheln (`features/apps/Uebersicht.tsx`); beim
+                   • **Startseite** — oben das blaue Band (Gruß mit Vorname,
+                     sonst Anzeigename, und der Knopf „N Freigaben warten auf
+                     Sie" zur Liste oder „Alles erledigt"; blendet einmal je
+                     Laden der Seite in 300 ms ein), „Für Sie", Kacheln mit
+                     Symbol auf getöntem Quadrat, Name und Zeile offener
+                     Freigaben je Stand (`features/apps/Uebersicht.tsx`); beim
                      Admin zuletzt `AdminHinweise` (`useAdminHinweise.ts`:
                      Sicherung fehlgeschlagen/älter als ein Tag, Update bereit,
                      App gestört, Fassung wartet auf Live, Lizenz knapp; mit

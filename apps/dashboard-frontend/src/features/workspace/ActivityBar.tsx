@@ -10,7 +10,7 @@ import {
   reihenfolgeSchluessel,
   useAppReihenfolge,
 } from '@/features/apps/meineApps';
-import { AppSymbol, appKuerzel } from './AppSymbol';
+import { AppSymbol } from '@/components/AppSymbol';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import { LeisteUnten } from './LeisteUnten';
 import { logoAdresse, useGeraetMarke } from '@/hooks/useGeraetMarke';
@@ -100,8 +100,6 @@ function LeistenKnopf({ name, aktiv, onClick, kennzeichen, children, extra }: Le
     </MitName>
   );
 }
-
-export { appKuerzel };
 
 /**
  * Die Aktivitätsleiste (M5): das Einzige, was um eine App herum steht.
@@ -250,7 +248,7 @@ function LeisteLinks() {
                 },
               }}
             >
-              <AppSymbol symbol={e.symbol} kuerzel={appKuerzel(e.name)} />
+              <AppSymbol symbol={e.symbol} />
               {e.stand === 'test' && (
                 <span
                   className="absolute right-1 bottom-1 size-1.5 rounded-full bg-muted-foreground"

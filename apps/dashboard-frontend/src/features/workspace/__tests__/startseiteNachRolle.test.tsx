@@ -68,7 +68,10 @@ describe('Startseite nach Rolle', () => {
     angemeldet({ role: 'mitarbeiter', username: 'mia' });
     zeigeStartseite();
     expect(await screen.findByTestId('uebersicht-app-urlaub-live-wartend')).toHaveTextContent(
-      /^1$/
+      /^1 Freigabe offen$/
+    );
+    expect(await screen.findByTestId('startband-freigaben')).toHaveTextContent(
+      'Eine Freigabe wartet auf Sie'
     );
     expect(await screen.findByTestId('offene-freigaben')).toHaveTextContent('Für Sie');
     expect(await screen.findByText('Urlaub vom 5. bis 9. Oktober')).toBeInTheDocument();

@@ -50,6 +50,18 @@ Drei Regeln, die ein Wächter hält:
    `color-mix` mit `--ara-akzent`), überfahren der neutrale Wisch
    (`--accent`), der in 120 ms einblendet; „weniger Bewegung" schaltet den
    Übergang ab.
+   **Verlauf nur am Hauptknopf** (M5, Karte jet-gesicht-startseite,
+   07.10.2026, Vorbild Linear): `Button variant="solid"` und
+   `Knopf art="haupt"` tragen einen leichten Blauverlauf aus
+   `--gradient-primary` (von `--primary` zu einem um 15 % dunkleren Blau, aus
+   `--primary` gerechnet und damit in beiden Themen gültig; `marken.css`
+   rechnet `--ara-verlauf-haupt` mit derselben Formel aus `--ara-akzent`),
+   Überfahren hellt in 120 ms auf. Sonst ist alles flach. Schatten gibt es nur
+   an Menüs und an der angehobenen Karte (`--ara-schatten-hoch`): eine `Karte`,
+   die ein Knopf ist, hebt sich beim Überfahren um 2 px, bei „weniger
+   Bewegung" nur mit Schatten. Die einzige zweite getönte Fläche ist das Band
+   der Startseite (`--verlauf-band`, `--kante-band`), das beim ersten Laden
+   einmal in 300 ms einblendet.
 3. **Wiederkehrende Formen kommen aus dem Designsystem** (unten). Ein `h1`,
    eine Feldgruppen-Trennlinie, eine Tab-Leiste oder ein handgebauter Dialog
    außerhalb von `packages/marken` meldet `scripts/test/bausteine.py` — seit
@@ -197,14 +209,14 @@ Bausteine unter einer Sache sind die Verwechslung selbst.
 
 Die sechs Bausteine ohne Bau:
 
-| Baustein                      | Was er festlegt                                                                     |
-| ----------------------------- | ----------------------------------------------------------------------------------- |
-| `Kopf`                        | Seitentitel als einziges `h1`, Symbol, Beschreibung, Aktionen                       |
-| `Liste` / `ListenEintrag`     | eine Reihe; ein Eintrag ist ein Knopf, sobald er etwas tut                          |
-| `Karte`                       | die erhabene Fläche für ein Ding, das für sich steht (`--card`)                     |
-| `Formular` / `Feld` / `Knopf` | ein echtes `form` (Eingabetaste sendet ab), Felder mit `label`                      |
-| `Meldung`                     | Hinweis, Erfolg, Warnung, Fehler — die Art steht auch im Text, nie nur in der Farbe |
-| `Menue`                       | für eine App: die Fläche über der Seite hinter einem Hamburger-Knopf (unter 900 px) |
+| Baustein                      | Was er festlegt                                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `Kopf`                        | Seitentitel als einziges `h1`, Symbol, Beschreibung, Aktionen                                                                          |
+| `Liste` / `ListenEintrag`     | eine Reihe; ein Eintrag ist ein Knopf, sobald er etwas tut                                                                             |
+| `Karte`                       | die erhabene Fläche für ein Ding, das für sich steht (`--card`); mit `symbol` eine Zeile, das Symbol auf blau getöntem Quadrat (5.6.0) |
+| `Formular` / `Feld` / `Knopf` | ein echtes `form` (Eingabetaste sendet ab), Felder mit `label`                                                                         |
+| `Meldung`                     | Hinweis, Erfolg, Warnung, Fehler — die Art steht auch im Text, nie nur in der Farbe                                                    |
+| `Menue`                       | für eine App: die Fläche über der Seite hinter einem Hamburger-Knopf (unter 900 px)                                                    |
 
 **Kein neues Erscheinungsbild.** Die Werte stehen als
 `var(--token-der-shell, <fester Wert>)`: in der Shell folgt die Bibliothek dem
