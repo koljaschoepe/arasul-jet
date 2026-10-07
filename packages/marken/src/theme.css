@@ -404,10 +404,10 @@
   --gradient-card: linear-gradient(135deg, #181818 0%, #1c1c1c 100%);
   --verlauf-band: linear-gradient(
     120deg,
-    color-mix(in srgb, var(--primary) 20%, var(--card)) 0%,
-    color-mix(in srgb, var(--primary) 5%, var(--card)) 75%
+    color-mix(in srgb, var(--primary) 30%, var(--card)) 0%,
+    color-mix(in srgb, var(--primary) 8%, var(--card)) 75%
   );
-  --kante-band: color-mix(in srgb, var(--primary) 26%, transparent);
+  --kante-band: color-mix(in srgb, var(--primary) 34%, transparent);
   --scrollbar-thumb: rgba(228, 228, 228, 0.14);
   --scrollbar-thumb-hover: rgba(228, 228, 228, 0.28);
   --primary-alpha-5: color-mix(in srgb, var(--primary) 5%, transparent);

@@ -175,4 +175,9 @@
  * keine Eigenschaft aendert ihre Bedeutung; eine App auf 5.5.1 sieht nur ihre
  * Hauptknoepfe und Karten mit Symbol anders.
  */
-export const FASSUNG = '5.6.0';
+/*
+ * 5.6.1: eine Karte hebt sich nur dort an, wo es einen Zeiger gibt
+ * (`@media (hover: hover)`); auf einem Touch-Geraet blieb sie nach dem Tippen
+ * angehoben stehen. Kein Name, keine Eigenschaft aendert sich.
+ */
+export const FASSUNG = '5.6.1';

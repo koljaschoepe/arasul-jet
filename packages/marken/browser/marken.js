@@ -8599,7 +8599,7 @@ function ns(y) {
     s
   ];
 }
-var es = "5.6.0", Zy = 0.25, Ly = 4, Vy = 24;
+var es = "5.6.1", Zy = 0.25, Ly = 4, Vy = 24;
 function ud(y) {
   return Math.min(Ly, Math.max(Zy, y));
 }
