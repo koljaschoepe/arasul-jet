@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Check, X, AlertCircle, Lock } from 'lucide-react';
+import { Eye, EyeOff, Check, X, AlertCircle } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Alert, AlertDescription, Button, cn, Input, Label } from '@marken';
-import { Feldgruppe } from '@marken';
 import { fehlertext } from '@/utils/fehlertext';
 
 interface PasswordRequirements {
@@ -215,124 +214,117 @@ function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
   );
 
   return (
-    // Fragment, kein div: so ist der Abschnitt ein Geschwister der uebrigen
-    // Abschnitte in SecuritySettings, und die SectionList dort entscheidet
-    // ueber seine Trennlinie. In einem div waere er versteckt und traege sie
-    // auch dann, wenn er der letzte auf der Seite ist.
+    // Kein eigener Titel: die Seite „Passwort" der Einstellungen trägt ihn im
+    // Kopf (seit 07.10.2026 hat jeder Bereich eine Seite), ein zweiter darunter
+    // sagte dasselbe noch einmal.
     <>
-      <Feldgruppe titel="Passwort" symbol={<Lock />}>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {renderPasswordField('current', 'Aktuelles Passwort', 'Aktuelles Passwort eingeben')}
-          {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
-          {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {renderPasswordField('current', 'Aktuelles Passwort', 'Aktuelles Passwort eingeben')}
+        {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
+        {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
 
-          {/* Password Requirements */}
-          {requirements && passwords.new && (
-            <div className="border-l-2 border-border pl-4 space-y-2">
-              <h4 className="text-sm font-medium text-foreground">Passwortanforderungen</h4>
-              <ul className="space-y-1">
+        {/* Password Requirements */}
+        {requirements && passwords.new && (
+          <div className="border-l-2 border-border pl-4 space-y-2">
+            <h4 className="text-sm font-medium text-foreground">Passwortanforderungen</h4>
+            <ul className="space-y-1">
+              <li
+                className={cn(
+                  'flex items-center gap-2 text-xs',
+                  validations.minLength ? 'text-primary' : 'text-muted-foreground'
+                )}
+              >
+                {validations.minLength ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <X className="size-3.5" />
+                )}
+                Mindestens {requirements.minLength} Zeichen
+              </li>
+              {requirements.requireUppercase && (
                 <li
                   className={cn(
                     'flex items-center gap-2 text-xs',
-                    validations.minLength ? 'text-primary' : 'text-muted-foreground'
+                    validations.uppercase ? 'text-primary' : 'text-muted-foreground'
                   )}
                 >
-                  {validations.minLength ? (
+                  {validations.uppercase ? (
                     <Check className="size-3.5" />
                   ) : (
                     <X className="size-3.5" />
                   )}
-                  Mindestens {requirements.minLength} Zeichen
+                  Mindestens ein Großbuchstabe
                 </li>
-                {requirements.requireUppercase && (
-                  <li
-                    className={cn(
-                      'flex items-center gap-2 text-xs',
-                      validations.uppercase ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  >
-                    {validations.uppercase ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <X className="size-3.5" />
-                    )}
-                    Mindestens ein Großbuchstabe
-                  </li>
-                )}
-                {requirements.requireLowercase && (
-                  <li
-                    className={cn(
-                      'flex items-center gap-2 text-xs',
-                      validations.lowercase ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  >
-                    {validations.lowercase ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <X className="size-3.5" />
-                    )}
-                    Mindestens ein Kleinbuchstabe
-                  </li>
-                )}
-                {requirements.requireNumbers && (
-                  <li
-                    className={cn(
-                      'flex items-center gap-2 text-xs',
-                      validations.number ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  >
-                    {validations.number ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <X className="size-3.5" />
-                    )}
-                    Mindestens eine Zahl
-                  </li>
-                )}
-                {requirements.requireSpecialChars && (
-                  <li
-                    className={cn(
-                      'flex items-center gap-2 text-xs',
-                      validations.special ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  >
-                    {validations.special ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <X className="size-3.5" />
-                    )}
-                    Mindestens ein Sonderzeichen
-                  </li>
-                )}
+              )}
+              {requirements.requireLowercase && (
                 <li
                   className={cn(
                     'flex items-center gap-2 text-xs',
-                    validations.match ? 'text-primary' : 'text-muted-foreground'
+                    validations.lowercase ? 'text-primary' : 'text-muted-foreground'
                   )}
                 >
-                  {validations.match ? <Check className="size-3.5" /> : <X className="size-3.5" />}
-                  Passwörter stimmen überein
+                  {validations.lowercase ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <X className="size-3.5" />
+                  )}
+                  Mindestens ein Kleinbuchstabe
                 </li>
-              </ul>
-            </div>
-          )}
-
-          {/* Message */}
-          {message && (
-            <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-              <AlertCircle className="size-4" />
-              <AlertDescription>{message.text}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Submit Button */}
-          <div className="flex justify-end">
-            <Button type="submit" loading={loading} disabled={!isFormValid()}>
-              Passwort ändern
-            </Button>
+              )}
+              {requirements.requireNumbers && (
+                <li
+                  className={cn(
+                    'flex items-center gap-2 text-xs',
+                    validations.number ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  {validations.number ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                  Mindestens eine Zahl
+                </li>
+              )}
+              {requirements.requireSpecialChars && (
+                <li
+                  className={cn(
+                    'flex items-center gap-2 text-xs',
+                    validations.special ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  {validations.special ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <X className="size-3.5" />
+                  )}
+                  Mindestens ein Sonderzeichen
+                </li>
+              )}
+              <li
+                className={cn(
+                  'flex items-center gap-2 text-xs',
+                  validations.match ? 'text-primary' : 'text-muted-foreground'
+                )}
+              >
+                {validations.match ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                Passwörter stimmen überein
+              </li>
+            </ul>
           </div>
-        </form>
-      </Feldgruppe>
+        )}
+
+        {/* Message */}
+        {message && (
+          <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
+            <AlertCircle className="size-4" />
+            <AlertDescription>{message.text}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Submit Button */}
+        <div className="flex justify-end">
+          <Button type="submit" loading={loading} disabled={!isFormValid()}>
+            Passwort ändern
+          </Button>
+        </div>
+      </form>
     </>
   );
 }

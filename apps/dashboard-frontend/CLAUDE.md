@@ -69,16 +69,23 @@ src/
                    nie einer, `useAusweise.ts`; darüber die Anleitung zum Verbinden
                    eines Rechners mit einem Befehl zum Kopieren,
                    `RechnerVerbinden.tsx`) und Erscheinungsbild (System,
-                   hell, dunkel; `useTheme` löst `system` selbst auf). Kein
-                   Kopf mit Logo, oben steht gleich „Profil", die vier
-                   Abschnitte untereinander. Das Kontomenü (eigenes Bild
-                   unten in der Aktivitätsleiste) zeigt nur Name und Abmelden.
+                   hell, dunkel; `useTheme` löst `system` selbst auf). Gebaut
+                   wie die Verwaltung (Karte jet-rahmen-einheitlich,
+                   07.10.2026): `Bereichsrahmen` mit der Leiste „Einstellungen"
+                   (Gruppen Konto und Darstellung), je Bereich EINE Seite mit
+                   eigenem Kopf, Adresse `/workspace/settings/<bereich>`
+                   (`profil`, `passwort`, `rechner`, `erscheinungsbild`,
+                   `Ansicht.bereich`). Unter 900 px steht „Abmelden" als
+                   letzter Eintrag dieser Leiste (`workspace-abmelden`), weil
+                   es dort keine Fußzeile gibt.
     settings/      Die **Verwaltung** (Ansicht `verwaltung`, nur für den
                    Admin; der Ordnername ist alt). Gebaut wie eine App
-                   (`Settings.tsx`): eine eigene schmale Leiste der Bereiche
-                   links (`Liste dicht` aus `@marken`, unter 900 px ein
-                   `Select` darüber), daneben der Bereich, ohne zweite
-                   Reiterstufe. Der Bereich steht in der Ansicht des
+                   (`Settings.tsx`): links die Leiste „Verwaltung" aus dem
+                   Muster `Seitenleiste` über `components/Bereichsrahmen.tsx`
+                   (Gruppen Arbeit und Betrieb, `gruppe` in `sections.tsx`;
+                   unter 900 px ein Blatt mit Knopf darüber), daneben der
+                   Bereich, ohne zweite Reiterstufe. Dieselbe Leiste tragen
+                   die Einstellungen und jede App. Der Bereich steht in der Ansicht des
                    Workspace-Stores und damit in der Adresse
                    (`/workspace/verwaltung/<bereich>[/<abschnitt>]`); alte
                    `?tab=`-Adressen bildet die Shell darauf ab.
@@ -253,7 +260,8 @@ src/
                    `scripts/test/schauseite.mjs`.
     workspace/     Die Shell (M5, Karte rahmen-aktivitaetsleiste): links die
                    Aktivitätsleiste, daneben genau EINE Ansicht, unten die
-                   StatusBar (für jeden gleich: Name, Datum, Uhrzeit,
+                   StatusBar (für jeden gleich: links Bild, Name, Rolle mit
+                   einem Menü nur „Abmelden", rechts Datum und Uhrzeit,
                    minutengenau; nie Modell, Speicher, Verbindung, Fassung —
                    keine Abfrage ans Gerät). Es gibt
                    keine Kopfleiste, keine Tab-Leiste, keine rechte Spalte
@@ -269,8 +277,9 @@ src/
                      rollt der Teil). Jeder ordnet sie durch Ziehen oder mit
                      Alt+Pfeil hoch/runter; die Reihenfolge liegt am Gerät
                      (`GET/PUT /api/apps/reihenfolge`, `useAppReihenfolge`),
-                     nicht im Browser, unten fest Verwaltung [admin], Zahnrad [alle] und
-                     das eigene Bild (Popover: Name, Abmelden). Auswahl ist
+                     nicht im Browser, unten fest Verwaltung [admin] und Zahnrad
+                     [alle]; das eigene Bild steht seit 07.10.2026 in der
+                     StatusBar. Auswahl ist
                      eine getönte Fläche (`bg-primary/12`), kein Balken;
                      Hover blendet in 120 ms ein, `motion-reduce` gilt. Ganz
                      oben das Logo des Hauses, falls hinterlegt (Verwaltung,
@@ -291,8 +300,8 @@ src/
                      als `invisible inert` gemountet (Eingaben und
                      Scrollstand bleiben), die vierte fällt heraus.
                    • **Ansichten** — `dashboard`, `app`, `settings`
-                     [persönlich, alle], `verwaltung` [admin, mit `bereich`
-                     und `abschnitt`] (`stores/workspaceStore.ts`). Eine App
+                     [persönlich, alle, mit `bereich`], `verwaltung` [admin,
+                     mit `bereich` und `abschnitt`] (`stores/workspaceStore.ts`). Eine App
                      trägt `appId` und `stand`. **Nichts wird gespeichert**:
                      die Ansicht steht vollständig in der Adresse, die Shell
                      spiegelt beide ineinander. `/workspace/modelle` und
@@ -304,8 +313,9 @@ src/
                      antwortet ohnehin mit 403.
                    • **Unter 900 px** steht statt der Aktivitätsleiste die
                      Leiste unten (`LeisteUnten.tsx`): Haus, vier Apps,
-                     unter „mehr“ die übrigen Apps, Verwaltung, Einstellungen
-                     und das Konto.
+                     unter „mehr“ die übrigen Apps, Verwaltung und
+                     Einstellungen; Abmelden steht in der Leiste der
+                     Einstellungen.
                    • **Flächenfarbe** — Leiste und Ansicht teilen
                      `--background`; Trennung nur über Borders. `--card`
                      bleibt erhabenen Elementen vorbehalten (DESIGN.md).
@@ -320,6 +330,10 @@ src/
                    von `bausteine.py` ausgenommen: ein `h1`, eine Tab-Leiste
                    oder ein handgebauter Dialog ist überall unter `src/` ein
                    Befund.
+    Bereichsrahmen.tsx  Verwaltung und Einstellungen um das Muster
+                   `Seitenleiste` (Titel, Gruppen, Blatt unter 900 px): beide
+                   Features brauchen ihn, deshalb steht er hier und nicht in
+                   einem Feature-Ordner. `PersonAvatar.tsx` ebenso.
     mascot/        Das Maskottchen.
   hooks/           Cross-feature hooks (useApi, useTheme, …).
                    `useSchmalesFenster` steht NICHT hier, sondern in

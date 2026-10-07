@@ -5,7 +5,7 @@
  * Backend entscheidet — hier wird nur das Ausblenden geprüft.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ActivityBar, appKuerzel } from '../ActivityBar';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -35,7 +35,7 @@ const APPS = [
   },
 ];
 
-function zeige({ freigaben = 0, onLogout = vi.fn(), logo = null as string | null } = {}) {
+function zeige({ freigaben = 0, logo = null as string | null } = {}) {
   get.mockImplementation(async (pfad: string) => {
     if (pfad === '/auth/needs-setup') return { needsSetup: false, firmenname: 'Muster GmbH', logo };
     if (pfad === '/apps/meine') return { data: APPS };
@@ -47,10 +47,9 @@ function zeige({ freigaben = 0, onLogout = vi.fn(), logo = null as string | null
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ActivityBar onLogout={onLogout} />
+      <ActivityBar />
     </QueryClientProvider>
   );
-  return { onLogout };
 }
 
 describe('ActivityBar', () => {
@@ -59,14 +58,17 @@ describe('ActivityBar', () => {
     angemeldet({ role: 'admin', anzeigeName: 'Ada Admin' });
   });
 
-  it('zeigt dem Administrator Startseite, Apps, Verwaltung, Zahnrad und Konto', async () => {
+  it('zeigt dem Administrator Startseite, Apps, Verwaltung und Zahnrad, kein eigenes Bild', async () => {
     zeige();
     expect(await screen.findByLabelText('Urlaubsantrag')).toBeInTheDocument();
     expect(screen.getByLabelText('(Test) Urlaubsantrag')).toBeInTheDocument();
     expect(screen.getByLabelText('Rechnung prüfen')).toBeInTheDocument();
-    for (const name of ['Startseite', 'Verwaltung', 'Einstellungen', 'Konto']) {
+    for (const name of ['Startseite', 'Verwaltung', 'Einstellungen']) {
       expect(screen.getByLabelText(name)).toBeInTheDocument();
     }
+    // Bild, Name und Abmelden stehen seit dem 07.10.2026 in der Fußzeile.
+    expect(screen.queryByTestId('workspace-benutzermenue')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('workspace-abmelden')).not.toBeInTheDocument();
     // Die Modelle sind seit M5 ein Bereich der Verwaltung, „Apps" keine
     // Ansicht mehr, sondern die Apps selbst.
     expect(screen.queryByLabelText('Modelle')).not.toBeInTheDocument();
@@ -130,14 +132,11 @@ describe('ActivityBar', () => {
     expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'dashboard' });
   });
 
-  it('das Kontomenü zeigt nur den Namen und Abmelden', async () => {
-    const { onLogout } = zeige();
-    fireEvent.click(screen.getByLabelText('Konto'));
-    const menue = await screen.findByRole('dialog');
-    expect(within(menue).getByText('Ada Admin')).toBeInTheDocument();
-    expect(within(menue).getAllByRole('button')).toHaveLength(1);
-    fireEvent.click(within(menue).getByTestId('workspace-abmelden'));
-    expect(onLogout).toHaveBeenCalledOnce();
+  it('ein zweiter Klick auf das Zahnrad lässt den Bereich der Einstellungen stehen', async () => {
+    useWorkspaceStore.setState({ ansicht: { type: 'settings', bereich: 'passwort' } });
+    zeige();
+    fireEvent.click(screen.getByLabelText('Einstellungen'));
+    expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'settings', bereich: 'passwort' });
   });
 });
 

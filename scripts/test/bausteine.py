@@ -524,6 +524,7 @@ NAVIGATION_AUSNAHMEN = {
     'features/workspace/LeisteUnten.tsx': 'dieselbe Leiste unter 900 px',
     'features/workspace/WorkspaceShell.tsx': 'spiegelt Adresse und Store ineinander',
     'features/settings/Settings.tsx': 'die Bereichswahl INNERHALB der Verwaltung',
+    'features/einstellungen/Einstellungen.tsx': 'die Bereichswahl INNERHALB der Einstellungen',
     # Die Startseite ist die benannte Ausnahme (Karte pruefung-einheit-umlaute):
     # ihre Kacheln, Hinweise und Freigaben fuehren in das, was sie zeigen.
     'features/apps/Uebersicht.tsx': 'Kacheln der Startseite',

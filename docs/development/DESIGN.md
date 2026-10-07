@@ -175,7 +175,7 @@ einen Endpunkt oder einen Benutzer kennt, bleibt in der Shell.
 | `Datenliste`                   | Zeilen zeigen, sortieren, durchsuchen; unter 900 px Karten                                                                                       |
 | `Suchauswahl`                  | die Auswahl, die beim Tippen enger wird (anderswo »Combobox«)                                                                                    |
 | `Dateiablage`                  | Dateien ziehen **oder** auswählen; sie lädt selbst nichts hoch                                                                                   |
-| `Seitenleiste`                 | Navigation aus einer Liste, auf dem Primitiv `Sidebar`                                                                                           |
+| `Seitenleiste`                 | Navigation aus einer Liste, auf dem Primitiv `Sidebar`; DIE Leiste von Verwaltung, Einstellungen und jeder App (Titel, 32 px, 16 px, 2 px)       |
 | `Formularseite` / `Feldgruppe` | Abschnitte einer Seite; die Trennlinie gehört zwischen sie                                                                                       |
 | `Leerzustand`                  | was an der Stelle einer leeren Liste steht — samt Einstieg                                                                                       |
 | `Ladezustand`                  | der Kreisel, wenn die Form des Ergebnisses noch offen ist                                                                                        |
@@ -289,20 +289,25 @@ rahmen-aktivitaetsleiste, 03.10.2026; Zielbild in `frontend.md` des
 Überordners, Abschnitt Rahmen): oben das Haus zur Startseite mit der Zahl
 offener Freigaben, darunter die freigegebenen Apps nur als Symbol mit dem
 Namen beim Überfahren (ab etwa zehn rollt dieser Teil), unten fest Verwaltung
-(nur Administrator), Zahnrad und das eigene Bild (Name und Abmelden). Offen
+(nur Administrator) und Zahnrad; das eigene Bild steht seit dem 07.10.2026
+links in der Statusleiste (Bild, Name, Rolle, Menü nur „Abmelden“). Offen
 ist genau eine Ansicht. Es gibt keine Kopfleiste, keine Tab-Leiste, keine
 rechte Spalte und keine zweite Seitenleiste mehr; jede Funktion steht an
-genau einer Stelle. Die Verwaltung ist gebaut wie eine App: eine eigene
-schmale Leiste der Bereiche, ohne zweite Reiterstufe — was lang ist, klappt
-auf (der Bereich System).
+genau einer Stelle. Verwaltung und Einstellungen sind gebaut wie eine App
+(Karte jet-rahmen-einheitlich, 07.10.2026): links das Muster `Seitenleiste`,
+dasselbe, das jede App zeichnet (Titel oben, Zeilen 32 px, Symbol 16 px, 2 px
+Abstand, Auswahl getönt mit Akzent zu 12 %, Gruppen mit kleiner Überschrift),
+ohne zweite Reiterstufe — was lang ist, klappt auf (der Bereich System). Die
+Shell setzt beide über `components/Bereichsrahmen.tsx` zusammen.
 
 Bis M5 stand hier ein Dreispalten-Raster (Apps, Mitte mit Tabs, Notizen) und
 unter 900 px ein eigener Aufbau mit Hamburger-Menü (D7). Unter 900 px steht
-die Aktivitätsleiste unten (Haus, bis zu vier Apps, „mehr“, Verwaltung,
-Einstellungen, Konto); die Verwaltung zeigt ihre Bereiche dort als Auswahl über dem Bereich. Die
-Statusleiste zeigt dauerhaft **nur Name, Datum und Uhrzeit** (minutengenau),
-für jeden gleich, nie Modell, Speicher, Verbindung oder Fassung, und bleibt bei
-390 px **eine Zeile** (der Name kürzt).
+die Aktivitätsleiste unten (Haus, bis zu vier Apps, „mehr“ mit Verwaltung und
+Einstellungen); Verwaltung und Einstellungen öffnen ihre Leiste dort als Blatt
+über einen Knopf oben, und „Abmelden“ ist der letzte Eintrag der Einstellungen.
+Die Statusleiste zeigt links **Bild, Name und Rolle** (Menü nur „Abmelden“),
+rechts **Datum und Uhrzeit** (minutengenau), für jeden gleich, nie Modell,
+Speicher, Verbindung oder Fassung; unter 900 px entfällt sie.
 
 **Die Rolle blendet aus, das Backend entscheidet.** Ein Mitarbeiter sieht die
 Startseite, seine Apps, seine Einstellungen und sein Konto; die Verwaltung

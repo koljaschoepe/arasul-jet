@@ -22,5 +22,5 @@ test('der Bereich Modelle zeigt die Kurzliste, links die Bereiche', async () => 
     </MemoryRouter>
   );
   await waitFor(() => expect(screen.getByTestId('modelle-bereich')).toBeInTheDocument());
-  expect(screen.getByTestId('verwaltung-modelle')).toHaveAttribute('aria-current', 'true');
+  expect(screen.getByTestId('verwaltung-modelle')).toHaveAttribute('aria-current', 'page');
 });

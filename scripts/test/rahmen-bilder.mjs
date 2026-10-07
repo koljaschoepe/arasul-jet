@@ -188,7 +188,12 @@ async function rahmenPruefen(seite, konto) {
     (await zahl('[data-testid="leiste-verwaltung"]')) === (konto.admin ? 1 : 0)
   );
   pruefe(`${wer}: Zahnrad`, (await zahl('[data-testid="leiste-einstellungen"]')) === 1);
-  pruefe(`${wer}: eigenes Bild`, (await zahl('[data-testid="workspace-benutzermenue"]')) === 1);
+  pruefe(
+    `${wer}: eigenes Bild in der Fußzeile, nicht in der Leiste`,
+    (await zahl('[data-testid="statusbar"] [data-testid="workspace-benutzermenue"]')) === 1 &&
+      (await zahl('[data-testid="aktivitaetsleiste"] [data-testid="workspace-benutzermenue"]')) ===
+        0
+  );
   const apps = await zahl('[data-testid^="leiste-app-"]');
   pruefe(`${wer}: Apps als Symbol`, apps > 0, `${apps}`);
 
@@ -209,13 +214,14 @@ async function rahmenPruefen(seite, konto) {
   );
   pruefe(`${wer}: Hover blendet in 120 ms ein`, stil.dauer === '0.12s', stil.dauer);
 
+  // Seit dem 07.10.2026 steht das Kontomenü links in der Fußzeile.
   await seite.click('[data-testid="workspace-benutzermenue"]');
-  const menue = seite.locator('[role="dialog"]');
+  const menue = seite.locator('[role="menu"]');
   await menue.waitFor();
-  // Das Popover blendet ein; das Bild soll es zeigen.
+  // Das Menü blendet ein; das Bild soll es zeigen.
   await seite.waitForTimeout(400);
-  const knoepfe = await menue.locator('button').count();
-  pruefe(`${wer}: Kontomenü nur Name und Abmelden`, knoepfe === 1, `${knoepfe} Knopf`);
+  const knoepfe = await menue.locator('[role="menuitem"]').count();
+  pruefe(`${wer}: Kontomenü nur Abmelden`, knoepfe === 1, `${knoepfe} Eintrag`);
   await seite.screenshot({ path: path.join(ZIEL, `nachher-${wer}-kontomenue.png`) });
   await seite.keyboard.press('Escape');
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ellipsis, House, LogOut, Settings, SlidersHorizontal } from 'lucide-react';
+import { Ellipsis, House, Settings, SlidersHorizontal } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger, cn } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore, ansichtId } from '@/stores/workspaceStore';
@@ -10,8 +10,6 @@ import {
   useAppReihenfolge,
 } from '@/features/apps/meineApps';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
-import { PersonAvatar } from '@/components/PersonAvatar';
-import { API_BASE } from '@/config/api';
 import { AppSymbol, appKuerzel } from './AppSymbol';
 
 /** Wie viele Apps neben dem Haus in der Leiste stehen; der Rest liegt unter „mehr". */
@@ -31,10 +29,12 @@ const ZEILE =
  * Die Aktivitätsleiste am Handy (M5, unter 900 px): dieselben Ziele wie die
  * Leiste links, als Zeile unten. Haus, die ersten vier Apps in der eigenen
  * Reihenfolge (die aus `useAppReihenfolge`, am Gerät gespeichert) und „mehr"
- * mit den übrigen Apps, Verwaltung, Einstellungen und dem Konto. Ziehen gibt es
- * hier nicht; sortiert wird am großen Bildschirm.
+ * mit den übrigen Apps, Verwaltung und Einstellungen. Ziehen gibt es hier
+ * nicht; sortiert wird am großen Bildschirm. „Abmelden" steht seit dem
+ * 07.10.2026 nicht mehr unter „mehr", sondern als letzter Eintrag in der Leiste
+ * der Einstellungen (`frontend.md`, Rahmen): eine Stelle je Funktion.
  */
-export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void }) {
+export function LeisteUnten() {
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
   const ansicht = useWorkspaceStore(s => s.ansicht);
@@ -48,8 +48,6 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
   const vorn = eintraege.slice(0, APPS_IN_DER_LEISTE);
   const rest = eintraege.slice(APPS_IN_DER_LEISTE);
   const [offen, setOffen] = useState(false);
-  const name = user?.anzeigeName ?? user?.username ?? '';
-  const bild = user?.hatBild ? `${API_BASE}/profil/bild` : null;
 
   const restId = rest.map(e => ansichtId({ type: 'app', appId: e.id, stand: e.stand }));
   const mehrAktiv = restId.includes(aktivId) || aktivId === 'verwaltung' || aktivId === 'settings';
@@ -162,33 +160,11 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
             type="button"
             data-testid="leiste-einstellungen"
             aria-current={aktivId === 'settings' ? 'page' : undefined}
-            onClick={() => geh({ type: 'settings' })}
+            onClick={() => (aktivId === 'settings' ? setOffen(false) : geh({ type: 'settings' }))}
             className={cn(ZEILE, aktivId === 'settings' && 'bg-primary/12 text-primary')}
           >
             <Settings className="size-4.5 shrink-0" aria-hidden="true" />
             Einstellungen
-          </button>
-          <div className="my-1 h-px bg-border" aria-hidden="true" />
-          <div
-            className="flex min-h-11 items-center gap-3 px-2 py-1.5"
-            data-testid="workspace-benutzermenue"
-          >
-            <PersonAvatar name={name} bild={bild} className="size-7 shrink-0" />
-            <p className="min-w-0 truncate text-sm font-medium text-foreground">
-              {name || 'Angemeldet'}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="workspace-abmelden"
-            onClick={() => {
-              setOffen(false);
-              void onLogout();
-            }}
-            className={ZEILE}
-          >
-            <LogOut className="size-4 shrink-0" aria-hidden="true" />
-            Abmelden
           </button>
         </PopoverContent>
       </Popover>

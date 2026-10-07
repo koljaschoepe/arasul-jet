@@ -51,8 +51,9 @@ jede seiner IP-Adressen. Heißt das Gerät anders, gilt sein Name.
 ### Die Oberfläche
 
 Die Oberfläche nach der Anmeldung zeigt links eine schmale Leiste und daneben
-genau eine Ansicht, in zwei Themes (Hell · Dunkel, Vorgabe Hell). Das Theme
-wird unter **Einstellungen → Erscheinungsbild** gewählt und gehört dem
+genau eine Ansicht, in zwei Themes (Hell · Dunkel, Vorgabe System: die
+Oberfläche folgt dem Rechner, seit dem 07.10.2026 auch für bestehende Konten).
+Das Theme wird unter **Einstellungen → Erscheinungsbild** gewählt und gehört dem
 angemeldeten Menschen: es gilt an jedem Rechner, an dem er sich anmeldet, und
 nicht nur in dem Browser, in dem er es umgestellt hat.
 
@@ -60,8 +61,8 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   Zahl der Freigaben, die bei Ihnen liegen. Darunter die
   freigegebenen **Apps** als Kürzel, der Name erscheint beim Überfahren; ein
   Teststand trägt einen Punkt und heißt „(Test)". Unten fest:
-  **Verwaltung** (nur Administratoren), das **Zahnrad** (die persönlichen
-  Einstellungen) und das **eigene Bild** (Name und Abmelden).
+  **Verwaltung** (nur Administratoren) und das **Zahnrad** (die persönlichen
+  Einstellungen).
 - **Ansicht:** immer genau eine: die Startseite, eine App, die Einstellungen
   oder die Verwaltung. Die **Startseite** grüßt mit dem Vornamen (ohne
   Vornamen mit dem Anzeigenamen) und zeigt jedem **Für Sie**: die Freigaben,
@@ -72,9 +73,10 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   die im Test auf Live wartet, Lizenz knapp (30 Tage oder 90 Prozent der
   Konten/Apps). Ein Klick führt in den Bereich der Verwaltung. Ist alles gut,
   steht dort nichts.
-- **Verwaltung:** links eine eigene Leiste der Bereiche (Personen, Apps,
-  Läufe, Firmenordner, Modelle, System, Daten, Gerät), daneben der gewählte
-  Bereich.
+- **Verwaltung:** links die Leiste der Bereiche mit dem Titel „Verwaltung“,
+  in zwei Gruppen (Arbeit: Personen, Apps, Läufe, Firmenordner; Betrieb:
+  Modelle, System, Daten, Gerät), daneben der gewählte Bereich. Es ist dieselbe
+  Leiste, die jede App und die Einstellungen tragen.
   Im Bereich **System** steht ein Satz zum Zustand („Alles läuft.“), darunter
   Prozessor, Speicher und Platte als drei Zahlen; Dienste und Selbstheilung
   klappen auf. Im Bereich **Daten** steht alles, was mit den Daten des Geräts
@@ -84,9 +86,11 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   Jeder Bereich hat eine eigene Adresse, etwa `/workspace/verwaltung/geraet`;
   die alten Adressen (Allgemein, Sicherheit, Lizenz, Fernzugriff, Datenschutz,
   Sicherung, Werksreset) führen dorthin, wo die Funktion jetzt steht.
-- **Statusleiste (unten), für jeden gleich:** dauerhaft Name, Datum und
-  Uhrzeit (minutengenau), sonst nichts: kein Modell, kein Speicher, keine
-  Verbindung, keine Fassung. Modelle, Downloads und Systemzustand stehen in
+- **Statusleiste (unten), für jeden gleich:** links Bild, Name und Rolle, ein
+  Klick darauf öffnet ein Menü mit nur **Abmelden**; rechts Datum und Uhrzeit
+  (minutengenau), sonst nichts: kein Modell, kein Speicher, keine Verbindung,
+  keine Fassung. Am Handy entfällt sie; dort steht **Abmelden** als letzter
+  Eintrag in der Leiste der Einstellungen. Modelle, Downloads und Systemzustand stehen in
   der Verwaltung; die Zahl der Freigaben trägt das Haus.
 
 **Was ein Mitarbeiter sieht.** Die Apps, die ein Administrator ihm freigegeben
@@ -202,7 +206,9 @@ hat, und wann) auf.
 ## 3. Einstellungen und Verwaltung
 
 Die **Einstellungen** (Zahnrad unten in der Leiste) sind für alle gleich und
-nur persönlich: Profil, Passwort, angemeldete Rechner, Erscheinungsbild. Was
+nur persönlich, gebaut wie die Verwaltung: links die Leiste mit dem Titel
+„Einstellungen“, je Bereich eine Seite (Profil, Passwort, angemeldete Rechner,
+Erscheinungsbild). Was
 das Gerät betrifft, steht in der **Verwaltung** (nur Administrator), in acht
 Bereichen:
 
@@ -219,8 +225,10 @@ Bereichen:
 
 Die Bereiche Allgemein, KI, Sicherheit, Lizenz und Fernzugriff gibt es seit
 dem 04.10.2026 nicht mehr; ihre Inhalte stehen im Bereich Gerät. Die
-Einstellungen der Person haben vier Abschnitte: **Profil**, **Passwort**,
-**Angemeldete Rechner** und **Erscheinungsbild**. Den Bereich
+Einstellungen der Person haben vier Bereiche, jeder mit eigener Seite und
+Adresse (`/workspace/settings/profil`, `…/passwort`, `…/rechner`,
+`…/erscheinungsbild`): **Profil**, **Passwort**, **Angemeldete Rechner** und
+**Erscheinungsbild**. Den Bereich
 **KI** mit den Standardwerten der Sprachmodelle und dem Basis-Prompt gibt es
 gar nicht mehr: der Administrator ändert keine Prompts, und Laden und Entladen
 der Modelle regelt das Gerät selbst nach Nutzung.

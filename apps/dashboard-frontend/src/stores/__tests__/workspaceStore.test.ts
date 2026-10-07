@@ -103,6 +103,8 @@ describe('URL-Mapping (ansichtZuPfad / pfadZuAnsicht)', () => {
     const ansichten: Ansicht[] = [
       { type: 'dashboard' },
       { type: 'settings' },
+      // Je Bereich der Einstellungen eine Seite (07.10.2026).
+      { type: 'settings', bereich: 'erscheinungsbild' },
       { type: 'verwaltung' },
       { type: 'verwaltung', bereich: 'benutzer' },
       { type: 'verwaltung', bereich: 'system', abschnitt: 'sicherung' },
@@ -116,6 +118,9 @@ describe('URL-Mapping (ansichtZuPfad / pfadZuAnsicht)', () => {
     }
     expect(ansichtZuPfad({ type: 'app', appId: 'urlaub', stand: 'test' })).toBe(
       '/workspace/app/urlaub/test'
+    );
+    expect(ansichtZuPfad({ type: 'settings', bereich: 'passwort' })).toBe(
+      '/workspace/settings/passwort'
     );
     expect(ansichtZuPfad({ type: 'verwaltung', bereich: 'modelle' })).toBe(
       '/workspace/verwaltung/modelle'

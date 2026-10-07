@@ -35,7 +35,7 @@ function ausDerAdresse(pathname: string, search: string): Ansicht | null {
   const ansicht = pfadZuAnsicht(pathname.replace(/^\/workspace/, ''), search);
   const tab = new URLSearchParams(search).get('tab');
   const alterBereich =
-    tab && (ansicht?.type === 'settings' || (ansicht?.type === 'verwaltung' && !ansicht.bereich));
+    tab && (ansicht?.type === 'settings' || ansicht?.type === 'verwaltung') && !ansicht.bereich;
   if (!alterBereich) {
     // Eine Adresse, die auf eine gestrichene Stelle zeigt (`verwaltung/privacy`,
     // `verwaltung/system/sicherung`), landet im Bereich Daten.
@@ -69,7 +69,8 @@ function ausDerAdresse(pathname: string, search: string): Ansicht | null {
  * genau einer Stelle: in der Leiste.
  *
  * Unter 900 px steht dieselbe Leiste unten (`LeisteUnten`), die Statusleiste
- * entfällt, und die App füllt den Schirm.
+ * entfällt, und die App füllt den Schirm; „Abmelden" steht dann als letzter
+ * Eintrag in der Leiste der Einstellungen.
  *
  * Die Ansicht wird in der URL gespiegelt (/workspace/...), in beide
  * Richtungen; gespeichert wird sonst nichts.
@@ -133,12 +134,12 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
       data-testid="workspace-shell"
     >
       <div className={cn('flex min-h-0 flex-1 overflow-hidden', schmal && 'flex-col-reverse')}>
-        <ActivityBar onLogout={onLogout} />
+        <ActivityBar />
         <main className="min-h-0 min-w-0 flex-1 bg-background" data-testid="workspace-ansicht">
           <AnsichtInhalt />
         </main>
       </div>
-      {!schmal && <StatusBar />}
+      {!schmal && <StatusBar onLogout={onLogout} />}
     </div>
   );
 }
