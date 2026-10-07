@@ -161,6 +161,7 @@ async function leisteMessen(rahmen, kennzeichen) {
       g => g.textContent
     );
     return {
+      wurzel: parseFloat(getComputedStyle(document.documentElement).fontSize),
       titel,
       gruppen,
       zeile: erster ? erster.getBoundingClientRect().height : 0,
@@ -176,19 +177,35 @@ async function leisteMessen(rahmen, kennzeichen) {
   }, kennzeichen);
 }
 
+/**
+ * Die Maße der Vorgabe sind Gestaltungs-Pixel bei 16 px Wurzelschrift. Die
+ * Plattform hebt alle rem über die Wurzelschrift an (Komfort-Dichte in
+ * `index.css`: 17 px, zwischen 1280 und 1511 px 16,5 px), also wird
+ * zurückgerechnet und beides genannt.
+ */
 function leistePruefen(wer, m, titel) {
   if (!pruefe(`${wer}: Leiste steht da`, m)) return;
+  const f = 16 / (m.wurzel || 16);
+  const masz = (wert, soll, name) =>
+    pruefe(
+      `${wer}: ${name} ${soll} px`,
+      wert !== null && Math.abs(wert * f - soll) < 0.25,
+      `${wert} px bei Wurzel ${m.wurzel} px = ${wert === null ? '-' : (wert * f).toFixed(2)}`
+    );
   pruefe(`${wer}: Titel oben „${titel}"`, m.titel === titel, m.titel ?? 'kein Titel');
   pruefe(`${wer}: Gruppen mit Überschrift`, m.gruppen.length > 0, m.gruppen.join(', '));
-  pruefe(`${wer}: Zeilen 32 px`, Math.round(m.zeile) === 32, `${m.zeile}`);
-  pruefe(`${wer}: Symbol 16 px`, Math.round(m.symbol) === 16, `${m.symbol}`);
-  pruefe(`${wer}: 2 px Abstand`, m.abstand !== null && Math.round(m.abstand) === 2, `${m.abstand}`);
+  masz(m.zeile, 32, 'Zeilen');
+  masz(m.symbol, 16, 'Symbol');
+  masz(m.abstand, 2, 'Abstand');
   pruefe(
     `${wer}: Auswahl getönt`,
     m.auswahl && m.auswahl !== 'rgba(0, 0, 0, 0)' && m.auswahl !== 'transparent',
     m.auswahl ?? 'keine Auswahl'
   );
 }
+
+/** Die App zeichnet in derselben Größe wie Verwaltung und Einstellungen. */
+let shellWurzel = null;
 
 async function wechsel(seite, klick, ziel) {
   return seite.evaluate(
@@ -334,11 +351,9 @@ try {
     }
     if (!schmal) {
       await geh(seite, '/workspace/verwaltung/benutzer');
-      leistePruefen(
-        `${ansicht.name} Verwaltung`,
-        await leisteMessen(seite, 'verwaltung-bereiche'),
-        'Verwaltung'
-      );
+      const verwaltung = await leisteMessen(seite, 'verwaltung-bereiche');
+      shellWurzel = verwaltung?.wurzel ?? null;
+      leistePruefen(`${ansicht.name} Verwaltung`, verwaltung, 'Verwaltung');
     } else {
       await geh(seite, '/workspace/verwaltung/benutzer');
       await seite.getByTestId('verwaltung-bereiche-oeffnen').click();
@@ -410,10 +425,12 @@ try {
       await bild(seite, `app-${ansicht.name}`);
       if (!schmal) {
         const frame = seite.frames().find(f => f.url().includes(`/apps/${APP}/`));
-        leistePruefen(
-          `${ansicht.name} App`,
-          frame ? await leisteMessen(frame, null) : null,
-          'Marken zur Laufzeit'
+        const app = frame ? await leisteMessen(frame, null) : null;
+        leistePruefen(`${ansicht.name} App`, app, 'Marken zur Laufzeit');
+        pruefe(
+          `${ansicht.name}: die App zeichnet so groß wie die Verwaltung`,
+          app && app.wurzel === shellWurzel,
+          `Wurzel App ${app?.wurzel} px, Shell ${shellWurzel} px`
         );
       }
     }
