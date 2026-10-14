@@ -3460,7 +3460,8 @@ passt. Antwort (gekürzt):
 `last` (J40, 02.10.2026, additiv, die Kontraktversion bleibt) nennt, was das
 Gerät an Last trägt: eine lokale KI-Anfrage rechnet zur Zeit, 20 warten, danach
 503; dazu die am Orin gemessene Antwortdauer und die Wartezeiten für zwölf
-Personen (`antwort_sekunden`, `zwoelf_personen`). Die Tabelle und der Weg der
+Personen (`antwort_sekunden`, `zwoelf_personen`; seit dem zweiten Lauf vom
+14.10.2026 mit den Zahlen dieses Laufs und dem Feld `gemessen`). Die Tabelle und der Weg der
 Messung stehen in [`docs/features/LAST.md`](../features/LAST.md).
 
 `kontrakt` ist die **Kontraktversion**. Sie zählt hoch, wenn sich etwas ändert,

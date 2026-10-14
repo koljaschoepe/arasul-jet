@@ -406,7 +406,7 @@ const NETZ_REGELN = Object.freeze([
 ]);
 
 /**
- * Wie viel Last das Geraet traegt (J40, 02.10.2026).
+ * Wie viel Last das Geraet traegt (J40, 02.10.2026; zweiter Lauf 14.10.2026).
  *
  * Gemessen am Orin (AGX Orin 64 GB, `qwen3.8:27b-q4_K_M`) mit zwoelf
  * Probe-Konten, `scripts/test/last-zwoelf-personen.py`; Tabelle und Weg in
@@ -416,10 +416,10 @@ const NETZ_REGELN = Object.freeze([
 const LAST_REGELN = Object.freeze([
   'Das Gerät rechnet EINE lokale KI-Anfrage zur Zeit (Chat und Flow-Schritte teilen sich eine Sperre); die anderen warten der Reihe nach. Ein zweiter Platz im Modell hätte keinen Durchsatz gebracht (gemessen: 11,7 / 12,0 / 12,1 Token/s bei 1 / 2 / 4 Anfragen zugleich).',
   'Eine Antwort von rund 110 Token dauert am Orin etwa 14 Sekunden (12 bis 18). Die Wartezeit einer Anfrage ist ungefähr (Anfragen vor ihr + 1) mal 14 Sekunden; unter einer Minute bleibt sie, solange höchstens drei vor ihr stehen.',
-  'Zwölf Personen mit üblicher Nutzung (eine KI-Anfrage je Person alle paar Minuten, 14 Minuten gemessen): Chat typisch 16 Sekunden, in 95 von 100 Fällen unter 35 Sekunden, längste 37. Flow-Läufe mit kurzer Antwort typisch 15 Sekunden.',
-  'Fragen alle zwölf im selben Augenblick, wartet die erste 14 Sekunden, typisch 87 und die letzte 169 Sekunden. Eine App, die viele Anfragen auf einmal abschickt, soll sie nicht zugleich loslassen, sondern `timeout_seconds` hoch genug setzen und die Antwort abholen (`warten`).',
+  'Zwölf Personen mit üblicher Nutzung (eine KI-Anfrage je Person alle paar Minuten, 14 Minuten gemessen): Chat typisch 16 Sekunden, in 95 von 100 Fällen unter 35 Sekunden (zwei Läufe: 25 und 34). Flow-Läufe mit kurzer Antwort typisch 11 bis 15 Sekunden.',
+  'Fragen alle zwölf im selben Augenblick, wartet die erste 14 Sekunden, typisch 76 bis 87 und die letzte 175 Sekunden. Eine App, die viele Anfragen auf einmal abschickt, soll sie nicht zugleich loslassen, sondern `timeout_seconds` hoch genug setzen und die Antwort abholen (`warten`).',
   'Die Warteschlange fasst 20 wartende Anfragen neben der einen, die rechnet: ab der 22. gleichzeitigen Anfrage antwortet das Gerät mit 503 und dem Satz, die Warteschlange sei voll. Eine App fängt das ab und versucht es nach einigen Sekunden noch einmal, statt es dem Menschen zu zeigen.',
-  'Flow-Läufe treten an der Sperre zwischen die wartenden Chat-Anfragen: bei dichter Last (zwölf Personen, alle halbe Minute eine Anfrage) wartete der Chat typisch 124 Sekunden, ein kurzer Flow typisch 17.',
+  'Flow-Läufe treten an der Sperre zwischen die wartenden Chat-Anfragen: bei dichter Last (zwölf Personen, alle halbe Minute eine Anfrage) wartete der Chat typisch 124 bis 157 Sekunden, ein kurzer Flow typisch 17 bis 27.',
 ]);
 
 /**
@@ -957,8 +957,11 @@ function kontrakt() {
       warteschlange_max: 20,
       antwort_sekunden: { typisch: 14, von: 12, bis: 18, token: 110 },
       zwoelf_personen: {
-        uebliche_nutzung: { chat_p50_s: 16, chat_p95_s: 34, flow_p50_s: 15 },
-        alle_zugleich: { p50_s: 87, p95_s: 169 },
+        // Zweiter Lauf, 14.10.2026, Stand 50d9b19 (der erste vom 02.10. lag bei
+        // 16 / 34 / 15 und 87 / 169; Tabelle in LAST.md).
+        gemessen: '2026-10-14',
+        uebliche_nutzung: { chat_p50_s: 16, chat_p95_s: 25, flow_p50_s: 11 },
+        alle_zugleich: { p50_s: 76, p95_s: 175 },
       },
       regeln: LAST_REGELN,
     },

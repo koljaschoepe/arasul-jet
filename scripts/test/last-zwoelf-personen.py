@@ -30,7 +30,7 @@ einen Flow. Die Passwoerter sind zufaellig und gehen sofort ueber `geheim neu`
 nach Bitwarden (Eintrag je Konto), nie in eine Datei.
 
 Aufruf vom Arbeitsrechner, als probe-admin (NIE als admin):
-  ssh -f -N -L 8443:localhost:443 arasul@192.168.0.197
+  ssh -f -N -L 8443:localhost:443 arasul@192.168.0.197   # oder 100.121.244.80 (Tailscale)
   ARASUL_PASSWORT="$(geheim get 'Arasul Jet Dashboard, probe-admin (Orin)')" \
     python3 scripts/test/last-zwoelf-personen.py --ergebnis /tmp/j40.json
 
@@ -54,14 +54,16 @@ CTX = ssl.create_default_context()
 CTX.check_hostname = False
 CTX.verify_mode = ssl.CERT_NONE
 
-STEMPEL = "probe-j40"
-FLOW = "probe-j40-kurz"
+# Der Stempel kennzeichnet die eigenen Objekte; ein zweiter Lauf nimmt einen
+# anderen (LAST_STEMPEL=probe-kw9), damit er nur Eigenes anlegt und entfernt.
+STEMPEL = os.environ.get("LAST_STEMPEL", "probe-j40")
+FLOW = STEMPEL + "-kurz"
 # Der Flow als Datei, wie `flowFile.js` sie liest; der Weg in FLOWS_DIR wird im
 # Container aufgeloest (Vorgabe /arasul/flows).
 FLOW_DATEI = '"${FLOWS_DIR:-/arasul/flows}/' + FLOW + '.md"'
 FLOW_INHALT = f"""---
 name: {FLOW}
-beschreibung: Messung J40, wird danach entfernt
+beschreibung: Lastmessung {STEMPEL}, wird danach entfernt
 argumente:
   - name: thema
     typ: freitext
@@ -254,7 +256,7 @@ def main():
             raise SystemExit(f"Flow {FLOW} steht nicht in GET /api/flows: {c} {d.get('fehlerhaft')}")
         log("Flow angelegt (Datei)")
         c, d = g.req("POST", "/api/v1/external/api-keys", admin, {
-            "name": STEMPEL + "-schluessel", "description": "Messung J40",
+            "name": STEMPEL + "-schluessel", "description": "Lastmessung " + STEMPEL,
             "rate_limit_per_minute": 6000, "allowed_endpoints": ["llm:chat", "llm:status", "flow:run"]})
         if c != 200:
             raise SystemExit(f"Schluessel: {c} {d}")
@@ -263,14 +265,17 @@ def main():
         tokens = {}
         for i in range(1, ANZAHL + 1):
             name = f"{STEMPEL}-{i:02d}"
-            pw = secrets.token_urlsafe(18)
+            # Seit M5 entsteht eine Person aus Vorname, Nachname und E-Mail; das
+            # Geraet vergibt das Startpasswort, der Benutzername ist die E-Mail.
+            email = f"{name}@probe.invalid"
             c, d = g.req("POST", "/api/benutzer", admin,
-                         {"username": name, "password": pw, "rolle": "mitarbeiter"})
+                         {"vorname": "Probe", "nachname": name, "email": email})
             if c != 201:
                 raise SystemExit(f"Konto {name}: {c} {d}")
-            subprocess.run(["geheim", "neu", f"Arasul Orin Probe-Konto {name}-{stempel}", name],
+            pw = d["startpasswort"]
+            subprocess.run(["geheim", "neu", f"Arasul Orin Probe-Konto {name}-{stempel}", email],
                            input=pw, text=True, capture_output=True)
-            tokens[name] = g.login(name, pw)
+            tokens[name] = g.login(email, pw)
         konten = tokens
         log("zwoelf Konten angelegt und angemeldet")
 
