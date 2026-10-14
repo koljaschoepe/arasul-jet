@@ -382,7 +382,12 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // wird enger: ein Kit, das ihn nicht kennt, spielt ein wie bisher, und
     // `app.mjs --logs` fragt nach dem Eintrag unter `endpunkte`, nicht nach
     // der Nummer. Eine hoehere hielte jedes Kit an. Die Zahl bleibt bei 14.
-    expect(abdruck).toBe('17db6e6d963a7882724f60dd5e3868fffa64359542f52565475657775562a913');
+    //
+    // 14.10.2026 (M5, Auftrag last-zweiter-lauf): `last` traegt die Zahlen des
+    // zweiten Laufs am Orin (`gemessen`, Wartezeiten) und die Saetze nennen
+    // beide Laeufe. Keine neue Faehigkeit, kein Name, nichts wird enger: die
+    // Zahl bleibt bei 14.
+    expect(abdruck).toBe('518e41d8c722d3ec6b1546046e0780245ffaf818aa9a1f693e88e8d4a37d1a2b');
   });
 
   /**
