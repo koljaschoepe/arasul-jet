@@ -1,7 +1,7 @@
 /**
  * Das Terminal (Karte terminal-im-frontend, M5, 21.10.2026).
  *
- * Die Tuer vor `/terminal/` (`GET /api/terminal/tor`) laesst nur durch, wer
+ * Die Tuer vor `/terminal/` (`GET /intern/terminal/tor`, ausserhalb von `/api`) laesst nur durch, wer
  * angemeldet, aktiv und Entwickler ist, auf einem Geraet mit eingeschaltetem
  * Terminal und eingerichtetem Geheimnis, aus der eigenen Oberflaeche. Sie
  * nennt dem Container den Linux-Nutzer mit Siegel. Ein Konto ohne die Rolle
@@ -53,12 +53,14 @@ const auth = require('../../src/middleware/auth');
 const { tokenOderNull } = require('../../src/services/auth/forwardAuth');
 const terminal = require('../../src/services/terminal/terminal');
 const router = require('../../src/routes/terminal');
+const torRouter = require('../../src/routes/terminalTor');
 const { errorHandler } = require('../../src/middleware/errorHandler');
 
 function app() {
   const a = express();
   a.use(cookieParser());
   a.use('/api/terminal', router);
+  a.use('/intern/terminal', torRouter);
   a.use(errorHandler);
   return a;
 }
@@ -116,14 +118,14 @@ describe('Terminal', () => {
     });
   });
 
-  describe('GET /api/terminal/tor', () => {
+  describe('GET /intern/terminal/tor', () => {
     function mitZeile(zeile) {
       tokenOderNull.mockResolvedValue({ userId: zeile ? zeile.id : '99' });
       db.query.mockResolvedValue({ rows: zeile ? [zeile] : [] });
     }
 
     test('ohne Cookie: 401, keine Kopfzeile', async () => {
-      const res = await request(app()).get('/api/terminal/tor');
+      const res = await request(app()).get('/intern/terminal/tor');
       expect(res.status).toBe(401);
       expect(res.headers['x-arasul-terminal-nutzer']).toBeUndefined();
       expect(tokenOderNull).not.toHaveBeenCalled();
@@ -132,28 +134,34 @@ describe('Terminal', () => {
     test('ein Ausweis im Authorization-Kopf oeffnet die Shell nicht', async () => {
       tokenOderNull.mockResolvedValue({ userId: '7' });
       const res = await request(app())
-        .get('/api/terminal/tor')
+        .get('/intern/terminal/tor')
         .set('Authorization', 'Bearer ausweis-eines-rechners');
       expect(res.status).toBe(401);
     });
 
     test('ungueltiges Token: 401', async () => {
       tokenOderNull.mockResolvedValue(null);
-      const res = await request(app()).get('/api/terminal/tor').set('Cookie', 'arasul_session=x');
+      const res = await request(app())
+        .get('/intern/terminal/tor')
+        .set('Cookie', 'arasul_session=x');
       expect(res.status).toBe(401);
       expect(db.query).not.toHaveBeenCalled();
     });
 
     test('stillgelegtes oder geloeschtes Konto: 401', async () => {
       mitZeile(null);
-      const res = await request(app()).get('/api/terminal/tor').set('Cookie', 'arasul_session=x');
+      const res = await request(app())
+        .get('/intern/terminal/tor')
+        .set('Cookie', 'arasul_session=x');
       expect(res.status).toBe(401);
       expect(db.query.mock.calls[0][0]).toMatch(/is_active = true/);
     });
 
     test('ein Konto ohne die Rolle Entwickler: 403, keine Kopfzeile', async () => {
       mitZeile(OHNE_ROLLE);
-      const res = await request(app()).get('/api/terminal/tor').set('Cookie', 'arasul_session=x');
+      const res = await request(app())
+        .get('/intern/terminal/tor')
+        .set('Cookie', 'arasul_session=x');
       expect(res.status).toBe(403);
       expect(res.text).toMatch(/Rolle Entwickler/);
       expect(res.headers['x-arasul-terminal-nutzer']).toBeUndefined();
@@ -162,14 +170,16 @@ describe('Terminal', () => {
     test('Terminal am Geraet nicht eingeschaltet: 403', async () => {
       process.env.COMPOSE_PROFILES = 'firmenordner';
       mitZeile(ENTWICKLER);
-      const res = await request(app()).get('/api/terminal/tor').set('Cookie', 'arasul_session=x');
+      const res = await request(app())
+        .get('/intern/terminal/tor')
+        .set('Cookie', 'arasul_session=x');
       expect(res.status).toBe(403);
     });
 
     test('fremde Herkunft (WebSocket von einer anderen Seite): 403', async () => {
       mitZeile(ENTWICKLER);
       const res = await request(app())
-        .get('/api/terminal/tor')
+        .get('/intern/terminal/tor')
         .set('Cookie', 'arasul_session=x')
         .set('X-Forwarded-Host', 'arasul')
         .set('Origin', 'https://boese.example');
@@ -180,7 +190,9 @@ describe('Terminal', () => {
     test('ohne Geheimnis am Geraet: 503, keine Kopfzeile', async () => {
       fs.unlinkSync(GEHEIM_DATEI);
       mitZeile(ENTWICKLER);
-      const res = await request(app()).get('/api/terminal/tor').set('Cookie', 'arasul_session=x');
+      const res = await request(app())
+        .get('/intern/terminal/tor')
+        .set('Cookie', 'arasul_session=x');
       expect(res.status).toBe(503);
       expect(res.headers['x-arasul-terminal-nutzer']).toBeUndefined();
     });
@@ -188,7 +200,7 @@ describe('Terminal', () => {
     test('Entwickler aus der eigenen Oberflaeche: 200 mit Nutzer und Siegel', async () => {
       mitZeile(ENTWICKLER);
       const res = await request(app())
-        .get('/api/terminal/tor')
+        .get('/intern/terminal/tor')
         .set('Cookie', 'arasul_session=x')
         .set('X-Forwarded-Host', 'arasul')
         .set('Origin', 'https://arasul');
@@ -200,6 +212,14 @@ describe('Terminal', () => {
   });
 
   describe('GET /api/terminal', () => {
+    test('die Tuer steht nicht unter /api: das Siegel gehoert nicht in einen Browser', async () => {
+      tokenOderNull.mockResolvedValue({ userId: '7' });
+      db.query.mockResolvedValue({ rows: [ENTWICKLER] });
+      const res = await request(app()).get('/api/terminal/tor').set('Cookie', 'arasul_session=x');
+      expect(res.headers['x-arasul-terminal-nutzer']).toBeUndefined();
+      expect(res.status).not.toBe(200);
+    });
+
     test('Entwickler: an, entwickler, sein Linux-Nutzer', async () => {
       auth.__setUser({ ...ENTWICKLER, role: 'mitarbeiter' });
       const res = await request(app()).get('/api/terminal');

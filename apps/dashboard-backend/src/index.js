@@ -179,6 +179,12 @@ app.use('/api', require('./routes'));
 // sondern in ihrem Container; Traefik gibt ihm `/apps/<id>/api/`.
 app.use('/apps', require('./routes/appAusliefern'));
 
+// Die Tuer vor dem Terminal (Karte terminal-im-frontend, M5): Forward-Auth,
+// die nur Traefik im Docker-Netz fragt. Ausserhalb von `/api`, weil Traefik
+// `/intern/` nie an das Backend gibt; die Antwort traegt das Siegel des
+// Containers und gehoert nicht in einen Browser (`routes/terminalTor.js`).
+app.use('/intern/terminal', require('./routes/terminalTor'));
+
 // P3.2: OpenAI-compatible endpoints (/v1/chat/completions, /v1/embeddings,
 // /v1/models). Mounted at /v1 (parallel to /api). Uses API-key auth, not
 // session cookies, so it sits outside the CSRF middleware applied to /api.

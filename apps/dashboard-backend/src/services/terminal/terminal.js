@@ -5,7 +5,7 @@
  * Linux-Nutzer am Geraet, in seinem eigenen Ordner, und startet dort Claude
  * Code. Der Weg, von aussen nach innen:
  *
- *   Browser ─ /terminal/ ─▶ Traefik ─ Forward-Auth ─▶ GET /api/terminal/tor
+ *   Browser ─ /terminal/ ─▶ Traefik ─ Forward-Auth ─▶ GET /intern/terminal/tor
  *                              │                      (diese Datei: darf er?)
  *                              ▼
  *                       Container `terminal` (ttyd)

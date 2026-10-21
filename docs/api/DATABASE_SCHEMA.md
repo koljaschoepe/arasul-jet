@@ -95,7 +95,7 @@
 > `entwickler` (Migration 213, M5, Karte terminal-im-frontend) ist die Rolle
 > Entwickler: darf diese Person das Terminal öffnen. Ein Schalter neben `role`,
 > keine dritte Rolle; Standard aus, geschaltet nur vom Administrator über
-> `PUT /api/benutzer/:id/entwickler`, gelesen von der Tür `GET /api/terminal/tor`
+> `PUT /api/benutzer/:id/entwickler`, gelesen von der Tür `GET /intern/terminal/tor`
 > bei jedem Aufbau. Der Linux-Nutzer dazu heißt `ara-<id>` und steht in keiner
 > Spalte (`docs/features/TERMINAL.md`).
 

@@ -19,7 +19,7 @@ Rahmen aus dem Beschluss vom 20.10.2026: nur die Rolle **Entwickler**,
 ## Der Weg, von außen nach innen
 
 ```
-Browser ─ /terminal/ ─▶ Traefik ─ Forward-Auth ─▶ GET /api/terminal/tor
+Browser ─ /terminal/ ─▶ Traefik ─ Forward-Auth ─▶ GET /intern/terminal/tor
                           │                       (Sitzung? Rolle Entwickler? eigene Origin?)
                           │  X-Arasul-Terminal-Nutzer: ara-<id>:<siegel>
                           ▼

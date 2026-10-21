@@ -6,7 +6,7 @@
  * Claude Code mit seinem eigenen Konto. Die Shell ist ttyd hinter
  * `/terminal/`, im iframe wie eine App (`features/apps/AppRahmen.tsx`), und aus
  * demselben Grund ohne `sandbox`: die Tür vor ttyd (Forward-Auth,
- * `GET /api/terminal/tor`) hängt am Sitzungscookie.
+ * `GET /intern/terminal/tor`) hängt am Sitzungscookie.
  *
  * WER DARF, ENTSCHEIDET DAS BACKEND. Die Shell zeigt den Knopf nur der Rolle
  * Entwickler, und diese Seite sagt einen Satz, wenn das Gerät kein Terminal

@@ -56,7 +56,9 @@ anlegen() {
       --gid "$GRUPPE" --comment "Arasul Terminal" -K UMASK=077 "$n"
     sag "$n angelegt."
   fi
-  passwd --lock "$n" >/dev/null
+  # Kein gueltiges Passwort, aber auch kein „gesperrt" (`!`): ein gesperrtes
+  # Konto weist sshd ohne PAM auch beim Schluessel ab.
+  usermod --password '*' "$n"
   chmod 0700 "/home/$n"
 
   # Keine Gruppe ausser der eigenen, auch wenn jemand nachtraeglich eine

@@ -2835,7 +2835,7 @@ Gerät das Profil `terminal` fährt. Aufbau und Trennung:
 | Method | Endpoint            | Auth           | Description                                                                                                                                                                                                                                                       |
 | ------ | ------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/terminal`     | admin, mitarb. | `{ data: { an, entwickler, linuxNutzer } }`: läuft ein Terminal am Gerät, darf ich, und welcher Nutzer bin ich dort (`null` ohne die Rolle)                                                                                                                       |
-| GET    | `/api/terminal/tor` | Sitzungscookie | Forward-Auth für Traefik vor `/terminal/`. 200 mit Kopfzeile `X-Arasul-Terminal-Nutzer: ara-<id>:<siegel>`; 401 ohne gültige Sitzung (ein Ausweis im `Authorization`-Kopf zählt nicht), 403 ohne Rolle, bei fremder `Origin` oder ohne Profil, 503 ohne Geheimnis |
+| GET    | `/intern/terminal/tor` | Sitzungscookie | Forward-Auth für Traefik vor `/terminal/`. 200 mit Kopfzeile `X-Arasul-Terminal-Nutzer: ara-<id>:<siegel>`; 401 ohne gültige Sitzung (ein Ausweis im `Authorization`-Kopf zählt nicht), 403 ohne Rolle, bei fremder `Origin` oder ohne Profil, 503 ohne Geheimnis |
 
 `<siegel>` sind die ersten 16 Hex-Zeichen von HMAC-SHA256 über `ara-<id>` mit
 dem Geheimnis aus `config/secrets/terminal/tor_geheimnis`. Der Container prüft

@@ -263,7 +263,7 @@ async function setzeVerwaltung({ userId, verwaltung }) {
  * Person das Terminal oeffnen. Standard aus, nur der Administrator schaltet.
  *
  * Ein offenes Terminal endet damit nicht von selbst: die Tuer
- * (`GET /api/terminal/tor`) fragt bei jedem neuen Aufbau, nicht waehrend der
+ * (`GET /intern/terminal/tor`) fragt bei jedem neuen Aufbau, nicht waehrend der
  * Sitzung. Wer jemanden sofort heraushaben will, entfernt den Linux-Nutzer
  * (`scripts/terminal/nutzer.sh entfernen`), das beendet seine Prozesse.
  */

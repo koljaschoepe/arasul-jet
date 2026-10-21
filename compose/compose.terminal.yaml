@@ -89,7 +89,7 @@ services:
       # Erst die Tuer, dann die Kopfzeilen. Wer nicht Entwickler ist, kommt nie
       # bis zum Container.
       - 'traefik.http.routers.terminal.middlewares=terminal-tor@docker,security-headers@file'
-      - 'traefik.http.middlewares.terminal-tor.forwardauth.address=http://dashboard-backend:3001/api/terminal/tor'
+      - 'traefik.http.middlewares.terminal-tor.forwardauth.address=http://dashboard-backend:3001/intern/terminal/tor'
       # Nur das Cookie und die Herkunft gehen hin (die Tuer liest nie einen
       # Ausweis). Zurueck kommt der Nutzer mit Siegel; Traefik LOESCHT eine
       # gleichnamige Kopfzeile der eingehenden Anfrage, bevor er sie setzt.

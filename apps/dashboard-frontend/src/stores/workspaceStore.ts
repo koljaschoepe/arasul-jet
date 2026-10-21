@@ -215,7 +215,7 @@ export function nurFuerAdmin(typ: AnsichtTyp): boolean {
 /**
  * Gehört diese Ansicht der Rolle Entwickler? Wie `nurFuerAdmin`: die Leiste
  * zeigt den Knopf nicht, die Shell öffnet die Adresse nicht. Die Tür ist
- * `GET /api/terminal/tor` im Backend, sie antwortet ohne die Rolle mit 403.
+ * `GET /intern/terminal/tor` im Backend, sie antwortet ohne die Rolle mit 403.
  */
 export function nurFuerEntwickler(typ: AnsichtTyp): boolean {
   return typ === 'terminal';

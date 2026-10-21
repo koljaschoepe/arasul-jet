@@ -67,7 +67,8 @@ fi
 echo "--- 3. der Weg des Containers: verbinde.sh"
 siegel() { printf '%s' "$1" | openssl dgst -sha256 -hmac "$(cat "$GEHEIM/tor_geheimnis")" -r | cut -c1-16; }
 # known_hosts nennt host.docker.internal; im CI heisst der Host 127.0.0.1.
-sed 's/^host.docker.internal /127.0.0.1 /' "$GEHEIM/known_hosts" >>"$GEHEIM/known_hosts"
+zeile="$(sed 's/^host.docker.internal /127.0.0.1 /' "$GEHEIM/known_hosts")"
+printf '%s\n' "$zeile" >>"$GEHEIM/known_hosts"
 install -m 0600 "$GEHEIM/schluessel" /tmp/schluessel
 verbinde() { # <TTYD_USER>
   echo 'echo "WER=$(id -un) GRUPPEN=$(id -Gn) ORT=$(pwd)"; exit' |
