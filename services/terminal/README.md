@@ -22,3 +22,6 @@ Gerät. Aufbau, Trennung und Einrichtung: [`docs/features/TERMINAL.md`](../../do
 | `TERMINAL_EINRICHTUNG`    | `/run/terminal`        | Ordner mit Schlüssel, known_hosts, Geheimnis |
 
 Ohne Einrichtung endet der Container mit einem Satz, der `einrichten.sh` nennt.
+
+`siegel.sh` rechnet das Siegel der Tür nach, ohne das Geheimnis in eine
+Befehlszeile zu schreiben (`/proc/<pid>/cmdline` liest jeder am Gerät).

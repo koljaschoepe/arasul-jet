@@ -60,6 +60,13 @@ anlegen() {
   # Konto weist sshd ohne PAM auch beim Schluessel ab.
   usermod --password '*' "$n"
   chmod 0700 "/home/$n"
+  # Was der Nutzer selbst anlegt, auch in /tmp, sieht kein anderer. `-K UMASK`
+  # oben gilt nur fuer den Ordner beim Anlegen, nicht fuer seine Sitzungen.
+  for datei in .profile .bashrc; do
+    grep -qx 'umask 077' "/home/$n/$datei" 2>/dev/null ||
+      printf '\n# Arasul Terminal: nur fuer mich\numask 077\n' >>"/home/$n/$datei"
+    chown "$n:$GRUPPE" "/home/$n/$datei"
+  done
 
   # Keine Gruppe ausser der eigenen, auch wenn jemand nachtraeglich eine
   # hinzugefuegt hat.
@@ -74,6 +81,16 @@ anlegen() {
   # from=: nur aus dem Netz des Terminal-Containers.
   install -m 0644 -o root -g root /dev/null "$ETC/schluessel/$n"
   printf 'restrict,pty,from="%s" %s\n' "$netz" "$(cut -d' ' -f1,2 "$ETC/schluessel.pub")" >"$ETC/schluessel/$n"
+
+  # Gilt die Regel fuer diesen Nutzer wirklich? sshd sagt es selbst.
+  if command -v sshd >/dev/null 2>&1; then
+    local wirksam
+    wirksam="$(sshd -T -C "user=$n,host=terminal,addr=127.0.0.1" 2>/dev/null || true)"
+    grep -qiF "authorizedkeysfile $ETC/schluessel/%u" <<<"$wirksam" ||
+      stirb "sshd wendet die Regel des Terminals auf $n nicht an (sshd -T). Erst einrichten.sh."
+    grep -qix 'allowtcpforwarding no' <<<"$wirksam" ||
+      stirb "sshd erlaubt $n Weiterleitungen (sshd -T). Erst einrichten.sh."
+  fi
 
   if command -v systemctl >/dev/null 2>&1; then
     systemctl set-property "user-$(id -u "$n").slice" MemoryMax="$SPEICHER" CPUQuota="$CPU" >/dev/null 2>&1 ||

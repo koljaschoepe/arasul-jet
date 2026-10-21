@@ -73,24 +73,32 @@ hat.
 
 ## Was ein Terminal-Nutzer darf
 
-| Darf                                                                 | Darf nicht                                                               |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| lesen und schreiben in `/home/ara-<id>` (0700)                       | einen anderen Ordner unter `/home` lesen oder schreiben                  |
-| ins Internet (Claude, npm, git)                                      | `sudo`, `su`; er ist in keiner Gruppe außer `arasul-terminal`            |
-| am Gerät: DNS, 80, 443, 8443 (Apps, `arasul.mjs call`, Firmenordner) | den Docker-Socket; Ollama, Postgres, sshd, Traefik-Dashboard am Gerät    |
-|                                                                      | einen Container direkt ansprechen (Docker-Netze `172.16.0.0/12`)         |
-|                                                                      | sich selbst einen ssh-Zugang hinlegen (`AuthorizedKeysFile` gehört root) |
-|                                                                      | ssh-Weiterleitungen, Tunnel, Agent, X11                                  |
-|                                                                      | `.env` und `config/secrets` der Installation lesen                       |
+| Darf                                                                                                            | Darf nicht                                                                   |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| lesen und schreiben in `/home/ara-<id>` (0700)                                                                  | einen anderen Ordner unter `/home` lesen oder schreiben                      |
+| ins Internet (Claude, npm, git)                                                                                 | `sudo`, `su`; er ist in keiner Gruppe außer `arasul-terminal`                |
+| am Gerät: DNS, 80, 443, 8443 (Apps, `arasul.mjs call`, Firmenordner), auf 127.0.0.1 und auf der Adresse im Netz | den Docker-Socket; Ollama, Postgres, sshd, Traefik-Dashboard am Gerät        |
+|                                                                                                                 | einen Container direkt ansprechen (jede Docker-Brücke, `docker0` und `br-*`) |
+|                                                                                                                 | sich selbst einen ssh-Zugang hinlegen (`AuthorizedKeysFile` gehört root)     |
+|                                                                                                                 | ssh-Weiterleitungen, Tunnel, Agent, X11                                      |
+|                                                                                                                 | `.env` und `config/secrets` der Installation lesen                           |
 
 Dazu je Nutzer eine Grenze für Speicher und Rechenzeit (systemd,
 `TERMINAL_SPEICHER` Vorgabe `8G`, `TERMINAL_CPU` Vorgabe `400%`), damit eine
 Sitzung dem Gerät nicht die Apps wegnimmt.
 
 **Offen gelassen, bewusst:** `/tmp` ist für alle beschreibbar (mit Sticky Bit,
-wie auf jedem Linux), und ein Terminal-Nutzer sieht die Prozessliste des
-Geräts (`ps`). Beides gibt keinen Zugang zu fremden Daten; wer es enger will,
-setzt `hidepid=2` auf `/proc`.
+wie auf jedem Linux); `nutzer.sh` setzt deshalb `umask 077` in `.profile` und
+`.bashrc`, damit dort Abgelegtes nur dem Nutzer gehört. Ein Terminal-Nutzer
+sieht die Prozessliste des Geräts (`ps`), samt Befehlszeilen. **Darum steht das
+Geheimnis der Tür in keiner Befehlszeile:** `services/terminal/siegel.sh` rechnet
+HMAC-SHA256 mit eingebauten Befehlen der Shell und reicht openssl nur Bytes
+über die Standardeingabe; der CI-Test zeichnet jeden Programmstart von
+`verbinde.sh` mit strace auf und sucht das Geheimnis darin (Review 21.10.2026:
+mit `openssl -hmac <geheimnis>` hätte ein Entwickler es aus `/proc` lesen und
+Siegel für andere rechnen können). Wer die Prozessliste ganz schließen will,
+setzt `hidepid=2` auf `/proc`; das ist am Gerät nicht eingestellt, weil es
+systemd-logind und polkit eine Ausnahmegruppe abverlangt.
 
 ---
 
@@ -172,6 +180,16 @@ Firewall.
 
 ## Grenzen
 
+- **Eine App im Browser kann das Terminal des Entwicklers bedienen.** Apps
+  laufen unter derselben Herkunft wie die Oberfläche (`/apps/<id>/`, ohne
+  `sandbox`, `docs/features/APPS.md`), mit dem Sitzungscookie des Menschen. Eine
+  App, die ein Entwickler offen hat, kann deshalb einen WebSocket auf
+  `/terminal/ws` öffnen, und die Tür sieht eine gültige Sitzung mit passender
+  Herkunft. Das ist dieselbe Vertrauensstufe, mit der eine App heute schon jede
+  Schnittstelle im Namen des Menschen ruft. Das Terminal hebt aber das, was
+  dabei zu holen ist, auf eine Shell als `ara-<id>`. Abhilfe wäre eine eigene
+  Herkunft für das Terminal (eigener Port wie beim Firmenordner); bis dahin
+  gilt: wer Entwickler ist, öffnet nur Apps, denen er traut (Review 21.10.2026).
 - **Schließt der Browser, endet die Sitzung.** ttyd hängt die ssh-Sitzung an
   den WebSocket. Wer Claude Code länger laufen lassen will, startet es in
   `tmux` oder `screen`. Innerhalb der Oberfläche bleibt das Terminal am Leben,

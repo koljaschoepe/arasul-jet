@@ -272,7 +272,7 @@ jobs:
           - name: terminal
             dockerfile: services/terminal/Dockerfile
             context: services/terminal
-            smoke_sh: ttyd --version && ssh -V && openssl version && bash -n /usr/local/bin/verbinde.sh && bash -n /usr/local/bin/start.sh
+            smoke_sh: ttyd --version && ssh -V && openssl version && bash -n /usr/local/bin/verbinde.sh && bash -n /usr/local/bin/start.sh && id -un && printf geheim > /tmp/g && test "$(bash -c '. /usr/local/bin/siegel.sh; siegel ara-7 /tmp/g')" = 013cec2b6729e2f6
           - name: document-indexer
             dockerfile: services/document-indexer/Dockerfile
             context: .
@@ -436,7 +436,7 @@ jobs:
       - name: sshd bereitstellen
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends openssh-server >/dev/null
+          sudo apt-get install -y --no-install-recommends openssh-server strace >/dev/null
           sudo mkdir -p /run/sshd
           sudo systemctl start ssh || sudo /usr/sbin/sshd
 

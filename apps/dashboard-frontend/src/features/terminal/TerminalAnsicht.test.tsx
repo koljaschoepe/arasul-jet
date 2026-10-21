@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import TerminalAnsicht from './TerminalAnsicht';
 
 const get = vi.fn();
+vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
 vi.mock('@/hooks/useApi', () => ({
   useApi: () => ({ get, post: vi.fn(), put: vi.fn(), patch: vi.fn(), del: vi.fn() }),
 }));

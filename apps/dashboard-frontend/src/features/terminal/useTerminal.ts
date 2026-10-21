@@ -4,6 +4,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface TerminalLage {
   /** Fährt das Gerät das Profil `terminal`? */
@@ -16,8 +17,10 @@ export interface TerminalLage {
 
 export function useTerminalLage() {
   const api = useApi();
+  // Je Person: meldet sich ohne Neuladen ein anderer an, gilt seine Lage.
+  const id = useAuth().user?.id;
   return useQuery({
-    queryKey: ['terminal'],
+    queryKey: ['terminal', id],
     queryFn: async () => {
       const res = await api.get<{ data: TerminalLage }>('/terminal', { showError: false });
       return res.data;

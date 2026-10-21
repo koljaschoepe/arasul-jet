@@ -112,7 +112,7 @@ fi
 echo "sudo und Gruppen"
 abgewiesen "sudo -n true" "sudo -n true"
 abgewiesen "sudo -l (Rechte auflisten)" "sudo -n -l"
-abgewiesen "in Gruppe sudo, docker, adm, admin oder wheel" "id -Gn | tr ' ' '\n' | grep -qxE 'sudo|docker|adm|admin|wheel'"
+abgewiesen "in Gruppe sudo, docker, adm, admin oder wheel" 'grep -qwE "sudo|docker|adm|admin|wheel" <<<"$(id -Gn)"'
 abgewiesen "su root" "echo | timeout 5 su -c true root"
 
 echo "Installation und System"
@@ -132,18 +132,30 @@ if [ "$NETZ" -eq 1 ]; then
     zeile ROT "Kette ARASUL_TERMINAL" "fehlt (einrichten.sh)"
     SCHLECHT=$((SCHLECHT + 1))
   fi
+  # Die Adresse des Geraets im Netz: dorthin geht `arasul.mjs call` gegen den
+  # Namen des Geraets, und dort schreibt Docker das Ziel per DNAT um, bevor
+  # die Firewall es sieht. Ein Dienst auf 0.0.0.0 wird deshalb zweimal
+  # geprueft, auf 127.0.0.1 und hier.
+  netzadresse="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')"
+  pruefe_dienst() { # <ziel> <port>
+    if [[ " $ERLAUBT " == *" $2 "* ]]; then
+      erlaubt "Geraet $1:$2 (Oberflaeche)" "$(verbindung "$1" "$2")"
+    else
+      abgewiesen "Geraet $1:$2" "$(verbindung "$1" "$2")"
+    fi
+  }
   # Jeder Dienst, der am Geraet auf TCP lauscht.
   while read -r adresse port; do
     [ -n "$port" ] || continue
-    ziel="$adresse"
-    case "$ziel" in 0.0.0.0 | '*' | '[::]' | '::') ziel=127.0.0.1 ;; esac
-    case "$ziel" in *:*) continue ;; esac # IPv6 hier nicht einzeln
-    if [ "$port" = 53 ]; then continue; fi
-    if [[ " $ERLAUBT " == *" $port "* ]]; then
-      erlaubt "Geraet $ziel:$port (Oberflaeche)" "$(verbindung "$ziel" "$port")"
-    else
-      abgewiesen "Geraet $ziel:$port" "$(verbindung "$ziel" "$port")"
-    fi
+    [ "$port" = 53 ] && continue
+    case "$adresse" in
+      0.0.0.0 | '*' | '[::]' | '::')
+        pruefe_dienst 127.0.0.1 "$port"
+        [ -n "$netzadresse" ] && pruefe_dienst "$netzadresse" "$port"
+        ;;
+      *:*) ;; # nur IPv6, hier nicht einzeln
+      *) pruefe_dienst "$adresse" "$port" ;;
+    esac
   done < <(ss -ltnH | awk '{print $4}' | sed -E 's/%[^:]*//; s/^(.*):([0-9]+)$/\1 \2/' | sort -u)
   # Container direkt (ihre Adressen in den Docker-Netzen). Nur Ziele, die
   # root von hier aus erreicht: sonst hiesse „abgewiesen" nur, dass dort

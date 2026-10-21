@@ -95,6 +95,19 @@ if ! getent group "$GRUPPE" >/dev/null; then
 fi
 
 # --- 2. sshd ------------------------------------------------------------------
+# Die Regel liegt in sshd_config.d. Sie gilt nur, wenn sshd_config den Ordner
+# einbindet, und zwar VOR dem ersten eigenen `Match` (sonst landete die Regel
+# in dessen Bedingung). Ubuntu 22.04 und neuer tun das in der ersten Zeile,
+# aeltere Systeme nicht; dort waere die Regel still wirkungslos (Review 21.10.2026).
+if [ -f /etc/ssh/sshd_config ]; then
+  include_zeile="$(grep -nE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/\*\.conf' /etc/ssh/sshd_config | head -1 | cut -d: -f1 || true)"
+  match_zeile="$(grep -nE '^[[:space:]]*Match[[:space:]]' /etc/ssh/sshd_config | head -1 | cut -d: -f1 || true)"
+  [ -n "$include_zeile" ] ||
+    stirb "/etc/ssh/sshd_config bindet /etc/ssh/sshd_config.d/*.conf nicht ein; die Regel des Terminals wuerde nicht gelten."
+  if [ -n "$match_zeile" ] && [ "$match_zeile" -lt "$include_zeile" ]; then
+    stirb "/etc/ssh/sshd_config bindet sshd_config.d erst nach einem Match ein (Zeile $include_zeile); die Regel gaelte nur dort."
+  fi
+fi
 NETZ="$(netz_terminal)"
 install -d -m 0755 "$ETC" "$ETC/schluessel"
 cat >"$SSHD_REGEL" <<EOF
@@ -136,6 +149,18 @@ cat >"$NETZ_SKRIPT" <<'EOF'
 # Gilt fuer jeden Prozess, dessen Hauptgruppe arasul-terminal ist.
 #   an   Kette ARASUL_TERMINAL neu fuellen und vor OUTPUT haengen
 #   aus  Kette abhaengen und loeschen
+#
+# DIE OBERFLAECHE KOMMT AUF ZWEI WEGEN AN. Auf 127.0.0.1 nimmt der
+# docker-proxy die Verbindung (Ziel ist eine eigene Adresse des Geraets). Auf
+# der Adresse im Netz schreibt Docker das Ziel schon in `nat/OUTPUT` auf den
+# Traefik-Container um, also bevor diese Kette es sieht; dort zaehlt deshalb
+# der urspruengliche Port (`--ctorigdstport`). Ohne die zweite Regel kaeme
+# `arasul.mjs call` gegen den Namen des Geraets nicht an (Review 21.10.2026).
+#
+# DIE DOCKER-NETZE NACH BRUECKE, NICHT NACH ADRESSE. Die Bereiche sind
+# einstellbar (NETZ_BASIS, NETZ_APPS, NETZ_TERMINAL), und Docker greift fuer
+# neue Netze auch auf 192.168/16 und 10/8 zurueck; jede Bruecke heisst aber
+# docker0 oder br-<kennung>.
 set -euo pipefail
 GRUPPE=arasul-terminal
 PORTS="${TERMINAL_ERLAUBTE_PORTS:-80 443 8443}"
@@ -150,13 +175,13 @@ for ipt in iptables ip6tables; do
       # Die Oberflaeche des Geraets: Apps (arasul.mjs call) und Firmenordner.
       for p in $PORTS; do
         "$ipt" -w -A ARASUL_TERMINAL -m addrtype --dst-type LOCAL -p tcp --dport "$p" -j RETURN
+        "$ipt" -w -A ARASUL_TERMINAL -p tcp -m conntrack --ctstate DNAT --ctorigdstport "$p" -j RETURN
       done
       # Alles andere am Geraet selbst: Ollama, Postgres, sshd, Traefik-Dashboard ...
       "$ipt" -w -A ARASUL_TERMINAL -m addrtype --dst-type LOCAL -j REJECT
-      # Die Docker-Netze (Container-Adressen sind keine eigenen des Geraets).
-      if [ "$ipt" = iptables ]; then
-        "$ipt" -w -A ARASUL_TERMINAL -d 172.16.0.0/12 -j REJECT
-      fi
+      # Kein Container direkt, gleich in welchem Adressbereich.
+      "$ipt" -w -A ARASUL_TERMINAL -o docker0 -j REJECT
+      "$ipt" -w -A ARASUL_TERMINAL -o br+ -j REJECT
       "$ipt" -w -C OUTPUT -m owner --gid-owner "$GRUPPE" -j ARASUL_TERMINAL 2>/dev/null ||
         "$ipt" -w -I OUTPUT 1 -m owner --gid-owner "$GRUPPE" -j ARASUL_TERMINAL
       ;;
@@ -191,7 +216,19 @@ EOF
 fi
 sag "Firewall fuer $GRUPPE gesetzt (Kette ARASUL_TERMINAL)."
 
-# --- 4. Schluessel, known_hosts, Geheimnis der Tuer ---------------------------
+# --- 4. Was kein Terminal-Nutzer lesen darf -----------------------------------
+# Die .env, config/secrets und die Lizenz der Installation. Nur die Rechte fuer
+# „andere" fallen weg: Besitzer und Gruppe bleiben, und die Container bekommen
+# ihre Geheimnisse ueber Bind-Mounts, die der Docker-Dienst als root anlegt;
+# denen ist das Verzeichnis darueber gleich.
+for pfad in "$WURZEL/.env" "$WURZEL/config/secrets" "$WURZEL/config/license.key"; do
+  if [ -e "$pfad" ] && [ -n "$(find "$pfad" -maxdepth 0 -perm /o=rwx)" ]; then
+    chmod o-rwx "$pfad"
+    sag "Fuer andere geschlossen: $pfad"
+  fi
+done
+
+# --- 5. Schluessel, known_hosts, Geheimnis der Tuer ---------------------------
 install -d -m 0700 -o "$BESITZER_UID" -g "$BESITZER_GID" "$GEHEIM"
 if [ ! -s "$GEHEIM/schluessel" ]; then
   ssh-keygen -q -t ed25519 -N '' -C arasul-terminal -f "$GEHEIM/schluessel"

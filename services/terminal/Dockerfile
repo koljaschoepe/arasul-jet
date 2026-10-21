@@ -34,8 +34,12 @@ RUN apt-get update \
  && apt-get clean \
  && find /var/lib/apt/lists -type f -delete
 COPY --from=holen /ttyd /usr/local/bin/ttyd
-COPY start.sh verbinde.sh healthcheck.sh /usr/local/bin/
-RUN chmod 0755 /usr/local/bin/start.sh /usr/local/bin/verbinde.sh /usr/local/bin/healthcheck.sh
+COPY start.sh verbinde.sh siegel.sh healthcheck.sh /usr/local/bin/
+RUN chmod 0755 /usr/local/bin/start.sh /usr/local/bin/verbinde.sh /usr/local/bin/siegel.sh /usr/local/bin/healthcheck.sh \
+ # ssh verlangt einen Eintrag in /etc/passwd fuer die eigene Kennung
+ # („No user exists for uid 1000", Startprobe im CI am 21.10.2026).
+ && groupadd --gid 1000 tor \
+ && useradd --uid 1000 --gid 1000 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin tor
 
 # Dieselbe Kennung wie der Nutzer, dem das Geraet gehoert (das Backend laeuft
 # als `node`, ebenfalls 1000): `config/secrets/terminal/` gehoert ihm und hat
