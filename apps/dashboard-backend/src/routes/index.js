@@ -49,6 +49,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/profil', group: 'core' },
   { prefix: '/ausweise', group: 'core' },
   { prefix: '/firmenordner', group: 'core' },
+  { prefix: '/terminal', group: 'core' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/v1/external', group: 'external' },
   { prefix: '/docs', group: 'core', description: 'Static API documentation' },
@@ -94,6 +95,9 @@ router.use('/ausweise', require('./ausweise'));
 // Weg einem MITARBEITER sagt, wo sein Ordner liegt und welche er hat -- die
 // Verwaltung darunter ist Admin-Sache, aber der Gegenstand ist einer.
 router.use('/firmenordner', require('./firmenordner'));
+// Das Terminal fuer Entwickler (Karte terminal-im-frontend, M5). Bei den
+// Kern-Wegen: es gehoert dem Angemeldeten, die Rolle Entwickler entscheidet.
+router.use('/terminal', require('./terminal'));
 
 // --- System ---
 router.use('/system', require('./system/system'));

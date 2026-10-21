@@ -416,11 +416,12 @@ stillgelegt werden, und niemand kann sich selbst stilllegen.
 
 | Method | Endpoint                       | Description                                                                                                                                                                 |
 | ------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/benutzer`                | Alle Benutzer: `id, username, email, role, is_active, passwort_vom_admin, created_at, last_login, vorname, nachname, funktion, kuerzel, hat_bild`                           |
+| GET    | `/api/benutzer`                | Alle Benutzer: `id, username, email, role, is_active, passwort_vom_admin, created_at, last_login, vorname, nachname, funktion, kuerzel, hat_bild, entwickler`               |
 | POST   | `/api/benutzer`                | Person anlegen: `{ vorname, nachname, email, verwaltung? }`; Benutzername = E-Mail; **`startpasswort` steht einmal in der Antwort**; 409 bei E-Mail oder Lizenz             |
 | PUT    | `/api/benutzer/:id/passwort`   | Neues Startpasswort: `{ password? }` (ohne Angabe erzeugt das Gerät eins, `startpasswort` in der Antwort, einmalig); beendet alle Sitzungen; 400 für das eigene Konto       |
 | PUT    | `/api/benutzer/:id/aktiv`      | Sperren oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin, 409 Lizenz                                                                    |
 | PUT    | `/api/benutzer/:id/verwaltung` | Schalter „Verwaltung“: `{ verwaltung: true \| false }` setzt die Rolle `admin` oder `mitarbeiter`; 400, wenn es der letzte aktive Administrator wäre (auch für sich selbst) |
+| PUT    | `/api/benutzer/:id/entwickler` | Schalter „Entwickler“ (Terminal, Migration 213): `{ entwickler: true \| false }`; Standard aus; auch für das eigene Konto; die Antwort trägt `entwickler`                 |
 | GET    | `/api/benutzer/:id/bild`       | Das Bild einer Person (Bytes mit `Content-Type`), 404 ohne Bild                                                                                                             |
 | DELETE | `/api/benutzer/:id`            | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                                                                                                        |
 
@@ -2822,6 +2823,27 @@ Mensch, den es vor dem Firmenordner schon gab, bekommt dort ein Konto mit einem
 zufälligen Passwort, das niemand kennt, und `passwort_gespiegelt = false`; er
 kommt hinein, sobald jemand sein Passwort einmal setzt oder er es selbst
 wechselt.
+
+### Terminal (Karte terminal-im-frontend, M5, 21.10.2026)
+
+Ein Entwickler öffnet in der Oberfläche ein Terminal unter `/terminal/` und
+landet per ssh als sein eigener Linux-Nutzer `ara-<id>` am Gerät. Nur mit dem
+Schalter „Entwickler“ (`PUT /api/benutzer/:id/entwickler`) und nur, wenn das
+Gerät das Profil `terminal` fährt. Aufbau und Trennung:
+[`docs/features/TERMINAL.md`](../features/TERMINAL.md).
+
+| Method | Endpoint             | Auth            | Description                                                                                                                                                                                                                                         |
+| ------ | -------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/terminal`      | admin, mitarb.  | `{ data: { an, entwickler, linuxNutzer } }`: läuft ein Terminal am Gerät, darf ich, und welcher Nutzer bin ich dort (`null` ohne die Rolle)                                                                                                       |
+| GET    | `/api/terminal/tor`  | Sitzungscookie  | Forward-Auth für Traefik vor `/terminal/`. 200 mit Kopfzeile `X-Arasul-Terminal-Nutzer: ara-<id>:<siegel>`; 401 ohne gültige Sitzung (ein Ausweis im `Authorization`-Kopf zählt nicht), 403 ohne Rolle, bei fremder `Origin` oder ohne Profil, 503 ohne Geheimnis |
+
+`<siegel>` sind die ersten 16 Hex-Zeichen von HMAC-SHA256 über `ara-<id>` mit
+dem Geheimnis aus `config/secrets/terminal/tor_geheimnis`. Der Container prüft
+es, bevor er verbindet: jeder Prozess am Gerät erreicht ihn im Docker-Netz und
+könnte die Kopfzeile sonst selbst schreiben.
+
+`GET /api/auth/me` und `/api/auth/session` tragen seit Migration 213 das Feld
+`entwickler`; die Shell zeigt danach den Eintrag Terminal.
 
 ### Darstellung (Phase H1)
 
