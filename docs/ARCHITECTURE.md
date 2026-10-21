@@ -40,6 +40,12 @@ keine zentrale Log-Aggregation und keinen Objektspeicher.
 | 12  | cloudflared        | -            | Cloudflare Tunnel   | -                     | Remote access tunnel (optional)                                       |
 | 13  | egress-proxy       | 3128         | Node.js (no deps)   | `proxy.js`            | Einziger Weg der Apps ins Internet: nur `verbindungen`, gezählt (J38) |
 
+**Zwei Dienste laufen NICHT von selbst**, sie stehen hinter einem
+compose-Profil und fahren nur auf einem Gerät hoch, das es in
+`COMPOSE_PROFILES` nennt: der Firmenordner (`docs/features/FIRMENORDNER.md`)
+und das Terminal für die Rolle Entwickler (ttyd 1.7.7 mit ssh als eigener
+Linux-Nutzer, Karte terminal-im-frontend, `docs/features/TERMINAL.md`).
+
 ### Host-Level Services
 
 | Service   | Technology    | Purpose                     | Config                             |

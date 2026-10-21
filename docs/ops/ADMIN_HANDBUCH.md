@@ -926,6 +926,39 @@ Nach dem Wechsel sind **alle** Sitzungen des Betroffenen beendet; er meldet
 sich einmal neu an. Das ist der Zweck: wer wechselt, weil ein Zweiter das alte
 Passwort kannte, will genau das.
 
+### Terminal für Entwickler
+
+Eine Person mit der Rolle **Entwickler** öffnet in der Aktivitätsleiste ein
+Terminal: eine Shell am Gerät in ihrem eigenen Ordner, in der sie zum Beispiel
+Claude Code mit ihrem eigenen Konto startet. Alle anderen sehen kein Terminal,
+auch der Administrator nicht, solange er sich die Rolle nicht selbst gibt.
+
+**Verwaltung → Personen**, Schalter „Entwickler“ in der Zeile der Person.
+Standard ist aus. Ist er an, steht daneben ihr Name am Gerät, etwa `ara-7`.
+
+Am Gerät braucht es einmal die Einrichtung und je Person einen eigenen
+Linux-Zugang. Das macht Ihr Betreuer mit sudo:
+
+```bash
+sudo ./scripts/terminal/einrichten.sh           # einmal je Gerät
+# in der .env: COMPOSE_PROFILES=firmenordner,terminal
+docker compose up -d terminal dashboard-backend
+sudo ./scripts/terminal/nutzer.sh anlegen ara-7  # je Person
+sudo ./scripts/terminal/trennung-pruefen.sh ara-7
+```
+
+Was die Person im Terminal darf: in ihrem eigenen Ordner lesen und schreiben,
+ins Internet, die Apps über `arasul.mjs call` aufrufen. Was sie nicht darf:
+einen anderen Ordner öffnen, `sudo`, Docker, die Dienste des Geräts direkt
+ansprechen. Die letzte Zeile oben prüft genau das und nennt eine Summe.
+
+Schalten Sie „Entwickler“ ab, öffnet sich das Terminal beim nächsten Mal nicht
+mehr; ein schon offenes läuft weiter, bis es geschlossen wird. Sofort heraus
+ist jemand mit `sudo ./scripts/terminal/nutzer.sh entfernen ara-7`. Das
+entfernt auch seinen Ordner am Gerät.
+
+Mehr dazu: [`docs/features/TERMINAL.md`](../features/TERMINAL.md).
+
 ### Passwort ändern
 
 1. Öffnen Sie **Einstellungen → Passwort**

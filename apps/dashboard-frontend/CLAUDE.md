@@ -306,7 +306,10 @@ src/
                      Scrollstand bleiben), die vierte fällt heraus.
                    • **Ansichten** — `dashboard`, `app`, `settings`
                      [persönlich, alle, mit `bereich`], `verwaltung` [admin,
-                     mit `bereich` und `abschnitt`] (`stores/workspaceStore.ts`). Eine App
+                     mit `bereich` und `abschnitt`], `terminal` [nur Rolle
+                     Entwickler, `nurFuerEntwickler`; `features/terminal/`,
+                     ttyd im iframe auf `/terminal/`, bleibt wie eine App im
+                     Hintergrund am Leben] (`stores/workspaceStore.ts`). Eine App
                      trägt `appId` und `stand`. **Nichts wird gespeichert**:
                      die Ansicht steht vollständig in der Adresse, die Shell
                      spiegelt beide ineinander. `/workspace/modelle` und

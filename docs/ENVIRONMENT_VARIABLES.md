@@ -502,6 +502,7 @@ optional; die Defaults passen zu diesen Mounts.
 | DOCKER_GATEWAY_IP                | 172.30.0.1                  | Docker bridge gateway IP                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | APP_NETZ                         | arasul-platform_arasul-apps | Das Docker-Netz, in das App-Container kommen (J38); wird als `DOCKER_NETWORK` ans Backend gegeben. Auf `arasul-platform_arasul-backend` gestellt, zieht das Backend beim nächsten Start jede App ins alte Netz zurück (Rückweg).                                                                                                                                                                                                                                                                                      |
 | NETZ_APPS                        | 172.30.1.0/26               | Adressbereich des Netzes `arasul-apps` (J38). Im Prüfstand `172.31.1.0/26`.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| NETZ_TERMINAL                    | 172.30.1.64/26              | Adressbereich des Netzes `arasul-terminal` (Karte terminal-im-frontend, M5): darin nur Traefik und der Terminal-Container. `einrichten.sh` liest es aus der `.env` und lässt den Schlüssel des Containers nur von dort zu. Im Prüfstand `172.31.1.64/26`.                                                                                                                                                                                                                                                             |
 | DOCKER_NETWORK                   | arasul-platform_arasul-apps | Docker network name (project `name:` in docker-compose.yml)                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | SSH_PORT                         | 2222                        | Der Port, auf den `scripts/security/haerten.sh` SSH legt (nur `NODE_ENV=production`, mit `sudo -n`). Ein Wechsel wird gemeldet: Warnung in der Ausgabe, `ARASUL_SSH_PORT=<port>`, `config/ssh-port`, Erstausgabe (J35).                                                                                                                                                                                                                                                                                               |
 | ENABLE_SSH_HARDENING             | true                        | `false` lässt die SSH-Härtung aus. Gelesen aus Umgebung oder `.env` (J35).                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -512,6 +513,21 @@ optional; die Defaults passen zu diesen Mounts.
 | SSH_USER                         | arasul                      | SSH username for app access                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ---
+
+## Terminal (Karte terminal-im-frontend, M5)
+
+Nur mit dem Profil `terminal` (`COMPOSE_PROFILES=terminal`); Aufbau und
+Einrichtung in [`docs/features/TERMINAL.md`](features/TERMINAL.md).
+
+| Variable                      | Default                                  | Wo                       | Description                                                                    |
+| ----------------------------- | ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------ |
+| `TERMINAL_SSH_PORT`           | `22`                                     | Container, einrichten.sh | Port des sshd am Gerät, zu dem der Container verbindet                         |
+| `TERMINAL_HOECHSTENS`         | `20`                                     | Container                | Terminals zugleich am Gerät (ttyd `--max-clients`)                             |
+| `TERMINAL_CPUS`               | `1.0`                                    | Compose                  | CPU-Grenze des Containers (die Shells selbst begrenzt `nutzer.sh`)             |
+| `TERMINAL_TOR_GEHEIMNIS_FILE` | `/config/secrets/terminal/tor_geheimnis` | Backend                  | Geheimnis für das Siegel der Tür; gelesen bei jedem Aufbau, nicht beim Start   |
+| `TERMINAL_ERLAUBTE_PORTS`     | `80 443 8443`                            | Firewall (`netz.sh`)     | Ports am Gerät, die ein Terminal-Nutzer erreicht; alles andere am Gerät ist zu |
+| `TERMINAL_SPEICHER`           | `8G`                                     | `nutzer.sh`              | Speichergrenze je Terminal-Nutzer (systemd `MemoryMax`)                        |
+| `TERMINAL_CPU`                | `400%`                                   | `nutzer.sh`              | Rechenzeit je Terminal-Nutzer (systemd `CPUQuota`)                             |
 
 ## Installation und Aktualisierung
 
@@ -572,20 +588,21 @@ These variables configure the platform for different NVIDIA Jetson devices. Use 
 
 All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 
-| Variable                   | Default | Description                   |
-| -------------------------- | ------- | ----------------------------- |
-| RAM_LIMIT_LLM              | 32G     | LLM service memory            |
-| RAM_LIMIT_EMBEDDING        | 12G     | Embedding service memory      |
-| RAM_LIMIT_POSTGRES         | 4G      | PostgreSQL database memory    |
-| RAM_LIMIT_DOCUMENT_INDEXER | 2G      | Document indexer memory       |
-| RAM_LIMIT_METRICS          | 512M    | Metrics collector memory      |
-| RAM_LIMIT_SELF_HEALING     | 512M    | Self-healing agent memory     |
-| RAM_LIMIT_REVERSE_PROXY    | 512M    | Traefik reverse proxy memory  |
-| RAM_LIMIT_FRONTEND         | 256M    | Dashboard frontend memory     |
-| RAM_LIMIT_EGRESS_PROXY     | 128M    | Ausgangs-Proxy der Apps (J38) |
-| RAM_LIMIT_BACKUP           | 256M    | Backup service memory         |
-| RAM_LIMIT_BACKEND          | 1G      | Dashboard backend memory      |
-| RAM_LIMIT_FIRMENORDNER     | 4G      | Firmenordner (Dateidienst)    |
+| Variable                   | Default | Description                                                                     |
+| -------------------------- | ------- | ------------------------------------------------------------------------------- |
+| RAM_LIMIT_LLM              | 32G     | LLM service memory                                                              |
+| RAM_LIMIT_EMBEDDING        | 12G     | Embedding service memory                                                        |
+| RAM_LIMIT_POSTGRES         | 4G      | PostgreSQL database memory                                                      |
+| RAM_LIMIT_DOCUMENT_INDEXER | 2G      | Document indexer memory                                                         |
+| RAM_LIMIT_METRICS          | 512M    | Metrics collector memory                                                        |
+| RAM_LIMIT_SELF_HEALING     | 512M    | Self-healing agent memory                                                       |
+| RAM_LIMIT_REVERSE_PROXY    | 512M    | Traefik reverse proxy memory                                                    |
+| RAM_LIMIT_FRONTEND         | 256M    | Dashboard frontend memory                                                       |
+| RAM_LIMIT_EGRESS_PROXY     | 128M    | Ausgangs-Proxy der Apps (J38)                                                   |
+| RAM_LIMIT_BACKUP           | 256M    | Backup service memory                                                           |
+| RAM_LIMIT_BACKEND          | 1G      | Dashboard backend memory                                                        |
+| RAM_LIMIT_FIRMENORDNER     | 4G      | Firmenordner (Dateidienst)                                                      |
+| RAM_LIMIT_TERMINAL         | 256M    | Terminal (ttyd, nur Weiterleitung; die Shells laufen als Linux-Nutzer am Gerät) |
 
 ### CPU Limits
 

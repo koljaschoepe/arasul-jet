@@ -29,8 +29,8 @@ und Design-Prioritäten: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — die
 einzige kanonische Quelle, dieses Diagramm ist ein vereinfachter Spiegel.
 
 Das Backend ist der radikal gekürzte Express-Kern des Umbaus vom 26.08.2026:
-keine Dokumente, kein RAG, kein Chat in der Oberfläche, kein Editor, kein
-Terminal, keine Sandbox, kein n8n, kein Erweiterungs-Baukasten. Was bleibt:
+keine Dokumente, kein RAG, kein Chat in der Oberfläche, kein Editor, keine
+Sandbox, kein n8n, kein Erweiterungs-Baukasten. Was bleibt:
 Anmeldung, Modelle, Flows mit Läufen und Schritten, die externe API mit
 Schlüssel (`/api/v1/external`, OpenAI-kompatibel unter `/v1`), Betrieb
 (Updates, Backup, Selbstheilung, Werksreset, Fernzugriff, Lizenz). Eine App
@@ -39,7 +39,10 @@ Forward-Auth an, hat einen Test- und einen Livestand und einen eigenen
 Datenbank-Zugang je Stand; ihre Flows können anhalten und eine Freigabe
 verlangen. Um die Ansicht steht nur eine Aktivitätsleiste links (Startseite,
 Apps, Verwaltung, Einstellungen, Konto), offen ist genau eine Ansicht, mit
-Hell/Dunkel-Theme, das der App im iframe folgt.
+Hell/Dunkel-Theme, das der App im iframe folgt. Seit der Karte
+terminal-im-frontend (M5) hat die Rolle Entwickler dort zusätzlich ein
+Terminal: eine Shell als eigener Linux-Nutzer am Gerät, hinter einem
+compose-Profil, Standard aus.
 
 Aktueller Stand je Thema — hier nicht wiederholt, sondern verlinkt:
 
@@ -49,6 +52,7 @@ Aktueller Stand je Thema — hier nicht wiederholt, sondern verlinkt:
 | App-Paket, Deploy-Endpunkt und Kontrakt fürs Ara-Kit            | [`docs/features/APP-PAKET.md`](docs/features/APP-PAKET.md)                                                                                                                           |
 | Flows, Läufe, Freigaben (anhalten/bestätigen/ablehnen)          | [`docs/features/FLOWS.md`](docs/features/FLOWS.md)                                                                                                                                   |
 | Firmenordner: Rechte, Wurzel, Sicht                             | [`docs/features/FIRMENORDNER.md`](docs/features/FIRMENORDNER.md)                                                                                                                     |
+| Terminal für Entwickler: Tür, Linux-Nutzer, Trennung            | [`docs/features/TERMINAL.md`](docs/features/TERMINAL.md)                                                                                                                             |
 | Modellkatalog, Backup, Selbstheilung, Auslieferung, Zertifikat  | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/ops/AUSLIEFERUNG.md`](docs/ops/AUSLIEFERUNG.md), [`docs/ops/NETZNAME_UND_ZERTIFIKAT.md`](docs/ops/NETZNAME_UND_ZERTIFIKAT.md) |
 | Lizenz (Stufen, Signatur, Fingerabdruck)                        | [`docs/ops/ADMIN_HANDBUCH.md`](docs/ops/ADMIN_HANDBUCH.md)                                                                                                                           |
 | Design-System `packages/marken/` (Primitive, Muster, Bausteine) | [`docs/development/DESIGN.md`](docs/development/DESIGN.md)                                                                                                                           |

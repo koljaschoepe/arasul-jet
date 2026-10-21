@@ -15,6 +15,7 @@
 | `metrics-collector/`  | CPU/RAM/GPU/temperature → Postgres                   | Python  |
 | `backup-service/`     | Sichern, wiederherstellen, Wiederherstellungstest    | Bash    |
 | `egress-proxy/`       | Einziger Weg der Apps ins Internet (`verbindungen`)  | Node    |
+| `terminal/`           | ttyd + ssh, Shell als eigener Linux-Nutzer (Profil)  | Bash    |
 | `postgres/`           | DB image, migrations — **see `postgres/CLAUDE.md`**  | SQL     |
 | `cloudflared/`        | Cloudflare tunnel client                             | config  |
 
