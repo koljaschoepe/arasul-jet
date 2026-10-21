@@ -127,6 +127,9 @@ services:
       # J38: App-Container haengen nur noch im Netz der Apps; Traefik muss sie
       # dort erreichen (Label `traefik.docker.network`).
       - arasul-apps
+      # Das Terminal (Karte terminal-im-frontend, M5): ttyd haengt allein mit
+      # Traefik in diesem Netz, kein anderer Container erreicht es.
+      - arasul-terminal
     command:
       - '--configFile=/etc/traefik/traefik.yml'
     ports:
@@ -203,6 +206,21 @@ networks:
     ipam:
       config:
         - subnet: ${NETZ_APPS:-172.30.1.0/26}
+
+  # Das Netz des Terminals (Karte terminal-im-frontend, M5, 21.10.2026). Darin
+  # nur `reverse-proxy` und `terminal`: ttyd nimmt den Linux-Nutzer aus einer
+  # Kopfzeile, und die setzt allein die Tuer vor Traefik. Kein anderer
+  # Container soll ttyd ohne diese Tuer erreichen. NICHT `internal`: der
+  # Container geht per ssh an den sshd des Geraets (`host-gateway`), und das
+  # braucht das Gateway der Bruecke. Vom Geraet selbst ist das Netz trotzdem
+  # erreichbar; dagegen steht das Siegel in der Kopfzeile
+  # (services/terminal/verbinde.sh) und die Firewall der Terminal-Nutzer
+  # (scripts/terminal/einrichten.sh).
+  arasul-terminal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${NETZ_TERMINAL:-172.30.1.64/26}
 
   # Dedicated network for the Docker Socket Proxy. Only dashboard-backend,
   # self-healing-agent and backup-service join it — no other service

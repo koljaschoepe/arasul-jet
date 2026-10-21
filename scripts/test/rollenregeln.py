@@ -51,6 +51,7 @@ OEFFENTLICH = {
     'POST /api/auth/setup': 'legt den ERSTEN Admin an; schliesst sich selbst, sobald einer da ist',
     'GET /api/auth/session': 'Sitzungsprobe, antwortet 200 in beiden Faellen (Plan 023 C3)',
     'GET /api/auth/verify': 'Forward-Auth fuer Traefik; antwortet 401 statt zu werfen',
+    'GET /api/terminal/tor': 'Forward-Auth vor /terminal/; prueft Sitzung und Rolle Entwickler selbst',
     'GET /api/system/heartbeat': 'Lebenszeichen fuer den Selbstheilungs-Agenten, ohne Sitzung',
     'GET /api/settings/password-requirements': 'die Passwortregeln stehen vor dem Passwortwechsel',
     'GET /api/darstellung/logo': (

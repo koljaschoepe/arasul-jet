@@ -60,4 +60,7 @@ include:
       # `COMPOSE_PROFILES=firmenordner` setzt -- die Begruendung steht im Kopf
       # der Datei.
       - ./compose/compose.firmenordner.yaml
+      # Das Terminal fuer Entwickler (Karte terminal-im-frontend, M5). Profil
+      # `terminal`, also ebenfalls nicht von selbst; Kopf der Datei.
+      - ./compose/compose.terminal.yaml
       - ./compose/compose.secrets.yaml
