@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { House, Settings, SlidersHorizontal } from 'lucide-react';
+import { House, Settings, SlidersHorizontal, SquareTerminal } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger, cn, useSchmalesFenster } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore, ansichtId } from '@/stores/workspaceStore';
@@ -106,8 +106,8 @@ function LeistenKnopf({ name, aktiv, onClick, kennzeichen, children, extra }: Le
  *
  * Oben das Haus zur Startseite mit der Zahl offener Freigaben, darunter die
  * freigegebenen Apps nur als Symbol — ab etwa zehn rollt dieser Teil, die
- * Knöpfe unten bleiben fest: Verwaltung (nur Administrator) und Zahnrad (die
- * persönlichen Einstellungen). Das eigene Bild steht seit dem 07.10.2026 nicht
+ * Knöpfe unten bleiben fest: Terminal (nur Rolle Entwickler), Verwaltung (nur
+ * Administrator) und Zahnrad (die persönlichen Einstellungen). Das eigene Bild steht seit dem 07.10.2026 nicht
  * mehr hier, sondern links in der Fußzeile mit Name, Rolle und dem Menü
  * „Abmelden" (`StatusBar`); unten in der Leiste wirkte es wie ein dritter
  * Bereich. Jeder Knopf öffnet genau
@@ -130,6 +130,7 @@ export function ActivityBar() {
 function LeisteLinks() {
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
+  const istEntwickler = user?.entwickler === true;
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const oeffne = useWorkspaceStore(s => s.oeffne);
   const aktivId = ansichtId(ansicht);
@@ -263,6 +264,17 @@ function LeisteLinks() {
         {angesagt}
       </p>
 
+      {/* Das Terminal nur für die Rolle Entwickler (Karte terminal-im-frontend). */}
+      {istEntwickler && (
+        <LeistenKnopf
+          name="Terminal"
+          aktiv={aktivId === 'terminal'}
+          kennzeichen="leiste-terminal"
+          onClick={() => oeffne({ type: 'terminal' })}
+        >
+          <SquareTerminal className="size-4.5" aria-hidden="true" />
+        </LeistenKnopf>
+      )}
       {istAdmin && (
         <LeistenKnopf
           name="Verwaltung"

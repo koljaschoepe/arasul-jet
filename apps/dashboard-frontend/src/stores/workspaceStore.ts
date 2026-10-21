@@ -17,9 +17,10 @@ import { create } from 'zustand';
 
 /**
  * `settings` sind die persönlichen Einstellungen, für alle; `verwaltung` ist
- * alles Gerätebezogene und gehört dem Administrator.
+ * alles Gerätebezogene und gehört dem Administrator; `terminal` gehört der
+ * Rolle Entwickler (Karte terminal-im-frontend, M5).
  */
-export type AnsichtTyp = 'dashboard' | 'app' | 'settings' | 'verwaltung';
+export type AnsichtTyp = 'dashboard' | 'app' | 'settings' | 'verwaltung' | 'terminal';
 
 /** Der Stand einer App: der Livestand für alle, der Teststand für Tester. */
 export type AppStand = 'live' | 'test';
@@ -58,6 +59,7 @@ const TITEL: Record<AnsichtTyp, string> = {
   app: 'App',
   settings: 'Einstellungen',
   verwaltung: 'Verwaltung',
+  terminal: 'Terminal',
 };
 
 /** Was über der Ansicht im Browser-Tab steht. */
@@ -185,6 +187,8 @@ export function pfadZuAnsicht(subPath: string, search = ''): Ansicht | null {
         ...(filter ? { filter } : {}),
       };
     }
+    case 'terminal':
+      return { type: 'terminal' };
     // Die Modelle waren bis M5 eine eigene Ansicht der Aktivitätsleiste, davor
     // (bis Plan 023 B7) hieß ihr Pfad /workspace/store. Beide Lesezeichen
     // landen im Bereich der Verwaltung.
@@ -206,6 +210,15 @@ export function pfadZuAnsicht(subPath: string, search = ''): Ansicht | null {
  */
 export function nurFuerAdmin(typ: AnsichtTyp): boolean {
   return typ === 'verwaltung';
+}
+
+/**
+ * Gehört diese Ansicht der Rolle Entwickler? Wie `nurFuerAdmin`: die Leiste
+ * zeigt den Knopf nicht, die Shell öffnet die Adresse nicht. Die Tür ist
+ * `GET /api/terminal/tor` im Backend, sie antwortet ohne die Rolle mit 403.
+ */
+export function nurFuerEntwickler(typ: AnsichtTyp): boolean {
+  return typ === 'terminal';
 }
 
 function gleich(a: Ansicht, b: Ansicht): boolean {

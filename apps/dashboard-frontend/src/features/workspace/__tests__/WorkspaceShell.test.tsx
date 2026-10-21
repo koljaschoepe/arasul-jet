@@ -144,9 +144,24 @@ describe('WorkspaceShell', () => {
     await landetAuf('/workspace/dashboard');
   });
 
-  it('ein unbekannter Pfad öffnet nichts (Terminal ist mit B2 gefallen)', async () => {
+  it('ein unbekannter Pfad öffnet nichts', async () => {
+    renderShell('/workspace/gibt-es-nicht');
+    await landetAuf('/workspace/dashboard');
+  });
+
+  // Das Terminal fiel mit B2 und ist mit der Karte terminal-im-frontend (M5)
+  // zurück, nur für die Rolle Entwickler. Ohne sie führt die Adresse auf die
+  // Startseite, auch für den Administrator.
+  it('/workspace/terminal ohne die Rolle Entwickler führt auf die Startseite', async () => {
     renderShell('/workspace/terminal');
     await landetAuf('/workspace/dashboard');
+  });
+
+  it('/workspace/terminal öffnet einem Entwickler das Terminal', async () => {
+    angemeldet({ role: 'mitarbeiter', username: 'eva', entwickler: true });
+    renderShell('/workspace/terminal');
+    await landetAuf('/workspace/terminal');
+    expect(useWorkspaceStore.getState().ansicht.type).toBe('terminal');
   });
 
   it('ein altes Lesezeichen wird ersetzt: ein Zurück führt eine Seite zurück', async () => {
