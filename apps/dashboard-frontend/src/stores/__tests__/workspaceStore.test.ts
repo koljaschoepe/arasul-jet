@@ -7,6 +7,7 @@ import {
   pfadZuAnsicht,
   appPfad,
   nurFuerAdmin,
+  nurFuerEntwickler,
   type Ansicht,
 } from '../workspaceStore';
 
@@ -186,9 +187,19 @@ describe('URL-Mapping (ansichtZuPfad / pfadZuAnsicht)', () => {
     expect(nurFuerAdmin('app')).toBe(false);
   });
 
+  it('/terminal ist wieder eine Ansicht, und sie gehoert der Rolle Entwickler', () => {
+    // Das Terminal aus der Zeit vor dem Umbau (26.08.2026) ist gefallen; seit
+    // der Karte terminal-im-frontend (M5) gibt es den Pfad wieder, fuer eine
+    // Shell als eigener Linux-Nutzer.
+    expect(pfadZuAnsicht('/terminal')).toEqual({ type: 'terminal' });
+    expect(ansichtZuPfad({ type: 'terminal' })).toBe('/workspace/terminal');
+    expect(nurFuerEntwickler('terminal')).toBe(true);
+    expect(nurFuerEntwickler('settings')).toBe(false);
+    expect(nurFuerAdmin('terminal')).toBe(false);
+  });
+
   it('gefallene und unbekannte Pfade ergeben null', () => {
     for (const p of [
-      '/terminal',
       '/doc/1',
       '/projekte',
       '/flow',

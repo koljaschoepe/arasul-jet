@@ -55,6 +55,7 @@ const person = (id: string, username: string, vorname: string, nachname: string)
   funktion: null,
   kuerzel: null,
   hat_bild: false,
+  entwickler: false,
 });
 
 // Der angemeldete Administrator aus dem authMock hat die Kennung 1.

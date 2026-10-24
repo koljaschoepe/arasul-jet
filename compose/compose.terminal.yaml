@@ -1,0 +1,101 @@
+# Arasul Platform — Das Terminal fuer Entwickler (Karte terminal-im-frontend, M5, 21.10.2026)
+# =============================================================================
+# ttyd unter `/terminal/`: ein Entwickler oeffnet in der Oberflaeche ein
+# Terminal und landet per ssh als SEIN EIGENER Linux-Nutzer am Geraet, in
+# seinem eigenen Ordner. Der Weg und warum die Trennung bei Linux liegt:
+# `docs/features/TERMINAL.md`.
+#
+# PROFIL `terminal`, ALSO NICHT VON SELBST. Eine Shell im Browser auf dem
+# Geraet der Belege ist das Muster von R35, nur mit Anmeldung (Risiko R52).
+# Sie gehoert deshalb nur auf ein Geraet, auf dem jemand sie ausdruecklich
+# einschaltet UND die Trennung am Geraet eingerichtet hat:
+#
+#     sudo ./scripts/terminal/einrichten.sh     # Gruppe, sshd, Firewall, Schluessel
+#     COMPOSE_PROFILES=terminal                 # in der .env, neben `firmenordner`
+#     docker compose up -d terminal dashboard-backend
+#
+# Das Backend gehoert in den letzten Befehl, weil es `COMPOSE_PROFILES` liest
+# (`services/terminal/terminal.js`, `istAn`) und eine Umgebungsvariable einen
+# laufenden Container nicht erreicht (dieselbe Falle wie beim Firmenordner).
+#
+# DER ROUTER STEHT IN DEN ETIKETTEN, NICHT IN `routes.yml`. Ohne Profil gibt
+# es den Container nicht und damit auch keinen Weg `/terminal/`: die Adresse
+# faellt an die Oberflaeche und zeigt dort „nicht gefunden", statt eines 502
+# auf einen Dienst, den es hier nicht gibt.
+#
+# KEIN VEROEFFENTLICHTER PORT, EIGENES NETZ. Der Container haengt allein mit
+# Traefik im Netz `arasul-terminal` (compose.core.yaml). Zum sshd des Geraets
+# kommt er ueber `host.docker.internal` (host-gateway).
+# =============================================================================
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '20m'
+    max-file: '2'
+
+services:
+  terminal:
+    build:
+      context: ../services/terminal
+      dockerfile: Dockerfile
+    image: arasul-terminal:latest
+    container_name: ${CONTAINER_PREFIX:-}terminal
+    hostname: terminal
+    restart: unless-stopped
+    networks:
+      - arasul-terminal
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      TERMINAL_SSH_PORT: ${TERMINAL_SSH_PORT:-22}
+      TERMINAL_HOECHSTENS: ${TERMINAL_HOECHSTENS:-20}
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      # Schluessel, known_hosts und das Geheimnis der Tuer, angelegt von
+      # `scripts/terminal/einrichten.sh`. Ein Ordner und keine einzelnen
+      # Dateien: fehlt eine Datei, legte Docker an ihrer Stelle einen Ordner
+      # an, und der Container saehe etwas, das wie eine Einrichtung aussieht.
+      - ${SECRETS_PFAD:-../config/secrets}/terminal:/run/terminal:ro
+    healthcheck:
+      test: ['CMD', '/usr/local/bin/healthcheck.sh']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '${TERMINAL_CPUS:-1.0}'
+          memory: ${RAM_LIMIT_TERMINAL:-256M}
+          pids: 512
+    labels:
+      - 'arasul.dienst=terminal'
+      - 'traefik.enable=true'
+      - 'traefik.docker.network=arasul-platform_arasul-terminal'
+      # Ueber dem Catch-All der Oberflaeche (1), unter der API (10 und mehr):
+      # `/terminal` ist kein Praefix von irgendetwas anderem.
+      - 'traefik.http.routers.terminal.rule=PathPrefix(`/terminal`)'
+      - 'traefik.http.routers.terminal.priority=8'
+      - 'traefik.http.routers.terminal.entrypoints=websecure'
+      - 'traefik.http.routers.terminal.tls=true'
+      # Erst die Tuer, dann die Kopfzeilen. Wer nicht Entwickler ist, kommt nie
+      # bis zum Container.
+      - 'traefik.http.routers.terminal.middlewares=terminal-tor@docker,security-headers@file'
+      - 'traefik.http.middlewares.terminal-tor.forwardauth.address=http://dashboard-backend:3001/intern/terminal/tor'
+      # Nur das Cookie und die Herkunft gehen hin (die Tuer liest nie einen
+      # Ausweis). Zurueck kommt der Nutzer mit Siegel; Traefik LOESCHT eine
+      # gleichnamige Kopfzeile der eingehenden Anfrage, bevor er sie setzt.
+      - 'traefik.http.middlewares.terminal-tor.forwardauth.authRequestHeaders=Cookie,Origin'
+      - 'traefik.http.middlewares.terminal-tor.forwardauth.authResponseHeaders=X-Arasul-Terminal-Nutzer'
+      - 'traefik.http.services.terminal.loadbalancer.server.port=7681'
+    profiles:
+      - terminal
+    logging: *default-logging

@@ -47,10 +47,18 @@ const SetzeVerwaltungBody = z
   })
   .strict();
 
+/** Der Schalter „Entwickler" (Terminal, Migration 213). */
+const SetzeEntwicklerBody = z
+  .object({
+    entwickler: z.boolean({ error: 'entwickler muss true oder false sein' }),
+  })
+  .strict();
+
 module.exports = {
   CreateBenutzerBody,
   BenutzerIdParams,
   SetzePasswortBody,
   SetzeAktivBody,
   SetzeVerwaltungBody,
+  SetzeEntwicklerBody,
 };

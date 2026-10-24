@@ -2,7 +2,13 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Meldung } from '@marken';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
-import { useWorkspaceStore, ansichtId, ansichtTitel, nurFuerAdmin } from '@/stores/workspaceStore';
+import {
+  useWorkspaceStore,
+  ansichtId,
+  ansichtTitel,
+  nurFuerAdmin,
+  nurFuerEntwickler,
+} from '@/stores/workspaceStore';
 import type { Ansicht, AppStand } from '@/stores/workspaceStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { Uebersicht } from '@/features/apps/Uebersicht';
@@ -10,11 +16,12 @@ import { AppRahmen } from '@/features/apps/AppRahmen';
 import { AdminHinweise } from './AdminHinweise';
 import { OffeneFreigaben } from '@/features/freigaben/OffeneFreigaben';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
-import { lazyMitVorladen } from '@/utils/lazyNachladen';
+import { lazyMitVorladen, lazyNachladen } from '@/utils/lazyNachladen';
 
 const Verwaltung = lazyMitVorladen(() => import('@/features/settings/Settings'));
 const Einstellungen = lazyMitVorladen(() => import('@/features/einstellungen/Einstellungen'));
 const ModelleAnsicht = lazyMitVorladen(() => import('@/features/modelle/ModelleAnsicht'));
+const TerminalAnsicht = lazyNachladen(() => import('@/features/terminal/TerminalAnsicht'));
 
 /**
  * Die Ansichten hinter der Leiste laden, sobald die Shell ruht: jeder Wechsel
@@ -96,7 +103,40 @@ export function AnsichtWeiche({ ansicht }: { ansicht: Ansicht }) {
       return <Einstellungen />;
     case 'verwaltung':
       return <Verwaltung modelle={<ModelleAnsicht />} />;
+    case 'terminal':
+      // Steht im `TerminalStapel` und kommt hier nie an; der Fall gehört
+      // trotzdem in die Weiche, damit sie jeden Typ kennt.
+      return <TerminalAnsicht />;
   }
+}
+
+/**
+ * Das Terminal, einmal geöffnet, bleibt verborgen am Leben (Karte
+ * terminal-im-frontend): ein neu geladener Rahmen wäre eine neue ssh-Sitzung,
+ * und ein laufendes Claude Code darin wäre weg. Wie bei den Apps `invisible`
+ * und `inert`, nicht `hidden`. Nur für die Rolle Entwickler; ohne sie wird
+ * nichts gemountet.
+ */
+function TerminalStapel({ offen, darf }: { offen: boolean; darf: boolean }) {
+  const [lebt, setLebt] = useState(false);
+  if (offen && darf && !lebt) setLebt(true);
+  if (!darf && lebt) setLebt(false);
+  if (!lebt) return null;
+  return (
+    <div
+      className={offen ? 'h-full min-h-0' : 'invisible absolute inset-0 h-full'}
+      inert={!offen}
+      aria-hidden={!offen}
+      data-testid="terminal-stapel"
+      data-sichtbar={offen}
+    >
+      <ComponentErrorBoundary componentName="Terminal">
+        <Suspense fallback={null}>
+          <TerminalAnsicht />
+        </Suspense>
+      </ComponentErrorBoundary>
+    </div>
+  );
 }
 
 /** Wie viele Apps im Hintergrund am Leben bleiben (frontend.md, Rahmen). */
@@ -195,11 +235,13 @@ function AppStapel({ apps, aktiv }: { apps: LebendeApp[]; aktiv: string | null }
 export function AnsichtInhalt() {
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
+  const istEntwickler = user?.entwickler === true;
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const titel = ansichtTitel(ansicht);
   useVorladen(istAdmin);
   const lebende = useLebendeApps(ansicht);
   const istApp = ansicht.type === 'app' && !!ansicht.appId;
+  const istTerminal = ansicht.type === 'terminal' && istEntwickler;
   const aktiveApp = istApp
     ? appSchluessel({ appId: ansicht.appId!, stand: ansicht.stand ?? 'live' })
     : null;
@@ -211,7 +253,8 @@ export function AnsichtInhalt() {
     // Wechsel der Ansicht.
     <div className="relative h-full min-h-0" data-ansicht={ansicht.type}>
       <AppStapel apps={lebende} aktiv={aktiveApp} />
-      {!istApp && (
+      <TerminalStapel offen={istTerminal} darf={istEntwickler} />
+      {!istApp && !istTerminal && (
         <div key={ansichtId(ansicht)} className="h-full min-h-0 overflow-auto">
           <ComponentErrorBoundary componentName={`Ansicht ${titel}`}>
             {/* Die Shell öffnet eine Admin-Ansicht für einen Mitarbeiter gar
@@ -221,6 +264,12 @@ export function AnsichtInhalt() {
               <div className="p-ui-4" data-testid="ansicht-nur-admin">
                 <Meldung titel={`Die ${titel} verwaltet Ihr Administrator.`}>
                   Soll hier etwas anders sein, sprechen Sie ihn an.
+                </Meldung>
+              </div>
+            ) : !istEntwickler && nurFuerEntwickler(ansicht.type) ? (
+              <div className="p-ui-4" data-testid="ansicht-nur-entwickler">
+                <Meldung titel="Das Terminal ist für Entwickler.">
+                  Die Verwaltung schaltet es je Person frei.
                 </Meldung>
               </div>
             ) : (

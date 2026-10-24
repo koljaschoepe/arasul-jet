@@ -267,6 +267,12 @@ jobs:
           # qdrant-client auf >=1.19 an, wo `NamedVector` nicht mehr existiert,
           # die CI blieb gruen, und der Fehler schlug erst Tage spaeter beim
           # ersten Neubau auf dem Geraet zu — als zwei gescheiterte Deploys.
+          # Das Terminal (Karte terminal-im-frontend, M5): ttyd 1.7.7 mit
+          # Pruefsumme, ssh und openssl fuer das Siegel.
+          - name: terminal
+            dockerfile: services/terminal/Dockerfile
+            context: services/terminal
+            smoke_sh: ttyd --version && ssh -V && openssl version && bash -n /usr/local/bin/verbinde.sh && bash -n /usr/local/bin/start.sh && id -un && printf geheim > /tmp/g && test "$(bash -c '. /usr/local/bin/siegel.sh; siegel ara-7 /tmp/g')" = 013cec2b6729e2f6
           - name: document-indexer
             dockerfile: services/document-indexer/Dockerfile
             context: .
@@ -406,6 +412,36 @@ jobs:
 
       - name: 000 bis heute gegen eine leere Datenbank, darauf Anmeldung, Profil und Personen
         run: bash scripts/test/migrationskette.sh --reihe
+
+  # ----------------------------------------------------------------------------
+  # Das Terminal fuer Entwickler (Karte terminal-im-frontend, M5, 21.10.2026):
+  # die Trennung, die die Abnahme verlangt, auf einem frischen Ubuntu mit sudo,
+  # sshd und Docker. Ein fremder Ordner, docker und sudo werden abgewiesen, die
+  # Firewall der Gruppe haelt Dienste und Container fern, der ssh-Weg des
+  # Containers landet als der richtige Nutzer und nur mit gueltigem Siegel.
+  # Am Geraet laeuft dieselbe Probe (`scripts/terminal/trennung-pruefen.sh`).
+  # ----------------------------------------------------------------------------
+  terminal-trennung:
+    name: 'Terminal: Trennung'
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: sshd bereitstellen
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends openssh-server strace >/dev/null
+          sudo mkdir -p /run/sshd
+          sudo systemctl start ssh || sudo /usr/sbin/sshd
+
+      - name: Einrichten, zwei Nutzer, Trennungsprobe mit Netz, ssh-Weg, Siegel
+        run: bash scripts/test/terminal-trennung.sh
 
   # ----------------------------------------------------------------------------
   # Python services: non-blocking pytest. Some services have no tests yet.
@@ -1028,6 +1064,7 @@ jobs:
         frontend,
         docker-build,
         migrationen,
+        terminal-trennung,
         python-services,
         lockfile-guard,
         guards,
@@ -1052,6 +1089,7 @@ jobs:
             Frontend=${{ needs.frontend.result }}
             Docker=${{ needs.docker-build.result }}
             Migrationen=${{ needs.migrationen.result }}
+            Terminal=${{ needs.terminal-trennung.result }}
             Python=${{ needs.python-services.result }}
             Lockfile=${{ needs.lockfile-guard.result }}
             Guards=${{ needs.guards.result }}

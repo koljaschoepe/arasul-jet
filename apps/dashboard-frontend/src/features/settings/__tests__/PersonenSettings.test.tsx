@@ -55,6 +55,7 @@ const ADMIN: Benutzer = {
   funktion: 'Geschäftsführung',
   kuerzel: 'AA',
   hat_bild: false,
+  entwickler: false,
 };
 const MIA: Benutzer = {
   id: '7',
@@ -70,6 +71,7 @@ const MIA: Benutzer = {
   funktion: null,
   kuerzel: null,
   hat_bild: false,
+  entwickler: false,
 };
 
 const APPS = [
@@ -235,6 +237,29 @@ describe('PersonenSettings', () => {
     await waitFor(() =>
       expect(apiMock.put).toHaveBeenCalledWith('/benutzer/7/verwaltung', { verwaltung: true })
     );
+  });
+
+  it('schaltet „Entwickler" ueber PUT /benutzer/:id/entwickler, Standard aus', async () => {
+    antworte();
+    apiMock.put.mockResolvedValue({ data: { ...MIA, entwickler: true } });
+    render(<PersonenSettings />, { wrapper: huelle() });
+
+    const schalter = await screen.findByTestId('entwickler-mia');
+    expect(schalter).toHaveAttribute('aria-checked', 'false');
+    // Ohne die Rolle steht kein Nutzer am Geraet daneben.
+    expect(screen.queryByTestId('linux-nutzer-mia')).toBeNull();
+    fireEvent.click(schalter);
+
+    await waitFor(() =>
+      expect(apiMock.put).toHaveBeenCalledWith('/benutzer/7/entwickler', { entwickler: true })
+    );
+  });
+
+  it('nennt bei einem Entwickler den Nutzer am Geraet, aus der Kennung', async () => {
+    antworte({ benutzer: [ADMIN, { ...MIA, entwickler: true }] });
+    render(<PersonenSettings />, { wrapper: huelle() });
+    expect(await screen.findByTestId('linux-nutzer-mia')).toHaveTextContent('ara-7');
+    expect(screen.getByTestId('entwickler-mia')).toHaveAttribute('aria-checked', 'true');
   });
 
   it('laesst dem letzten Administrator das Recht: sein Schalter steht fest', async () => {

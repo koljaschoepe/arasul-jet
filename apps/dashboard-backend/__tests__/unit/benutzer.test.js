@@ -105,6 +105,7 @@ describe('/api/benutzer', () => {
     ['put', '/api/benutzer/1/passwort'],
     ['put', '/api/benutzer/1/aktiv'],
     ['put', '/api/benutzer/1/verwaltung'],
+    ['put', '/api/benutzer/1/entwickler'],
     ['get', '/api/benutzer/1/bild'],
   ])('%s %s: Mitarbeiter bekommt 403', async (verb, pfad) => {
     auth.__setUser(MITARBEITER);
@@ -268,6 +269,41 @@ describe('/api/benutzer', () => {
   test('PUT /:id/verwaltung verlangt einen Wahrheitswert', async () => {
     const res = await request(app()).put('/api/benutzer/2/verwaltung').send({ verwaltung: 'ja' });
     expect(res.status).toBe(400);
+  });
+
+  // --- Der Schalter „Entwickler" (Terminal, Karte terminal-im-frontend) ------
+
+  test('PUT /:id/entwickler schaltet das Terminal fuer eine Person frei', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: '2', username: 'mia', entwickler: true }] });
+    const res = await request(app()).put('/api/benutzer/2/entwickler').send({ entwickler: true });
+    expect(res.status).toBe(200);
+    expect(res.body.data.entwickler).toBe(true);
+    expect(db.query.mock.calls[0][0]).toMatch(/SET entwickler = \$2/);
+    expect(db.query.mock.calls[0][1]).toEqual([2, true]);
+    expect(auth.invalidateUserCache).toHaveBeenCalledWith(2);
+  });
+
+  test('PUT /:id/entwickler gilt auch fuer das eigene Konto', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: '1', username: 'admin', entwickler: false }] });
+    const res = await request(app()).put('/api/benutzer/1/entwickler').send({ entwickler: false });
+    expect(res.status).toBe(200);
+    expect(res.body.data.entwickler).toBe(false);
+  });
+
+  test('PUT /:id/entwickler eines unbekannten Benutzers ist 404', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app()).put('/api/benutzer/404/entwickler').send({ entwickler: true });
+    expect(res.status).toBe(404);
+  });
+
+  test('PUT /:id/entwickler verlangt einen Wahrheitswert und sonst nichts', async () => {
+    const a = await request(app()).put('/api/benutzer/2/entwickler').send({ entwickler: 'ja' });
+    expect(a.status).toBe(400);
+    const b = await request(app())
+      .put('/api/benutzer/2/entwickler')
+      .send({ entwickler: true, role: 'admin' });
+    expect(b.status).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
   });
 
   test('PUT /:id/passwort ohne Angabe erzeugt ein Startpasswort und nennt es einmal', async () => {

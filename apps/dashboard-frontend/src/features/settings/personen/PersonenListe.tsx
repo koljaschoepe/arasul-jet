@@ -26,6 +26,8 @@ interface ListeProps {
   istIchSelbst: (b: Benutzer) => boolean;
   /** Der Schalter „Verwaltung" je Zeile; lebt beim Aufrufer, samt Mutation. */
   verwaltung: (b: Benutzer) => ReactNode;
+  /** Der Schalter „Entwickler" (Terminal) je Zeile; lebt beim Aufrufer, samt Mutation. */
+  entwickler: (b: Benutzer) => ReactNode;
   /** Die Knöpfe je Zeile. Sie leben beim Aufrufer, samt Mutationen. */
   aktionen: (b: Benutzer) => ReactNode;
 }
@@ -70,7 +72,13 @@ function Passwort({ b }: { b: Benutzer }) {
   );
 }
 
-export function PersonenListe({ liste, istIchSelbst, verwaltung, aktionen }: ListeProps) {
+export function PersonenListe({
+  liste,
+  istIchSelbst,
+  verwaltung,
+  entwickler,
+  aktionen,
+}: ListeProps) {
   const schmal = useSchmalesFenster();
 
   if (schmal) {
@@ -92,6 +100,9 @@ export function PersonenListe({ liste, istIchSelbst, verwaltung, aktionen }: Lis
             <span className="flex items-center gap-2 text-xs text-muted-foreground">
               Verwaltung {verwaltung(b)}
             </span>
+            <span className="flex items-center gap-2 text-xs text-muted-foreground">
+              Entwickler {entwickler(b)}
+            </span>
             <span className="text-xs">
               <Passwort b={b} />
             </span>
@@ -105,7 +116,7 @@ export function PersonenListe({ liste, istIchSelbst, verwaltung, aktionen }: Lis
   return (
     <div className="overflow-x-auto">
       {/* Die Tabelle rollt in SICH, nicht die Seite (Phase D4). */}
-      <table className="w-full min-w-[46rem] border-collapse text-sm" data-testid="personen-liste">
+      <table className="w-full min-w-[52rem] border-collapse text-sm" data-testid="personen-liste">
         <thead>
           <tr className="border-b border-border text-left text-muted-foreground">
             <th scope="col" className="p-2 font-medium">
@@ -116,6 +127,9 @@ export function PersonenListe({ liste, istIchSelbst, verwaltung, aktionen }: Lis
             </th>
             <th scope="col" className="p-2 font-medium">
               Verwaltung
+            </th>
+            <th scope="col" className="p-2 font-medium">
+              Entwickler
             </th>
             <th scope="col" className="p-2 font-medium">
               Passwort
@@ -140,6 +154,7 @@ export function PersonenListe({ liste, istIchSelbst, verwaltung, aktionen }: Lis
               </td>
               <td className="p-2 text-muted-foreground">{b.email || '—'}</td>
               <td className="p-2">{verwaltung(b)}</td>
+              <td className="p-2">{entwickler(b)}</td>
               <td className="p-2">
                 <Passwort b={b} />
               </td>

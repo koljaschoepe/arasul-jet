@@ -13,6 +13,8 @@
  * (das steht im Bereich Daten, nicht hier): es nimmt den Zugang und beendet die angemeldeten Rechner, Entscheidungen und
  * Läufe bleiben stehen. Der Schalter „Verwaltung" macht zum Administrator; der
  * letzte bleibt, und das weist das Backend ab, nicht nur diese Oberfläche.
+ * Der Schalter „Entwickler" öffnet der Person das Terminal (Karte
+ * terminal-im-frontend, M5); Standard aus.
  *
  * Freigaben: die Apps je Person (Schalter). Die Stufen auf den Ordnern stehen
  * NICHT hier, sondern einmal im Bereich Firmenordner, am aufgeklappten Ordner.
@@ -33,8 +35,10 @@ import { PersonAnlegenDialog } from './personen/PersonAnlegenDialog';
 import { StartpasswortDialog, type StartpasswortZettel } from './personen/StartpasswortDialog';
 import {
   anzeigeName,
+  linuxNutzer,
   useAktivSetzen,
   useBenutzer,
+  useEntwicklerSetzen,
   useNeuesStartpasswort,
   usePersonAnlegen,
   useVerwaltungSetzen,
@@ -52,6 +56,7 @@ export function PersonenSettings() {
   const neuesStartpasswort = useNeuesStartpasswort();
   const aktivSetzen = useAktivSetzen();
   const verwaltungSetzen = useVerwaltungSetzen();
+  const entwicklerSetzen = useEntwicklerSetzen();
 
   const [anlegenOffen, setAnlegenOffen] = useState(false);
   const [zettel, setZettel] = useState<StartpasswortZettel | null>(null);
@@ -155,6 +160,30 @@ export function PersonenSettings() {
                   data-testid={`verwaltung-${b.username}`}
                   onCheckedChange={an => verwaltungSetzen.mutate({ id: b.id, verwaltung: an })}
                 />
+              )}
+              entwickler={b => (
+                /* Die Rolle Entwickler öffnet das Terminal (Karte
+                   terminal-im-frontend). Standard aus. Ist sie an, steht der
+                   Nutzer am Gerät daneben: den braucht, wer ihn mit
+                   `scripts/terminal/nutzer.sh` anlegt. */
+                <span className="flex items-center gap-2">
+                  <Switch
+                    checked={b.entwickler === true}
+                    disabled={entwicklerSetzen.isPending}
+                    aria-label={`Entwickler für ${anzeigeName(b)}`}
+                    data-testid={`entwickler-${b.username}`}
+                    onCheckedChange={an => entwicklerSetzen.mutate({ id: b.id, entwickler: an })}
+                  />
+                  {b.entwickler && (
+                    <span
+                      className="font-mono text-xs text-muted-foreground"
+                      title="So heißt diese Person im Terminal am Gerät"
+                      data-testid={`linux-nutzer-${b.username}`}
+                    >
+                      {linuxNutzer(b.id)}
+                    </span>
+                  )}
+                </span>
               )}
               aktionen={b =>
                 /* Für das eigene Konto stehen hier keine Knöpfe: das Backend

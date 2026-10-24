@@ -10,7 +10,12 @@
  */
 
 /** Die Spalten, die zur Auskunft ueber eine Person gehoeren (ohne das Bild selbst). */
-const PROFIL_SPALTEN = 'vorname, nachname, funktion, kuerzel, (bild_daten IS NOT NULL) AS hat_bild';
+//
+// `entwickler` (Migration 213, Karte terminal-im-frontend) faehrt mit, weil die
+// Shell daran entscheidet, ob die Aktivitaetsleiste das Terminal zeigt.
+// Berechtigt wird damit nichts: die Tuer prueft `GET /intern/terminal/tor`.
+const PROFIL_SPALTEN =
+  'vorname, nachname, funktion, kuerzel, (bild_daten IS NOT NULL) AS hat_bild, entwickler';
 
 /** Der Name, wie er sichtbar wird: „Vorname Nachname", sonst der Benutzername. */
 function anzeigeName(zeile) {
@@ -29,6 +34,7 @@ function profilVon(zeile) {
     funktion: zeile.funktion ?? null,
     kuerzel: zeile.kuerzel ?? null,
     hatBild: zeile.hat_bild === true,
+    entwickler: zeile.entwickler === true,
     anzeigeName: anzeigeName(zeile),
   };
 }

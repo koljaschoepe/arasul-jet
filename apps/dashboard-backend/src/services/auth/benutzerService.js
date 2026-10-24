@@ -258,6 +258,30 @@ async function setzeVerwaltung({ userId, verwaltung }) {
   return result.rows[0];
 }
 
+/**
+ * Der Schalter „Entwickler" (Karte terminal-im-frontend, M5): darf diese
+ * Person das Terminal oeffnen. Standard aus, nur der Administrator schaltet.
+ *
+ * Ein offenes Terminal endet damit nicht von selbst: die Tuer
+ * (`GET /intern/terminal/tor`) fragt bei jedem neuen Aufbau, nicht waehrend der
+ * Sitzung. Wer jemanden sofort heraushaben will, entfernt den Linux-Nutzer
+ * (`scripts/terminal/nutzer.sh entfernen`), das beendet seine Prozesse.
+ */
+async function setzeEntwickler({ userId, entwickler }) {
+  const result = await db.query(
+    `UPDATE admin_users SET entwickler = $2, updated_at = NOW() WHERE id = $1 RETURNING ${SPALTEN}`,
+    [userId, entwickler]
+  );
+  if (result.rows.length === 0) {
+    throw new NotFoundError(`Benutzer ${userId} gibt es nicht`);
+  }
+  invalidateUserCache(userId);
+  logger.warn(
+    `Benutzer ${result.rows[0].username} (id=${userId}) ist ${entwickler ? 'jetzt' : 'nicht mehr'} Entwickler (Terminal)`
+  );
+  return result.rows[0];
+}
+
 /** Die Profilfelder einer Person setzen (nur sie selbst, `routes/profil.js`). */
 async function aktualisiereProfil(userId, { vorname, nachname, funktion, kuerzel }) {
   const result = await db.query(
@@ -526,6 +550,7 @@ module.exports = {
   pruefeKontenGrenze,
   setzeAktiv,
   setzeVerwaltung,
+  setzeEntwickler,
   aktualisiereProfil,
   setzeBild,
   holeBild,

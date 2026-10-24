@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ellipsis, House, Settings, SlidersHorizontal } from 'lucide-react';
+import { Ellipsis, House, Settings, SlidersHorizontal, SquareTerminal } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger, cn } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore, ansichtId } from '@/stores/workspaceStore';
@@ -37,6 +37,7 @@ const ZEILE =
 export function LeisteUnten() {
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
+  const istEntwickler = user?.entwickler === true;
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const oeffne = useWorkspaceStore(s => s.oeffne);
   const aktivId = ansichtId(ansicht);
@@ -50,7 +51,11 @@ export function LeisteUnten() {
   const [offen, setOffen] = useState(false);
 
   const restId = rest.map(e => ansichtId({ type: 'app', appId: e.id, stand: e.stand }));
-  const mehrAktiv = restId.includes(aktivId) || aktivId === 'verwaltung' || aktivId === 'settings';
+  const mehrAktiv =
+    restId.includes(aktivId) ||
+    aktivId === 'verwaltung' ||
+    aktivId === 'settings' ||
+    aktivId === 'terminal';
   const geh = (a: Parameters<typeof oeffne>[0]) => {
     setOffen(false);
     oeffne(a);
@@ -142,6 +147,18 @@ export function LeisteUnten() {
             );
           })}
           {rest.length > 0 && <div className="my-1 h-px bg-border" aria-hidden="true" />}
+          {istEntwickler && (
+            <button
+              type="button"
+              data-testid="leiste-terminal"
+              aria-current={aktivId === 'terminal' ? 'page' : undefined}
+              onClick={() => (aktivId === 'terminal' ? setOffen(false) : geh({ type: 'terminal' }))}
+              className={cn(ZEILE, aktivId === 'terminal' && 'bg-primary/12 text-primary')}
+            >
+              <SquareTerminal className="size-4.5 shrink-0" aria-hidden="true" />
+              Terminal
+            </button>
+          )}
           {istAdmin && (
             <button
               type="button"

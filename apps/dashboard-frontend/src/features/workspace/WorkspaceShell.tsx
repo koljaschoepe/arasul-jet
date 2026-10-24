@@ -6,6 +6,7 @@ import {
   ansichtZuPfad,
   ansichtTitel,
   nurFuerAdmin,
+  nurFuerEntwickler,
   type Ansicht,
 } from '@/stores/workspaceStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -80,6 +81,7 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const istAdmin = user?.role === 'admin';
+  const istEntwickler = user?.entwickler === true;
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const oeffne = useWorkspaceStore(s => s.oeffne);
   const schmal = useSchmalesFenster();
@@ -107,7 +109,9 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
   useEffect(() => {
     const gewuenscht = ausDerAdresse(location.pathname, location.search);
     oeffne(
-      gewuenscht && (istAdmin || !nurFuerAdmin(gewuenscht.type))
+      gewuenscht &&
+        (istAdmin || !nurFuerAdmin(gewuenscht.type)) &&
+        (istEntwickler || !nurFuerEntwickler(gewuenscht.type))
         ? gewuenscht
         : { type: 'dashboard' }
     );
@@ -116,7 +120,7 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
     // Die Abfrage gehört zur Adresse der App (`?freigabe=`); die alten `?tab=` der
     // Verwaltung stehen nicht im Pfad und werden hier mit ersetzt.
     if (location.pathname + location.search !== pfad) navigate(pfad, { replace: true });
-  }, [location.pathname, location.search, istAdmin]);
+  }, [location.pathname, location.search, istAdmin, istEntwickler]);
 
   // Store → URL: ein Klick in der Leiste ist ein Schritt im Verlauf. Den
   // frischen Stand lesen, nicht den Render-Schnappschuss: beim ersten Lauf hat

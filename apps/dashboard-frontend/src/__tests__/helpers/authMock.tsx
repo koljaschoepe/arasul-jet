@@ -29,6 +29,7 @@ interface Angemeldeter {
   kuerzel?: string | null;
   hatBild?: boolean;
   anzeigeName?: string;
+  entwickler?: boolean;
 }
 
 const VORGABE: Angemeldeter = { id: 1, username: 'admin', role: 'admin' };

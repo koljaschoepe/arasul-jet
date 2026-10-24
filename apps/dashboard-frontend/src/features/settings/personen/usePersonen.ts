@@ -46,6 +46,16 @@ export interface Benutzer {
   funktion: string | null;
   kuerzel: string | null;
   hat_bild: boolean;
+  /** Rolle Entwickler: darf das Terminal öffnen (Migration 213). */
+  entwickler: boolean;
+}
+
+/**
+ * Der Nutzer der Person am Gerät, wenn sie Entwickler ist: `ara-<id>`, aus der
+ * Kennung und nie aus dem Namen (Backend: `services/terminal/terminal.js`).
+ */
+export function linuxNutzer(id: BenutzerId): string {
+  return `ara-${String(id)}`;
 }
 
 /** „Vorname Nachname", sonst der Benutzername (Konten aus der Zeit vor den Profilfeldern). */
@@ -147,6 +157,21 @@ export function useVerwaltungSetzen() {
   return useMutation({
     mutationFn: async ({ id, verwaltung }: { id: BenutzerId; verwaltung: boolean }) => {
       const res = await api.put<{ data: Benutzer }>(`/benutzer/${id}/verwaltung`, { verwaltung });
+      return res.data;
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: BENUTZER_KEY });
+    },
+  });
+}
+
+/** Der Schalter „Entwickler": darf die Person das Terminal öffnen. Standard aus. */
+export function useEntwicklerSetzen() {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, entwickler }: { id: BenutzerId; entwickler: boolean }) => {
+      const res = await api.put<{ data: Benutzer }>(`/benutzer/${id}/entwickler`, { entwickler });
       return res.data;
     },
     onSettled: () => {

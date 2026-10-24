@@ -29,6 +29,7 @@ const {
   SetzePasswortBody,
   SetzeAktivBody,
   SetzeVerwaltungBody,
+  SetzeEntwicklerBody,
 } = require('../../schemas/benutzer');
 const benutzerService = require('../../services/auth/benutzerService');
 const { setzePasswort } = require('../../services/auth/passwordService');
@@ -192,6 +193,31 @@ router.put(
     logSecurityEvent({
       userId: req.user.id,
       action: req.body.verwaltung ? 'benutzer_verwaltung_erteilt' : 'benutzer_verwaltung_entzogen',
+      details: { benutzer: benutzer.username },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data: benutzer, timestamp: new Date().toISOString() });
+  })
+);
+
+// PUT /api/benutzer/:id/entwickler — der Schalter „Entwickler": darf diese Person
+// das Terminal oeffnen (Karte terminal-im-frontend, M5). Standard aus. Auch fuer
+// das eigene Konto: ein Administrator, der selbst entwickelt, schaltet sich frei.
+router.put(
+  '/:id/entwickler',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(BenutzerIdParams),
+  validateBody(SetzeEntwicklerBody),
+  asyncHandler(async (req, res) => {
+    const benutzer = await benutzerService.setzeEntwickler({
+      userId: req.params.id,
+      entwickler: req.body.entwickler,
+    });
+    logSecurityEvent({
+      userId: req.user.id,
+      action: req.body.entwickler ? 'benutzer_entwickler_erteilt' : 'benutzer_entwickler_entzogen',
       details: { benutzer: benutzer.username },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],

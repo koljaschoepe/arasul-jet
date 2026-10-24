@@ -44,6 +44,8 @@ interface User {
   funktion?: string | null;
   kuerzel?: string | null;
   hatBild?: boolean;
+  /** Rolle Entwickler (Migration 213): die Leiste zeigt das Terminal. */
+  entwickler?: boolean;
   anzeigeName?: string;
   [key: string]: unknown;
 }

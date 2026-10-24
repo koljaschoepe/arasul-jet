@@ -100,6 +100,21 @@ describe('ActivityBar', () => {
     expect(screen.getByLabelText('Einstellungen')).toBeInTheDocument();
   });
 
+  it('zeigt das Terminal nur der Rolle Entwickler, auch nicht dem Administrator', async () => {
+    zeige();
+    expect(await screen.findByLabelText('Urlaubsantrag')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Terminal')).not.toBeInTheDocument();
+  });
+
+  it('ein Entwickler öffnet das Terminal mit einem Klick', async () => {
+    angemeldet({ role: 'mitarbeiter', username: 'eva', entwickler: true });
+    zeige();
+    fireEvent.click(await screen.findByLabelText('Terminal'));
+    expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'terminal' });
+    expect(screen.getByTestId('leiste-terminal')).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByLabelText('Verwaltung')).not.toBeInTheDocument();
+  });
+
   it('trägt die Zahl offener Freigaben am Haus', async () => {
     zeige({ freigaben: 3 });
     expect(await screen.findByTestId('leiste-freigaben-zahl')).toHaveTextContent('3');
