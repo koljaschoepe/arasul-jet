@@ -650,35 +650,35 @@ steht in ihrem Manifest `app.json` — die Felder erklärt
 Je App gibt es zwei Stände: `live` für alle Freigegebenen, `test` für die
 benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 
-| Method | Endpoint                                             | Description                                                                                                   |
-| ------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/apps`                                          | Alle Apps mit beiden Ständen und dem Zustand ihrer Container                                                  |
-| GET    | `/api/apps/meine`                                    | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter)                                            |
-| GET    | `/api/apps/reihenfolge`                              | Meine Reihenfolge der Apps in der Aktivitätsleiste, Liste von `<kennung>:<stand>` (M5)                        |
-| PUT    | `/api/apps/reihenfolge`                              | Reihenfolge setzen, Body `{ reihenfolge: ["<kennung>:<stand>", …] }`, höchstens 200, ohne Doppelte (M5)       |
-| GET    | `/api/apps/:id`                                      | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                                    |
-| POST   | `/api/apps/:id/einspielen`                           | Eine Version in einen Stand bringen                                                                           |
-| DELETE | `/api/apps/:id`                                      | App entfernen: beide Container, beide Stände, Freigaben (Ordner gehen mit, `?dateien=false` lässt sie liegen) |
-| GET    | `/api/apps/:id/logs`                                 | Die letzten Zeilen des App-Backends                                                                           |
-| GET    | `/api/apps/:id/zugang`                               | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)                                                 |
-| GET    | `/api/apps/:id/flows`                                | Die Flows beider Stände, mit dem Modell, das sie treibt                                                       |
-| GET    | `/api/apps/:id/flows/:name`                          | Die Flow-Datei selbst, samt Prompt (Phase D4)                                                                 |
-| PUT    | `/api/apps/:id/flows/:name/modell`                   | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                                                |
-| PUT    | `/api/apps/:id/flows/:name/art`                      | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                                      |
-| PUT    | `/api/apps/:id/flows/:name/aktiv`                    | Einen Flow aus- und einschalten `{ aktiv }`; ein inaktiver startet nicht (M5)                                 |
-| PUT    | `/api/apps/:id/flows/:name/zeitplan`                 | Den Zeitplan eines Flows pausieren `{ pausiert }`; nur der Zeitplan, nicht `aktiv` (M5)                       |
-| PUT    | `/api/apps/:id/bilder-an-agenten`                    | Schalter „Bildschirmfotos an den Agenten“ `{ erlaubt }`, Vorgabe aus; siehe Rückmeldungen für das Kit (J43)      |
-| GET    | `/api/apps/:id/schritt-modelle`                      | Je Flow die Schritte mit Modell: Original, was gilt, Fähigkeiten, wählbare Modelle (M5)                       |
-| PUT    | `/api/apps/:id/flows/:name/schritte/:schritt/modell` | Einen Schritt auf ein installiertes Modell umstellen `{ modell }`, `null` = Original (M5)                     |
-| GET    | `/api/apps/modell-hinweise`                          | Schritte, deren Modell fehlt oder deren Wahl nicht mehr passt, über alle Apps (M5)                            |
-| GET    | `/api/apps/:id/stufen`                               | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)                            |
-| PUT    | `/api/apps/:id/stufen/:stufe`                        | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)                             |
-| POST   | `/api/apps/:id/laeufe/:runId/erneut`                 | Die Übergabe eines Laufs auf `nicht_uebergeben` noch einmal an die App (M5, Kontrakt 11)                      |
-| GET    | `/api/laeufe`                                        | Die Läufe aller Apps mit Filtern, Fehler zuerst (Admin, M5)                                                   |
-| GET    | `/api/laeufe/:id`                                    | Ein Lauf samt Schritten, Freigaben und Person, aus jeder App (Admin, M5)                                      |
-| POST   | `/api/laeufe/:id/abbrechen`                          | Einen laufenden oder wartenden Lauf abbrechen, auch ohne Person (Admin, M5)                                   |
-| GET    | `/api/apps/:id/ki-aufrufe`                           | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                                              |
-| POST   | `/api/apps/:id/schalten`                             | Den Teststand live schalten oder zurücknehmen (Phase D4)                                                      |
+| Method | Endpoint                                             | Description                                                                                                     |
+| ------ | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/apps`                                          | Alle Apps mit beiden Ständen und dem Zustand ihrer Container                                                    |
+| GET    | `/api/apps/meine`                                    | Die Apps, die dem Aufrufer freigegeben sind (auch für Mitarbeiter); mit Kennzeichen dazu das Entwickler-Cockpit |
+| GET    | `/api/apps/reihenfolge`                              | Meine Reihenfolge der Apps in der Aktivitätsleiste, Liste von `<kennung>:<stand>` (M5)                          |
+| PUT    | `/api/apps/reihenfolge`                              | Reihenfolge setzen, Body `{ reihenfolge: ["<kennung>:<stand>", …] }`, höchstens 200, ohne Doppelte (M5)         |
+| GET    | `/api/apps/:id`                                      | Eine App im Einzelnen: Manifest, Versionen, Modelle, Flows                                                      |
+| POST   | `/api/apps/:id/einspielen`                           | Eine Version in einen Stand bringen                                                                             |
+| DELETE | `/api/apps/:id`                                      | App entfernen: beide Container, beide Stände, Freigaben (Ordner gehen mit, `?dateien=false` lässt sie liegen)   |
+| GET    | `/api/apps/:id/logs`                                 | Die letzten Zeilen des App-Backends                                                                             |
+| GET    | `/api/apps/:id/zugang`                               | Forward-Auth vor dem Backend einer App (auch für Mitarbeiter)                                                   |
+| GET    | `/api/apps/:id/flows`                                | Die Flows beider Stände, mit dem Modell, das sie treibt                                                         |
+| GET    | `/api/apps/:id/flows/:name`                          | Die Flow-Datei selbst, samt Prompt (Phase D4)                                                                   |
+| PUT    | `/api/apps/:id/flows/:name/modell`                   | Das Modell eines Flows setzen: lokal, extern oder zurücknehmen                                                  |
+| PUT    | `/api/apps/:id/flows/:name/art`                      | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                                        |
+| PUT    | `/api/apps/:id/flows/:name/aktiv`                    | Einen Flow aus- und einschalten `{ aktiv }`; ein inaktiver startet nicht (M5)                                   |
+| PUT    | `/api/apps/:id/flows/:name/zeitplan`                 | Den Zeitplan eines Flows pausieren `{ pausiert }`; nur der Zeitplan, nicht `aktiv` (M5)                         |
+| PUT    | `/api/apps/:id/bilder-an-agenten`                    | Schalter „Bildschirmfotos an den Agenten“ `{ erlaubt }`, Vorgabe aus; siehe Rückmeldungen für das Kit (J43)     |
+| GET    | `/api/apps/:id/schritt-modelle`                      | Je Flow die Schritte mit Modell: Original, was gilt, Fähigkeiten, wählbare Modelle (M5)                         |
+| PUT    | `/api/apps/:id/flows/:name/schritte/:schritt/modell` | Einen Schritt auf ein installiertes Modell umstellen `{ modell }`, `null` = Original (M5)                       |
+| GET    | `/api/apps/modell-hinweise`                          | Schritte, deren Modell fehlt oder deren Wahl nicht mehr passt, über alle Apps (M5)                              |
+| GET    | `/api/apps/:id/stufen`                               | Die Freigabestufen der App mit Standardperson, wählbaren Personen und Hinweis (M5)                              |
+| PUT    | `/api/apps/:id/stufen/:stufe`                        | Standardperson einer Stufe setzen `{ benutzer_id }`, `null` nimmt sie zurück (M5)                               |
+| POST   | `/api/apps/:id/laeufe/:runId/erneut`                 | Die Übergabe eines Laufs auf `nicht_uebergeben` noch einmal an die App (M5, Kontrakt 11)                        |
+| GET    | `/api/laeufe`                                        | Die Läufe aller Apps mit Filtern, Fehler zuerst (Admin, M5)                                                     |
+| GET    | `/api/laeufe/:id`                                    | Ein Lauf samt Schritten, Freigaben und Person, aus jeder App (Admin, M5)                                        |
+| POST   | `/api/laeufe/:id/abbrechen`                          | Einen laufenden oder wartenden Lauf abbrechen, auch ohne Person (Admin, M5)                                     |
+| GET    | `/api/apps/:id/ki-aufrufe`                           | Jeder Modellaufruf dieser App, auch ohne Flow, ohne Inhalt (J35)                                                |
+| POST   | `/api/apps/:id/schalten`                             | Den Teststand live schalten oder zurücknehmen (Phase D4); Admin oder Kennzeichen Entwickler (J44)               |
 
 Alle bis auf `/meine` und `/:id/zugang` sind Admin-Wege.
 
@@ -1084,6 +1084,11 @@ Dienst wie der Kit-Weg `POST /api/v1/external/apps/:id/schalten` (C5), aber für
 einen Menschen mit einer Sitzung: das Kit schaltet, wenn der Partner
 ausgeliefert hat, der Administrator, wenn **er** den Teststand gesehen hat.
 Antworten: `200`, `409` ohne Teststand bzw. ohne vorige Version.
+
+**Wer schaltet** (seit J44, 20.11.2026): der Administrator, und wer das
+Kennzeichen Entwickler trägt, auch ohne Admin-Rolle (das Entwickler-Cockpit
+nimmt diesen Weg). Ein Mitarbeiter ohne Kennzeichen bekommt `403`. Im
+Sicherheitsprotokoll steht `app_geschaltet` mit `rolle`.
 
 **Nach live geht es gesichert und mit Rückfall** (M5, 04.10.2026,
 `services/app/liveSchalten.js`): hat die App einen Server-Teil und eine
@@ -2833,9 +2838,9 @@ Schalter „Entwickler“ (`PUT /api/benutzer/:id/entwickler`) und nur, wenn das
 Gerät das Profil `terminal` fährt. Aufbau und Trennung:
 [`docs/features/TERMINAL.md`](../features/TERMINAL.md).
 
-| Method | Endpoint            | Auth           | Description                                                                                                                                                                                                                                                       |
-| ------ | ------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/terminal`     | admin, mitarb. | `{ data: { an, entwickler, linuxNutzer } }`: läuft ein Terminal am Gerät, darf ich, und welcher Nutzer bin ich dort (`null` ohne die Rolle)                                                                                                                       |
+| Method | Endpoint               | Auth           | Description                                                                                                                                                                                                                                                       |
+| ------ | ---------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/terminal`        | admin, mitarb. | `{ data: { an, entwickler, linuxNutzer } }`: läuft ein Terminal am Gerät, darf ich, und welcher Nutzer bin ich dort (`null` ohne die Rolle)                                                                                                                       |
 | GET    | `/intern/terminal/tor` | Sitzungscookie | Forward-Auth für Traefik vor `/terminal/`. 200 mit Kopfzeile `X-Arasul-Terminal-Nutzer: ara-<id>:<siegel>`; 401 ohne gültige Sitzung (ein Ausweis im `Authorization`-Kopf zählt nicht), 403 ohne Rolle, bei fremder `Origin` oder ohne Profil, 503 ohne Geheimnis |
 
 `<siegel>` sind die ersten 16 Hex-Zeichen von HMAC-SHA256 über `ara-<id>` mit
@@ -2856,15 +2861,33 @@ Kennzeichen Entwickler trägt (`admin_users.entwickler`, bei jedem Aufruf frisch
 aus der Datenbank, auch beim Administrator). Vertrag:
 [`docs/features/RUECKMELDUNG.md`](../features/RUECKMELDUNG.md).
 
-| Method | Endpoint                          | Auth                  | Description                                                                                                                                                                                                                                                       |
-| ------ | --------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/api/rueckmeldungen`             | admin, mitarb.        | Body `{ app_id, stand, seite, text, bild?, markierung? }`. `seite` liegt unter `/apps/<app_id>/`, `text` 1 bis 5000 Zeichen, `bild` ein `data:image/png;base64,…` bis 6 MB, `markierung` `{ x, y, breite, hoehe }` in Anteilen 0 bis 1. 201 `{ data: { id, erstellt_am } }`; 403 ohne Zugang zur App, 400 bei Seite außerhalb der App oder anderem Bild als PNG |
-| GET    | `/api/rueckmeldungen`             | Kennzeichen Entwickler | Neueste zuerst, höchstens 200, `?app_id=` filtert. Je Meldung `id, app_id, app_name, stand, seite, text, hat_bild, markierung, person { id, anzeigeName } \| null, stand_meldung, erstellt_am`. 403 ohne Kennzeichen                                                  |
-| GET    | `/api/rueckmeldungen/:id/bild`    | Kennzeichen Entwickler | Das Bildschirmfoto als `image/png` mit der markierten Stelle. 404 ohne Bild oder wenn die Datei am Gerät fehlt                                                                                                                                                  |
-| DELETE | `/api/rueckmeldungen/:id`         | Kennzeichen Entwickler | Entfernt Meldung und Bilddatei. 404, wenn es sie nicht gibt                                                                                                                                                                                                      |
+| Method | Endpoint                       | Auth                   | Description                                                                                                                                                                                                                                                                                                                                                     |
+| ------ | ------------------------------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/rueckmeldungen`          | admin, mitarb.         | Body `{ app_id, stand, seite, text, bild?, markierung? }`. `seite` liegt unter `/apps/<app_id>/`, `text` 1 bis 5000 Zeichen, `bild` ein `data:image/png;base64,…` bis 6 MB, `markierung` `{ x, y, breite, hoehe }` in Anteilen 0 bis 1. 201 `{ data: { id, erstellt_am } }`; 403 ohne Zugang zur App, 400 bei Seite außerhalb der App oder anderem Bild als PNG |
+| GET    | `/api/rueckmeldungen`          | Kennzeichen Entwickler | Neueste zuerst, höchstens 500 (seit J44, vorher 200), `?app_id=` filtert. Je Meldung `id, app_id, app_name, stand, seite, text, hat_bild, markierung, person { id, anzeigeName } \| null, stand_meldung, grund, stand_geaendert_am, erstellt_am`. 403 ohne Kennzeichen                                                                                          |
+| PATCH  | `/api/rueckmeldungen/:id`      | Kennzeichen Entwickler | Stand setzen im Entwickler-Cockpit (J44). Body `{ stand_meldung, grund? }` wie beim Kit, `grund` Pflicht bei `abgelehnt` (400), ein neuer Stand ohne Grund löscht den alten. Antwort die Meldung wie bei GET plus `vorher`; am Gerät `stand_geaendert_durch = "person:<id>"`, im Protokoll `rueckmeldung_stand_gesetzt`. 404 ohne Meldung                       |
+| GET    | `/api/rueckmeldungen/:id/bild` | Kennzeichen Entwickler | Das Bildschirmfoto als `image/png` mit der markierten Stelle. 404 ohne Bild oder wenn die Datei am Gerät fehlt                                                                                                                                                                                                                                                  |
+| DELETE | `/api/rueckmeldungen/:id`      | Kennzeichen Entwickler | Entfernt Meldung und Bilddatei. 404, wenn es sie nicht gibt                                                                                                                                                                                                                                                                                                     |
 
 Der Melder bekommt nach dem Absenden nur Nummer und Zeit zurück; einen Weg,
 die eigenen Meldungen wieder zu lesen, gibt es nicht (`schleife.md`, Regel 2).
+
+#### Für das Entwickler-Cockpit (J44, M7, 20.11.2026)
+
+Das Cockpit ist die mitgelieferte App unter `/apps/entwickler-cockpit/`. Es
+hat kein Backend und ruft die Plattform mit der Sitzung des Menschen davor;
+jede Route prüft das Kennzeichen frisch. Dazu kommt ein Weg, den es sonst
+nicht gibt:
+
+| Method | Endpoint               | Auth                   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------ | ---------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/entwickler/apps` | Kennzeichen Entwickler | Über ALLE Apps des Geräts, nach Namen, die mitgelieferten am Ende. Je App `id, name, symbol, mitgeliefert, live, test` (je `{ version, eingespielt_am, aenderungstext, vorige_version }` oder `null`), `zuletzt_geaendert`, `test_neuer` (eine Fassung im Test, die nicht die des Livestands ist), `meldungen { offen, neu, umgesetzt }`, `letzte_schaltung { ergebnis, satz, nach_version, am } \| null`. 403 ohne Kennzeichen, auch für den Administrator |
+
+Geschaltet wird über `POST /api/apps/:id/schalten`, das seit J44 auch ein
+Entwickler ohne Admin-Rolle rufen darf. Die Seite selbst
+(`GET /apps/entwickler-cockpit/…`) bekommt nur, wer das Kennzeichen trägt
+(403 sonst, auch für den Administrator; kein Teststand: 404), und
+`GET /api/apps/meine` nennt sie nur dann, mit `mitgeliefert: true`.
 
 #### Für das Kit (J43, M7, 20.11.2026)
 
@@ -2878,11 +2901,11 @@ abgeholte Bild und jeder gesetzte Stand steht in `audit_logs`
 Beispiele mit und ohne Bild, alle Fehlerfälle:
 [`RUECKMELDUNG.md`, Schnittstelle für das Kit](../features/RUECKMELDUNG.md#schnittstelle-für-das-kit).
 
-| Method | Endpoint                                              | Auth                   | Description                                                                                                                                                                                                                       |
-| ------ | ----------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/v1/external/apps/:id/rueckmeldungen`            | API Key `feedback:agent` | Älteste zuerst. `?stand_meldung=neu,angenommen` (Komma-Liste), `?stand=test\|live`, `?grenze=1..500` (Vorgabe 200). `{ data: { app_id, app_name, bilder_an_agenten, anzahl, meldungen[] } }`; je Meldung `id, app_id, stand, seite, text, person, erstellt_am, stand_meldung, grund, stand_geaendert_am`, und NUR mit Erlaubnis `bild` (`null` oder `{ weg, format, markierung }`). 404 ohne App |
-| GET    | `/api/v1/external/apps/:id/rueckmeldungen/:nr/bild`   | API Key `feedback:agent` | Das PNG mit eingezeichneter Stelle. 403, wenn der Schalter der App aus ist; 404 ohne Meldung dieser App oder ohne Bild                                                                                                             |
-| PATCH  | `/api/v1/external/apps/:id/rueckmeldungen/:nr`        | API Key `feedback:agent` | Body `{ stand_meldung, grund? }`, `grund` Pflicht bei `abgelehnt` (400 sonst). Antwort die Meldung wie oben plus `vorher`. 404 ohne Meldung dieser App                                                                            |
+| Method | Endpoint                                            | Auth                     | Description                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------ | --------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/v1/external/apps/:id/rueckmeldungen`          | API Key `feedback:agent` | Älteste zuerst. `?stand_meldung=neu,angenommen` (Komma-Liste), `?stand=test\|live`, `?grenze=1..500` (Vorgabe 200). `{ data: { app_id, app_name, bilder_an_agenten, anzahl, meldungen[] } }`; je Meldung `id, app_id, stand, seite, text, person, erstellt_am, stand_meldung, grund, stand_geaendert_am`, und NUR mit Erlaubnis `bild` (`null` oder `{ weg, format, markierung }`). 404 ohne App |
+| GET    | `/api/v1/external/apps/:id/rueckmeldungen/:nr/bild` | API Key `feedback:agent` | Das PNG mit eingezeichneter Stelle. 403, wenn der Schalter der App aus ist; 404 ohne Meldung dieser App oder ohne Bild                                                                                                                                                                                                                                                                           |
+| PATCH  | `/api/v1/external/apps/:id/rueckmeldungen/:nr`      | API Key `feedback:agent` | Body `{ stand_meldung, grund? }`, `grund` Pflicht bei `abgelehnt` (400 sonst). Antwort die Meldung wie oben plus `vorher`. 404 ohne Meldung dieser App                                                                                                                                                                                                                                           |
 
 Den Schalter setzt der Administrator: `PUT /api/apps/:id/bilder-an-agenten`
 (Sitzung, Rolle admin), Body `{ "erlaubt": true }`, Antwort

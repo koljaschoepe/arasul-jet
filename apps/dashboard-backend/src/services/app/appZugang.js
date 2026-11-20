@@ -21,6 +21,7 @@
  */
 
 const db = require('../../database');
+const mitgeliefert = require('./mitgeliefert');
 const { ForbiddenError, NotFoundError } = require('../../utils/errors');
 
 /**
@@ -75,6 +76,12 @@ function kopfWert(text) {
  * @returns {Promise<{app_id: string, stand: string, freigegeben_bis: string}>}
  */
 async function pruefe({ benutzerId, appId, stand }) {
+  // Eine App, die mit Arasul kommt (J44), sieht, wer das Kennzeichen
+  // Entwickler traegt -- nicht, wer in `app_members` steht. Die Regel steht
+  // in `mitgeliefert.js`, an einer Stelle fuer Seite und Forward-Auth.
+  if (mitgeliefert.istMitgeliefert(appId)) {
+    return mitgeliefert.pruefe({ benutzerId, appId, stand });
+  }
   const freigabe = await db.query(
     'SELECT stand FROM public.app_members WHERE app_id = $1 AND user_id = $2',
     [appId, benutzerId]

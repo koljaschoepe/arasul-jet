@@ -5,8 +5,10 @@
 > (Teil „Rückmeldung“, Regeln 1 bis 3). Seit demselben Tag die Schnittstelle
 > für das Kit mit dem Schalter je App für Bilder (Karte
 > `rueckmeldung-schnittstelle`, J43, Abschnitt
-> [Schnittstelle für das Kit](#schnittstelle-für-das-kit)). Was danach kommt:
-> das Entwickler-Cockpit (J44).
+> [Schnittstelle für das Kit](#schnittstelle-für-das-kit)). Seit demselben Tag
+> das Entwickler-Cockpit (Karte `entwickler-cockpit`, J44, Abschnitt
+> [Das Entwickler-Cockpit](#das-entwickler-cockpit)); es ersetzt die Liste
+> Verwaltung › Rückmeldungen.
 
 Über jeder App zeigt der Rahmen von Arasul oben rechts ein kleines Icon. Ein
 Mitarbeiter tippt darauf, schreibt in freien Worten, was fehlt oder nicht
@@ -100,6 +102,7 @@ PNG gezeichnet (Farbe aus dem Token `--primary`) und zusätzlich als
 | `POST /api/rueckmeldungen`         | jeder, der die App in diesem Stand benutzen darf (`appZugang.pruefe`) |
 | `GET /api/rueckmeldungen`          | nur Kennzeichen Entwickler                                            |
 | `GET /api/rueckmeldungen/:id/bild` | nur Kennzeichen Entwickler                                            |
+| `PATCH /api/rueckmeldungen/:id`    | nur Kennzeichen Entwickler (Stand setzen im Cockpit, J44)             |
 | `DELETE /api/rueckmeldungen/:id`   | nur Kennzeichen Entwickler                                            |
 
 Das Kennzeichen wird bei **jedem** lesenden Aufruf frisch aus der Datenbank
@@ -111,13 +114,68 @@ echtes Postgres in `__tests__/pg/rueckmeldungen.test.js`.
 
 Einzelheiten der Wege: [`docs/api/API_REFERENCE.md`](../api/API_REFERENCE.md#rückmeldungen-j42-m7-20112026).
 
-## Die Liste für Entwickler
+## Das Entwickler-Cockpit
 
-Verwaltung › **Rückmeldungen**, nach Apps, nur in der Leiste, wenn die Person
-das Kennzeichen trägt. Neueste zuerst; je Meldung App (mit „(Test)“ für den
-Teststand), Person, Zeit, Text, Seite und das Foto mit der Stelle, das auf
-Klick groß aufgeht; „Entfernen“ mit Rückfrage. Bewusst nicht mehr: den Eingang
-mit Ständen und die Sicht je App baut das Entwickler-Cockpit (J44).
+> Karte `entwickler-cockpit` (J44, M7, 20.11.2026). Quelle: `company/schleife.md`,
+> Teile „Eingang" und „Test nach Live"; `company/plattform.md`: „Einzige
+> mitgelieferte App".
+
+Eine App im Rahmen wie jede andere, nur dass sie mit Arasul kommt: Adresse
+`/apps/entwickler-cockpit/`, ein Symbol in der Aktivitätsleiste, gebaut aus
+der Bibliothek zur Laufzeit (`/marken/5/`), am Handy mit der Leiste als Blatt.
+**Sichtbar nur mit dem Kennzeichen Entwickler**, auch ohne Admin-Rolle; ohne
+Kennzeichen steht es weder in der Leiste noch öffnet die Adresse etwas (403,
+auch für den Administrator). Drei Ansichten:
+
+| Ansicht            | Was dort steht                                                                                                                                                                                                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Eingang**        | Die Meldungen aller Apps, neueste zuerst, Filter je App und Stand (Vorgabe „offen“ = neu und angenommen). Ein Klick öffnet eine Meldung: Text, Seite, Person, Zeit, Bildschirmfoto mit der Stelle, Stand setzen, bei „abgelehnt“ mit Pflichtgrund; Entfernen mit Rückfrage |
+| **Apps**           | Je App die Fassung in Test und Live, zuletzt geändert, die Zahl offener Meldungen; ein Klick zeigt ihre Meldungen im Eingang                                                                                                                                               |
+| **Test nach Live** | Was im Test neuer ist als live, mit dem Änderungstext der Fassung. „Live schalten“ nach einer Rückfrage; darunter „Zurück“ auf die Fassung davor                                                                                                                           |
+
+**Wie es an die Meldungen kommt, ohne die Regel der Apps zu brechen.** Die
+Regel vom 01.10.2026 sagt: eine App erreicht nur ihre eigene Datenbank und die
+Plattform-API. Das Cockpit hat **kein Backend**, also weder Datenbank noch
+Schlüssel. Es läuft wie jede App als iframe gleicher Herkunft und ruft die
+Plattform-API **mit der Sitzung des Menschen davor** (Cookie, CSRF-Kopf):
+`GET/PATCH/DELETE /api/rueckmeldungen`, `GET /api/rueckmeldungen/:id/bild`,
+`GET /api/entwickler/apps`, `POST /api/apps/:id/schalten`. Jede dieser Routen
+prüft das Kennzeichen frisch aus der Datenbank. Damit kann das Cockpit genau
+das, was dieser Mensch darf, und nichts darüber hinaus; eine fremde Datenbank
+liest es nie. Verworfen: ein Backend mit einem eigenen Schlüssel im Bereich
+`feedback:agent`. Es hätte allen dasselbe gezeigt, auch nach einem entzogenen
+Kennzeichen, und einen dauerhaft gültigen Schlüssel im Container gebraucht.
+
+**Was es von einer ausgerollten App unterscheidet**
+(`apps/dashboard-backend/src/services/app/mitgeliefert.js`):
+
+- Die Dateien liegen im Abbild des Backends (`mitgeliefert/entwickler-cockpit/`,
+  gebaut im Dockerfile aus `apps/entwickler-cockpit/`), nicht in `APPS_DIR`. Es
+  kommt mit jedem Update des Geräts, hat keine Zeile in `apps` oder
+  `app_staende`, keinen Teststand, keinen Container.
+- Die Kennung `entwickler-cockpit` ist für Pakete vergeben: ein Manifest, das
+  sie nennt, wird abgewiesen.
+- Über dem Cockpit steht das Icon der Rückmeldung wie über jeder App; eine
+  Meldung dazu landet im Eingang unter „Entwickler-Cockpit“.
+
+**Test nach Live ist kein zweiter Mechanismus.** Der Knopf ruft denselben Weg
+wie Verwaltung › Apps (`POST /api/apps/:id/schalten` → `liveSchalten.js`):
+alten Livestand anhalten, Daten sichern (restic, `vorher`), schalten,
+zusehen, bei Bedarf selbst zurück, ein Eintrag in `app_schaltungen`. Seit J44
+darf diesen Weg auch ein Entwickler ohne Admin-Rolle gehen
+(`company/schleife.md`: „der Entwickler … schaltet es live“).
+
+**Am Gerät ändert der Schalter „Bildschirmfotos an den Agenten“ nichts**: im
+Cockpit sieht ein Entwickler jedes Foto.
+
+**Der Nachweis des Kit-Ablaufs** (Ara-Kit, `.ara/knowledge/nachweis.de.md`,
+J45) kann das Cockpit nicht tragen und muss als mitgelieferte App ausgenommen
+sein: es wird nicht mit dem Kit gebaut und nicht ausgerollt, sondern mit dem
+Gerät gebaut und mit dem Update geliefert. Den App-Standard erfüllt es sonst:
+Bausteine der Bibliothek (Seitenleiste, Datenliste, Kopf, Karte, Dialogform,
+Bestätigung, Meldung, Leerzustand), Typen, Tests
+(`apps/entwickler-cockpit/src/__tests__/`, mitgefahren von den Tests des
+Frontends) und die Regeln der Gestalt (Tokens, drei Größen).
 
 ## Abnahme am Orin
 
@@ -340,7 +398,6 @@ Schalter an, Stand, Protokoll) und gegen echtes Postgres in
 
 ## Was nicht gebaut ist
 
-Das Entwickler-Cockpit mit Eingang und Ständen je App (J44); der Kit-Befehl,
-der diese Schnittstelle nutzt (K29); DSGVO-Auskunft mit Rückmeldungen und eine
+Der Kit-Befehl, der diese Schnittstelle nutzt (K29); DSGVO-Auskunft mit Rückmeldungen und eine
 gemeinsame Drossel je Person (eigene Karte). Kein Chat, kein Agent im Browser,
 keine Abstimmung, keine Sicht für andere Mitarbeiter.

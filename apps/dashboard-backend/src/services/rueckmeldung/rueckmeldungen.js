@@ -148,7 +148,8 @@ async function pruefeEntwickler(personId) {
   );
   if (rows[0]?.entwickler !== true) {
     throw new ForbiddenError(
-      'Rückmeldungen lesen nur Personen mit dem Kennzeichen Entwickler. ' +
+      'Das dürfen nur Personen mit dem Kennzeichen Entwickler: Rückmeldungen lesen, ' +
+        'ihren Stand setzen, Apps live schalten ohne Verwaltung. ' +
         'Ein Administrator schaltet es unter Verwaltung › Personen.'
     );
   }
@@ -167,19 +168,22 @@ function nachAussen(z) {
     markierung: z.markierung ?? null,
     person: z.person_id == null ? null : { id: Number(z.person_id), anzeigeName: anzeigeName(z) },
     stand_meldung: z.stand_meldung,
+    grund: z.grund ?? null,
+    stand_geaendert_am: z.stand_geaendert_am ?? null,
     erstellt_am: z.erstellt_am,
   };
 }
 
 /**
- * Die Meldungen, neueste zuerst, hoechstens `grenze`.
+ * Die Meldungen, neueste zuerst, hoechstens `grenze` (500: das Cockpit filtert
+ * je App und Stand im Browser, J44).
  * @param {{appId?: string, grenze?: number}} [f]
  */
-async function liste({ appId, grenze = 200 } = {}) {
+async function liste({ appId, grenze = 500 } = {}) {
   const { rows } = await db.query(
     `SELECT r.id, r.app_id, a.name AS app_name, r.stand, r.seite, r.text, r.bild,
-            r.markierung, r.person_id, r.stand_meldung, r.erstellt_am,
-            u.username, u.vorname, u.nachname
+            r.markierung, r.person_id, r.stand_meldung, r.grund, r.stand_geaendert_am,
+            r.erstellt_am, u.username, u.vorname, u.nachname
        FROM public.rueckmeldungen r
        LEFT JOIN public.apps a ON a.id = r.app_id
        LEFT JOIN public.admin_users u ON u.id = r.person_id
@@ -387,6 +391,45 @@ async function setzeStand({ appId, nr, standMeldung, grund, durch }) {
   return { ...fuerAgentenZeile(nachher[0], app.bilderAnAgenten), vorher };
 }
 
+/**
+ * Den Stand einer Meldung am Geraet setzen, durch einen Entwickler im Cockpit
+ * (J44). Dieselbe Regel wie fuer das Kit (`setzeStand`): `grund` Pflicht bei
+ * `abgelehnt`, ein neuer Stand ohne Grund loescht den alten. Anders als dort
+ * gehoert die Meldung zu keiner bestimmten App des Aufrufers -- ein Entwickler
+ * am Geraet sieht alle --, und die Antwort hat die Form der Liste, mit Bild,
+ * denn am Geraet aendert der Schalter je App nichts.
+ *
+ * @param {{id: number, standMeldung: string, grund?: string, durch: string}} a
+ */
+async function setzeStandAmGeraet({ id, standMeldung, grund, durch }) {
+  const { rows } = await db.query(
+    `WITH alt AS (SELECT id, stand_meldung FROM public.rueckmeldungen WHERE id = $1)
+     UPDATE public.rueckmeldungen r
+        SET stand_meldung = $2, grund = $3,
+            stand_geaendert_am = NOW(), stand_geaendert_durch = $4
+       FROM alt
+      WHERE r.id = alt.id
+     RETURNING r.id, r.app_id, alt.stand_meldung AS vorher`,
+    [id, standMeldung, grund ?? null, durch]
+  );
+  if (rows.length === 0) {
+    throw new NotFoundError(`Keine Rückmeldung ${id}`);
+  }
+  const { app_id: appId, vorher } = rows[0];
+  logger.info(`Rückmeldung ${id} zu ${appId}: ${vorher} -> ${standMeldung} (${durch})`);
+  const { rows: nachher } = await db.query(
+    `SELECT r.id, r.app_id, a.name AS app_name, r.stand, r.seite, r.text, r.bild,
+            r.markierung, r.person_id, r.stand_meldung, r.grund, r.stand_geaendert_am,
+            r.erstellt_am, u.username, u.vorname, u.nachname
+       FROM public.rueckmeldungen r
+       LEFT JOIN public.apps a ON a.id = r.app_id
+       LEFT JOIN public.admin_users u ON u.id = r.person_id
+      WHERE r.id = $1`,
+    [id]
+  );
+  return { ...nachAussen(nachher[0]), vorher };
+}
+
 /** Den Schalter „Bildschirmfotos an den Agenten" einer App setzen. */
 async function setzeBilderAnAgenten(appId, erlaubt) {
   const { rows } = await db.query(
@@ -410,6 +453,7 @@ module.exports = {
   fuerAgenten,
   bildFuerAgenten,
   setzeStand,
+  setzeStandAmGeraet,
   setzeBilderAnAgenten,
   melde,
   liste,

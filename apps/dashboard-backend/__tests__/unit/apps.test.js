@@ -326,6 +326,32 @@ describe('Die App-Ansicht des Administrators (Phase D4)', () => {
     expect(res.status).toBe(409);
   });
 
+  test('ein Mitarbeiter ohne Kennzeichen Entwickler schaltet nicht (403, J44)', async () => {
+    auth.__setUser(MITARBEITER);
+    db.query.mockResolvedValueOnce({ rows: [{ entwickler: false }] });
+    const res = await request(verwaltung())
+      .post('/api/apps/urlaub/schalten')
+      .send({ ziel: 'live' });
+    expect(res.status).toBe(403);
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query.mock.calls[0][0]).toMatch(/entwickler/);
+  });
+
+  test('ein Entwickler ohne Admin-Rolle schaltet über denselben Weg (J44)', async () => {
+    auth.__setUser(MITARBEITER);
+    db.query.mockResolvedValueOnce({ rows: [{ entwickler: true }] }); // Kennzeichen
+    db.query.mockResolvedValueOnce({ rows: [{ stand: 'test', version: '1.0.0' }] }); // staendeVon
+    db.query.mockResolvedValueOnce({ rows: [{ stand: 'test', version: '1.0.0' }] }); // staendeVon
+    einspielenAntworten('live');
+
+    const res = await request(verwaltung())
+      .post('/api/apps/urlaub/schalten')
+      .send({ ziel: 'live' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.stand).toBe('live');
+  });
+
   test('ein anderes Ziel als live/zurueck ist ein 400', async () => {
     const res = await request(verwaltung())
       .post('/api/apps/urlaub/schalten')
@@ -575,7 +601,6 @@ describe('/api/apps: wer darf was', () => {
     ['get', '/api/apps/urlaub/flows'],
     ['get', '/api/apps/urlaub/flows/bericht'],
     ['put', '/api/apps/urlaub/flows/bericht/modell'],
-    ['post', '/api/apps/urlaub/schalten'],
   ])('%s %s: Mitarbeiter bekommt 403', async (verb, pfad) => {
     auth.__setUser(MITARBEITER);
     const res = await request(verwaltung())[verb](pfad).send({ version: '1.0.0' });

@@ -44,6 +44,16 @@ const AppId = z
   )
   .refine(v => v !== 'test', 'App-Kennung „test" ist vergeben: /apps/<id>/test/ ist der Teststand');
 
+/**
+ * Die Apps, die mit Arasul selbst kommen (J44, M7): seit 20.11.2026 genau eine,
+ * das Entwickler-Cockpit. Ihre Kennung ist vergeben -- ein Paket mit derselben
+ * Kennung haette denselben Pfad `/apps/<id>/` wie die mitgelieferte App. Die
+ * Kennung bleibt trotzdem eine gueltige `AppId` (Pfad, Parameter, Zugang);
+ * abgewiesen wird nur ein MANIFEST, das sie nennt. Der Dienst dazu:
+ * `services/app/mitgeliefert.js`.
+ */
+const MITGELIEFERTE_APPS = Object.freeze(['entwickler-cockpit']);
+
 /** Der Stand, in dem eine Version laeuft. Genau zwei, wie in `app_staende`. */
 const Stand = z.enum(['test', 'live'], { error: 'Stand ist „test" oder „live"' });
 
@@ -413,7 +423,10 @@ const Ressourcen = z
 const AppManifest = z
   .object({
     schema: z.literal(1, { error: 'Nur `"schema": 1` wird verstanden' }),
-    id: AppId,
+    id: AppId.refine(
+      v => !MITGELIEFERTE_APPS.includes(v),
+      'App-Kennung ist vergeben: unter diesem Namen kommt eine App mit Arasul selbst'
+    ),
     name: z.string({ error: 'Name fehlt' }).trim().min(1, 'Name fehlt').max(120),
     version: Version,
     beschreibung: z.string().trim().max(500).optional(),
@@ -778,6 +791,7 @@ const StufePersonBody = z
 
 module.exports = {
   AppId,
+  MITGELIEFERTE_APPS,
   ReihenfolgeBody,
   Stand,
   Version,

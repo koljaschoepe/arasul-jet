@@ -51,6 +51,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/firmenordner', group: 'core' },
   { prefix: '/terminal', group: 'core' },
   { prefix: '/rueckmeldungen', group: 'core' },
+  { prefix: '/entwickler', group: 'core' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/v1/external', group: 'external' },
   { prefix: '/docs', group: 'core', description: 'Static API documentation' },
@@ -102,6 +103,7 @@ router.use('/terminal', require('./terminal'));
 // Die Rueckmeldung im Rahmen (J42, M7). Bei den Kern-Wegen: melden darf
 // jeder mit Zugang zur App, lesen nur das Kennzeichen Entwickler.
 router.use('/rueckmeldungen', require('./rueckmeldungen'));
+router.use('/entwickler', require('./entwickler'));
 
 // --- System ---
 router.use('/system', require('./system/system'));

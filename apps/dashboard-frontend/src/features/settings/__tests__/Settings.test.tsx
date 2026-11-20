@@ -144,19 +144,15 @@ describe('Verwaltung', () => {
       ]);
     });
 
-    test('mit dem Kennzeichen Entwickler steht „Rückmeldungen" nach Apps', () => {
+    test('„Rückmeldungen“ steht nicht mehr in der Leiste, auch nicht mit Kennzeichen (J44)', () => {
       entwickler = true;
       zeige();
-      const namen = Array.from(
-        screen.getByTestId('verwaltung-bereiche').querySelectorAll('[data-testid^="verwaltung-"]')
-      ).map(e => e.textContent?.trim());
-      expect(namen.slice(0, 3)).toEqual(['Personen', 'Apps', 'Rückmeldungen']);
+      expect(screen.queryByTestId('verwaltung-rueckmeldungen')).toBeNull();
     });
 
-    test('ohne Kennzeichen zeigt die Adresse der Rückmeldungen nur den Hinweis', () => {
+    test('die alte Adresse der Rückmeldungen landet bei den Apps (J44)', () => {
       zeige({ bereich: 'rueckmeldungen' });
-      expect(screen.queryByTestId('verwaltung-rueckmeldungen')).toBeNull();
-      expect(screen.getByText('Nur mit dem Kennzeichen Entwickler')).toBeInTheDocument();
+      expect(screen.getByTestId('verwaltung-apps')).toHaveAttribute('aria-current', 'page');
     });
 
     test('dieselbe Leiste wie jede App: Titel „Verwaltung" oben, zwei Gruppen mit Überschrift', () => {

@@ -116,3 +116,7 @@ arasul-abnahme-sitzung.json
 arasul-abnahme-token
 arasul-abnahme-token.cookies
 arasul-abnahme-code
+
+# Das Entwickler-Cockpit (J44): Bau und die Kopie im Backend entstehen im Dockerfile
+apps/entwickler-cockpit/dist/
+apps/dashboard-backend/mitgeliefert/

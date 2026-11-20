@@ -176,12 +176,12 @@ src/
                      (die Tabelle Apps unter Personen schaltet dieselben
                      Freigaben). `features/apps/` ist die Nutzer-Sicht —
                      zwei Ordner, zwei Fragen, dasselbe Wort.
-                   - **Rückmeldungen** (`RueckmeldungenSettings.tsx` +
-                     `rueckmeldungen/`, J42, M7): steht nach Apps und NUR mit
-                     dem Kennzeichen Entwickler in der Leiste
-                     (`nurEntwickler` in `sections.tsx`); einfache Liste,
-                     neueste zuerst, Foto groß auf Klick, Entfernen mit
-                     Rückfrage. Den Eingang mit Ständen baut das Cockpit (J44).
+                   - **Rückmeldungen** gibt es hier nicht mehr (J42 bis
+                     J44): gelesen und bearbeitet werden sie im
+                     Entwickler-Cockpit, der mitgelieferten App unter
+                     `apps/entwickler-cockpit/` (eigener Bau, Tests fährt
+                     `vitest` dieses Ordners mit, `npm run lint` ebenso).
+                     Die alte Adresse landet bei den Apps.
                    - **Personen** (`PersonenSettings.tsx` +
                      `personen/`, M5; ersetzt den Reiter „Mitarbeiter",
                      Tieflink bleibt `?tab=benutzer`): Liste mit Bild und
