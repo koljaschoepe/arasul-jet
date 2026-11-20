@@ -36,6 +36,10 @@ const INHALTE = [
   ['public.approvals', 'Freigabe-Anfragen aus Flow-Läufen'],
   ['arasul.flow_run_steps', 'Einzelschritte der Flow-Läufe'],
   ['arasul.flow_runs', 'Flow-Läufe'],
+  // Was Mitarbeiter über das Icon im Rahmen gemeldet haben (J42, M7). Die
+  // Bilder dazu liegen als Dateien unter `<APPS_DIR>/.rueckmeldungen` und
+  // gehen mit derselben Stufe (`ORDNER.inhalte` in werksreset.js).
+  ['public.rueckmeldungen', 'Rückmeldungen aus dem Rahmen über den Apps'],
 ];
 
 /** Einrichtung des Geräts. Weg nur bei Stufe 2. */

@@ -522,6 +522,17 @@ async function loescheBenutzer({ userId, username, role, uebernehmer = null }) {
       ANONYM,
     ]);
 
+    // 5a) Seine Rueckmeldungen aus dem Rahmen (J42, M7) bleiben fuer den
+    //     Entwickler stehen, zeigen aber auf niemanden mehr. Der Fremdschluessel
+    //     taete das mit ON DELETE SET NULL auch; hier steht es, damit die
+    //     Zusammenfassung es nennt -- und damit es auch beim letzten Admin
+    //     gilt, dessen Zeile bleibt.
+    await anon(
+      'rueckmeldungen',
+      `UPDATE public.rueckmeldungen SET person_id = NULL WHERE person_id = $1`,
+      [userId]
+    );
+
     // 6) admin_users: die Zeile bleibt beim letzten Admin stehen, siehe oben.
     if (letzterAdmin) {
       counts.admin_users = 0;
