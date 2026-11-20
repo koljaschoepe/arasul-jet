@@ -30,6 +30,8 @@
 > `firmenordner_nutzer`, `firmenordner_ordner` und `firmenordner_rechte`.
 > Am 04.10.2026 von Hand ergaenzt (Migration 199, M5): `app_staende.aenderungstext`
 > und die Tabelle `app_schaltungen`.
+> Am 20.11.2026 von Hand ergaenzt (Migration 214, J42 M7): die Tabelle
+> `rueckmeldungen`.
 
 ## Übersicht
 
@@ -1921,6 +1923,46 @@ Normalfall.
 - `idx_password_history_time` — `CREATE INDEX idx_password_history_time ON public.password_history USING btree (changed_at DESC)`
 - `idx_password_history_user` — `CREATE INDEX idx_password_history_user ON public.password_history USING btree (user_id)`
 - `password_history_pkey` — `CREATE UNIQUE INDEX password_history_pkey ON public.password_history USING btree (id)`
+
+---
+
+## `rueckmeldungen`
+
+> Rückmeldungen aus dem Rahmen über jeder App (Migration 214, J42, M7). Lesen
+> nur mit `admin_users.entwickler`. Das Bild steht nicht hier, sondern als Datei
+> `<APPS_DIR>/.rueckmeldungen/<bild>` am Gerät; `bild` nennt nur den Namen.
+> `app_id` ohne Fremdschlüssel: eine Meldung überlebt die App. `person_id` mit
+> `ON DELETE SET NULL`: wird die Person gelöscht, bleibt die Meldung ohne Namen.
+> `stand_meldung` kennt `neu`, `angenommen`, `umgesetzt`, `abgelehnt`; gesetzt
+> wird bis J43 nur `neu`. Vertrag: `docs/features/RUECKMELDUNG.md`.
+
+| Column          | Type                     | Nullable | Default                                    |
+| --------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`            | bigint                   | ⛔       | `nextval('rueckmeldungen_id_seq'::regc...` |
+| `app_id`        | text                     | ⛔       |                                            |
+| `stand`         | text                     | ⛔       |                                            |
+| `seite`         | text                     | ⛔       |                                            |
+| `text`          | text                     | ⛔       |                                            |
+| `bild`          | text                     | ✅       |                                            |
+| `markierung`    | jsonb                    | ✅       |                                            |
+| `person_id`     | bigint                   | ✅       |                                            |
+| `stand_meldung` | text                     | ⛔       | `'neu'::text`                              |
+| `erstellt_am`   | timestamp with time zone | ⛔       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Checks:** `stand IN ('test','live')`; `stand_meldung` aus den vier Ständen;
+`text` 1 bis 5000 Zeichen; `seite` 1 bis 2000 Zeichen; `bild` NULL oder
+`<uuid>.png`.
+
+**Foreign Keys:**
+
+- `person_id` → `admin_users.id` (`ON DELETE SET NULL`)
+
+**Indexes:**
+
+- `idx_rueckmeldungen_app_zeit` — `CREATE INDEX idx_rueckmeldungen_app_zeit ON public.rueckmeldungen USING btree (app_id, erstellt_am DESC)`
+- `rueckmeldungen_pkey` — `CREATE UNIQUE INDEX rueckmeldungen_pkey ON public.rueckmeldungen USING btree (id)`
 
 ---
 

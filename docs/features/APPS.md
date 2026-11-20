@@ -198,6 +198,17 @@ erst beim nächsten Einspielen.** Die Datei liegt neben ihr und nicht in der
 Shell. Eine App, die die Bibliothek zur Laufzeit lädt, bekommt sie mit dem
 Update des Geräts.
 
+### Über jeder App das Icon der Rückmeldung (J42, M7)
+
+Der Rahmen legt oben rechts über jede App ein kleines Icon. Ein Mitarbeiter
+meldet dort in freiem Text, was fehlt, und markiert die Stelle auf einem
+Bildschirmfoto, das der Rahmen aus dem Dokument der App zeichnet (gleiche
+Herkunft, kein `sandbox`, wie beim Theme). **Die App tut dafür nichts und kann
+es nicht abschalten.** Was sie wissen sollte: oben rechts, etwa 28 mal 28 px mit
+8 px Abstand zum Rand, liegt das Icon über ihrem Inhalt; wer dort einen eigenen
+Knopf hat, rückt ihn etwas nach innen. Vertrag:
+[`RUECKMELDUNG.md`](RUECKMELDUNG.md).
+
 ### Die App sagt, auf welcher Fassung sie steht (Phase H6)
 
 Eine App trägt die Bibliothek als **Kopie** — als Spiegel der Quelle in ihrem

@@ -51,6 +51,12 @@ vi.mock('../../../contexts/ToastContext', () => ({
   ToastProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// Das Kennzeichen Entwickler blendet „Rückmeldungen" ein (J42, M7).
+let entwickler = false;
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 1, username: 'chef', role: 'admin', entwickler } }),
+}));
+
 vi.mock('../../../hooks/useConfirm', () => ({
   default: () => ({
     confirm: vi.fn().mockResolvedValue(true),
@@ -96,6 +102,7 @@ function zeige(ansicht: Partial<Ansicht> = {}) {
 describe('Verwaltung', () => {
   beforeEach(() => {
     schmal = false;
+    entwickler = false;
   });
 
   afterEach(() => {
@@ -110,6 +117,7 @@ describe('Verwaltung', () => {
     });
 
     test('die eigene Leiste nennt jeden Bereich, Modelle eingeschlossen', () => {
+      entwickler = true;
       zeige();
       const leiste = screen.getByTestId('verwaltung-bereiche');
       for (const section of SETTINGS_SECTIONS) {
@@ -134,6 +142,21 @@ describe('Verwaltung', () => {
         'Daten',
         'Gerät',
       ]);
+    });
+
+    test('mit dem Kennzeichen Entwickler steht „Rückmeldungen" nach Apps', () => {
+      entwickler = true;
+      zeige();
+      const namen = Array.from(
+        screen.getByTestId('verwaltung-bereiche').querySelectorAll('[data-testid^="verwaltung-"]')
+      ).map(e => e.textContent?.trim());
+      expect(namen.slice(0, 3)).toEqual(['Personen', 'Apps', 'Rückmeldungen']);
+    });
+
+    test('ohne Kennzeichen zeigt die Adresse der Rückmeldungen nur den Hinweis', () => {
+      zeige({ bereich: 'rueckmeldungen' });
+      expect(screen.queryByTestId('verwaltung-rueckmeldungen')).toBeNull();
+      expect(screen.getByText('Nur mit dem Kennzeichen Entwickler')).toBeInTheDocument();
     });
 
     test('dieselbe Leiste wie jede App: Titel „Verwaltung" oben, zwei Gruppen mit Überschrift', () => {

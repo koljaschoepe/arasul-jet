@@ -5,6 +5,7 @@ import {
   FolderTree,
   HardDrive,
   ListOrdered,
+  MessageSquarePlus,
   Server,
   Users,
 } from 'lucide-react';
@@ -17,7 +18,9 @@ import type { ReactNode } from 'react';
  * ohne Größenklasse — der Verwender bestimmt die Größe.
  *
  * DIE BEREICHE AUS `company/frontend.md`, in dieser Reihenfolge: Personen,
- * Apps, Läufe, Firmenordner, Modelle, System, Daten, Gerät.
+ * Apps, Läufe, Firmenordner, Modelle, System, Daten, Gerät. Dazu seit dem
+ * 20.11.2026 (J42, M7) „Rückmeldungen" nach Apps, nur für Personen mit dem
+ * Kennzeichen Entwickler.
  * Bis zum 04.10.2026 waren es elf: Allgemein, Sicherheit, Lizenz und
  * Fernzugriff sind im Bereich Gerät aufgegangen, die Auslastung im Satz und
  * den drei Zahlen von System, die Aktualisierung ebenfalls im Gerät. Den
@@ -25,7 +28,15 @@ import type { ReactNode } from 'react';
  * Administrator ändert keine Prompts.
  */
 export type SettingsSectionId =
-  'benutzer' | 'apps' | 'laeufe' | 'firmenordner' | 'modelle' | 'system' | 'daten' | 'geraet';
+  | 'benutzer'
+  | 'apps'
+  | 'rueckmeldungen'
+  | 'laeufe'
+  | 'firmenordner'
+  | 'modelle'
+  | 'system'
+  | 'daten'
+  | 'geraet';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -36,6 +47,11 @@ export interface SettingsSection {
    * was der Administrator mit Menschen und Apps tut, und was das Gerät betrifft.
    */
   gruppe: 'Arbeit' | 'Betrieb';
+  /**
+   * Nur mit dem Kennzeichen Entwickler in der Leiste (J42, M7). Die Rolle Admin
+   * allein reicht nicht; entscheiden tut ohnehin das Backend.
+   */
+  nurEntwickler?: boolean;
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
@@ -43,6 +59,15 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   // Administrator am häufigsten tut (Phase D3), und die Zielform beginnt hier.
   { id: 'benutzer', label: 'Personen', icon: <Users />, gruppe: 'Arbeit' },
   { id: 'apps', label: 'Apps', icon: <AppWindow />, gruppe: 'Arbeit' },
+  // Was Mitarbeiter über das Icon über jeder App gemeldet haben (J42, M7), als
+  // einfache Liste, bis das Entwickler-Cockpit (J44) sie übernimmt.
+  {
+    id: 'rueckmeldungen',
+    label: 'Rückmeldungen',
+    icon: <MessageSquarePlus />,
+    gruppe: 'Arbeit',
+    nurEntwickler: true,
+  },
   // Was auf dem Gerät gelaufen ist, über alle Apps, mit Filtern; jeder Lauf hat
   // eine Adresse (`/workspace/verwaltung/laeufe/<nummer>`).
   { id: 'laeufe', label: 'Läufe', icon: <ListOrdered />, gruppe: 'Arbeit' },
