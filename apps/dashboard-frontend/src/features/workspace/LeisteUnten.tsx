@@ -46,9 +46,9 @@ function Feld({
       data-testid={kennzeichen}
       onClick={onClick}
       className={cn(
-        'flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
+        'flex h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
         aktiv
-          ? 'max-w-[calc(100%-232px)] min-w-0 shrink-0 bg-primary/14 px-3 text-primary'
+          ? 'max-w-[calc(100%-236px)] min-w-0 shrink-0 bg-primary/14 px-3 text-primary'
           : 'flex-1 text-muted-foreground hover:text-foreground'
       )}
     >
@@ -153,7 +153,7 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
           data-testid="leiste-mehr"
           aria-current={mehrAktiv ? 'page' : undefined}
           className={cn(
-            'flex h-11 min-w-11 flex-1 items-center justify-center rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
+            'flex h-[44px] min-w-[44px] flex-1 items-center justify-center rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
             mehrAktiv || offen
               ? 'bg-primary/14 text-primary'
               : 'text-muted-foreground hover:text-foreground'
