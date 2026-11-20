@@ -501,11 +501,11 @@ Freigegeben wird an jeden Benutzer, auch an einen Administrator: die Rolle sagt,
 wer verwaltet, nicht wer arbeitet. Alle drei Wege sind Admin-Wege. Was der
 Mitarbeiter selbst davon sieht, steht unter `GET /api/apps/meine`. Jede App dort trägt `symbol` (aus `app.json`, Kontrakt 8: Lucide-Name oder 1 bis 3 Großbuchstaben, sonst `null`).
 
-| Method | Endpoint                            | Description                                                                                        |
-| ------ | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
-| GET    | `/api/freigaben`                    | Alle Freigaben; Filter `?app_id=` und `?benutzer_id=`; mit `app_name`, `username`, `email`, `role` |
-| POST   | `/api/freigaben`                    | Freigeben: `{ app_id, benutzer_id, stand? }`; 201 neu, 200 wenn sie schon stand (`neu: false`)     |
-| DELETE | `/api/freigaben/:appId/:benutzerId` | Freigabe zurücknehmen; 404, wenn es sie nicht gibt                                                 |
+| Method | Endpoint                            | Description                                                                                                                                                         |
+| ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/freigaben`                    | Alle Freigaben; Filter `?app_id=` und `?benutzer_id=`; mit `app_name`, `username`, `email`, `role`                                                                  |
+| POST   | `/api/freigaben`                    | Freigeben: `{ app_id, benutzer_id, stand? }`; 201 neu, 200 wenn sie schon stand (`neu: false`). Ohne `stand` neu `live`, bestehend unverändert; mit `stand` gesetzt |
+| DELETE | `/api/freigaben/:appId/:benutzerId` | Freigabe zurücknehmen; 404, wenn es sie nicht gibt                                                                                                                  |
 
 ```json
 // POST /api/freigaben → 201

@@ -61,10 +61,19 @@ async function listeFreigaben({ appId, benutzerId } = {}) {
  * und meldet `neu: false`. Ein 409 waere hier eine Strafe fuer einen Klick, der
  * nichts kaputt macht.
  *
- * Der `stand` ist die Ausnahme davon: er wird ueberschrieben. Wer jemanden vom
- * Tester zum normalen Nutzer macht (oder umgekehrt), schickt dieselbe Freigabe
- * noch einmal mit dem anderen Wort; ihn dafuer erst zuruecknehmen zu lassen
- * waere ein Umweg ohne Gewinn.
+ * Der `stand` ist die Ausnahme davon, aber nur, wenn er ausdruecklich kommt:
+ * dann wird er ueberschrieben. Wer jemanden vom Tester zum normalen Nutzer
+ * macht (oder umgekehrt), schickt dieselbe Freigabe noch einmal mit dem
+ * anderen Wort; ihn dafuer erst zuruecknehmen zu lassen waere ein Umweg ohne
+ * Gewinn. So schreibt es die Matrix der Oberflaeche, immer mit Wort.
+ *
+ * Ohne Wort heisst der Aufruf nur „freigeben", und eine bestehende Freigabe
+ * behaelt ihren Stand (J50, 20.11.2026). Bis dahin stand im Schema `live` als
+ * Vorgabe, und jede Abnahme, die eine App „noch einmal freigab", stufte einen
+ * Tester still auf Live herunter. Nach dem Vertrag (`docs/features/APPS.md`,
+ * Der Tester-Kreis) ist ein Tester ein Nutzer mit einer Tuer mehr; wer nur
+ * freigibt, nimmt ihm keine Tuer weg. Ein Fehler waere hier wieder die Strafe
+ * fuer einen Klick, der nichts kaputt macht.
  *
  * Eine unbekannte App oder einen unbekannten Benutzer faengt der
  * Fremdschluessel ab (PG 23503 -> 400). Vorab zu pruefen waere ein zweiter Ort,
@@ -73,7 +82,7 @@ async function listeFreigaben({ appId, benutzerId } = {}) {
  *
  * @returns {Promise<{freigabe: object, neu: boolean}>}
  */
-async function gibFrei({ appId, benutzerId, stand = 'live', durch }) {
+async function gibFrei({ appId, benutzerId, stand, durch }) {
   // `xmax = 0` unterscheidet die eingefuegte Zeile von der aktualisierten:
   // Postgres traegt in eine frisch eingefuegte Zeile keine loeschende
   // Transaktion ein, in eine per ON CONFLICT aktualisierte schon. Der Umweg
@@ -83,14 +92,14 @@ async function gibFrei({ appId, benutzerId, stand = 'live', durch }) {
   // kein Fenster.
   const result = await db.query(
     `INSERT INTO public.app_members (app_id, user_id, stand, freigegeben_von)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (app_id, user_id) DO UPDATE SET stand = EXCLUDED.stand
+     VALUES ($1, $2, COALESCE($3::text, 'live'), $4)
+     ON CONFLICT (app_id, user_id) DO UPDATE SET stand = COALESCE($3::text, public.app_members.stand)
      RETURNING app_id, user_id, stand, freigegeben_von, freigegeben_am, (xmax = 0) AS neu`,
-    [appId, benutzerId, stand, durch ?? null]
+    [appId, benutzerId, stand ?? null, durch ?? null]
   );
   const { neu, ...freigabe } = result.rows[0];
   if (neu) {
-    logger.info(`Freigabe: App ${appId} für Benutzer ${benutzerId} (${stand})`);
+    logger.info(`Freigabe: App ${appId} für Benutzer ${benutzerId} (${freigabe.stand})`);
   }
   return { freigabe, neu };
 }

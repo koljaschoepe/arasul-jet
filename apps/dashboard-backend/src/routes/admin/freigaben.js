@@ -56,7 +56,7 @@ router.post(
         details: {
           app_id: req.body.app_id,
           benutzer_id: req.body.benutzer_id,
-          stand: req.body.stand,
+          stand: freigabe.stand,
         },
         ipAddress: req.ip,
         requestId: req.headers['x-request-id'],

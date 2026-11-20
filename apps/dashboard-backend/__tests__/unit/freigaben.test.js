@@ -81,7 +81,9 @@ describe('/api/freigaben', () => {
   });
 
   test('GET liefert alle Freigaben', async () => {
-    db.query.mockResolvedValueOnce({ rows: [{ ...FREIGABE, username: 'mia', app_name: 'Urlaub' }] });
+    db.query.mockResolvedValueOnce({
+      rows: [{ ...FREIGABE, username: 'mia', app_name: 'Urlaub' }],
+    });
     const res = await request(app()).get('/api/freigaben');
     expect(res.status).toBe(200);
     expect(res.body.data[0].app_id).toBe('urlaub');
@@ -112,8 +114,10 @@ describe('/api/freigaben', () => {
       .send({ app_id: 'urlaub', benutzer_id: 2 });
     expect(res.status).toBe(201);
     expect(res.body.neu).toBe(true);
-    // Ohne Angabe ist der Stand `live`: der Normalfall, nicht der Tester.
-    expect(db.query.mock.calls[0][1]).toEqual(['urlaub', 2, 'live', '1']);
+    // Ohne Angabe ist eine neue Freigabe `live`: der Normalfall, nicht der
+    // Tester. Das Wort setzt die Datenbank (`COALESCE`), siehe unten.
+    expect(db.query.mock.calls[0][1]).toEqual(['urlaub', 2, null, '1']);
+    expect(db.query.mock.calls[0][0]).toMatch(/COALESCE\(\$3::text, 'live'\)/);
     expect(logSecurityEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'freigabe_erteilt' })
     );
@@ -127,6 +131,31 @@ describe('/api/freigaben', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.stand).toBe('test');
     expect(db.query.mock.calls[0][1]).toEqual(['urlaub', 2, 'test', '1']);
+  });
+
+  test('POST ohne Stand stuft einen Tester nicht herunter (J50)', async () => {
+    // Bis J50 stand `live` als Vorgabe im Schema, und jede Abnahme, die eine
+    // App noch einmal freigab, nahm einem Tester still den Teststand. Ohne
+    // Wort behaelt eine bestehende Freigabe ihren Stand.
+    db.query.mockResolvedValueOnce({ rows: [{ ...FREIGABE, stand: 'test', neu: false }] });
+    const res = await request(app())
+      .post('/api/freigaben')
+      .send({ app_id: 'urlaub', benutzer_id: 2 });
+    expect(res.status).toBe(200);
+    expect(res.body.data.stand).toBe('test');
+    const [sql, werte] = db.query.mock.calls[0];
+    expect(sql).toMatch(/DO UPDATE SET stand = COALESCE\(\$3::text, public\.app_members\.stand\)/);
+    expect(werte[2]).toBeNull();
+  });
+
+  test('POST mit Stand live stuft ausdruecklich herunter', async () => {
+    // Der Weg der Matrix: der Schalter Test aus schickt `live` mit Wort.
+    db.query.mockResolvedValueOnce({ rows: [{ ...FREIGABE, stand: 'live', neu: false }] });
+    const res = await request(app())
+      .post('/api/freigaben')
+      .send({ app_id: 'urlaub', benutzer_id: 2, stand: 'live' });
+    expect(res.status).toBe(200);
+    expect(db.query.mock.calls[0][1]).toEqual(['urlaub', 2, 'live', '1']);
   });
 
   test('POST weist einen erfundenen Stand mit 400 ab', async () => {

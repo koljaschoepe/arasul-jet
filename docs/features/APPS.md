@@ -723,7 +723,12 @@ Freigabe ein Wort dazu, wie weit sie reicht:
 - `test` — ein Tester: er sieht zusätzlich `/apps/<id>/test/`.
 
 Ein Tester ist kein anderer Nutzer, sondern ein Nutzer mit einer Tür mehr.
-Gesetzt wird das über `POST /api/freigaben` mit `{ "stand": "test" }`; gelesen
+Gesetzt wird das über `POST /api/freigaben` mit `{ "stand": "test" }`. Ein
+ausdrückliches Wort setzt den Stand, auch abwärts (`"live"` macht aus dem
+Tester wieder einen Nutzer, so schreibt es die Matrix). Ohne Wort heißt der
+Aufruf nur „freigeben“: neu steht er auf `live`, eine bestehende Freigabe
+behält ihren Stand (seit J50, 20.11.2026; bis dahin stufte jede Abnahme, die
+eine App noch einmal freigab, einen Tester still herunter). Gelesen
 über `GET /api/apps/meine`. Im Browser steht es an zwei Stellen, und beide
 schreiben denselben Weg: in der Freigabe-Matrix (Einstellungen → Personen,
 D3, seit M5 mit Schaltern) für das ganze Gerät, und in der App-Ansicht (Einstellungen → Apps, D4) für
