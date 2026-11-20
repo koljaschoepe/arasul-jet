@@ -99,12 +99,18 @@ describe('Rückmeldung im Rahmen', () => {
     expect(useWorkspaceStore.getState().ansicht).toMatchObject({ appId: 'belege', stand: 'test' });
   });
 
-  it('die Testfassung trägt den Rand mit dem Wort Test', async () => {
+  it('in der Testfassung ist Test gedrückt, und die App erfährt den Platz der Kapsel', async () => {
     render(<AppRahmen appId="belege" stand="test" />, { wrapper: huelle() });
     await screen.findByTestId('app-rahmen-belege');
-    expect(screen.getByTestId('ansicht-test-rand')).toHaveClass('border-primary');
-    expect(screen.getByTestId('ansicht-test-wort')).toHaveTextContent('Test');
     expect(screen.getByTestId('kapsel-stand-test')).toHaveAttribute('aria-pressed', 'true');
+    const rahmen = screen.getByTestId('app-rahmen-belege') as HTMLIFrameElement;
+    // jsdom lädt die Adresse nicht: das Dokument bekommt sein `html` von Hand.
+    const dokument = rahmen.contentDocument!;
+    if (!dokument.documentElement) dokument.appendChild(dokument.createElement('html'));
+    fireEvent.load(rahmen);
+    expect(
+      rahmen.contentDocument?.documentElement.style.getPropertyValue('--ara-kapsel-platz')
+    ).toBe('144px');
   });
 
   it('ohne Teststand gibt es keinen Umschalter, nur das Icon', async () => {

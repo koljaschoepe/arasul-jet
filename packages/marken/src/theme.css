@@ -279,9 +279,9 @@
      (`.glas-grund`); `marken.py` (Punkt 9) misst Text auf diesem Glas ueber
      jeder Stufe. */
   --rahmen-stufe-1: #ede8de;
-  --rahmen-stufe-2: #dfe4ec;
-  --rahmen-stufe-3: #c3d2ec;
-  --rahmen-schein: #a3bce6;
+  --rahmen-stufe-2: #d9e1ee;
+  --rahmen-stufe-3: #b9cbea;
+  --rahmen-schein: #98b4e4;
 }
 
 /* -----------------------------------------------------------------------------
@@ -330,10 +330,10 @@
 
   /* Der Grund des Rahmens: Tiefblau mit einem Schein oben links, nach
      Anthrazit unten rechts. */
-  --rahmen-stufe-1: #0f2a55;
-  --rahmen-stufe-2: #13203a;
-  --rahmen-stufe-3: #24272e;
-  --rahmen-schein: #1f4a8a;
+  --rahmen-stufe-1: #0d2349;
+  --rahmen-stufe-2: #121d33;
+  --rahmen-stufe-3: #22252c;
+  --rahmen-schein: #173a70;
 }
 
 /* -----------------------------------------------------------------------------
@@ -372,12 +372,17 @@
   /* Glas, das nur auf dem Grund des Rahmens liegt (die Leiste links, die
      Leiste unten am Handy): darunter ist nie Text und nie ein Knopf, nur der
      Verlauf. Es darf deshalb duenner sein, damit der Verlauf durchscheint. */
-  --glas-anteil-grund: 72%;
+  --glas-anteil-grund: 66%;
   --glas-flaeche-grund: var(--popover);
   --glas-filter: none;
   --glas-schleier-filter: none;
   --glas-kante: rgba(255, 255, 255, 0.7);
-  --glas-schatten: 0 8px 24px -8px rgba(30, 27, 22, 0.18), 0 2px 6px -2px rgba(30, 27, 22, 0.08);
+  /* Die Kante traegt den Eindruck: eine Haarlinie aussen (auf hellem Grund
+     waere der weisse Rand allein unsichtbar), ein weicher Schatten mit einer
+     Spur Blau und oben innen ein Lichtsaum. */
+  --glas-schatten:
+    0 0 0 1px rgba(30, 27, 22, 0.07), 0 12px 32px -12px rgba(23, 42, 82, 0.28),
+    0 2px 6px -2px rgba(30, 27, 22, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 [data-theme='dark'] {
@@ -390,7 +395,9 @@
       var(--rahmen-stufe-3) 100%
     );
   --glas-kante: rgba(246, 243, 237, 0.12);
-  --glas-schatten: 0 10px 28px -8px rgba(0, 0, 0, 0.55), 0 2px 6px -2px rgba(0, 0, 0, 0.35);
+  --glas-schatten:
+    0 0 0 1px rgba(0, 0, 0, 0.35), 0 12px 32px -10px rgba(0, 0, 0, 0.6),
+    0 2px 6px -2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(246, 243, 237, 0.09);
 }
 
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

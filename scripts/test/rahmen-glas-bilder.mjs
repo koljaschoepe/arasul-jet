@@ -157,9 +157,13 @@ async function rahmenLesen(seite) {
       flaeche: kasten(flaeche),
       kapsel: kasten(kapsel),
       kapselTest: Boolean(document.querySelector('[data-testid="kapsel-stand-test"]')),
-      testRand: document.querySelector('[data-testid="ansicht-test-rand"]')
-        ? kasten(document.querySelector('[data-testid="ansicht-test-rand"]'))
-        : null,
+      testRand: flaeche?.hasAttribute('data-testfassung') ? kasten(flaeche) : null,
+      testWortImSchirm: (() => {
+        const w = document.querySelector('[data-testid="ansicht-test-wort"]');
+        if (!w) return null;
+        const r = w.getBoundingClientRect();
+        return r.top >= 0 && r.left >= 0 && r.right <= innerWidth;
+      })(),
       testWort:
         document.querySelector('[data-testid="ansicht-test-wort"]')?.textContent?.trim() ?? null,
       rueckmeldung: Boolean(document.querySelector('[data-testid="rueckmeldung-knopf"]')),
@@ -278,7 +282,10 @@ try {
           if (s.test) {
             pruefe(
               `${name}: Testfassung mit farbigem Rand und dem Wort Test`,
-              m.testRand && m.testRand.randBreite >= 1.5 && m.testWort === 'Test',
+              m.testRand &&
+                m.testRand.randBreite >= 1.5 &&
+                m.testWort === 'Test' &&
+                m.testWortImSchirm === true,
               m.testRand
                 ? `${m.testRand.rand}, ${m.testRand.randBreite} px, „${m.testWort}“`
                 : 'kein Rand'

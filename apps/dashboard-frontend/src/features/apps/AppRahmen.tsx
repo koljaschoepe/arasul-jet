@@ -62,7 +62,7 @@ import { appPfad, useWorkspaceStore, type AppStand } from '@/stores/workspaceSto
 import { useMeineApps } from './meineApps';
 import { Ladezustand, Leerzustand } from '@marken';
 import { RueckmeldungKnopf } from './rueckmeldung/RueckmeldungKnopf';
-import { Kapsel, TestRand } from './Kapsel';
+import { Kapsel } from './Kapsel';
 
 interface AppRahmenProps {
   appId: string;
@@ -78,6 +78,10 @@ interface AppRahmenProps {
 export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
   const { data: apps, isLoading, isError } = useMeineApps();
   const { theme, transparenzReduziert } = useTheme();
+  // Die Kapsel: 8 px vom Rand, mit Umschalter rund 128 px breit, ohne 36 px,
+  // dazu 8 px Luft.
+  const meine = apps?.find(a => a.id === appId);
+  const kapselPlatz = meine?.live && meine?.test ? 144 : 52;
   const istAdmin = useAuth().user?.role === 'admin';
   const rahmen = useRef<HTMLIFrameElement>(null);
 
@@ -98,12 +102,16 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
       if (dokument?.documentElement) {
         themeAmDokument(dokument, theme);
         transparenzAmDokument(dokument, transparenzReduziert);
+        // Wie viel Platz oben rechts die Kapsel braucht, vom rechten Rand der
+        // App gemessen: ein Seitenkopf hält ihn frei, damit Kapsel und
+        // Werkzeugleiste sich nie überdecken (`docs/features/APPS.md`).
+        dokument.documentElement.style.setProperty('--ara-kapsel-platz', `${kapselPlatz}px`);
       }
       element.contentWindow?.postMessage({ typ: 'arasul:theme', theme }, window.location.origin);
     } catch {
       /* fremde Herkunft — dann gilt in der App, was ihr Stylesheet sagt. */
     }
-  }, [theme, transparenzReduziert]);
+  }, [theme, transparenzReduziert, kapselPlatz]);
 
   // Bei jedem Wechsel. Nicht bei jedem Rendern: `themeReichen` hängt am Theme
   // und sonst an nichts.
@@ -162,7 +170,8 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
   // dem Rahmen, nicht der App: keine App bekommt dafür Code, und keine kann
   // sie abschalten. Die Hülle trägt nur die Lage, das iframe bleibt dasselbe
   // Element (der Schlüssel unten tauscht es wie bisher). Die Testfassung trägt
-  // den blauen Rand mit dem Wort Test.
+  // den blauen Rand mit dem Wort Test (gesetzt von der Shell, er gehört zur
+  // Fläche, nicht zur App).
   const staende = (['live', 'test'] as const).filter(s => app?.[s]);
   return (
     <div className="relative h-full w-full">
@@ -184,7 +193,6 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
         className="h-full w-full border-0 bg-background"
         data-testid={`app-rahmen-${appId}`}
       />
-      {stand === 'test' && <TestRand />}
       <Kapsel appId={appId} name={name} stand={stand} staende={staende}>
         <RueckmeldungKnopf appId={appId} stand={stand} rahmen={rahmen} />
       </Kapsel>
