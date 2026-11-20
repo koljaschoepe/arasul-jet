@@ -198,6 +198,19 @@ erst beim nächsten Einspielen.** Die Datei liegt neben ihr und nicht in der
 Shell. Eine App, die die Bibliothek zur Laufzeit lädt, bekommt sie mit dem
 Update des Geräts.
 
+### Die mitgelieferte App: das Entwickler-Cockpit (J44, M7)
+
+Eine einzige App kommt mit Arasul selbst: das **Entwickler-Cockpit** unter
+`/apps/entwickler-cockpit/`. Sie läuft wie jede App im Rahmen und lädt die
+Bibliothek zur Laufzeit, aber ihre Dateien liegen im Abbild des Backends statt
+in `APPS_DIR`, sie hat keinen Teststand und kein Backend, und **nicht die
+Freigabe entscheidet, sondern das Kennzeichen Entwickler** (frisch aus der
+Datenbank, auch ohne Admin-Rolle, nie für einen Administrator ohne
+Kennzeichen). Die Kennung ist für Pakete vergeben. Daten holt sie über die
+Plattform-API mit der Sitzung des Menschen davor. Regeln und Begründung:
+[`RUECKMELDUNG.md`, Das Entwickler-Cockpit](RUECKMELDUNG.md#das-entwickler-cockpit);
+Dienst: `apps/dashboard-backend/src/services/app/mitgeliefert.js`.
+
 ### Über jeder App das Icon der Rückmeldung (J42, M7)
 
 Der Rahmen legt oben rechts über jede App ein kleines Icon. Ein Mitarbeiter

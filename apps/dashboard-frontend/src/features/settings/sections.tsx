@@ -5,7 +5,6 @@ import {
   FolderTree,
   HardDrive,
   ListOrdered,
-  MessageSquarePlus,
   Server,
   Users,
 } from 'lucide-react';
@@ -28,15 +27,7 @@ import type { ReactNode } from 'react';
  * Administrator ändert keine Prompts.
  */
 export type SettingsSectionId =
-  | 'benutzer'
-  | 'apps'
-  | 'rueckmeldungen'
-  | 'laeufe'
-  | 'firmenordner'
-  | 'modelle'
-  | 'system'
-  | 'daten'
-  | 'geraet';
+  'benutzer' | 'apps' | 'laeufe' | 'firmenordner' | 'modelle' | 'system' | 'daten' | 'geraet';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -47,11 +38,6 @@ export interface SettingsSection {
    * was der Administrator mit Menschen und Apps tut, und was das Gerät betrifft.
    */
   gruppe: 'Arbeit' | 'Betrieb';
-  /**
-   * Nur mit dem Kennzeichen Entwickler in der Leiste (J42, M7). Die Rolle Admin
-   * allein reicht nicht; entscheiden tut ohnehin das Backend.
-   */
-  nurEntwickler?: boolean;
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
@@ -59,15 +45,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   // Administrator am häufigsten tut (Phase D3), und die Zielform beginnt hier.
   { id: 'benutzer', label: 'Personen', icon: <Users />, gruppe: 'Arbeit' },
   { id: 'apps', label: 'Apps', icon: <AppWindow />, gruppe: 'Arbeit' },
-  // Was Mitarbeiter über das Icon über jeder App gemeldet haben (J42, M7), als
-  // einfache Liste, bis das Entwickler-Cockpit (J44) sie übernimmt.
-  {
-    id: 'rueckmeldungen',
-    label: 'Rückmeldungen',
-    icon: <MessageSquarePlus />,
-    gruppe: 'Arbeit',
-    nurEntwickler: true,
-  },
   // Was auf dem Gerät gelaufen ist, über alle Apps, mit Filtern; jeder Lauf hat
   // eine Adresse (`/workspace/verwaltung/laeufe/<nummer>`).
   { id: 'laeufe', label: 'Läufe', icon: <ListOrdered />, gruppe: 'Arbeit' },
@@ -109,6 +86,10 @@ const ALT: Record<string, { bereich: SettingsSectionId; abschnitt?: string }> = 
   privacy: { bereich: 'daten' },
   // Seit M5 stehen die Verbindungen auf der Seite jeder App.
   verbindungen: { bereich: 'apps' },
+  // Die Liste der Rückmeldungen (J42) ist im Entwickler-Cockpit aufgegangen
+  // (J44); ein altes Lesezeichen landet bei den Apps, wo der Schalter für
+  // Bildschirmfotos steht.
+  rueckmeldungen: { bereich: 'apps' },
 };
 
 /** Initiale System-Unter-Sektion aus einem (evtl. alten) `?tab=`-Wert. */

@@ -970,11 +970,27 @@ wieder.
 
 Lesen kann die Meldungen nur, wer das Kennzeichen **Entwickler** trägt, auch
 der Administrator nicht ohne es: **Verwaltung → Personen**, Schalter
-„Entwickler“. Mit dem Kennzeichen steht in der Verwaltung der Bereich
-**Verwaltung → Rückmeldungen**: neueste zuerst, je Meldung App, Person, Zeit,
-Text, Seite und das Foto, das auf Klick groß aufgeht. „Entfernen“ nimmt
-Meldung und Foto vom Gerät; in älteren Sicherungen bleiben sie, bis diese
-ablaufen.
+„Entwickler“. Mit dem Kennzeichen steht in der Aktivitätsleiste die App
+**Entwickler-Cockpit**; sie kommt mit Arasul, auch eine Person ohne
+Verwaltung sieht sie, wer das Kennzeichen nicht trägt, sieht sie nicht. Drei
+Ansichten:
+
+- **Eingang**: die Meldungen aller Apps, neueste zuerst, mit Filter nach App
+  und Stand. Ein Klick öffnet eine Meldung mit Text, Seite, Person, Zeit und
+  dem Foto. Dort setzen Sie den Stand: neu, angenommen, umgesetzt oder
+  abgelehnt; wer ablehnt, schreibt den Grund dazu. Die meldende Person erfährt
+  davon nichts. „Entfernen“ nimmt Meldung und Foto vom Gerät; in älteren
+  Sicherungen bleiben sie, bis diese ablaufen.
+- **Apps**: je App die Fassung im Test und live, wann zuletzt geändert, wie
+  viele Meldungen offen sind.
+- **Test nach Live**: welche App im Test eine neuere Fassung hat als live,
+  mit dem Text des Entwicklers dazu. „Live schalten“ tut dasselbe wie unter
+  Verwaltung → Apps: die Daten der App werden vorher gesichert, und startet
+  die neue Fassung nicht, schaltet Arasul selbst zurück. Danach steht dort
+  „Zurück“ auf die Fassung davor.
+
+Bis zum 20.11.2026 stand die Liste der Meldungen unter Verwaltung →
+Rückmeldungen; die gibt es nicht mehr.
 
 Gespeichert wird nur am Gerät: der Text in der Datenbank, das Foto als Datei
 bei den Apps (`data/apps/.rueckmeldungen/`). Beides geht in die nächtliche
