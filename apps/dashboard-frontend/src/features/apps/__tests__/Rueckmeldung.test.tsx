@@ -79,8 +79,8 @@ describe('Rückmeldung im Rahmen', () => {
     // Geschwister des iframes in derselben Hülle, nicht im Dokument der App.
     expect(knopf.parentElement).toBe(rahmen.parentElement);
     expect(knopf.className).toMatch(/absolute/);
-    expect(knopf.className).toMatch(/top-2/);
-    expect(knopf.className).toMatch(/right-2/);
+    expect(knopf.className).toMatch(/top-0/);
+    expect(knopf.className).toMatch(/right-0/);
   });
 
   it('Text ist Pflicht; abgesendet wird mit App, Stand, Seite und Foto, danach nur die Bestätigung', async () => {

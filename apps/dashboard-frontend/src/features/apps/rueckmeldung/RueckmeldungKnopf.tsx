@@ -121,17 +121,21 @@ export function RueckmeldungKnopf({ appId, stand, rahmen }: Props) {
     <>
       <Tooltip>
         <TooltipTrigger asChild>
+          {/* Die Trefferfläche ist 44 px groß und durchsichtig (am Handy hebt das
+              Gerät jeden Knopf ohnehin auf 44 px, `index.css`); gezeichnet wird
+              darin nur der kleine Kreis von 28 px, 8 px vom Rand. */}
           <Button
             type="button"
-            variant="outline"
-            size="icon-sm"
+            variant="ghost"
             aria-label="Rückmeldung zu dieser Seite"
             onClick={oeffnen}
             disabled={nimmtAuf}
-            className="absolute top-2 right-2 z-10 size-7 rounded-full bg-background/85 text-muted-foreground shadow-sm backdrop-blur-sm hover:text-foreground"
+            className="group absolute top-0 right-0 z-10 size-11 rounded-full p-0 hover:bg-transparent dark:hover:bg-transparent"
             data-testid="rueckmeldung-knopf"
           >
-            <MessageSquarePlus className="size-3.5" />
+            <span className="flex size-7 items-center justify-center rounded-full border border-border bg-background/85 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors group-hover:text-foreground">
+              <MessageSquarePlus className="size-3.5" />
+            </span>
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left">Rückmeldung zu dieser Seite</TooltipContent>
