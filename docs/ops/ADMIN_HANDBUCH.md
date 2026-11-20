@@ -982,6 +982,24 @@ Sicherung. Wird eine Person gelöscht, bleiben ihre Meldungen ohne Namen
 stehen. Die Apps können das Icon nicht abschalten, und keine braucht dafür
 eigenen Code.
 
+**Meldungen an den Agenten (seit 20.11.2026).** Wer die Apps mit dem Ara-Kit
+baut, holt die Meldungen einer App mit einem eigenen Schlüssel in seine
+Sitzung mit Claude Code oder Codex und trägt dort ein, was daraus wurde
+(angenommen, umgesetzt, abgelehnt mit Grund). Den Schlüssel legen Sie am Gerät
+an: `bash scripts/util/kit-schluessel.sh anlegen "Rückmeldungen" feedback:agent`.
+Der Schlüssel zum Ausrollen liest keine Meldungen.
+
+Ob dabei auch die **Bildschirmfotos** an den Agenten gehen, legen Sie je App
+fest: **Verwaltung → Apps → (App) → Rückmeldungen**, Schalter
+„Bildschirmfotos an den Agenten“. Vorgabe ist **aus**: dann bekommt der Agent
+Text, Seite und Person, aber weder das Foto noch die markierte Stelle, und
+auch keinen Hinweis, dass es eines gibt. Schalten Sie es nur ein, wenn auf den
+Seiten dieser App nichts steht, was das Haus nicht verlassen darf, oder wenn
+mit dem Anbieter des Agenten ein Vertrag dafür besteht. Am Gerät sehen
+Entwickler die Fotos in jedem Fall. Jede Abfrage durch das Kit steht im
+Sicherheitsprotokoll: welcher Schlüssel, wann, welche App, mit oder ohne
+Bilder.
+
 Mehr dazu: [`docs/features/RUECKMELDUNG.md`](../features/RUECKMELDUNG.md).
 
 ### Passwort ändern

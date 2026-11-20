@@ -2,9 +2,11 @@
 
 > Stand 20.11.2026, Karte `rueckmeldung-im-rahmen` (J42, M7). Quelle ist der
 > Vertrag der Verbesserungsschleife, `company/schleife.md` im Überordner
-> (Teil „Rückmeldung“, Regeln 1 bis 3). Was danach kommt: die Schnittstelle für
-> Kit und Cockpit mit dem Schalter je App für Bilder (J43), das
-> Entwickler-Cockpit (J44).
+> (Teil „Rückmeldung“, Regeln 1 bis 3). Seit demselben Tag die Schnittstelle
+> für das Kit mit dem Schalter je App für Bilder (Karte
+> `rueckmeldung-schnittstelle`, J43, Abschnitt
+> [Schnittstelle für das Kit](#schnittstelle-für-das-kit)). Was danach kommt:
+> das Entwickler-Cockpit (J44).
 
 Über jeder App zeigt der Rahmen von Arasul oben rechts ein kleines Icon. Ein
 Mitarbeiter tippt darauf, schreibt in freien Worten, was fehlt oder nicht
@@ -124,8 +126,221 @@ Deploy 49 von 49 grün (Chromium und WebKit, 1440 und 390 px, Belege, Abschluss,
 Probe-App). Bericht und Bilder:
 [`docs/plans/audits/2026-11-20-rueckmeldung/`](../plans/audits/2026-11-20-rueckmeldung/README.md).
 
-## Was diese Karte nicht baut
+## Schnittstelle für das Kit
 
-Die Schnittstelle für das Kit und den Schalter je App, ob Bilder an den Agenten
-gehen (J43); das Entwickler-Cockpit (J44); keinen Chat, keinen Agenten im
-Browser, keine Abstimmung, keine Sicht für andere Mitarbeiter.
+> Karte `rueckmeldung-schnittstelle` (J43, M7, 20.11.2026). Für die Kit-Karte
+> `kit-befehl-anfragen` (K29): ein Befehl holt die offenen Meldungen einer App
+> in die Sitzung, der Agent ordnet sie, setzt nach Freigabe um und trägt den
+> Stand am Gerät nach. Quelle der Regeln: `company/schleife.md`, Regeln 2 bis 4.
+
+Drei Wege unter `/api/v1/external`, alle mit dem Kopf `X-API-Key`:
+
+| Weg                                                       | Wozu                                  |
+| --------------------------------------------------------- | ------------------------------------- |
+| `GET /api/v1/external/apps/<id>/rueckmeldungen`           | die Meldungen einer App lesen         |
+| `GET /api/v1/external/apps/<id>/rueckmeldungen/<nr>/bild` | ein Bildschirmfoto, nur mit Erlaubnis |
+| `PATCH /api/v1/external/apps/<id>/rueckmeldungen/<nr>`    | den Stand einer Meldung setzen        |
+
+Dieselben Wege stehen im Kontrakt des Geräts (`GET /api/v1/external/contract`)
+unter `endpunkte` mit dem Bereich `feedback:agent` und im Abschnitt
+`rueckmeldungen` (Wege, Stände, Felder, Regeln). Die Kontraktversion bleibt
+bei 14: neu ist nur, was ein Kit vorher nicht kannte.
+
+### Der Schlüssel
+
+Ein eigener Schlüssel im Bereich **`feedback:agent`**, angelegt am Gerät:
+
+```bash
+bash scripts/util/kit-schluessel.sh anlegen "Rückmeldungen" feedback:agent
+```
+
+Der Klartext erscheint genau einmal. Ein Schlüssel mit nur `app:deploy` (der
+zum Ausrollen) oder `system:update` liest **keine** Meldungen: in ihnen stehen
+Namen von Mitarbeitern. Widerrufen wie jeder Schlüssel
+(`kit-schluessel.sh widerrufen <präfix>`).
+
+### Der Schalter je App: „Bildschirmfotos an den Agenten“
+
+**Verwaltung › Apps › (App) › Rückmeldungen**, nur für Administratoren,
+**Vorgabe aus** (`apps.bilder_an_agenten`, Migration 215;
+`PUT /api/apps/<id>/bilder-an-agenten`, Body `{"erlaubt": true}`).
+
+| Schalter | Was das Kit bekommt                                                                                                                                                                                            |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **aus**  | Text, Seite, App, Stand, Person, Zeit, Stand der Meldung. Das Feld `bild` **fehlt** an jeder Meldung: kein Bild, keine Markierung, kein Weg dorthin, kein Hinweis, ob es eins gibt. Der Abholweg antwortet 403 |
+| **an**   | dazu je Meldung `bild`: `null` ohne Foto, sonst `{ "weg", "format", "markierung" }`. Das Bild selbst über `weg`                                                                                                |
+
+Am Gerät ändert der Schalter nichts: Entwickler sehen die Fotos in der Liste
+(und später im Cockpit) immer. Den Dateinamen am Gerät nennt die Antwort nie.
+
+### Lesen
+
+```bash
+curl -s -H "X-API-Key: $ARASUL_RUECKMELDUNG_SCHLUESSEL" \
+  "https://<gerät>/api/v1/external/apps/belege/rueckmeldungen?stand_meldung=neu,angenommen"
+```
+
+| Abfrage         | Bedeutung                                                     | Vorgabe |
+| --------------- | ------------------------------------------------------------- | ------- |
+| `stand_meldung` | Komma-Liste aus `neu`, `angenommen`, `umgesetzt`, `abgelehnt` | alle    |
+| `stand`         | `test` oder `live`: in welchem Stand der App gemeldet wurde   | beide   |
+| `grenze`        | 1 bis 500                                                     | 200     |
+
+Älteste zuerst, in der Reihenfolge, in der sie kamen. **Antwort mit Schalter
+aus** (Vorgabe):
+
+```json
+{
+  "data": {
+    "app_id": "belege",
+    "app_name": "Belege",
+    "bilder_an_agenten": false,
+    "anzahl": 2,
+    "meldungen": [
+      {
+        "id": 7,
+        "app_id": "belege",
+        "stand": "live",
+        "seite": "/apps/belege/?ansicht=offen",
+        "text": "Hier fehlt ein Filter nach Monat.",
+        "person": { "id": 2, "anzeigeName": "Mia Muster" },
+        "erstellt_am": "2026-11-20T10:00:00.000Z",
+        "stand_meldung": "neu",
+        "grund": null,
+        "stand_geaendert_am": null
+      },
+      {
+        "id": 8,
+        "app_id": "belege",
+        "stand": "test",
+        "seite": "/apps/belege/test/",
+        "text": "Der Knopf Speichern reagiert nicht.",
+        "person": null,
+        "erstellt_am": "2026-11-20T10:30:00.000Z",
+        "stand_meldung": "angenommen",
+        "grund": null,
+        "stand_geaendert_am": "2026-11-20T11:00:00.000Z"
+      }
+    ]
+  },
+  "timestamp": "2026-11-20T12:00:00.000Z"
+}
+```
+
+**Dieselbe Abfrage mit Schalter an**: `bilder_an_agenten` ist `true`, und
+jede Meldung trägt zusätzlich `bild`:
+
+```json
+{
+  "id": 7,
+  "…": "wie oben",
+  "bild": {
+    "weg": "/api/v1/external/apps/belege/rueckmeldungen/7/bild",
+    "format": "png",
+    "markierung": { "x": 0.1, "y": 0.2, "breite": 0.3, "hoehe": 0.1 }
+  }
+}
+```
+
+Meldung 8 trägt dann `"bild": null` (abgeschickt ohne Foto). `person` ist
+`null`, wenn die Person inzwischen gelöscht ist. `markierung` sind Anteile von
+Breite und Höhe des Bildes (0 bis 1) oder `null`, wenn keine Stelle markiert
+wurde; die Stelle ist zusätzlich ins PNG gezeichnet. `weg` ist relativ zur
+Adresse des Geräts.
+
+**Ein Kit prüft `bilder_an_agenten`, nicht das Fehlen von `bild`**: ist es
+`false`, gibt es für den Agenten kein Bild, auch keines zum Nachfragen.
+
+### Ein Bild holen
+
+```bash
+curl -s -H "X-API-Key: $ARASUL_RUECKMELDUNG_SCHLUESSEL" -o meldung-7.png \
+  "https://<gerät>/api/v1/external/apps/belege/rueckmeldungen/7/bild"
+```
+
+`200` mit `Content-Type: image/png` und `Cache-Control: private, no-store`.
+
+### Den Stand setzen
+
+```bash
+curl -s -X PATCH -H "X-API-Key: $ARASUL_RUECKMELDUNG_SCHLUESSEL" \
+  -H "Content-Type: application/json" \
+  -d '{"stand_meldung":"abgelehnt","grund":"Gibt es schon: Filter oben rechts."}' \
+  "https://<gerät>/api/v1/external/apps/belege/rueckmeldungen/7"
+```
+
+`stand_meldung` ist `neu`, `angenommen`, `umgesetzt` oder `abgelehnt`.
+`grund` (1 bis 2000 Zeichen) ist **Pflicht bei `abgelehnt`**, sonst frei; ein
+neuer Stand ohne Grund löscht den alten. Kein CSRF-Kopf nötig, der Schlüssel
+genügt. Antwort: die Meldung in derselben Form wie beim Lesen (mit `bild` nur
+bei Schalter an), dazu `vorher`:
+
+```json
+{
+  "data": {
+    "id": 7,
+    "app_id": "belege",
+    "stand": "live",
+    "seite": "/apps/belege/?ansicht=offen",
+    "text": "Hier fehlt ein Filter nach Monat.",
+    "person": { "id": 2, "anzeigeName": "Mia Muster" },
+    "erstellt_am": "2026-11-20T10:00:00.000Z",
+    "stand_meldung": "abgelehnt",
+    "grund": "Gibt es schon: Filter oben rechts.",
+    "stand_geaendert_am": "2026-11-20T12:05:00.000Z",
+    "vorher": "neu"
+  },
+  "timestamp": "2026-11-20T12:05:00.000Z"
+}
+```
+
+Am Gerät steht dazu `stand_geaendert_durch = "schluessel:<präfix>"`. Der
+Mitarbeiter, der gemeldet hat, erfährt davon nichts (Regel 2).
+
+### Fehlerfälle
+
+Jeder Fehler kommt in der Hülle des Geräts:
+`{ "error": { "code": "…", "message": "…" }, "timestamp": "…" }`.
+
+| Status | `code`             | Wann                                                                                                                                                |
+| ------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 401    | `UNAUTHORIZED`     | kein `X-API-Key`, Schlüssel unbekannt, widerrufen oder abgelaufen                                                                                   |
+| 403    | `FORBIDDEN`        | Schlüssel ohne Bereich `feedback:agent` (etwa nur `app:deploy`); Schlüssel einer anderen App                                                        |
+| 403    | `FORBIDDEN`        | Bild holen, obwohl der Schalter der App aus ist: „Für die App belege gehen keine Bildschirmfotos an den Agenten. …“                                 |
+| 400    | `VALIDATION_ERROR` | `stand_meldung` unbekannt, `grenze` außerhalb 1 bis 500, `abgelehnt` ohne `grund`, unbekanntes Feld                                                 |
+| 404    | `NOT_FOUND`        | die App gibt es am Gerät nicht; die Meldung gibt es nicht oder sie gehört zu einer anderen App; die Meldung hat kein Bild; die Datei fehlt am Gerät |
+| 429    | `RATE_LIMITED`     | mehr Aufrufe je Minute, als der Schlüssel darf (Vorgabe 60); `details.retryAfter` in Sekunden                                                       |
+
+### Im Protokoll
+
+Jede Abfrage durch das Kit steht im Sicherheitsprotokoll des Geräts
+(`audit_logs`), geschrieben, bevor die Antwort geht:
+
+| `action`                            | Was in `details` steht                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| `rueckmeldungen_abgefragt`          | Schlüssel (Präfix und Name), App, `mit_bildern`, `anzahl`, Filter        |
+| `rueckmeldung_bild_abgeholt`        | Schlüssel, App, Nummer der Meldung, `mit_bildern: true`                  |
+| `rueckmeldung_stand_gesetzt`        | Schlüssel, App, Nummer, `vorher`, `nachher`, ob mit Grund, `mit_bildern` |
+| `app_bilder_an_agenten_an` / `_aus` | wer (Person), App, `vorher`, `nachher` (der Schalter selbst)             |
+
+`user_id` ist der Besitzer des Schlüssels, `timestamp` die Zeit. Eine
+Abweisung (falscher Bereich, Schalter aus beim Bild) schreibt keine Zeile
+dieser Art. Lesen:
+
+```sql
+SELECT timestamp, action, details FROM audit_logs
+ WHERE action LIKE 'rueckmeldung%' OR action LIKE 'app_bilder%'
+ ORDER BY timestamp DESC LIMIT 20;
+```
+
+Belegt in `apps/dashboard-backend/__tests__/unit/rueckmeldungenKit.test.js`
+(Bereich, Schalter aus ohne jede Spur des Bildes im ganzen Text der Antwort,
+Schalter an, Stand, Protokoll) und gegen echtes Postgres in
+`__tests__/pg/rueckmeldungen.test.js`.
+
+## Was nicht gebaut ist
+
+Das Entwickler-Cockpit mit Eingang und Ständen je App (J44); der Kit-Befehl,
+der diese Schnittstelle nutzt (K29); DSGVO-Auskunft mit Rückmeldungen und eine
+gemeinsame Drossel je Person (eigene Karte). Kein Chat, kein Agent im Browser,
+keine Abstimmung, keine Sicht für andere Mitarbeiter.
