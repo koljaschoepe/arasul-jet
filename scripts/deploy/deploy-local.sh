@@ -134,7 +134,10 @@ declare -A PATH2SVC=(
   ["services/self-healing-agent/"]="self-healing-agent"
   ["services/backup-service/"]="backup-service"
   ["services/egress-proxy/"]="egress-proxy"
-  ["packages/marken/"]="dashboard-frontend"
+  # Die Bibliothek liegt auch im Bau des Entwickler-Cockpits (J44), der im
+  # Image des Backends steckt (Stufe `cockpit` im Dockerfile).
+  ["packages/marken/"]="dashboard-frontend dashboard-backend"
+  ["apps/entwickler-cockpit/"]="dashboard-backend"
   ["libs/shared-python/"]="llm-service embedding-service document-indexer metrics-collector self-healing-agent"
   # Die Wurzeldateien des Workspace. Beide Apps installieren daraus mit
   # `npm ci`; ein Merge, der nur die Sperrdatei bewegt (Regel 7: nur innerhalb

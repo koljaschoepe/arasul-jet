@@ -46,8 +46,32 @@ COPY apps/dashboard-backend/__tests__/ ./__tests__/
 COPY apps/dashboard-backend/__mocks__/ ./__mocks__/
 COPY apps/dashboard-backend/jest.setup.js ./jest.setup.js
 COPY apps/dashboard-backend/openapi.yaml ./
+# Die mitgelieferte App: `app.json` und `frontend/` (J44).
+COPY --from=cockpit /app/apps/entwickler-cockpit/dist/ ./mitgeliefert/entwickler-cockpit/
 ENV NODE_ENV=test
 CMD ["npx", "jest", "--passWithNoTests", "--maxWorkers=2"]
+
+# ============================================================================
+# cockpit: das Entwickler-Cockpit (J44, M7), die mitgelieferte App.
+# Gebaut aus `apps/entwickler-cockpit/` gegen die Bibliothek zur Laufzeit
+# (React und `@marken` kommen am Geraet von `/marken/5/`); das Backend liefert
+# es unter `/apps/entwickler-cockpit/` aus (`services/app/mitgeliefert.js`).
+# Die ersten Schritte stehen WORTGLEICH wie im Builder des Frontends
+# (`apps/dashboard-frontend/Dockerfile`): BuildKit teilt dann die Schicht mit
+# `npm ci`, und das Backend baut sie nicht ein zweites Mal.
+# ============================================================================
+FROM node:${NODE_VERSION}-alpine AS cockpit
+LABEL org.opencontainers.image.architecture="arm64"
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/dashboard-frontend/package.json apps/dashboard-frontend/
+COPY apps/dashboard-backend/package.json apps/dashboard-backend/
+COPY packages/marken packages/marken
+RUN npm pkg delete scripts.prepare
+RUN npm ci --workspace=arasul-dashboard-frontend --include-workspace-root
+COPY apps/entwickler-cockpit/ apps/entwickler-cockpit/
+WORKDIR /app/apps/dashboard-frontend
+RUN npm run cockpit:bauen
 
 # ============================================================================
 # runtime: default target — prod image, omits devDeps and test files.

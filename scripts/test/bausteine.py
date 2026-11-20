@@ -299,7 +299,9 @@ REGELN = [
 #
 # Seit H5 gilt das auch fuer `components/ui/`: die Bausteine stehen dort nicht
 # mehr, also gibt es keinen Grund mehr, die Regel dort auszusetzen.
-WURZELN = ['apps/dashboard-frontend/src']
+# Seit J44 dazu das Entwickler-Cockpit, die mitgelieferte App: es steht neben
+# der Shell im selben Rahmen und haelt dieselben Regeln.
+WURZELN = ['apps/dashboard-frontend/src', 'apps/entwickler-cockpit/src']
 
 AUSGENOMMENE_ORDNER = ()
 
@@ -323,7 +325,7 @@ AUSGENOMMENE_ORDNER = ()
 # (340 bis 20 Grad) liegt, ist gruen, orange, gelb, violett -- und faellt.
 # Farbworte (`white`, `black`, `transparent`, `currentColor`) sind keine
 # Palette und werden nicht gelesen.
-CSS_WURZELN = ['apps/dashboard-frontend/src', 'packages/marken/src']
+CSS_WURZELN = ['apps/dashboard-frontend/src', 'packages/marken/src', 'apps/entwickler-cockpit/src']
 FARBQUELLE = 'packages/marken/src/theme.css'
 HEX = re.compile(r'#([0-9A-Fa-f]{3,8})\b')
 RGB = re.compile(r'\brgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)')
@@ -567,7 +569,12 @@ def pruefe(wurzel: Path) -> list[str]:
             voll = datei.relative_to(wurzel).as_posix()
             if any(voll.startswith(a + '/') for a in AUSGENOMMENE_ORDNER):
                 continue
-            relativ = datei.relative_to(wurzel / 'apps/dashboard-frontend').as_posix()
+            # `src/…` wie in AUSNAHMEN; das Cockpit mit seinem Ordner davor.
+            relativ = (
+                datei.relative_to(wurzel / 'apps/dashboard-frontend').as_posix()
+                if basis == 'apps/dashboard-frontend/src'
+                else voll
+            )
             if '__tests__' in datei.parts or datei.name.endswith('.test.tsx'):
                 continue
             if relativ in AUSNAHMEN:

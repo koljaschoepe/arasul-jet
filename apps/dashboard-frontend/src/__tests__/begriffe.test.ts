@@ -24,6 +24,8 @@ import { BEGRIFFE } from '../begriffe';
 
 const SRC = join(__dirname, '..');
 const MARKEN = join(SRC, '..', '..', '..', 'packages', 'marken', 'src');
+// Das Entwickler-Cockpit (J44), die mitgelieferte App, spricht dieselbe Sprache.
+const COCKPIT = join(SRC, '..', '..', 'entwickler-cockpit', 'src');
 
 function dateien(wurzel: string): string[] {
   const aus: string[] = [];
@@ -177,7 +179,7 @@ function sichtbareTexte(pfad: string): Fund[] {
   return funde;
 }
 
-const ALLE = [...dateien(SRC), ...dateien(MARKEN)].flatMap(sichtbareTexte);
+const ALLE = [...dateien(SRC), ...dateien(MARKEN), ...dateien(COCKPIT)].flatMap(sichtbareTexte);
 
 /**
  * Umschreibungen, die in einem deutschen Satz nur als ä/ö/ü vorkommen. Eine

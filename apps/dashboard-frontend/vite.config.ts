@@ -116,6 +116,10 @@ export default defineConfig({
     include: [
       'src/**/*.{test,spec}.{ts,tsx}',
       '../../packages/marken/src/**/*.{test,spec}.{ts,tsx}',
+      // Das Entwickler-Cockpit (J44): eine eigene App neben der Shell, mit
+      // eigenem Bau (`apps/entwickler-cockpit/vite.config.ts`), aber mit
+      // denselben Werkzeugen geprueft -- Typen, Tests, Regeln der Gestalt.
+      '../entwickler-cockpit/src/**/*.{test,spec}.{ts,tsx}',
     ],
     exclude: ['e2e/**', 'node_modules/**'],
     // Die Zeitzone gehoert zur Messung, nicht zur Maschine (28.08.2026).
