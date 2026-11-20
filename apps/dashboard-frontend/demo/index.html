@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex" />
+    <meta
+      name="description"
+      content="Arasul zum Ausprobieren: das echte Frontend mit Beispiel-Apps und Beispieldaten, ohne Gerät."
+    />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Arasul Demo</title>
+    <!-- Wie `index.html` des Produkts: die Farben bis zum Stylesheet, in der
+         untersten Schicht. Die Demo ist hell, bis das Theme gilt. -->
+    <style>
+      @layer flackerschutz {
+        :root {
+          color-scheme: light;
+        }
+        body {
+          background: #f6f6f6;
+          color: #1a1a1a;
+          margin: 0;
+        }
+        .loading {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          font-size: 1rem;
+          color: #6b6b6b;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          padding: 1rem;
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>Die Demo braucht JavaScript. / The demo needs JavaScript.</noscript>
+    <div id="root">
+      <div class="loading" id="loading-msg">Arasul Demo …</div>
+    </div>
+    <script type="module" src="./start.ts"></script>
+  </body>
+</html>

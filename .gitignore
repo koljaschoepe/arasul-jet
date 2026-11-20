@@ -120,3 +120,4 @@ arasul-abnahme-code
 # Das Entwickler-Cockpit (J44): Bau und die Kopie im Backend entstehen im Dockerfile
 apps/entwickler-cockpit/dist/
 apps/dashboard-backend/mitgeliefert/
+apps/dashboard-frontend/dist-demo/
