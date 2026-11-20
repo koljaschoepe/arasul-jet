@@ -272,7 +272,18 @@ pruefe '  und erfüllt dort den Standard' \
 # traegt und weiter lieferbar ist.
 echo
 echo '--- Apps am Gerät (Auskunft) ---'
-for app in ${ARASUL_STANDARD_AUSKUNFT:-belege abschluss probe-faktum-belege probe-cockpit-1120 entwickler-cockpit}; do
+# Die Kennungen kommen vom Geraet (`GET /api/apps` mit der Sitzung), nicht aus
+# diesem Skript: es steht keine App eines Kunden in einem oeffentlichen Repo.
+AUSKUNFT="${ARASUL_STANDARD_AUSKUNFT:-}"
+if [ -z "$AUSKUNFT" ] && [ -n "$TOK" ]; then
+  AUSKUNFT=$(curl -sk --max-time 60 -H "authorization: Bearer $TOK" "$BASIS/api/apps" |
+    python3 -c 'import sys,json
+try: print(" ".join(a["id"] for a in json.load(sys.stdin)["data"] if a["id"] != sys.argv[1]))
+except Exception: print("")' "$APP")
+fi
+pruefe 'Die Liste der Apps am Gerät liegt vor' "$([ -n "$AUSKUNFT" ] && echo ja || echo nein)" \
+  "$(wc -w <<<"$AUSKUNFT" | tr -d ' ') Apps"
+for app in $AUSKUNFT; do
   schluessel_ruf GET "/api/v1/external/apps/$app"
   [ "$CODE" = 200 ] || { printf '       %-22s nicht da (HTTP %s)\n' "$app" "$CODE"; continue; }
   for stand in live test; do
