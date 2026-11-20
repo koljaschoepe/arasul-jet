@@ -48,7 +48,9 @@ function Feld({
       className={cn(
         'flex h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
         aktiv
-          ? 'max-w-[calc(100%-236px)] min-w-0 shrink-0 bg-primary/14 px-3 text-primary dark:bg-primary/24'
+          ? // Die fünf übrigen Einträge brauchen je 44 px; der Rest gehört dem
+            // gewählten, damit „Einstellungen“ bei 390 px in eine Zeile passt.
+            'max-w-[calc(100%-220px)] min-w-0 shrink-0 bg-primary/14 px-3 text-primary dark:bg-primary/24'
           : 'flex-1 text-muted-foreground hover:text-foreground'
       )}
     >
@@ -56,8 +58,8 @@ function Feld({
       {aktiv && (
         // Der Name in Tinte, nicht in Blau: Blau auf der getönten Fläche über
         // dem Glas fiele am blauen Ende des Verlaufs unter 4,5:1.
-        // Trennen nach Silben statt mitten im Wort („Einstellung / en“).
-        <span className="min-w-0 text-left text-xs leading-tight font-medium hyphens-auto text-foreground">
+        // Reicht es doch nicht, trennt der Browser nach Silben.
+        <span className="min-w-0 text-left text-xs leading-tight font-medium break-words hyphens-auto text-foreground">
           {name}
         </span>
       )}
@@ -160,7 +162,9 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
           className={cn(
             'flex h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
             mehrAktiv
-              ? 'max-w-[calc(100%-236px)] min-w-0 shrink-0 bg-primary/14 px-3 text-primary dark:bg-primary/24'
+              ? // Die fünf übrigen Einträge brauchen je 44 px; der Rest gehört dem
+                // gewählten, damit „Einstellungen“ bei 390 px in eine Zeile passt.
+                'max-w-[calc(100%-220px)] min-w-0 shrink-0 bg-primary/14 px-3 text-primary dark:bg-primary/24'
               : cn(
                   'flex-1',
                   offen

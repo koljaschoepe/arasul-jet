@@ -81,7 +81,9 @@ const SPALTEN: ReadonlyArray<Spalte<Meldung>> = [
     schluessel: 'wann',
     titel: 'Eingang',
     wert: m => m.erstellt_am,
-    zelle: m => <span style={leise}>{zeit(m.erstellt_am)}</span>,
+    zelle: m => (
+      <span style={{ ...leise, fontVariantNumeric: 'tabular-nums' }}>{zeit(m.erstellt_am)}</span>
+    ),
   },
   {
     schluessel: 'bild',

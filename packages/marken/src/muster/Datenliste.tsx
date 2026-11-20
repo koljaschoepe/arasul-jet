@@ -340,9 +340,14 @@ export function Datenliste<Zeile>({
             const karte = (spalte: Spalte<Zeile>) =>
               spalte.kartenText ? spalte.kartenText(zeile) : spalte.zelle(zeile);
             // Was in dieser Karte nichts zeigt, steht auch nicht da, samt Trenner.
-            const rest = uebrige
+            const sichtbar = uebrige
               .map(spalte => ({ spalte, inhalt: karte(spalte) }))
               .filter(({ inhalt }) => inhalt !== null && inhalt !== undefined && inhalt !== '');
+            // Lange Texte (`kuerzen`) stehen in einer eigenen Zeile, auf zwei
+            // Zeilen begrenzt und mit „…“; in der Zeile mit „·“ schnitten sie
+            // mitten im Buchstaben ab (5.9.3).
+            const lang = sichtbar.filter(({ spalte }) => spalte.kuerzen);
+            const rest = sichtbar.filter(({ spalte }) => !spalte.kuerzen);
             const inhalt = (
               <>
                 {erste && (
@@ -365,6 +370,16 @@ export function Datenliste<Zeile>({
                     )}
                   </div>
                 )}
+                {lang.map(({ spalte, inhalt: text }) => (
+                  <div
+                    key={spalte.schluessel}
+                    className="line-clamp-2 text-ui-sm text-muted-foreground"
+                    title={volltext(spalte, zeile)}
+                  >
+                    <span className="sr-only">{spalte.titel}: </span>
+                    {text}
+                  </div>
+                ))}
                 {rest.length > 0 && (
                   <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-ui-sm text-muted-foreground">
                     {rest.map(({ spalte, inhalt: text }, i) => (

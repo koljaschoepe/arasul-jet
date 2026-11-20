@@ -77,7 +77,7 @@ const SPALTEN: ReadonlyArray<Spalte<AppZeile>> = [
     zelle: app => {
       const { mangel, wartet, satz } = zustand(app);
       return (
-        <span className="inline-flex items-center justify-end gap-2 text-xs">
+        <span className="inline-flex items-center justify-end gap-2 text-xs tabular-nums">
           {/* Ein Stand, der nicht ausgeliefert werden kann, ist rot schon in der
               Liste (Auftrag app-leiche): ein Mensch klickt auf die Kachel und
               bekommt nichts. Sonst ein Satz in Grau. */}

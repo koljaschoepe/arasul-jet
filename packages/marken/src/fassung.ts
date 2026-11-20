@@ -260,4 +260,10 @@
  * Karte am Handy; die Tabelle setzt Ziffern gleicher Breite. Kein Name
  * faellt weg; eine App auf 5.9.1 laeuft unveraendert.
  */
-export const FASSUNG = '5.9.2';
+/*
+ * 5.9.3: zwei Reparaturen aus der dritten Durchsicht. Die Tabelle setzt keine
+ * Ziffern gleicher Breite mehr fuer alles (Inter verbreiterte damit den
+ * Bindestrich), und die Karte der `Datenliste` am Handy zeigt lange Texte in
+ * einer eigenen Zeile, auf zwei Zeilen begrenzt. Kein Name aendert sich.
+ */
+export const FASSUNG = '5.9.3';

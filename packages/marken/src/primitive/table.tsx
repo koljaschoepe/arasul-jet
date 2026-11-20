@@ -28,9 +28,11 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
     <div data-slot="table-container" className="relative w-full overflow-x-auto">
       <table
         data-slot="table"
-        // Ziffern gleicher Breite (5.9.2): Fassungen und Daten untereinander
-        // fluchten, ohne eine zweite Schrift.
-        className={cn('w-full caption-bottom text-ui-sm tabular-nums', className)}
+        // Keine Ziffern gleicher Breite fuer die ganze Tabelle (5.9.3): Inter
+        // setzt mit `tnum` auch den Bindestrich breit, aus „probe-admin“
+        // wurde „probe - admin“. Wer Zahlen fluchten will, setzt
+        // `tabular-nums` an seine Zelle.
+        className={cn('w-full caption-bottom text-ui-sm', className)}
         {...props}
       />
     </div>
