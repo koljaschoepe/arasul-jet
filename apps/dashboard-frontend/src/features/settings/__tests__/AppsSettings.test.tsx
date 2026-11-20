@@ -55,6 +55,9 @@ const FLOW = {
   registriert_am: '2026-08-28T09:00:00.000Z',
 };
 
+/** Das Urteil des App-Standards (J45) über einen Stand aus dem Kit-Ablauf. */
+const ERFUELLT = { erfuellt: true, ausgenommen: false, funde: [] };
+
 const APP_DETAIL = {
   id: 'beispielapp',
   name: 'Beispielapp',
@@ -72,6 +75,7 @@ const APP_DETAIL = {
       lieferbar: true,
       mangel: null,
       marken: FASSUNG,
+      standard: ERFUELLT,
       modelle: [],
       flows: [FLOW],
     },
@@ -86,6 +90,7 @@ const APP_DETAIL = {
       lieferbar: true,
       mangel: null,
       marken: FASSUNG,
+      standard: ERFUELLT,
       modelle: [],
       flows: [FLOW],
     },
@@ -275,72 +280,35 @@ describe('AppsSettings', () => {
   });
 
   /**
-   * Phase H6: eine App traegt die Bibliothek als Kopie, und eine Kopie
-   * veraltet lautlos. Die drei Faelle, die ein Betreiber auseinanderhalten
-   * koennen muss -- gleich, aelter, gar nicht genannt.
+   * Phase H6: die Fassung der Bibliothek ist Technik und steht aufgeklappt.
+   * Ob sie zum Gerät passt, sagt seit J45 der App-Standard (unten).
    */
-  it('nennt die Fassung des Designsystems, auf der ein Stand steht', async () => {
+  it('nennt die Fassung des Designsystems aufgeklappt', async () => {
     antworte();
     await oeffneApp();
-    // Gleiche Fassung heisst: keine Meldung, die Zahl ist Technik und steht
-    // aufgeklappt (M5).
-    expect(screen.queryAllByTestId('marken-fassung')).toHaveLength(0);
     fireEvent.click(screen.getByTestId('stand-live-technik-knopf'));
     expect(await screen.findByTestId('stand-live-technik')).toHaveTextContent(FASSUNG);
   });
 
-  it('meldet eine App, die auf einer aelteren Bibliothek steht', async () => {
-    antworte({
-      '/apps': { data: [APP_ZEILE] },
-      '/apps/beispielapp': {
-        data: {
-          ...APP_DETAIL,
-          staende: {
-            ...APP_DETAIL.staende,
-            live: { ...APP_DETAIL.staende.live, marken: '1.0.0' },
-          },
-        },
-      },
-    });
-    await oeffneApp();
-    const live = within(screen.getByTestId('stand-live')).getByTestId('marken-fassung');
-    expect(live).toHaveTextContent('1.0.0');
-    expect(live).toHaveTextContent(`älter als das Gerät (${FASSUNG})`);
-    expect(live).toHaveAttribute('data-warnung', 'true');
-    // Der Teststand daneben steht auf der Fassung des Geräts und sagt nichts.
-    expect(within(screen.getByTestId('stand-test')).queryByTestId('marken-fassung')).toBeNull();
-  });
-
   /**
-   * Kontrakt 9 (M5): nur die Hauptzahl heisst, die App laedt die Bibliothek
-   * zur Laufzeit vom Geraet und traegt keine Kopie. Keine Warnung, solange die
-   * Hauptzahl die des Geraets ist; eine fremde Hauptzahl ist eine.
+   * J45 (M7): der App-Standard ist Pflicht beim Ausrollen. Für Stände, die
+   * schon am Gerät liegen, zeigt die Seite der App, ob sie ihn erfüllen,
+   * statt der bisherigen Warnung zur Bibliothek.
    */
-  it('zeigt eine App, die die Bibliothek zur Laufzeit laedt, ohne Warnung', async () => {
-    const haupt = FASSUNG.split('.')[0] ?? '';
-    antworte({
-      '/apps': { data: [APP_ZEILE] },
-      '/apps/beispielapp': {
-        data: {
-          ...APP_DETAIL,
-          staende: {
-            live: { ...APP_DETAIL.staende.live, marken: haupt },
-            test: { ...APP_DETAIL.staende.test, marken: String(Number(haupt) - 1) },
-          },
-        },
-      },
-    });
+  it('zeigt je Stand „erfüllt den Standard" und oben einen Satz dazu', async () => {
+    antworte();
     await oeffneApp();
-    // Ohne Warnung steht die Bibliothek nur aufgeklappt.
-    expect(within(screen.getByTestId('stand-live')).queryByTestId('marken-fassung')).toBeNull();
-    const test = within(screen.getByTestId('stand-test')).getByTestId('marken-fassung');
-    expect(test).toHaveAttribute('data-befund', 'laufzeit-fremd');
-    expect(test).toHaveAttribute('data-warnung', 'true');
+    for (const stand of ['live', 'test']) {
+      const zeile = within(screen.getByTestId(`stand-${stand}`)).getByTestId(`standard-${stand}`);
+      expect(zeile).toHaveTextContent('erfüllt den Standard');
+      expect(zeile).toHaveAttribute('data-art', 'erfuellt');
+    }
+    const satz = screen.getByTestId('app-zustand-standard');
+    expect(satz).toHaveTextContent('Erfüllt den App-Standard.');
+    expect(satz).toHaveAttribute('data-gut', 'true');
   });
 
-  it('meldet eine App, die gar keine Fassung nennt', async () => {
-    // Jede App, die vor H6 gebaut wurde. Sie laeuft -- man weiss nur nicht,
-    // wie alt ihr Erscheinungsbild ist, und genau das steht da.
+  it('sagt, was einem Stand am Standard fehlt, grau und nicht rot', async () => {
     antworte({
       '/apps': { data: [APP_ZEILE] },
       '/apps/beispielapp': {
@@ -348,15 +316,60 @@ describe('AppsSettings', () => {
           ...APP_DETAIL,
           staende: {
             ...APP_DETAIL.staende,
-            live: { ...APP_DETAIL.staende.live, marken: null },
+            live: {
+              ...APP_DETAIL.staende.live,
+              standard: {
+                erfuellt: false,
+                ausgenommen: false,
+                funde: [
+                  {
+                    code: 'fehlt',
+                    text: 'Es gibt keine `nachweis.json`: die App ist nicht über den Ablauf des Kits gebaut.',
+                  },
+                  { code: 'bibliothek-alt', text: 'Die App steht auf der Bibliothek 4.' },
+                ],
+              },
+            },
           },
         },
       },
     });
     await oeffneApp();
-    const live = within(screen.getByTestId('stand-live')).getByTestId('marken-fassung');
-    expect(live).toHaveTextContent('nicht genannt');
-    expect(live).toHaveAttribute('data-warnung', 'true');
+    const live = within(screen.getByTestId('stand-live')).getByTestId('standard-live');
+    expect(live).toHaveAttribute('data-art', 'fehlt');
+    expect(live).toHaveTextContent('erfüllt den Standard nicht');
+    expect(live).toHaveTextContent('nicht über den Ablauf des Kits gebaut');
+    expect(live.querySelectorAll('li')).toHaveLength(2);
+    expect(live.className).not.toMatch(/destructive/);
+    // Der Teststand daneben erfüllt ihn.
+    expect(within(screen.getByTestId('stand-test')).getByTestId('standard-test')).toHaveAttribute(
+      'data-art',
+      'erfuellt'
+    );
+    const satz = screen.getByTestId('app-zustand-standard');
+    expect(satz).toHaveTextContent('Die Livefassung erfüllt den App-Standard nicht');
+    expect(satz).toHaveAttribute('data-gut', 'false');
+    // Eine laufende App wird davon nicht „gestört“: die Prüfung greift beim Ausrollen.
+    expect(screen.queryByTestId('app-zustand-stoerung')).toBeNull();
+  });
+
+  it('nimmt die mitgelieferte App aus', async () => {
+    const ausgenommen = { erfuellt: true, ausgenommen: true, funde: [] };
+    antworte({
+      '/apps': { data: [APP_ZEILE] },
+      '/apps/beispielapp': {
+        data: {
+          ...APP_DETAIL,
+          staende: {
+            live: { ...APP_DETAIL.staende.live, standard: ausgenommen },
+            test: { ...APP_DETAIL.staende.test, standard: ausgenommen },
+          },
+        },
+      },
+    });
+    await oeffneApp();
+    expect(screen.getByTestId('standard-live')).toHaveAttribute('data-art', 'ausgenommen');
+    expect(screen.getByTestId('app-zustand-standard')).toHaveTextContent('Kommt mit dem Gerät');
   });
 
   /**

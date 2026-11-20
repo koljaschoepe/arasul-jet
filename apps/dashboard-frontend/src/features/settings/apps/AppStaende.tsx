@@ -17,7 +17,7 @@ import { Activity, ArrowLeftRight, Rocket, TriangleAlert } from 'lucide-react';
 import { Button, cn } from '@marken';
 import { formatDate } from '@/utils/formatting';
 import { TechnischeAngaben } from '@/features/system/TechnischeAngaben';
-import { Bibliothek, bibliothekWarnt } from './Bibliothek';
+import { Standard } from './Standard';
 import type { AppSchaltung, AppStandDetail, Backendzustand } from './useAppVerwaltung';
 
 /**
@@ -204,16 +204,12 @@ function StandKarte({
                 </dd>
               </>
             )}
-            {/* Die Bibliothek offen nur, wenn sie warnt (H6): sonst ist sie
-                Technik und steht aufgeklappt darunter. */}
-            {bibliothekWarnt(detail.marken, hatFrontend) && (
-              <>
-                <dt className="text-muted-foreground">Bibliothek</dt>
-                <dd>
-                  <Bibliothek fassung={detail.marken} hatFrontend={hatFrontend} />
-                </dd>
-              </>
-            )}
+            {/* Der App-Standard (J45) statt der Warnung zur Bibliothek (H6):
+                eine fremde Hauptzahl ist seither einer seiner Funde. */}
+            <dt className="text-muted-foreground">Standard</dt>
+            <dd>
+              <Standard urteil={detail.standard} data-testid={`standard-${stand}`} />
+            </dd>
           </dl>
           <TechnischeAngaben
             kennzeichen={`stand-${stand}-technik`}
