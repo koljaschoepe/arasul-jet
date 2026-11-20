@@ -164,6 +164,7 @@
 .ara-seite *::before,
 .ara-seite *::after,
 .ara-kopf,
+.ara-werkzeug,
 .ara-liste,
 .ara-karte,
 .ara-formular,
@@ -204,71 +205,163 @@
 }
 
 /* --- Kopf -----------------------------------------------------------------
-   Der Kopf einer Seite: Titel, ein Satz darunter, Aktionen rechts. Unter der
-   Schwelle rutschen die Aktionen unter den Titel, statt ihn zu quetschen. */
+   Jede Seite beginnt gleich (5.9.0): eine Zeile, links der Knopf der
+   Seitenleiste, Titel und ein Satz, rechts die Werkzeugleiste. Keine
+   Trennlinie darunter, kein Symbol vor dem Titel. Rechts haelt der Kopf den
+   Platz der Kapsel frei, den der Rahmen als `--ara-kapsel-platz` nennt.
+   Die Masse in Pixeln: die Shell rechnet mit 17 px Wurzelschrift. */
 .ara-kopf {
   display: flex;
-  flex-wrap: wrap;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--ara-abstand-3);
-  margin-bottom: var(--ara-abstand-4);
-  padding-bottom: var(--ara-abstand-3);
-  border-bottom: 1px solid var(--ara-kante);
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 20px;
+  padding-right: var(--ara-kapsel-platz, 0px);
 }
 
-/* Die mittige Form: eine Seite, die aus nichts als sich selbst besteht,
-   etwa die Anmeldung, das erste Konto, ein Absturz. Ohne Trennlinie, denn darunter
-   kommt kein zweiter Abschnitt, von dem sie zu trennen waere. */
 .ara-kopf[data-mittig='true'] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-bottom: 0;
-  border-bottom: 0;
+  margin-bottom: var(--ara-abstand-4);
+  padding-right: 0;
   text-align: center;
 }
 
-.ara-kopf[data-mittig='true'] .ara-kopf__titel {
-  justify-content: center;
+.ara-kopf__vorne {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: 28px;
+  margin-left: -4px;
+}
+
+.ara-kopf__vorne--allein {
+  margin-bottom: 8px;
 }
 
 .ara-kopf__text {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
 .ara-kopf__titel {
-  display: flex;
-  align-items: center;
-  gap: var(--ara-abstand-2);
   margin: 0;
-  font-size: var(--ara-groesse-titel);
-  font-weight: 700;
-  line-height: 1.25;
+  overflow: hidden;
+  font-size: var(--ara-groesse-lg);
+  font-weight: 600;
+  line-height: 28px;
+  letter-spacing: -0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--ara-text);
 }
 
-.ara-kopf__symbol {
-  display: inline-flex;
-  color: var(--ara-text-leise);
+.ara-kopf[data-mittig='true'] .ara-kopf__titel {
+  font-size: var(--ara-groesse-titel);
+  line-height: 1.25;
+  white-space: normal;
 }
 
-.ara-kopf__symbol > svg {
-  width: 1.5rem;
-  height: 1.5rem;
+/* Bis 5.8 das Symbol vor dem Titel; die Klasse bleibt fuer eine App, die
+   sie selbst setzt, und zeigt nichts mehr. */
+.ara-kopf__symbol {
+  display: none;
 }
 
 .ara-kopf__satz {
-  margin: var(--ara-abstand-1) 0 0;
+  margin: 0;
   font-size: var(--ara-groesse-sm);
+  line-height: 1.45;
   color: var(--ara-text-leise);
 }
 
+.ara-kopf__werkzeuge,
 .ara-kopf__aktionen {
   display: flex;
   flex-shrink: 0;
   align-items: center;
+  min-height: 28px;
+}
+
+.ara-kopf__werkzeuge {
+  gap: 2px;
+}
+
+.ara-kopf__aktionen {
   gap: var(--ara-abstand-2);
+}
+
+/* --- Werkzeug -------------------------------------------------------------
+   Ein Icon-Button der Werkzeugleiste: 28 px, ohne Rahmen, getoent beim
+   Ueberfahren, Symbol 16 px. Bei grobem Zeiger und am Handy legt ein leeres
+   `::before` 44 px Trefferflaeche darueber, sichtbar bleibt er klein. */
+.ara-werkzeug {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ara-rundung);
+  background: transparent;
+  color: var(--ara-text-leise);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.ara-werkzeug:hover:not(:disabled),
+.ara-werkzeug[aria-expanded='true'] {
+  background-color: var(--ara-wisch);
+  color: var(--ara-text);
+}
+
+.ara-werkzeug[aria-pressed='true'] {
+  background-color: color-mix(in srgb, var(--ara-akzent) 12%, transparent);
+  color: var(--ara-akzent);
+}
+
+.ara-werkzeug:focus-visible {
+  outline: 2px solid var(--ara-akzent);
+  outline-offset: 1px;
+}
+
+.ara-werkzeug:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ara-werkzeug__symbol {
+  display: inline-flex;
+}
+
+.ara-werkzeug__symbol > svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (pointer: coarse), (max-width: 899px) {
+  .ara-werkzeug::before {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+    content: '';
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ara-werkzeug {
+    transition: none;
+  }
 }
 
 /* --- Liste ----------------------------------------------------------------
@@ -555,8 +648,8 @@ button.ara-karte:focus-visible {
 .ara-feld textarea,
 .ara-feld select {
   width: 100%;
-  min-height: 2.75rem;
-  padding: var(--ara-abstand-2);
+  min-height: 32px;
+  padding: 0 10px;
   border: 1px solid var(--ara-kante);
   border-radius: var(--ara-rundung-sm);
   background-color: var(--ara-flaeche);
@@ -564,6 +657,10 @@ button.ara-karte:focus-visible {
   font-family: inherit;
   font-size: var(--ara-groesse);
   transition: border-color var(--ara-uebergang);
+}
+
+.ara-feld textarea {
+  padding: 6px 10px;
 }
 
 .ara-feld input:focus-visible,
@@ -608,7 +705,9 @@ button.ara-karte:focus-visible {
 /* Kompakt am Rechner (32 px), am Handy und bei grobem Zeiger die
    Trefferflaeche von 44 px, die ein Finger braucht. */
 @media (pointer: coarse), (max-width: 899px) {
-  .ara-knopf {
+  .ara-knopf,
+  .ara-feld input,
+  .ara-feld select {
     min-height: 2.75rem;
   }
 }

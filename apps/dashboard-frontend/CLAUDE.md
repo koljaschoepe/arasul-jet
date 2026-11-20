@@ -83,7 +83,8 @@ src/
                    (`Settings.tsx`): links die Leiste „Verwaltung" aus dem
                    Muster `Seitenleiste` über `components/Bereichsrahmen.tsx`
                    (Gruppen Arbeit und Betrieb, `gruppe` in `sections.tsx`;
-                   unter 900 px ein Blatt mit Knopf darüber), daneben der
+                   unter 900 px ein Blatt; der Knopf dafür sitzt seit J50 im
+                   `Kopf` jeder Seite über `KopfVorne`), daneben der
                    Bereich, ohne zweite Reiterstufe. Dieselbe Leiste tragen
                    die Einstellungen und jede App. Der Bereich steht in der Ansicht des
                    Workspace-Stores und damit in der Adresse
@@ -305,12 +306,14 @@ src/
                      oben das Logo des Hauses, falls hinterlegt (Verwaltung,
                      Gerät, Unternehmen; `GET /api/darstellung/logo?stand=…`,
                      der Stand kommt aus `useGeraetMarke`).
-                   • **Startseite** — oben das blaue Band (Gruß mit Vorname,
-                     sonst Anzeigename, und der Knopf „N Freigaben warten auf
-                     Sie" zur Liste oder „Alles erledigt"; blendet einmal je
-                     Laden der Seite in 300 ms ein), „Für Sie", Kacheln mit
-                     Symbol auf getöntem Quadrat, Name und Zeile offener
-                     Freigaben je Stand (`features/apps/Uebersicht.tsx`); beim
+                   • **Startseite** — oben der `Kopf` wie auf jeder Seite (Gruß
+                     mit Vorname, sonst Anzeigename, als Titel, der Stand der
+                     Freigaben als Satz, bei offenen der Knopf „N Freigaben
+                     warten auf Sie" zur Liste; seit J50 ohne Band), „Für
+                     Sie", eine Kachel JE APP mit Symbol auf getöntem
+                     Quadrat, Name und Zeile offener Freigaben aller
+                     Fassungen; ein Klick öffnet die zuletzt benutzte
+                     (`standFuerKlick`) (`features/apps/Uebersicht.tsx`); beim
                      Admin zuletzt `AdminHinweise` (`useAdminHinweise.ts`:
                      Sicherung fehlgeschlagen/älter als ein Tag, Update bereit,
                      App gestört, Fassung wartet auf Live, Lizenz knapp; mit

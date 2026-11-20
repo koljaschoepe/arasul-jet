@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
-import { Meldung } from '@marken';
+import { Meldung, cn } from '@marken';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
 import {
@@ -255,7 +255,15 @@ export function AnsichtInhalt() {
       <AppStapel apps={lebende} aktiv={aktiveApp} />
       <TerminalStapel offen={istTerminal} darf={istEntwickler} />
       {!istApp && !istTerminal && (
-        <div key={ansichtId(ansicht)} className="h-full min-h-0 overflow-auto">
+        <div
+          key={ansichtId(ansicht)}
+          className={cn(
+            'h-full min-h-0 overflow-auto',
+            // Die Startseite rollt hier selbst; am Handy hält sie unten den
+            // Platz der schwebenden Leiste frei.
+            ansicht.type === 'dashboard' && 'pb-(--ara-leiste-platz,0px)'
+          )}
+        >
           <ComponentErrorBoundary componentName={`Ansicht ${titel}`}>
             {/* Die Shell öffnet eine Admin-Ansicht für einen Mitarbeiter gar
             nicht erst; dieser Satz fängt nur den Augenblick, in dem die Rolle

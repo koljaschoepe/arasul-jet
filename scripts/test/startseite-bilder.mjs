@@ -202,7 +202,7 @@ async function alsMitarbeiter() {
   pruefe('Das Haus trägt die Zahl der Freigaben für mich', /^[1-9]\d*$/.test(zahl), zahl);
   const fuerSie = await text(page.getByTestId('fuer-sie-zahl'));
   pruefe('„Für Sie" nennt dieselbe Zahl', fuerSie.startsWith(zahl), fuerSie);
-  const kachel = page.getByTestId(`uebersicht-app-${APP}-live`);
+  const kachel = page.getByTestId(`uebersicht-app-${APP}`);
   pruefe('Die Kachel der Probe-App steht darunter', await sichtbar(kachel, 5000));
   pruefe(
     'Ein Mitarbeiter sieht keine Hinweise',

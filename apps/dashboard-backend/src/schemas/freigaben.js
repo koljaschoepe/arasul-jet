@@ -15,9 +15,11 @@ const FreigabeBody = z
   .object({
     app_id: AppId,
     benutzer_id: BenutzerId,
-    // Wie weit freigegeben wird. Ohne Angabe der Normalfall: der Livestand.
-    // Wer `test` bekommt, ist Tester und sieht zusaetzlich /apps/<id>/test/.
-    stand: Stand.default('live'),
+    // Wie weit freigegeben wird. Wer `test` bekommt, ist Tester und sieht
+    // zusaetzlich /apps/<id>/test/. Ohne Angabe heisst es „freigeben": eine
+    // neue Freigabe steht auf `live`, eine bestehende behaelt ihren Stand
+    // (J50, siehe `gibFrei`). Ein ausdrueckliches Wort setzt den Stand.
+    stand: Stand.optional(),
   })
   .strict();
 

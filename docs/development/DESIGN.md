@@ -70,9 +70,9 @@ variant="solid"`, `Knopf art="haupt"`) ist blau gefüllt **ohne** Verlauf;
    einfarbig, damit eine App auf 5.6 nicht bricht. Schatten gibt es nur
    an Menüs und an der angehobenen Karte (`--ara-schatten-hoch`): eine `Karte`,
    die ein Knopf ist, hebt sich beim Überfahren um 2 px, bei „weniger
-   Bewegung" nur mit Schatten. Die einzige zweite getönte Fläche ist das Band
-   der Startseite (`--verlauf-band`, `--kante-band`), das beim ersten Laden
-   einmal in 300 ms einblendet.
+   Bewegung" nur mit Schatten. Das getönte Band der Startseite ist seit 5.9.0
+   (J50) gefallen: auch die Startseite beginnt mit dem `Kopf`. Die Tokens
+   `--verlauf-band` und `--kante-band` bleiben als Namen für Apps auf 5.8.
 3. **Wiederkehrende Formen kommen aus dem Designsystem** (unten). Ein `h1`,
    eine Feldgruppen-Trennlinie, eine Tab-Leiste oder ein handgebauter Dialog
    außerhalb von `packages/marken` meldet `scripts/test/bausteine.py` — seit
@@ -210,18 +210,53 @@ und gezeichnet mit `<Icon symbol={Trash2} groesse="klein|mittel|gross" />`
 eines, das direkt als Komponente steht. `scripts/test/bausteine.py` (Regel 10)
 meldet jeden freien Import von `lucide-react` außerhalb von
 `packages/marken/`; das Entwickler-Cockpit lädt die Bibliothek zur Laufzeit,
-wo es den Ausgang `symbole` nicht gibt, und steht als Ratsche in
-`LUCIDE_RATSCHE` (die Zahl darf sinken, nie steigen).
+und bindet seit 5.9.0 `@marken/symbole` an `/marken/5/symbole.js`, einen
+eigenen Eingang der Laufzeit; `LUCIDE_RATSCHE` ist damit leer und bleibt es.
 
 ## Maße
 
-| Teil               | Maß                                                        |
-| ------------------ | ---------------------------------------------------------- |
-| Button mit Text    | 32 px hoch, Radius 8 px, Schrift 14 px (`size` default)    |
-| Icon-Button        | 28 px, ohne Rahmen, getönt beim Überfahren (`size="icon"`) |
-| Feld im Formular   | 32 px hoch (`Input`, `SelectTrigger`)                      |
-| Menü, Aufklappfeld | Glas, Radius 12 px                                         |
-| Dialog             | Fläche deckend, Radius 16 px, Schleier mit Unschärfe       |
+| Teil               | Maß                                                          |
+| ------------------ | ------------------------------------------------------------ |
+| Button mit Text    | 32 px hoch, Radius 8 px, Schrift 14 px (`size` default)      |
+| Icon-Button        | 28 px, ohne Rahmen, getönt beim Überfahren (`size="icon"`)   |
+| Feld im Formular   | 32 px hoch (`Input`, `SelectTrigger`)                        |
+| Menü, Aufklappfeld | Glas, Radius 12 px                                           |
+| Dialog             | Fläche deckend, Radius 16 px, Schleier mit Unschärfe         |
+| Seitenkopf         | Zeile 28 px, Titel 16 px, Satz 13 px, 20 px Abstand darunter |
+| Werkzeug           | 28 px, Symbol 16 px, 2 px Abstand in der Werkzeugleiste      |
+| Tabellenzeile      | 40 px, Kopfzeile 32 px, Fläche deckend, Radius 12 px         |
+
+## Seitenkopf und kompakte Bausteine (5.9.0)
+
+Karte bausteine-seitenkopf-und-kompakt (J50, 20.11.2026), Vorgabe ist der
+Abschnitt „Neue Bausteine der Bibliothek" im Entwurf `gestaltung.md`.
+
+- **Jede Seite beginnt gleich.** `Kopf` zeichnet eine Zeile: links der Knopf
+  der Seitenleiste (`KopfVorne`, gesetzt vom `Bereichsrahmen` und vom
+  Rahmen einer App), Titel und ein Satz, rechts die Werkzeugleiste
+  (`werkzeuge`, `role="toolbar"`) aus `Werkzeug`-Knöpfen, daneben höchstens
+  Knöpfe mit Text (`aktionen`). Keine Trennlinie, kein Symbol vor dem Titel,
+  keine eigene Zeile mit einem einzelnen Icon darüber. Steht in einem Bereich
+  kein Kopf, zeigt `KopfVorne` den Knopf allein, damit die Leiste am Handy
+  erreichbar bleibt; nur der oberste Kopf trägt ihn.
+- **Platz der Kapsel und der Leiste.** Der Kopf hält rechts
+  `--ara-kapsel-platz` frei (der Rahmen setzt ihn am `<html>` der App), so
+  überdecken sich Kapsel und Werkzeuge nie. Am Handy schwebt die Leiste über
+  der Fläche; die Shell nennt ihren Platz als `--ara-leiste-platz`, und
+  Bereichsrahmen, Startseite und der Rahmen einer App halten ihn unten frei.
+- **Kompakte Tabelle.** `Table` hat Kopfzeile 32 px und Zeilen 40 px; die
+  `Datenliste` liegt deckend auf `--card` (Radius 12 px, feine Kante), ihre
+  Beschriftung ist nur für Vorlesewerkzeuge, unter 640 px ihres Kastens
+  stehen Karten. Eine Zelle hat eine Zeile: was zwei braucht, wird eine
+  zweite Spalte. Der `Leerzustand` sagt einen Satz und bietet eine Aktion.
+- **Formular.** Felder 32 px am Rechner, bei grobem Zeiger 44 px.
+- **Kennzahl und Diagramm.** `Kennzahl` liegt deckend, die Zahl 20 px, auf
+  Wunsch `verlauf` als blaue Linie ohne Achsen (ohne `recharts`). `Chart`
+  zeichnet Linien oder Balken (`art`) im selben Stil: nur waagrechte
+  Hilfslinien, Achsen ohne Strich, Beschriftung 12 px grau, Reihen Blau,
+  Schwarz, Grau, Balken oben 4 px rund.
+- **Startseite.** Eine Kachel je App, wie in der Leiste; ein Klick öffnet die
+  zuletzt benutzte Fassung, die Zahl offener Freigaben zählt alle Fassungen.
 
 Höhen von Knopf und Feld stehen in **Pixeln**, nicht in rem: die Shell rechnet
 mit 17 px Wurzelschrift (Root-Hebel unten), 2 rem wären dort 34 px. Bei
@@ -296,7 +331,7 @@ Die sechs Bausteine ohne Bau:
 
 | Baustein                      | Was er festlegt                                                                                                                        |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `Kopf`                        | Seitentitel als einziges `h1`, Symbol, Beschreibung, Aktionen                                                                          |
+| `Kopf`                        | Seitentitel als einziges `h1`, ein Satz, Werkzeugleiste (`Werkzeug`), Knopf der Seitenleiste (`KopfVorne`), seit 5.9.0                 |
 | `Liste` / `ListenEintrag`     | eine Reihe; ein Eintrag ist ein Knopf, sobald er etwas tut                                                                             |
 | `Karte`                       | die erhabene Fläche für ein Ding, das für sich steht (`--card`); mit `symbol` eine Zeile, das Symbol auf blau getöntem Quadrat (5.6.0) |
 | `Formular` / `Feld` / `Knopf` | ein echtes `form` (Eingabetaste sendet ab), Felder mit `label`                                                                         |

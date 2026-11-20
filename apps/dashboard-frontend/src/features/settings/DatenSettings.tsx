@@ -11,7 +11,7 @@
  * Rot ist im Ruhezustand NUR der abgesetzte Teil; eine Warnung der Sicherung
  * erscheint nur, wenn etwas nicht stimmt.
  */
-import { Database, RotateCcw, ShieldAlert } from '@marken/symbole';
+import { RotateCcw, ShieldAlert } from '@marken/symbole';
 import { Feldgruppe, Formularseite, Kopf } from '@marken';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Sicherung } from '../system/sicherung/Sicherung';
@@ -24,7 +24,6 @@ export function DatenSettings() {
     <div className="animate-in fade-in flex flex-col gap-8" data-testid="daten-seite">
       <Kopf
         titel="Daten"
-        symbol={<Database />}
         beschreibung="Sicherung, Auskunft und Export, Löschen und Zurücksetzen."
       />
 

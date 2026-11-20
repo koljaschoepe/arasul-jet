@@ -58,7 +58,7 @@ describe('Uebersicht', () => {
     antworten();
     render(<Uebersicht />, { wrapper: huelle() });
     expect(screen.getByRole('heading', { name: 'Guten Tag, mia' })).toBeInTheDocument();
-    expect(await screen.findByTestId('uebersicht-app-urlaub-live')).toBeInTheDocument();
+    expect(await screen.findByTestId('uebersicht-app-urlaub')).toBeInTheDocument();
   });
 
   it('grüßt mit dem Vornamen, sonst mit dem Anzeigenamen', async () => {
@@ -77,7 +77,7 @@ describe('Uebersicht', () => {
     render(<Uebersicht hinweise={<p data-testid="hinweise">Hinweis</p>} />, {
       wrapper: huelle(),
     });
-    const kachel = await screen.findByTestId('uebersicht-app-urlaub-live');
+    const kachel = await screen.findByTestId('uebersicht-app-urlaub');
     const hinweise = screen.getByTestId('hinweise');
     expect(
       kachel.compareDocumentPosition(hinweise) & Node.DOCUMENT_POSITION_FOLLOWING
@@ -87,7 +87,7 @@ describe('Uebersicht', () => {
   it('eine Kachel öffnet die App im Hauptbereich', async () => {
     antworten();
     render(<Uebersicht />, { wrapper: huelle() });
-    fireEvent.click(await screen.findByTestId('uebersicht-app-urlaub-live'));
+    fireEvent.click(await screen.findByTestId('uebersicht-app-urlaub'));
     expect(useWorkspaceStore.getState().ansicht).toMatchObject({
       type: 'app',
       appId: 'urlaub',
@@ -114,46 +114,59 @@ describe('Uebersicht', () => {
       wrapper: huelle(),
     });
     const slot = await screen.findByTestId('slot');
-    const kachel = await screen.findByTestId('uebersicht-app-urlaub-live');
+    const kachel = await screen.findByTestId('uebersicht-app-urlaub');
     expect(slot.compareDocumentPosition(kachel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('fragt selbst nicht nach Freigaben', async () => {
     antworten();
     render(<Uebersicht />, { wrapper: huelle() });
-    await screen.findByTestId('uebersicht-app-urlaub-live');
+    await screen.findByTestId('uebersicht-app-urlaub');
     expect(apiMock.get).not.toHaveBeenCalledWith('/freigabe-anfragen', expect.anything());
   });
 
-  /** Der Teststand-Hinweis fuer Tester (D2): das Wort „Test" allein sagt nicht,
-   *  was daran anders ist. */
-  it('nennt die Testfassung „(Test) Name", wie die Leiste (M5)', async () => {
+  /** J50: eine Kachel je App, wie in der Leiste. Bis dahin stand der
+   *  Teststand als zweite Kachel „(Test) Name" da. */
+  it('zeigt eine App mit Live und Test einmal, ohne „(Test)"', async () => {
     antworten({
       apps: [{ ...URLAUB, test: { version: '1.3.0', pfad: '/apps/urlaub/' } }],
     });
     render(<Uebersicht />, { wrapper: huelle() });
-    const kachel = await screen.findByTestId('uebersicht-app-urlaub-test');
-    expect(kachel).toHaveTextContent(new RegExp(`^\\(Test\\) ${URLAUB.name}`));
-    expect(screen.getByTestId('uebersicht-app-urlaub-live')).not.toHaveTextContent('(Test)');
+    const kachel = await screen.findByTestId('uebersicht-app-urlaub');
+    expect(kachel).not.toHaveTextContent('(Test)');
+    expect(screen.getAllByTestId(/^uebersicht-app-urlaub$/)).toHaveLength(1);
+  });
+
+  it('öffnet die Fassung, in der man die App zuletzt offen hatte', async () => {
+    antworten({
+      apps: [{ ...URLAUB, test: { version: '1.3.0', pfad: '/apps/urlaub/' } }],
+    });
+    useWorkspaceStore.setState({ zuletztStand: { urlaub: 'test' } });
+    render(<Uebersicht />, { wrapper: huelle() });
+    fireEvent.click(await screen.findByTestId('uebersicht-app-urlaub'));
+    expect(useWorkspaceStore.getState().ansicht).toMatchObject({ appId: 'urlaub', stand: 'test' });
+    useWorkspaceStore.setState({ zuletztStand: {} });
   });
 
   // Die Kachel: Symbol, Name, eine Zeile offene Freigaben (M5, 07.10.2026).
-  it('trägt an der Kachel die Zeile der offenen Freigaben ihres Stands', async () => {
-    antworten();
+  it('trägt an der Kachel die offenen Freigaben aller ihrer Fassungen', async () => {
+    antworten({
+      apps: [{ ...URLAUB, test: { version: '1.3.0', pfad: '/apps/urlaub/' } }],
+    });
     render(<Uebersicht wartend={{ 'urlaub:live': 2, 'urlaub:test': 7, andere: 5 }} />, {
       wrapper: huelle(),
     });
-    const zeile = await screen.findByTestId('uebersicht-app-urlaub-live-wartend');
-    expect(zeile).toHaveTextContent(/^2 Freigaben offen$/);
+    const zeile = await screen.findByTestId('uebersicht-app-urlaub-wartend');
+    expect(zeile).toHaveTextContent(/^9 Freigaben offen$/);
     expect(screen.queryByTestId('offene-freigaben')).not.toBeInTheDocument();
   });
 
   it('sagt ohne wartende Freigabe „Keine offene Freigabe"', async () => {
     antworten();
     render(<Uebersicht wartend={{}} />, { wrapper: huelle() });
-    await screen.findByTestId('uebersicht-app-urlaub-live');
-    expect(screen.queryByTestId('uebersicht-app-urlaub-live-wartend')).not.toBeInTheDocument();
-    expect(screen.getByTestId('uebersicht-app-urlaub-live-ruhig')).toHaveTextContent(
+    await screen.findByTestId('uebersicht-app-urlaub');
+    expect(screen.queryByTestId('uebersicht-app-urlaub-wartend')).not.toBeInTheDocument();
+    expect(screen.getByTestId('uebersicht-app-urlaub-ruhig')).toHaveTextContent(
       'Keine offene Freigabe'
     );
   });
@@ -162,7 +175,7 @@ describe('Uebersicht', () => {
     angemeldet({ role: 'admin', username: 'admin' });
     antworten();
     render(<Uebersicht />, { wrapper: huelle() });
-    await screen.findByTestId('uebersicht-app-urlaub-live');
+    await screen.findByTestId('uebersicht-app-urlaub');
     expect(screen.queryByText(/Fassung/)).not.toBeInTheDocument();
     expect(screen.queryByText(URLAUB.beschreibung ?? '')).not.toBeInTheDocument();
   });
@@ -170,24 +183,24 @@ describe('Uebersicht', () => {
   it('zeigt ohne Symbol im Manifest ein neutrales Bild auf der Kachel, keine Buchstaben', async () => {
     antworten();
     render(<Uebersicht />, { wrapper: huelle() });
-    const kachel = await screen.findByTestId('uebersicht-app-urlaub-live');
+    const kachel = await screen.findByTestId('uebersicht-app-urlaub');
     expect(kachel.querySelector('[data-testid="app-symbol-neutral"]')).not.toBeNull();
     expect(kachel.querySelector('[data-testid="app-kuerzel"]')).toBeNull();
   });
 });
 
-describe('Band der Startseite', () => {
+describe('Kopf der Startseite', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
     angemeldet({ role: 'mitarbeiter', username: 'mia', vorname: 'Mia' });
     useWorkspaceStore.setState({ ansicht: { type: 'dashboard' } });
   });
 
-  it('trägt den Gruß und die Zahl offener Freigaben als Knopf', async () => {
+  it('trägt den Gruß und die Zahl offener Freigaben als Knopf, ohne Band (J50)', async () => {
     antworten();
     render(<Uebersicht offen={2} />, { wrapper: huelle() });
-    const band = screen.getByTestId('startband');
-    expect(band).toContainElement(screen.getByRole('heading', { name: 'Guten Tag, Mia' }));
+    expect(screen.getByRole('heading', { name: 'Guten Tag, Mia' })).toBeInTheDocument();
+    expect(screen.queryByTestId('startband')).not.toBeInTheDocument();
     expect(screen.getByTestId('startband-freigaben')).toHaveTextContent(
       'Zwei Freigaben warten auf Sie'
     );
@@ -238,12 +251,5 @@ describe('Band der Startseite', () => {
     expect(rollen).toHaveBeenCalled();
     expect(document.activeElement).toBe(ziel);
     expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'dashboard' });
-  });
-
-  it('blendet nur beim ersten Zeichnen ein, danach steht es', async () => {
-    antworten();
-    // Das erste Zeichnen dieser Datei war schon weiter oben; hier steht es.
-    render(<Uebersicht offen={0} />, { wrapper: huelle() });
-    expect(screen.getByTestId('startband')).not.toHaveAttribute('data-eingeblendet');
   });
 });

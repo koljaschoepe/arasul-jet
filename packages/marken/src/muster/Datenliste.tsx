@@ -116,6 +116,11 @@ export interface DatenlisteProps<Zeile> {
    * Aufrufer: er weiss, was „gewaehlt" bei ihm heisst.
    */
   gewaehlt?: string | null;
+  /**
+   * Fuer Tests und Abnahmen: steht als `data-testid` an der Zeile, am
+   * Handy an der Karte (seit 5.9.0).
+   */
+  zeilenKennzeichen?: (zeile: Zeile) => string;
   className?: string;
 }
 
@@ -135,6 +140,14 @@ type Richtung = 'auf' | 'ab';
  * waechst nie ueber ihren Kasten und haelt die Tabelle damit stehen.
  */
 export const LISTE_SCHMAL_AB_PX = 640;
+
+/**
+ * Die Flaeche, auf der Tabelle und leerer Zustand liegen (5.9.0): deckend
+ * (`--card`), Radius 12 px, eine feine Kante. Eine Tabelle stand bis dahin
+ * durchsichtig auf dem Grund, und in einer App ist der Grund ein Verlauf:
+ * Inhalt bleibt deckend, Glas gehoert nur schwebenden Bedienflaechen.
+ */
+const FLAECHE = 'min-w-0 overflow-hidden rounded-[12px] border border-border bg-card';
 
 function vergleiche(a: unknown, b: unknown): number {
   if (a == null && b == null) return 0;
@@ -176,6 +189,7 @@ export function Datenliste<Zeile>({
   leerGefiltert = 'Nichts passt zu dieser Suche.',
   aufZeile,
   gewaehlt,
+  zeilenKennzeichen,
   className,
 }: DatenlisteProps<Zeile>) {
   const [behaelter, zuSchmal, breite] = useSchmalerBehaelter<HTMLDivElement>(LISTE_SCHMAL_AB_PX);
@@ -281,15 +295,17 @@ export function Datenliste<Zeile>({
         data-slot="datenliste"
       >
         {suchfeld}
-        {suche.trim() ? (
-          <Leerzustand titel={leerGefiltert} symbol={<SearchIcon />} />
-        ) : (
-          <Leerzustand
-            titel={leer?.titel ?? 'Noch nichts da.'}
-            beschreibung={leer?.beschreibung}
-            aktion={leer?.aktion}
-          />
-        )}
+        <div className={FLAECHE}>
+          {suche.trim() ? (
+            <Leerzustand titel={leerGefiltert} symbol={<SearchIcon />} />
+          ) : (
+            <Leerzustand
+              titel={leer?.titel ?? 'Noch nichts da.'}
+              beschreibung={leer?.beschreibung}
+              aktion={leer?.aktion}
+            />
+          )}
+        </div>
       </div>
     );
   }
@@ -347,12 +363,16 @@ export function Datenliste<Zeile>({
                     onClick={() => aufZeile(zeile)}
                     aria-current={istGewaehlt ? 'true' : undefined}
                     data-state={istGewaehlt ? 'selected' : undefined}
-                    className="flex w-full flex-col gap-1 rounded-md border border-border bg-card p-ui-2 text-left transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none data-[state=selected]:border-foreground data-[state=selected]:bg-foreground/8"
+                    data-testid={zeilenKennzeichen?.(zeile)}
+                    className="flex w-full flex-col gap-1 rounded-[12px] border border-border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none data-[state=selected]:border-foreground data-[state=selected]:bg-foreground/8"
                   >
                     {inhalt}
                   </button>
                 ) : (
-                  <div className="flex flex-col gap-1 rounded-md border border-border bg-card p-ui-2">
+                  <div
+                    className="flex flex-col gap-1 rounded-[12px] border border-border bg-card px-3 py-2.5"
+                    data-testid={zeilenKennzeichen?.(zeile)}
+                  >
                     {inhalt}
                   </div>
                 )}
@@ -361,115 +381,120 @@ export function Datenliste<Zeile>({
           })}
         </ul>
       ) : (
-        <Table ref={tabelle}>
-          <TableCaption>{beschriftung}</TableCaption>
-          <TableHeader>
-            <TableRow>
-              {spalten.map(spalte => {
-                const sortierbar = Boolean(spalte.wert);
-                const aktiv = sortierung?.schluessel === spalte.schluessel;
+        <div className={FLAECHE}>
+          <Table ref={tabelle}>
+            {/* Die Beschriftung ist die erste Auskunft fuer ein Vorlesewerkzeug;
+              zu sehen ist sie nicht, der Kopf der Seite sagt es schon. */}
+            <TableCaption className="sr-only">{beschriftung}</TableCaption>
+            <TableHeader>
+              <TableRow>
+                {spalten.map(spalte => {
+                  const sortierbar = Boolean(spalte.wert);
+                  const aktiv = sortierung?.schluessel === spalte.schluessel;
+                  return (
+                    <TableHead
+                      key={spalte.schluessel}
+                      className={spalte.ausrichtung === 'rechts' ? 'text-right' : undefined}
+                      // Der Kopf nimmt nur die Breite; `max-width: 0` der
+                      // gekuerzten Zelle gehoert nicht hierher, der Titel
+                      // steht sonst ueber der Nachbarspalte.
+                      style={spalte.breite ? { width: spalte.breite } : undefined}
+                      // `aria-sort` ist die Auskunft, die ein Screenreader
+                      // liest; der Pfeil daneben ist dieselbe fuer die Augen.
+                      aria-sort={
+                        sortierbar
+                          ? aktiv
+                            ? sortierung?.richtung === 'auf'
+                              ? 'ascending'
+                              : 'descending'
+                            : 'none'
+                          : undefined
+                      }
+                    >
+                      {sortierbar ? (
+                        <button
+                          type="button"
+                          onClick={() => umschalten(spalte.schluessel)}
+                          className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                        >
+                          {spalte.titel}
+                          {!aktiv && <ArrowUpDownIcon className="size-3 opacity-50" />}
+                          {aktiv && sortierung?.richtung === 'auf' && (
+                            <ArrowUpIcon className="size-3" />
+                          )}
+                          {aktiv && sortierung?.richtung === 'ab' && (
+                            <ArrowDownIcon className="size-3" />
+                          )}
+                        </button>
+                      ) : (
+                        spalte.titel
+                      )}
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortiert.map(zeile => {
+                const istGewaehlt = gewaehlt != null && kennung(zeile) === gewaehlt;
                 return (
-                  <TableHead
-                    key={spalte.schluessel}
-                    className={spalte.ausrichtung === 'rechts' ? 'text-right' : undefined}
-                    // Der Kopf nimmt nur die Breite; `max-width: 0` der
-                    // gekuerzten Zelle gehoert nicht hierher, der Titel
-                    // steht sonst ueber der Nachbarspalte.
-                    style={spalte.breite ? { width: spalte.breite } : undefined}
-                    // `aria-sort` ist die Auskunft, die ein Screenreader
-                    // liest; der Pfeil daneben ist dieselbe fuer die Augen.
-                    aria-sort={
-                      sortierbar
-                        ? aktiv
-                          ? sortierung?.richtung === 'auf'
-                            ? 'ascending'
-                            : 'descending'
-                          : 'none'
+                  <TableRow
+                    key={kennung(zeile)}
+                    onClick={aufZeile ? () => aufZeile(zeile) : undefined}
+                    // Die ganze Zeile ist per Tastatur erreichbar, nicht nur
+                    // mit der Maus. Enter und Leertaste nur, wenn die Zeile
+                    // SELBST den Fokus hat; ein Knopf in einer Zelle behaelt
+                    // seine eigene Taste.
+                    tabIndex={aufZeile ? 0 : undefined}
+                    onKeyDown={
+                      aufZeile
+                        ? ereignis => {
+                            if (ereignis.target !== ereignis.currentTarget) return;
+                            if (ereignis.key === 'Enter' || ereignis.key === ' ') {
+                              ereignis.preventDefault();
+                              aufZeile(zeile);
+                            }
+                          }
                         : undefined
                     }
-                  >
-                    {sortierbar ? (
-                      <button
-                        type="button"
-                        onClick={() => umschalten(spalte.schluessel)}
-                        className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                      >
-                        {spalte.titel}
-                        {!aktiv && <ArrowUpDownIcon className="size-3 opacity-50" />}
-                        {aktiv && sortierung?.richtung === 'auf' && (
-                          <ArrowUpIcon className="size-3" />
-                        )}
-                        {aktiv && sortierung?.richtung === 'ab' && (
-                          <ArrowDownIcon className="size-3" />
-                        )}
-                      </button>
-                    ) : (
-                      spalte.titel
+                    aria-selected={gewaehlt !== undefined ? istGewaehlt : undefined}
+                    data-testid={zeilenKennzeichen?.(zeile)}
+                    data-state={istGewaehlt ? 'selected' : undefined}
+                    className={cn(
+                      aufZeile &&
+                        'cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                      // Die Flaeche ist ein Wisch aus `--foreground` und nicht
+                      // `bg-muted`: im Dunkeln ist `--muted` gleich `--card`,
+                      // und die Auswahl waere in einer Karte unsichtbar. Dazu
+                      // die Linie am Anfang (der aktive Zustand ist keine
+                      // Flaeche allein).
+                      'data-[state=selected]:bg-foreground/8 data-[state=selected]:shadow-[inset_3px_0_0_var(--color-foreground)]'
                     )}
-                  </TableHead>
+                  >
+                    {spalten.map(spalte => (
+                      <TableCell
+                        key={spalte.schluessel}
+                        className={cn(
+                          spalte.ausrichtung === 'rechts' && 'text-right',
+                          spalte.kuerzen && !spalte.breite && 'w-full'
+                        )}
+                        style={breiteStil(spalte)}
+                      >
+                        {spalte.kuerzen ? (
+                          <div className="truncate" title={volltext(spalte, zeile)}>
+                            {spalte.zelle(zeile)}
+                          </div>
+                        ) : (
+                          spalte.zelle(zeile)
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 );
               })}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortiert.map(zeile => {
-              const istGewaehlt = gewaehlt != null && kennung(zeile) === gewaehlt;
-              return (
-                <TableRow
-                  key={kennung(zeile)}
-                  onClick={aufZeile ? () => aufZeile(zeile) : undefined}
-                  // Die ganze Zeile ist per Tastatur erreichbar, nicht nur
-                  // mit der Maus. Enter und Leertaste nur, wenn die Zeile
-                  // SELBST den Fokus hat; ein Knopf in einer Zelle behaelt
-                  // seine eigene Taste.
-                  tabIndex={aufZeile ? 0 : undefined}
-                  onKeyDown={
-                    aufZeile
-                      ? ereignis => {
-                          if (ereignis.target !== ereignis.currentTarget) return;
-                          if (ereignis.key === 'Enter' || ereignis.key === ' ') {
-                            ereignis.preventDefault();
-                            aufZeile(zeile);
-                          }
-                        }
-                      : undefined
-                  }
-                  aria-selected={gewaehlt !== undefined ? istGewaehlt : undefined}
-                  data-state={istGewaehlt ? 'selected' : undefined}
-                  className={cn(
-                    aufZeile &&
-                      'cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
-                    // Die Flaeche ist ein Wisch aus `--foreground` und nicht
-                    // `bg-muted`: im Dunkeln ist `--muted` gleich `--card`,
-                    // und die Auswahl waere in einer Karte unsichtbar. Dazu
-                    // die Linie am Anfang (der aktive Zustand ist keine
-                    // Flaeche allein).
-                    'data-[state=selected]:bg-foreground/8 data-[state=selected]:shadow-[inset_3px_0_0_var(--color-foreground)]'
-                  )}
-                >
-                  {spalten.map(spalte => (
-                    <TableCell
-                      key={spalte.schluessel}
-                      className={cn(
-                        spalte.ausrichtung === 'rechts' && 'text-right',
-                        spalte.kuerzen && !spalte.breite && 'w-full'
-                      )}
-                      style={breiteStil(spalte)}
-                    >
-                      {spalte.kuerzen ? (
-                        <div className="truncate" title={volltext(spalte, zeile)}>
-                          {spalte.zelle(zeile)}
-                        </div>
-                      ) : (
-                        spalte.zelle(zeile)
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );

@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import {
+  KopfVorne,
   Seitenleiste,
   SidebarProvider,
   SidebarTrigger,
-  useSchmalesFenster,
   type SeitenleistenGruppe,
 } from '@marken';
 
@@ -23,8 +23,11 @@ interface BereichsrahmenProps {
  * DERSELBE Baustein, mit dem jede App ihre Leiste zeichnet; eine eigene Liste
  * hier sähe beim nächsten Stand der Bibliothek anders aus als die Apps.
  *
- * Unter 900 px ist die Leiste ein Blatt (`Sidebar`), und oben steht der
- * Knopf, der es öffnet, mit dem Titel daneben, wie in einer App.
+ * Der Knopf der Seitenleiste sitzt im Seitenkopf jeder Seite (`KopfVorne`,
+ * Bibliothek 5.9.0): am Rechner klappt er die Leiste ein und aus, unter
+ * 900 px öffnet er sie als Blatt. Die eigene Zeile mit diesem einen Icon
+ * über dem Kopf gibt es nicht mehr. Unten hält der Bereich am Handy den
+ * Platz der schwebenden Leiste frei (`--ara-leiste-platz`).
  *
  * Der Bereich rollt in einem GEWÖHNLICHEN `div` und nicht in einer
  * `ScrollArea` (Phase D4, Fund der D3-Abnahme am Orin): Radix' Ansichtsfenster
@@ -33,7 +36,6 @@ interface BereichsrahmenProps {
  * Kein `SidebarInset` daneben: der ist ein `main`, und die Shell hat schon eins.
  */
 export function Bereichsrahmen({ titel, gruppen, kennzeichen, children }: BereichsrahmenProps) {
-  const schmal = useSchmalesFenster();
   return (
     <SidebarProvider eingebettet className="h-full">
       <Seitenleiste
@@ -43,14 +45,12 @@ export function Bereichsrahmen({ titel, gruppen, kennzeichen, children }: Bereic
         gruppen={gruppen}
       />
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-background">
-        {schmal && (
-          <div className="flex h-ui-header shrink-0 items-center gap-2 border-b border-border px-2">
-            <SidebarTrigger data-testid={`${kennzeichen}-oeffnen`} />
-            <span className="truncate text-sm font-medium text-foreground">{titel}</span>
-          </div>
-        )}
         <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto animate-in fade-in">
-          <div className="min-w-0 max-w-225 p-6 max-md:p-4">{children}</div>
+          <div className="min-w-0 max-w-225 px-6 pt-[14px] pb-[calc(24px+var(--ara-leiste-platz,0px))] max-md:px-4">
+            <KopfVorne knopf={<SidebarTrigger data-testid={`${kennzeichen}-oeffnen`} />}>
+              {children}
+            </KopfVorne>
+          </div>
         </div>
       </div>
     </SidebarProvider>

@@ -9,7 +9,17 @@
  * angesehen wurde.
  */
 import { useState } from 'react';
-import { CalendarPlus, Inbox, LayoutDashboard, Package, Users } from '@marken/symbole';
+import {
+  CalendarPlus,
+  Download,
+  Filter,
+  Inbox,
+  LayoutDashboard,
+  Package,
+  Plus,
+  RefreshCw,
+  Users,
+} from '@marken/symbole';
 import {
   Badge,
   Bestaetigung,
@@ -23,8 +33,10 @@ import {
   Freigabe,
   type FreigabeEintrag,
   Input,
+  Icon,
   Kennzahl,
   Kennzahlen,
+  Kopf,
   Label,
   Ladezustand,
   Leerzustand,
@@ -34,6 +46,7 @@ import {
   SidebarTrigger,
   Suchauswahl,
   Switch,
+  Werkzeug,
   type Spalte,
 } from '@marken';
 import { Schaustueck, Zustand } from './Schaustueck';
@@ -469,6 +482,57 @@ export function SchaustueckeMuster() {
           <div className="w-64">
             <Kennzahl beschriftung="Letzte Sicherung" wert="keine" fussnote="noch nie gelaufen" />
           </div>
+        </Zustand>
+        <Zustand name="mit Verlauf (5.9.0)">
+          <div className="w-72">
+            <Kennzahl
+              beschriftung="Belege diese Woche"
+              wert="128"
+              fussnote="12 mehr als letzte Woche"
+              verlauf={[84, 92, 88, 101, 97, 116, 128]}
+            />
+          </div>
+        </Zustand>
+      </Schaustueck>
+
+      <Schaustueck
+        name="Kopf"
+        satz="Jede Seite beginnt gleich: links Titel und ein Satz, rechts die Werkzeugleiste. Im Rahmen hält er rechts den Platz der Kapsel frei."
+      >
+        <Zustand name="mit Werkzeugleiste und Knopf der Seitenleiste">
+          <div className="w-[36rem] max-w-full rounded-[14px] border border-border bg-background p-4">
+            <Kopf
+              ebene={2}
+              titel="Belege"
+              beschreibung="Alle Belege dieses Monats, neueste zuerst."
+              vorne={
+                <Werkzeug symbol={<Icon symbol={LayoutDashboard} />} beschriftung="Seitenleiste" />
+              }
+              werkzeuge={
+                <>
+                  <Werkzeug symbol={<Icon symbol={Filter} />} beschriftung="Filtern" aktiv />
+                  <Werkzeug symbol={<Icon symbol={Download} />} beschriftung="Exportieren" />
+                  <Werkzeug symbol={<Icon symbol={RefreshCw} />} beschriftung="Neu laden" />
+                  <Werkzeug symbol={<Icon symbol={Plus} />} beschriftung="Beleg anlegen" />
+                </>
+              }
+            />
+          </div>
+        </Zustand>
+      </Schaustueck>
+
+      <Schaustueck
+        name="Werkzeug"
+        satz="Ein Icon-Button der Werkzeugleiste: 28 px, ohne Rahmen, getönt beim Überfahren, die Beschriftung als Name und Tooltip."
+      >
+        <Zustand name="ruhig">
+          <Werkzeug symbol={<Icon symbol={RefreshCw} />} beschriftung="Neu laden" />
+        </Zustand>
+        <Zustand name="an">
+          <Werkzeug symbol={<Icon symbol={Filter} />} beschriftung="Filtern" aktiv />
+        </Zustand>
+        <Zustand name="gesperrt">
+          <Werkzeug symbol={<Icon symbol={Download} />} beschriftung="Exportieren" disabled />
         </Zustand>
       </Schaustueck>
 

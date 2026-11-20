@@ -6,9 +6,11 @@
  * Entfernen mit Rückfrage. Ersetzt die Liste Verwaltung › Rückmeldungen
  * aus J42.
  */
-import { useEffect, useMemo, useState } from 'react';
-import { Inbox } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { FilterX } from '@marken/symbole';
 import {
+  Icon,
+  Werkzeug,
   Badge,
   Bestaetigung,
   Button,
@@ -35,9 +37,10 @@ import {
   grundFehlt,
   istOffen,
   zeit,
+  FILTER_VORGABE,
   type EingangFilter,
 } from './logik';
-import { fest, fliesstext, leise, spalte, text, zeile } from './stil';
+import { fest, fliesstext, leise, spalte, zeile } from './stil';
 import { STAENDE, type AppStand, type Meldung, type StandMeldung } from './typen';
 
 const BADGE: Record<StandMeldung, 'primary' | 'default' | 'outline' | 'warning'> = {
@@ -70,12 +73,15 @@ const SPALTEN: ReadonlyArray<Spalte<Meldung>> = [
     schluessel: 'person',
     titel: 'Von',
     wert: m => m.person?.anzeigeName ?? '',
-    zelle: m => (
-      <span style={spalte(1)}>
-        <span>{m.person?.anzeigeName ?? 'Gelöschte Person'}</span>
-        <span style={leise}>{zeit(m.erstellt_am)}</span>
-      </span>
-    ),
+    zelle: m => m.person?.anzeigeName ?? 'Gelöschte Person',
+  },
+  {
+    // Eine eigene Spalte statt einer zweiten Zeile unter dem Namen: die
+    // Zeile der kompakten Tabelle ist 40 px hoch (Bibliothek 5.9.0).
+    schluessel: 'wann',
+    titel: 'Eingang',
+    wert: m => m.erstellt_am,
+    zelle: m => <span style={leise}>{zeit(m.erstellt_am)}</span>,
   },
   {
     schluessel: 'bild',
@@ -106,7 +112,7 @@ function Auswahl({
   kennung: string;
 }) {
   return (
-    <div style={spalte(1)}>
+    <div style={zeile(2)}>
       <Label htmlFor={kennung} style={leise}>
         {beschriftung}
       </Label>
@@ -279,6 +285,7 @@ export function Eingang({
   fehler,
   filter,
   setzeFilter,
+  werkzeuge,
 }: {
   meldungen: readonly Meldung[];
   apps: readonly AppStand[];
@@ -286,6 +293,8 @@ export function Eingang({
   fehler: string | null;
   filter: EingangFilter;
   setzeFilter: (f: EingangFilter) => void;
+  /** Werkzeuge, die jede Ansicht trägt (Neu laden), aus dem Rahmen des Cockpits. */
+  werkzeuge?: ReactNode;
 }) {
   const [offenId, setOffenId] = useState<number | null>(null);
   const gefiltert = useMemo(() => filtere(meldungen, filter), [meldungen, filter]);
@@ -302,10 +311,22 @@ export function Eingang({
     <div style={spalte(4)} data-testid="cockpit-eingang">
       <Kopf
         titel="Eingang"
-        symbol={<Inbox />}
         beschreibung={`Was in den Apps über das Icon oben rechts gemeldet wurde. ${anzahl(offen, 'Meldung ist', 'Meldungen sind')} offen.`}
+        werkzeuge={
+          <>
+            {(filter.app !== FILTER_VORGABE.app || filter.stand !== FILTER_VORGABE.stand) && (
+              <Werkzeug
+                symbol={<Icon symbol={FilterX} />}
+                beschriftung="Filter zurücksetzen"
+                onClick={() => setzeFilter(FILTER_VORGABE)}
+                data-testid="cockpit-filter-zuruecksetzen"
+              />
+            )}
+            {werkzeuge}
+          </>
+        }
       />
-      <div style={zeile(3)}>
+      <div style={zeile(4)}>
         <Auswahl
           kennung="cockpit-filter-app"
           beschriftung="App"
@@ -360,7 +381,7 @@ export function Eingang({
         />
       )}
       {!laedt && !fehler && meldungen.length > 0 && (
-        <p style={text} data-testid="cockpit-zahl">
+        <p style={leise} data-testid="cockpit-zahl">
           {anzahl(gefiltert.length, 'Meldung', 'Meldungen')} in diesem Filter
         </p>
       )}

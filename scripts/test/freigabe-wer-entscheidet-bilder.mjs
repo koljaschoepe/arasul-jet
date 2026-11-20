@@ -102,7 +102,12 @@ const rahmen1 = m1.page.frameLocator(`[data-testid="app-rahmen-${APP}"]`);
 if (!(await sichtbar(rahmen1.getByTestId('einreichen'), 20000))) {
   // Der Rahmen blieb leer: Bild und Adressen der Rahmen ins Protokoll, dann Schluss.
   await bild(m1.page, 'fehler-rahmen-leer');
-  console.log(`ROT    Der Rahmen der App zeigt keine Seite: ${m1.page.frames().map(f => f.url()).join(' | ')}`);
+  console.log(
+    `ROT    Der Rahmen der App zeigt keine Seite: ${m1.page
+      .frames()
+      .map(f => f.url())
+      .join(' | ')}`
+  );
   const inhalt = await m1.page.frames().at(-1)?.content();
   console.log(`  rahmeninhalt: ${(inhalt ?? '').replace(/\s+/g, ' ').slice(0, 600)}`);
   process.exit(1);
@@ -218,7 +223,7 @@ if (ADMIN && ADMIN_PASS) {
 // --- M2: eine Zahl an der App, die Entscheidung in der App --------------------
 const m2 = await sitzung(M2, M2_PASS);
 await startseite(m2.page);
-const zahl = m2.page.getByTestId(`uebersicht-app-${APP}-live-wartend`);
+const zahl = m2.page.getByTestId(`uebersicht-app-${APP}-wartend`);
 const zahlDa = await sichtbar(zahl, 15000);
 pruefe(
   'M2: an der Kachel der App steht eine Zahl wartender Freigaben',

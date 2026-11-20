@@ -37,15 +37,26 @@ describe('Kennzahl', () => {
     expect(klassen).not.toContain('p-4');
   });
 
-  it('steht auf der Flaeche der Seite und traegt eine Linie (H5)', () => {
-    // Bis H5 stand die Kachel auf `bg-card`, also auf einem eigenen Weiss
-    // ueber dem Grau der Seite. „Eine Flaechenfarbe" (DESIGN.md, Regel 2)
-    // laesst `bg-card` nur erhabenen Elementen; eine Kachel in einem Raster
-    // ist keines. Was bleibt, ist der Rand.
+  it('liegt deckend auf `--card` und traegt eine Linie (5.9.0)', () => {
+    // Von H5 bis 5.8 stand die Kachel durchsichtig auf der Seite. In einer
+    // App ist der Grund seit 5.7 ein Verlauf, und Inhalt bleibt deckend
+    // (Entwurf, Glas, Regel 1): die Kachel liegt wie Tabelle und Karte auf
+    // `--card`, mit Rand.
     const { container } = render(<Kennzahl beschriftung="Temperatur" wert="47" />);
     const klassen = container.firstElementChild?.className ?? '';
     expect(klassen).toContain('border-border');
-    expect(klassen).not.toContain('bg-card');
+    expect(klassen).toContain('bg-card');
+  });
+
+  it('zeichnet den Verlauf als Linie ohne recharts, unter zwei Werten keine', () => {
+    const { container, rerender } = render(
+      <Kennzahl beschriftung="Belege" wert="128" verlauf={[1, 3, 2, 5]} />
+    );
+    const pfad = container.querySelector('[data-slot="kennzahl-verlauf"] path');
+    expect(pfad?.getAttribute('d')).toMatch(/^M0\.0 /);
+    expect(container.querySelector('.recharts-wrapper')).toBeNull();
+    rerender(<Kennzahl beschriftung="Belege" wert="128" verlauf={[5]} />);
+    expect(container.querySelector('[data-slot="kennzahl-verlauf"]')).toBeNull();
   });
 });
 

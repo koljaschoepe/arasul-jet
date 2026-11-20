@@ -6,9 +6,10 @@
  * und geht selbst zurück, wenn die neue Fassung nicht startet. Darunter der
  * Rückweg auf die Fassung davor, ebenfalls derselbe Weg.
  */
-import { useState } from 'react';
-import { ArrowUpFromLine, Undo2 } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { ArrowUpFromLine, Undo2 } from '@marken/symbole';
 import {
+  Icon,
   Bestaetigung,
   Button,
   Karte,
@@ -40,8 +41,11 @@ export function TestNachLive({
   apps,
   laedt,
   fehler,
+  werkzeuge,
 }: {
   apps: readonly AppStand[];
+  /** Werkzeuge, die jede Ansicht trägt (Neu laden), aus dem Rahmen des Cockpits. */
+  werkzeuge?: ReactNode;
   laedt: boolean;
   fehler: string | null;
 }) {
@@ -84,7 +88,7 @@ export function TestNachLive({
     <div style={spalte(4)} data-testid="cockpit-live">
       <Kopf
         titel="Test nach Live"
-        symbol={<ArrowUpFromLine />}
+        werkzeuge={werkzeuge}
         beschreibung="Was in der Testfassung neuer ist als live. Ein Klick schaltet live, mit Sicherung vorher und Rückweg."
       />
       {ausgang && (
@@ -104,7 +108,7 @@ export function TestNachLive({
         <Ladezustand meldung="Lädt die Fassungen…" />
       ) : wartend.length === 0 ? (
         <Leerzustand
-          symbol={<ArrowUpFromLine />}
+          symbol={<Icon symbol={ArrowUpFromLine} groesse="gross" />}
           titel="Alles ist live"
           beschreibung="Keine App hat im Test eine Fassung, die live noch fehlt."
         />
@@ -179,7 +183,7 @@ export function TestNachLive({
                 onClick={() => setVorhaben({ app, ziel: 'zurueck' })}
                 data-testid={`cockpit-zurueck-${app.id}`}
               >
-                <Undo2 /> Zurück
+                <Icon symbol={Undo2} /> Zurück
               </Button>
             </div>
           ))}

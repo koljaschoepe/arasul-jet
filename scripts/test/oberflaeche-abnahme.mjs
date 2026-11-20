@@ -685,7 +685,7 @@ try {
       await leisteMessen(seiteM, breite, 'Mitarbeiter');
       pruefe(
         `${breite.px} px · Mitarbeiter: die Kachel der Probe-App steht auf der Startseite`,
-        await steht(seiteM, `[data-testid="uebersicht-app-${APP}-live"]`, 15000)
+        await steht(seiteM, `[data-testid="uebersicht-app-${APP}"]`, 15000)
       );
     }
   }

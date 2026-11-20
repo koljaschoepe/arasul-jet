@@ -11,7 +11,6 @@
  * Ereignis gehören keinem Menschen; sie stehen unter „Ohne Person", und der
  * Administrator sieht und bricht auch sie ab.
  */
-import { ListOrdered } from '@marken/symbole';
 import { Button, Kopf, Leerzustand } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAlleApps } from './personen/useAppFreigaben';
@@ -80,7 +79,6 @@ export function LaeufeSettings({
     <div className="animate-in fade-in flex flex-col gap-4" data-testid="laeufe-seite">
       <Kopf
         titel="Läufe"
-        symbol={<ListOrdered />}
         beschreibung="Was auf diesem Gerät gelaufen ist, über alle Apps. Fehler stehen oben."
       />
 
@@ -99,7 +97,6 @@ export function LaeufeSettings({
         </p>
       ) : laeufe.length === 0 ? (
         <Leerzustand
-          symbol={<ListOrdered />}
           titel={filterGesetzt(filter) ? 'Kein Lauf mit dieser Auswahl' : 'Noch kein Lauf'}
           beschreibung={
             filterGesetzt(filter)
