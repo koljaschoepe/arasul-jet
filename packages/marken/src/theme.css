@@ -278,10 +278,10 @@
      als `--verlauf-grund`, weil auf ihm kein Text steht, nur Glas
      (`.glas-grund`); `marken.py` (Punkt 9) misst Text auf diesem Glas ueber
      jeder Stufe. */
-  --rahmen-stufe-1: #f6f3ed;
-  --rahmen-stufe-2: #edeef0;
-  --rahmen-stufe-3: #dfe6f1;
-  --rahmen-schein: #d3dff2;
+  --rahmen-stufe-1: #ede8de;
+  --rahmen-stufe-2: #dfe4ec;
+  --rahmen-stufe-3: #c3d2ec;
+  --rahmen-schein: #a3bce6;
 }
 
 /* -----------------------------------------------------------------------------
@@ -330,10 +330,10 @@
 
   /* Der Grund des Rahmens: Tiefblau mit einem Schein oben links, nach
      Anthrazit unten rechts. */
-  --rahmen-stufe-1: #10264a;
-  --rahmen-stufe-2: #121c2c;
-  --rahmen-stufe-3: #1d2026;
-  --rahmen-schein: #1a3a6e;
+  --rahmen-stufe-1: #0f2a55;
+  --rahmen-stufe-2: #13203a;
+  --rahmen-stufe-3: #24272e;
+  --rahmen-schein: #1f4a8a;
 }
 
 /* -----------------------------------------------------------------------------
@@ -372,7 +372,7 @@
   /* Glas, das nur auf dem Grund des Rahmens liegt (die Leiste links, die
      Leiste unten am Handy): darunter ist nie Text und nie ein Knopf, nur der
      Verlauf. Es darf deshalb duenner sein, damit der Verlauf durchscheint. */
-  --glas-anteil-grund: 74%;
+  --glas-anteil-grund: 72%;
   --glas-flaeche-grund: var(--popover);
   --glas-filter: none;
   --glas-schleier-filter: none;

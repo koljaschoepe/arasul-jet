@@ -48,6 +48,8 @@ export function Kapsel({ appId, name, stand, staende, children }: KapselProps) {
                 key={s}
                 type="button"
                 aria-pressed={stand === s}
+                // Sichtbar 20 px, die Trefferfläche von 44 px legt `before:`.
+                data-treffer-selbst=""
                 data-testid={`kapsel-stand-${s}`}
                 onClick={() =>
                   stand !== s && oeffne({ type: 'app', appId, stand: s, title: name ?? undefined })

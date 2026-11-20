@@ -132,6 +132,7 @@ export function RueckmeldungKnopf({ appId, stand, rahmen }: Props) {
             onClick={oeffnen}
             disabled={nimmtAuf}
             className="rounded-full text-muted-foreground hover:text-foreground"
+            data-treffer-selbst=""
             data-testid="rueckmeldung-knopf"
           >
             <MessageSquarePlus className="size-4" />

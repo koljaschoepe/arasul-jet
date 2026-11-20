@@ -46,18 +46,24 @@ Drei Regeln, die ein Wächter hält:
    `scripts/test/marken.py`, Punkt 6 (die Bausteine) und
    `scripts/test/bausteine.py`, Punkt 7 (die Shell und jedes CSS — er rechnet
    den Farbton jedes Werts und lässt nur Blau, Rot und Grau durch).
-2. **Eine Flächenfarbe.** Grundflächen (Aktivitätsleiste, Ansicht, die Leiste
-   der Bereiche in der Verwaltung) stehen durchsichtig auf dem Grund
-   (`body`: `--background` mit `--verlauf-grund` darüber); `bg-card` ist
+2. **Eine Flächenfarbe.** Die Ansicht liegt als deckende Fläche
+   (`bg-background`, Radius 14 px, feine Kante, weicher Schatten) mit 8 px
+   Abstand auf dem Grund des Rahmens; darin stehen die Leiste der Bereiche in
+   der Verwaltung und der Inhalt durchsichtig auf `--background`. `bg-card` ist
    erhabenen Elementen darauf vorbehalten (Karten, Popover, Dialoge,
    Eingabefelder, Tabellenköpfe). **Auswahl ist eine getönte Fläche, kein
-   Balken** (M5): gewählt ist ein Hauch Akzent (`bg-primary/12`, in der `Liste`
-   `color-mix` mit `--ara-akzent`), überfahren der neutrale Wisch
-   (`--accent`), der in 120 ms einblendet; „weniger Bewegung" schaltet den
-   Übergang ab.
-   **Der einzige Verlauf ist der Grund** (5.7.0): `--verlauf-grund`, hell
-   von Creme nach einem Hauch Blau, dunkel von Navy nach Anthrazit, fest am
-   Fenster, kein Bild, keine Körnung. Der Hauptknopf (`Button
+   Balken** (M5): gewählt ist ein Hauch Akzent (`bg-primary/12`, in der
+   Aktivitätsleiste `bg-primary/14`, in der `Liste` `color-mix` mit
+   `--ara-akzent`), überfahren der neutrale Wisch (`--accent`), der in 120 ms
+   einblendet; „weniger Bewegung" schaltet den Übergang ab.
+   **Die einzigen Verläufe sind die Gründe.** `--verlauf-grund` (5.7.0) liegt
+   ruhig unter `body`, hell von Creme nach einem Hauch Blau, dunkel von Navy
+   nach Anthrazit; Text darf direkt darauf stehen (`marken.py` misst jede
+   Stufe). `--verlauf-rahmen` (5.8.0) liegt hinter Leiste und Ansicht der
+   Shell und ist kräftiger, damit man ihn sieht: hell Creme oben links, Blau
+   mit einem weichen Schein unten rechts, dunkel Tiefblau mit Schein oben links
+   nach Anthrazit (`--rahmen-stufe-1` bis `-3`, `--rahmen-schein`). Auf ihm
+   steht kein Text, nur Glas. Kein Bild, keine Körnung. Der Hauptknopf (`Button
 variant="solid"`, `Knopf art="haupt"`) ist blau gefüllt **ohne** Verlauf;
    Überfahren nimmt `--primary-hover`, Drücken `--primary-active`, in 120 ms.
    `--gradient-primary` und `--ara-verlauf-haupt` gibt es als Namen weiter,
@@ -186,6 +192,14 @@ bleiben deckend. Höchstens drei Glasflächen je Ansicht.
   Zutun, „weniger Bewegung“ wie bisher.
 - Glas über einem iframe sieht nur, was im Dokument des Rahmens darunter liegt,
   nicht den Inhalt der App.
+- **Glas auf dem Grund** (`.glas.glas-grund`, 5.8.0): die Leiste links und die
+  Leiste unten am Handy liegen nur auf `--verlauf-rahmen`, nie über Text oder
+  einem Knopf. Sie sind dünner gefüllt (`--glas-anteil-grund`, 72 %), damit der
+  Verlauf durchscheint; `marken.py` (Punkt 9) misst Text und Blau auf diesem
+  Glas über jeder Stufe des Verlaufs. Die Kapsel über einer App liegt über dem
+  Inhalt und bleibt beim vollen `--glas-anteil`.
+- Glasflächen je Ansicht: die Leiste, über einer App die Kapsel, dazu
+  höchstens ein offenes Menü.
 
 ## Symbole
 
@@ -367,30 +381,41 @@ Grund ist keiner.
 
 ## Die Shell
 
-**Um die Ansicht steht nur die Aktivitätsleiste** (M5, Karte
-rahmen-aktivitaetsleiste, 03.10.2026; Zielbild in `frontend.md` des
-Überordners, Abschnitt Rahmen): oben das Haus zur Startseite mit der Zahl
-offener Freigaben, darunter die freigegebenen Apps nur als Symbol mit dem
-Namen beim Überfahren (ab etwa zehn rollt dieser Teil), unten fest Verwaltung
-(nur Administrator) und Zahnrad; das eigene Bild steht seit dem 07.10.2026
-links in der Statusleiste (Bild, Name, Rolle, Menü nur „Abmelden“). Offen
-ist genau eine Ansicht. Es gibt keine Kopfleiste, keine Tab-Leiste, keine
-rechte Spalte und keine zweite Seitenleiste mehr; jede Funktion steht an
-genau einer Stelle. Verwaltung und Einstellungen sind gebaut wie eine App
-(Karte jet-rahmen-einheitlich, 07.10.2026): links das Muster `Seitenleiste`,
+**Um die Ansicht steht nur die Aktivitätsleiste** (Karte
+glas-rahmen-und-leiste, 20.11.2026; Zielbild in `gestaltung.md` des
+Überordners, Abschnitt Rahmen). Sie ist ein Stück Glas, das mit 8 px Abstand
+zum Rand auf `--verlauf-rahmen` schwebt, Radius 16 px, 52 px breit, Einträge
+36 px, Symbole 18 px, in drei Abschnitten mit zwei feinen Trennern: oben das
+Logo des Hauses (falls hinterlegt) und Start mit der Zahl offener Freigaben;
+in der Mitte die freigegebenen Apps, **jede genau einmal**, als Symbol mit dem
+Namen beim Überfahren (ab etwa zehn rollt dieser Teil, Ordnung durch Ziehen);
+unten Terminal (nur Entwickler), Verwaltung (nur Administrator),
+Einstellungen und das **Konto** als runde Fläche mit Name, Rolle und
+„Abmelden“. Die Ansicht liegt daneben als deckende Fläche mit Radius 14 px.
+Es gibt keine Kopfleiste, keine Tab-Leiste, keine rechte Spalte, keine zweite
+Seitenleiste und **keine Statuszeile** mehr; Datum und Uhrzeit zeigt Arasul
+nicht, eine Störung erscheint als Meldung.
+
+**Über einer App schwebt oben rechts die Kapsel** (`features/apps/Kapsel.tsx`):
+Glas, 32 px hoch, darin der Umschalter Live und Test (nur, wenn dieser Mensch
+beide Fassungen sehen darf) und das Rückmelde-Icon. Ein Klick auf eine App in
+der Leiste öffnet die Fassung, in der man sie zuletzt offen hatte
+(`zuletztStand` im Store). Die Testfassung trägt einen blauen Rand um die
+Fläche und oben in der Mitte das Wort Test.
+
+Verwaltung und Einstellungen sind gebaut wie eine App (Karte
+jet-rahmen-einheitlich, 07.10.2026): links das Muster `Seitenleiste`,
 dasselbe, das jede App zeichnet (Titel oben, Zeilen 32 px, Symbol 16 px, 2 px
 Abstand, Auswahl getönt mit Akzent zu 12 %, Gruppen mit kleiner Überschrift),
 ohne zweite Reiterstufe — was lang ist, klappt auf (der Bereich System). Die
 Shell setzt beide über `components/Bereichsrahmen.tsx` zusammen.
 
-Bis M5 stand hier ein Dreispalten-Raster (Apps, Mitte mit Tabs, Notizen) und
-unter 900 px ein eigener Aufbau mit Hamburger-Menü (D7). Unter 900 px steht
-die Aktivitätsleiste unten (Haus, bis zu vier Apps, „mehr“ mit Verwaltung und
-Einstellungen); Verwaltung und Einstellungen öffnen ihre Leiste dort als Blatt
-über einen Knopf oben, und „Abmelden“ ist der letzte Eintrag der Einstellungen.
-Die Statusleiste zeigt links **Bild, Name und Rolle** (Menü nur „Abmelden“),
-rechts **Datum und Uhrzeit** (minutengenau), für jeden gleich, nie Modell,
-Speicher, Verbindung oder Fassung; unter 900 px entfällt sie.
+Unter 900 px schwebt die Aktivitätsleiste unten als Glas, 8 px vom Rand:
+Start, bis zu vier Apps und „Mehr“ mit den übrigen Apps, Terminal,
+Verwaltung, Einstellungen und „Abmelden“. Ungewählt stehen nur Symbole, der
+gewählte Eintrag trägt seinen Namen auf einer blau getönten Fläche; so wird
+kein Name abgeschnitten. Verwaltung und Einstellungen öffnen ihre Leiste dort
+als Blatt über einen Knopf oben.
 
 **Die Rolle blendet aus, das Backend entscheidet.** Ein Mitarbeiter sieht die
 Startseite, seine Apps, seine Einstellungen und sein Konto; die Verwaltung
@@ -399,7 +424,8 @@ blendet die Oberfläche für ihn aus. Das ist keine Berechtigung:
 Knopf da ist oder nicht. Ein Knopf, der bei jedem Klick 403 sagt, ist kein
 Schutz, sondern eine Sackgasse. Umgekehrt darf nichts, was jeder braucht, hinter
 einer Admin-Seite liegen — das Abmelden lag bis D1 in den Einstellungen und
-sitzt seit M5 im Menü des eigenen Bildes unten in der Aktivitätsleiste.
+sitzt seit der Karte glas-rahmen-und-leiste im Konto unten in der
+Aktivitätsleiste, am Handy unter „Mehr“.
 
 ## Wo was steht
 

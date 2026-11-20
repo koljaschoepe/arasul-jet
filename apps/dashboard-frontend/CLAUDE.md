@@ -272,19 +272,23 @@ src/
                    `SchaustueckeMuster.tsx`. In **keinem** Menü — sie ist für
                    den, der eine App baut. Gemessen von
                    `scripts/test/schauseite.mjs`.
-    workspace/     Die Shell (M5, Karte rahmen-aktivitaetsleiste): links die
-                   Aktivitätsleiste, daneben genau EINE Ansicht, unten die
-                   StatusBar (für jeden gleich: links Bild, Name, Rolle mit
-                   einem Menü nur „Abmelden", rechts Datum und Uhrzeit,
-                   minutengenau; nie Modell, Speicher, Verbindung, Fassung —
-                   keine Abfrage ans Gerät). Es gibt
-                   keine Kopfleiste, keine Tab-Leiste, keine rechte Spalte
-                   und keine zweite Seitenleiste. **Immer aktiv** — `/`
+    workspace/     Die Shell (Karte glas-rahmen-und-leiste, 20.11.2026): auf
+                   dem Verlauf `--verlauf-rahmen` links die Aktivitätsleiste
+                   aus Glas, daneben genau EINE Ansicht als deckende Fläche
+                   (Radius 14 px, 8 px Abstand). Es gibt keine Kopfleiste,
+                   keine Tab-Leiste, keine rechte Spalte, keine zweite
+                   Seitenleiste und keine Statuszeile mehr (kein Datum,
+                   keine Uhrzeit; eine Störung ist eine Meldung). **Immer aktiv** — `/`
                    landet nach Login auf `/workspace`, ohne weiteren Pfad auf
                    der **Startseite**.
-                   • **ActivityBar** — oben das Haus (Startseite, mit der
+                   • **ActivityBar** — Glas (`.glas.glas-grund`), 52 px
+                     breit, Radius 16 px, drei Abschnitte mit zwei Trennern
+                     (`leiste-trenner`). Oben das Haus (Startseite, mit der
                      Zahl offener Freigaben aus `useOffeneFreigaben`),
-                     darunter die eigenen Apps als Symbol (`symbol` aus
+                     darunter die eigenen Apps, JEDE GENAU EINMAL
+                     (`zuLeiste`, `ordneLeiste`; ein Klick öffnet die
+                     Fassung aus `zuletztStand` im Store, `standFuerKlick`),
+                     als Symbol (`symbol` aus
                      `app.json`: Lucide-Name, über `symbolsatzLaden` aus
                      `@marken/symbole` nachgeladen in
                      `components/AppSymbol.tsx`, oder Kürzel; ohne Symbol ein
@@ -293,10 +297,10 @@ src/
                      rollt der Teil). Jeder ordnet sie durch Ziehen oder mit
                      Alt+Pfeil hoch/runter; die Reihenfolge liegt am Gerät
                      (`GET/PUT /api/apps/reihenfolge`, `useAppReihenfolge`),
-                     nicht im Browser, unten fest Verwaltung [admin] und Zahnrad
-                     [alle]; das eigene Bild steht seit 07.10.2026 in der
-                     StatusBar. Auswahl ist
-                     eine getönte Fläche (`bg-primary/12`), kein Balken;
+                     nicht im Browser, unten fest Terminal [Entwickler],
+                     Verwaltung [admin], Zahnrad [alle] und das Konto (rund,
+                     Menü mit Name, Rolle und „Abmelden“). Auswahl ist
+                     eine getönte Fläche (`bg-primary/14`), kein Balken;
                      Hover blendet in 120 ms ein, `motion-reduce` gilt. Ganz
                      oben das Logo des Hauses, falls hinterlegt (Verwaltung,
                      Gerät, Unternehmen; `GET /api/darstellung/logo?stand=…`,
@@ -334,15 +338,21 @@ src/
                      gelesen von der Shell (Adresse) und der Ansicht (der
                      Satz statt der Seite). `requireRole` im Backend
                      antwortet ohnehin mit 403.
-                   • **Unter 900 px** steht statt der Aktivitätsleiste die
-                     Leiste unten (`LeisteUnten.tsx`): Haus, vier Apps,
-                     unter „mehr“ die übrigen Apps, Verwaltung und
-                     Einstellungen; Abmelden steht in der Leiste der
-                     Einstellungen.
-                   • **Flächenfarbe** — Leiste und Ansicht stehen
-                     durchsichtig auf dem Grund (`body`: `--background` mit
-                     dem ruhigen Verlauf `--verlauf-grund`, 5.7.0); Trennung
-                     nur über Borders. `--card` bleibt erhabenen Elementen
+                   • **Kapsel** (`features/apps/Kapsel.tsx`, gesetzt von
+                     `AppRahmen`) — Glas oben rechts über jeder App, 32 px:
+                     Umschalter Live und Test (nur wenn `/apps/meine` beide
+                     nennt; die EINE Stelle dafür, NAVIGATION_AUSNAHMEN) und
+                     das Rückmelde-Icon. Die Testfassung trägt `TestRand`:
+                     2 px Blau um die Fläche, oben das Wort Test.
+                   • **Unter 900 px** schwebt statt der Aktivitätsleiste die
+                     Leiste unten als Glas (`LeisteUnten.tsx`): Start, vier
+                     Apps, „Mehr“ mit den übrigen Apps, Terminal,
+                     Verwaltung, Einstellungen und „Abmelden“. Ungewählt nur
+                     Symbole, der gewählte Eintrag mit Namen (nie
+                     abgeschnitten).
+                   • **Flächenfarbe** — die Ansicht ist deckend
+                     (`bg-background`), Verwaltung und Einstellungen stehen
+                     darin durchsichtig; `--card` bleibt erhabenen Elementen
                      vorbehalten, Glas schwebenden Bedienflächen (DESIGN.md).
   components/
     ui/            NUR NOCH, WAS ÜBER DIESES GERÄT BESCHEID WEISS. Eine neue
@@ -509,8 +519,10 @@ was `company/gestaltung.md` des Überordners im Abschnitt „Produkt“ vorgibt:
   `@marken` in drei Größen (`klein` 14, `mittel` 16, `gross` 20 px) und einer
   Strichstärke (1,75 px). Ein freier Import von `lucide-react` außerhalb von
   `packages/marken/` ist ein Befund (`bausteine.py`, Regel 10).
-- **Glas** (`.glas`, `--glas-*`) nur auf schwebenden Bedienflächen: Menüs,
-  Aufklappfelder, kurze Meldungen, der Schleier unter Dialog und Blatt.
+- **Glas** (`.glas`, `--glas-*`) nur auf schwebenden Bedienflächen: die
+  Aktivitätsleiste und die Leiste am Handy (`.glas-grund`, dünner, weil nur
+  der Verlauf darunter liegt), die Kapsel, Menüs, Aufklappfelder, kurze
+  Meldungen, der Schleier unter Dialog und Blatt.
   Karten, Tabellen, Formulare und der Inhalt eines Dialogs bleiben deckend.
   „Transparenz reduzieren“ steht je Person in den Einstellungen
   (Erscheinungsbild) und kommt als `data-transparenz="reduziert"` an das

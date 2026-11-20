@@ -24,10 +24,12 @@ Icon, Formular und Bildschirmfoto gehören dem Rahmen, nicht der App.
 ## Was der Mitarbeiter sieht
 
 1. Oben rechts über der App ein rundes Icon (Sprechblase mit Plus), 28 px,
-   halbdurchsichtig, mit dem Hinweis „Rückmeldung zu dieser Seite“. Es ist die
-   eine Ausnahme vom Beschluss „keine Kopfleiste“ (02.10.2026): es schwebt über
-   der App, statt eine Leiste über sie zu legen. Am Handy steht es ebenso oben
-   rechts, weit weg von der Leiste unten.
+   mit dem Hinweis „Rückmeldung zu dieser Seite“. Es steht seit der Karte
+   glas-rahmen-und-leiste (20.11.2026) in der **Kapsel** aus Glas, 32 px hoch,
+   8 px vom Rand, neben dem Umschalter Live und Test. Es ist die eine Ausnahme
+   vom Beschluss „keine Kopfleiste“ (02.10.2026): es schwebt über der App,
+   statt eine Leiste über sie zu legen. Am Handy steht es ebenso oben rechts,
+   weit weg von der Leiste unten.
 2. Ein Klick nimmt zuerst das Bildschirmfoto auf und öffnet dann das Formular:
    - **Was fehlt oder stimmt nicht?** Freier Text, Pflicht, bis 5000 Zeichen.
    - **Bildschirmfoto mitschicken**, vorausgewählt und abwählbar. Darunter das

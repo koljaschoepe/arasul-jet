@@ -348,10 +348,11 @@
        ist die Zeile mit dem Label daneben.
        Der `Button` der Bibliothek auch nicht (5.7.0): er bleibt sichtbar
        kompakt und legt selbst eine Trefferflaeche von 44 px darueber
-       (`TREFFER` in `button.tsx`). */
+       (`TREFFER` in `button.tsx`). Ebenso ein Knopf, der seine
+       Trefferflaeche selbst legt (`data-treffer-selbst`, die Kapsel). */
     button:not([role='checkbox']):not([role='radio']):not([role='switch']):not(
         [data-slot='button']
-      ),
+      ):not([data-treffer-selbst]),
     [role='button'],
     a,
     select {
@@ -361,7 +362,9 @@
   }
 
   @media (max-width: 768px) {
-    button:not([role='checkbox']):not([role='radio']):not([role='switch']) {
+    button:not([role='checkbox']):not([role='radio']):not([role='switch']):not(
+        [data-treffer-selbst]
+      ) {
       min-height: var(--touch-target-min);
     }
   }
