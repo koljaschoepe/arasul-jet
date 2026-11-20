@@ -26,7 +26,7 @@
  * freigegeben ist. Eine Matrix ohne die Administrator-Zeilen hätte genau diesen
  * Weg nicht.
  */
-import { AppWindow } from 'lucide-react';
+import { AppWindow } from '@marken/symbole';
 import { Switch, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useSchmalesFenster } from '@marken';

@@ -8,7 +8,7 @@ import React, {
   useMemo,
   type ReactNode,
 } from 'react';
-import { CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Info } from '@marken/symbole';
 import { Toast, ToastClose, ToastIcon, ToastMessage, ToastViewport } from '@marken';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';

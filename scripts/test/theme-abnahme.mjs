@@ -10,8 +10,8 @@
  *      Mensch an zwei Rechnern sah zwei verschiedene Geraete.
  *   2. BILDER. Anmeldung, Uebersicht und Einstellungen in beiden Themes bei
  *      390, 1024 und 1440 px. Zu jedem Bild die Frage, ob die Flaeche
- *      wirklich die des Themes ist: `--background` ist im Hellen `#F6F6F6`
- *      und im Dunklen `#141414`, und zwei Bilder, die gleich aussehen, waeren
+ *      wirklich die des Themes ist: `--background` ist im Hellen `#F6F3ED`
+ *      und im Dunklen `#0A1628`, und zwei Bilder, die gleich aussehen, waeren
  *      der haeufigste stille Fehlschlag eines Theme-Umbaus.
  *   3. WAS ES NICHT MEHR GIBT. Kein `data-theme="black"`, keine Klasse
  *      `.light` am Dokument, kein Schluessel `arasul_theme` im Speicher,
@@ -108,8 +108,8 @@ const BREITEN = [
  * haelt beide Themes ohnehin an denselben Zahlen fest.
  */
 const THEMES = [
-  { name: 'hell', wert: 'light', attribut: null, flaeche: 'rgb(246, 246, 246)' },
-  { name: 'dunkel', wert: 'dark', attribut: 'dark', flaeche: 'rgb(20, 20, 20)' },
+  { name: 'hell', wert: 'light', attribut: null, flaeche: 'rgb(246, 243, 237)' },
+  { name: 'dunkel', wert: 'dark', attribut: 'dark', flaeche: 'rgb(10, 22, 40)' },
 ];
 
 const ergebnisse = [];

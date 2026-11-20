@@ -91,6 +91,9 @@
 > Browsers, war also an den Rechner gebunden statt an den Menschen; »Schwarz«
 > als drittes Theme ist mit H1 gefallen. Geschrieben wird die Spalte über
 > `PUT /api/darstellung`, gelesen kommt sie mit `GET /api/auth/session` mit.
+> `transparenz_reduziert` (Migration 216, M7, BOOLEAN NOT NULL, Vorgabe `false`)
+> ist „Transparenz reduzieren“ aus den Einstellungen: Glas wird deckend. Derselbe
+> Weg wie `theme`.
 > `app_reihenfolge` (Migration 201, M5) ist die Reihenfolge der Apps in der
 > Aktivitätsleiste dieser Person: JSONB-Liste von `<kennung>:<stand>`, Vorgabe `[]`;
 > gelesen und geschrieben über `GET/PUT /api/apps/reihenfolge`.
@@ -116,6 +119,7 @@
 | `role`                            | character varying        | ⛔       | `'admin'::character varying`              |
 | `passwort_vom_admin`              | boolean                  | ⛔       | `false`                                   |
 | `theme`                           | character varying        | ⛔       | `'system'::character varying`             |
+| `transparenz_reduziert`           | boolean                  | ⛔       | `false` (Migration 216, M7)               |
 | `vorname`, `nachname`, `funktion` | character varying(100)   | ✅       | — (Migration 193, M5)                     |
 | `kuerzel`                         | character varying(8)     | ✅       | —                                         |
 | `bild_typ`, `bild_daten`          | varchar(20), bytea       | ✅       | — (`image/png\|jpeg\|webp`, ≤ 512 KB)     |

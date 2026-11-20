@@ -9,7 +9,7 @@
  * angesehen wurde.
  */
 import { useState } from 'react';
-import { CalendarPlus, Inbox, LayoutDashboard, Package, Users } from 'lucide-react';
+import { CalendarPlus, Inbox, LayoutDashboard, Package, Users } from '@marken/symbole';
 import {
   Badge,
   Bestaetigung,

@@ -13,7 +13,7 @@
  */
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Copy, Printer } from 'lucide-react';
+import { Check, Copy, Printer } from '@marken/symbole';
 import { Button, Dialogform } from '@marken';
 
 export interface StartpasswortZettel {

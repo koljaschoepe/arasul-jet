@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Check, X, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Check, X, AlertCircle } from '@marken/symbole';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';

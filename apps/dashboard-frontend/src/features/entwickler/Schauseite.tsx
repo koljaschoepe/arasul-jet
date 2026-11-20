@@ -39,7 +39,7 @@ import {
   Trash2,
   TriangleAlert,
   User,
-} from 'lucide-react';
+} from '@marken/symbole';
 import {
   Alert,
   AlertDescription,

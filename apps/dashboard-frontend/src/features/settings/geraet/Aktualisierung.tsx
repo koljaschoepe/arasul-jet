@@ -23,7 +23,14 @@
  */
 import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, CheckCircle, ChevronDown, Download, RotateCcw, Settings } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle,
+  ChevronDown,
+  Download,
+  RotateCcw,
+  Settings,
+} from '@marken/symbole';
 import {
   Bestaetigung,
   Button,

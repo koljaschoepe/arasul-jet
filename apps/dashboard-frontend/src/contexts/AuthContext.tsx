@@ -38,6 +38,8 @@ interface User {
    * malt, und braucht keine eigene Anfrage dafuer.
    */
   theme?: 'light' | 'dark' | 'system';
+  /** „Transparenz reduzieren“ (Migration 216): Glas wird deckend. */
+  transparenzReduziert?: boolean;
   /** Profil (M5, `admin_users.vorname` usw.); `anzeigeName` fällt auf den Benutzernamen zurück. */
   vorname?: string | null;
   nachname?: string | null;

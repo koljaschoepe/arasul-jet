@@ -16,7 +16,7 @@
  * Adresse im Haus zeigt). Ein nicht eingetragener Name, der abgewiesen wurde,
  * ist die Aufgabe des Proxys — er steht grau und zugeklappt darunter.
  */
-import { Globe } from 'lucide-react';
+import { Globe } from '@marken/symbole';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { Aufklappen } from './Aufklappen';
 import type { AppFlow } from './useAppVerwaltung';

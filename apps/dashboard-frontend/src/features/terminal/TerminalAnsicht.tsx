@@ -17,7 +17,7 @@
  * Shell hält den Rahmen deshalb verborgen am Leben (`AnsichtInhalt`), wie die
  * letzten Apps.
  */
-import { SquareTerminal } from 'lucide-react';
+import { SquareTerminal } from '@marken/symbole';
 import { Ladezustand, Leerzustand } from '@marken';
 import { useTerminalLage } from './useTerminal';
 

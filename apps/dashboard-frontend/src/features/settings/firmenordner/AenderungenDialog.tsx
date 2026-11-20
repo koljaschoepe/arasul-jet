@@ -7,7 +7,7 @@
  * Dateidienst (sein Protokoll, `GET /api/firmenordner/ordner/:id/aenderungen`).
  * Steht er gerade nicht, ist die Liste leer — und das steht dann so da.
  */
-import { History } from 'lucide-react';
+import { History } from '@marken/symbole';
 import { Button, Dialogform, Leerzustand } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { formatDate } from '@/utils/formatting';

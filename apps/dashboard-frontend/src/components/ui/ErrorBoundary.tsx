@@ -1,5 +1,5 @@
 import React, { type ErrorInfo, type ReactNode } from 'react';
-import { TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from '@marken/symbole';
 import { Button, Kopf } from '@marken';
 import { SUPPORT_EMAIL } from '@/config/branding';
 

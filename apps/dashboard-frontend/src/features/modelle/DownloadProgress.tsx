@@ -4,7 +4,7 @@
  * Used in StoreHome and StoreModels for consistent download UX
  */
 
-import { X } from 'lucide-react';
+import { X } from '@marken/symbole';
 import { cn } from '@marken';
 import { formatBytes } from '@/utils/formatting';
 
@@ -72,9 +72,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
             </span>
             <div className="flex items-center gap-2">
               {mengen && <span className="text-xs text-muted-foreground">{mengen}</span>}
-              <span className="text-xs font-medium text-foreground">
-                {downloadState.progress}%
-              </span>
+              <span className="text-xs font-medium text-foreground">{downloadState.progress}%</span>
               {onCancel && !isComplete && (
                 <button
                   onClick={onCancel}

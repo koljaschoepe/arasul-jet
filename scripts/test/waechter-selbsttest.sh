@@ -575,6 +575,14 @@ pruefe "Bausteine: auch ueber Zeilen gebrochen ist sie rot" 1 python3 "$WURZEL/s
 printf "export const Z = ({ navigate }) => <button onClick={() => navigate('/workspace/verwaltung')}>x</button>;\n" > "$BAU/ZweiteTuer.tsx"
 pruefe "Bausteine: ein Sprung per navigate ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
 rm "$BAU/ZweiteTuer.tsx" "$WS/ActivityBar.tsx"
+# Regel 10: Symbole nur ueber die Bibliothek.
+printf "import { Trash2 } from '@marken/symbole';\nexport const S = () => <Trash2 />;\n" > "$BAU/Symbol.tsx"
+pruefe "Bausteine: ein Symbol aus @marken/symbole ist gruen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+printf "import { Trash2 } from 'lucide-react';\nexport const S = () => <Trash2 />;\n" > "$BAU/Symbol.tsx"
+pruefe "Bausteine: ein freier Import von lucide-react ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+printf "export const S = () => import('lucide-react/dist/esm/icons/index.js');\n" > "$BAU/Symbol.tsx"
+pruefe "Bausteine: auch ein nachgeladener Import ist rot" 1 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
+rm "$BAU/Symbol.tsx"
 
 # --- modellnamen.py ---------------------------------------------------------
 MOD="$TMP/mod/apps/dashboard-frontend/src/features/beispiel"
@@ -1227,7 +1235,7 @@ pruefe "Marken: die Kopie steht am Original" 0 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
 
 # Ein Rueckfall, der nicht mehr der Wert seines Tokens ist.
-sed -i.bak 's/--ara-akzent: var(--primary, #1e6aa4)/--ara-akzent: var(--primary, #123456)/' "$MA_CSS"
+sed -i.bak 's/--ara-akzent: var(--primary, #2862c2)/--ara-akzent: var(--primary, #123456)/' "$MA_CSS"
 pruefe "Marken: ein verstellter Rueckfall ist rot" 1 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
 cp "$TMP/marken.css.echt" "$MA_CSS"
@@ -1236,8 +1244,8 @@ cp "$TMP/marken.css.echt" "$MA_CSS"
 # der Kontrast (Punkt 9) kann es melden: 3,2:1 auf dem hellen Grund.
 MA_THEME="$MA/packages/marken/src/theme.css"
 cp "$MA_THEME" "$TMP/theme.css.echt"
-sed -i.bak 's/--primary: #1e6aa4;/--primary: #2d8fd9;/' "$MA_THEME"
-sed -i.bak 's/var(--primary, #1e6aa4)/var(--primary, #2d8fd9)/' "$MA_CSS"
+sed -i.bak 's/--primary: #2862c2;/--primary: #2d8fd9;/' "$MA_THEME"
+sed -i.bak 's/var(--primary, #2862c2)/var(--primary, #2d8fd9)/' "$MA_CSS"
 pruefe "Marken: Blau unter 4,5:1 auf dem hellen Grund ist rot" 1 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"
 cp "$TMP/theme.css.echt" "$MA_THEME"
@@ -1249,7 +1257,7 @@ python3 - "$MA_CSS" <<'PY_INNER'
 import pathlib, sys
 p = pathlib.Path(sys.argv[1])
 p.write_text(p.read_text(encoding="utf-8").replace(
-    "  --ara-kante: var(--border, rgba(228, 228, 228, 0.08));\n", ""), encoding="utf-8")
+    "  --ara-kante: var(--border, rgba(246, 243, 237, 0.1));\n", ""), encoding="utf-8")
 PY_INNER
 pruefe "Marken: ein fehlender Eintrag im Dunkel-Block ist rot" 1 \
   python3 "$WURZEL/scripts/test/marken.py" --wurzel "$MA"

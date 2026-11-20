@@ -41,13 +41,15 @@ Was geprueft wird
    Verwaltung des Geraets eine Fassung, die nirgends liegt -- und die eine
    Auskunft, die H6 eingefuehrt hat, waere ab dem ersten Tag falsch
    (Phase H6).
-9. Text in Farbe haelt im hellen Thema 4,5:1 (WCAG AA): `--primary`,
+9. Text in Farbe haelt in beiden Themen 4,5:1 (WCAG AA): `--primary`,
    `--destructive` und `--muted-foreground` auf `--background`, `--card`,
    `--secondary` und auf ihrem eigenen 10-%-Wisch ueber Seite und Karte (so stehen sie in Badge,
    Knopf und Meldung), dazu `--primary-foreground` auf `--primary` -- die
    Schrift auf dem vollen Knopf (Auftrag marken-liste-auswahl-und-kontrast,
    26.09.2026). Das Audit des Kit-Geruests fand Blau bei 3,2:1 und Rot bei
-   3,5:1 auf dem hellen Grund, und jede App erbt diese Werte.
+   3,5:1 auf dem hellen Grund, und jede App erbt diese Werte. Seit dem
+   Grundton der Marke (5.7.0) in beiden Themen und auf Glas: Text auf
+   `--popover` zu `--glas-anteil` ueber Seite, Karte, Panel und Hauptknopf.
 10. Was ins offene Ara-Kit gespiegelt wird, spricht nicht von innen: `src/`
    (ohne `__tests__/`) und `EINBAU.md`. In keinem Kommentar dort steht ein
    Kundenname, eine Phase (`Phase H3`, `H3`), ein Plan (`Plan 023`), ein
@@ -222,6 +224,18 @@ def gleich(a: str, b: str) -> bool:
     return sauber(a) == sauber(b)
 
 
+def ueber_ara(rueckfall: str, eigene: dict[str, str]) -> str:
+    """Ein Rueckfall auf ein anderes `--ara-*` (Glas seit 5.7.0:
+    `--ara-glas: var(--glas-flaeche, var(--ara-flaeche-hoch))`) steht fuer
+    dessen Token: `var(--popover)`. So bleibt die Kette eine Quelle, und eine
+    App ohne `theme.css` faellt trotzdem auf eine Farbe zurueck."""
+    verweis = re.fullmatch(r"\s*var\(\s*(--ara-[\w-]+)\s*\)\s*", rueckfall)
+    if not verweis or verweis.group(1) not in eigene:
+        return rueckfall
+    ziel = ARA_MIT_VAR.match(f"{verweis.group(1)}: {eigene[verweis.group(1)]}")
+    return f"var({ziel.group(2)})" if ziel else rueckfall
+
+
 def rueckfaelle_pruefen(marken_css: str, wurzel: Path) -> list[str]:
     """Punkt 5: jeder Rueckfall ist der Wert seines Tokens in `theme.css`.
 
@@ -248,6 +262,9 @@ def rueckfaelle_pruefen(marken_css: str, wurzel: Path) -> list[str]:
         ("Hell", ":root", hell),
         ("Dunkel", "[data-theme='dark']", {**hell, **dunkel}),
     ):
+        eigene = deklarationen(block(marken_css, ":root"))
+        if selektor != ":root":
+            eigene |= deklarationen(block(marken_css, selektor))
         for ara, wert in deklarationen(block(marken_css, selektor)).items():
             treffer = ARA_MIT_VAR.match(f"{ara}: {wert}")
             if not treffer:
@@ -260,7 +277,9 @@ def rueckfaelle_pruefen(marken_css: str, wurzel: Path) -> list[str]:
                     f"marken.css ({name}): {ara} zeigt auf {token}, "
                     f"und den gibt es in theme.css nicht"
                 )
-            elif not gleich(rueckfall, quelle_werte[token]):
+            elif not gleich(rueckfall, quelle_werte[token]) and not gleich(
+                ueber_ara(rueckfall, eigene), quelle_werte[token]
+            ):
                 befunde.append(
                     f"marken.css ({name}): {ara} faellt auf "
                     f"`{re.sub(r'\s+', ' ', rueckfall).strip()}` zurueck, "
@@ -396,49 +415,84 @@ def kontrast(a: str, b: str) -> float:
 
 
 def kontrast_pruefen(wurzel: Path) -> list[str]:
-    """Punkt 9: Text in Farbe haelt im hellen Thema 4,5:1.
+    """Punkt 9: Text in Farbe haelt 4,5:1, in beiden Themen.
 
-    Gefragt wird nur `:root`, das helle Thema. Nur Hex-Werte sind rechenbar;
-    ein Token, der kein Hex ist, ist fuer diese Frage selbst ein Befund --
-    sonst wuerde eine Umstellung auf `rgba()` den Waechter lautlos
-    abschalten.
+    Nur Hex-Werte sind rechenbar; ein Token, der kein Hex ist, ist fuer diese
+    Frage selbst ein Befund -- sonst wuerde eine Umstellung auf `rgba()` den
+    Waechter lautlos abschalten.
+
+    Seit dem Grundton der Marke (5.7.0) auch im dunklen Thema, und auf Glas:
+    Text (`--foreground`, `--muted-foreground`) auf `--popover` zu
+    `--glas-anteil` ueber dem, was darunter liegen kann (Seite, Karte, und
+    die dunkelste bzw. hellste grosse Flaeche, der Hauptknopf).
     """
     theme = ohne_kommentare(
         (wurzel / "packages" / "marken" / "src" / "theme.css").read_text(encoding="utf-8")
     )
-    hell = deklarationen(block(theme, ":root"))
+    hell_roh = deklarationen(block(theme, ":root"))
+    dunkel_roh = hell_roh | deklarationen(block(theme, "[data-theme='dark']"))
     befunde: list[str] = []
 
-    def wert(name: str) -> str | None:
-        roh = hell.get(name, "").strip().lower()
-        if re.fullmatch(r"#[0-9a-f]{6}", roh):
-            return roh
-        befunde.append(f"theme.css: {name} ist kein sechsstelliges Hex ({roh!r}) -- Punkt 9 kann nicht rechnen")
-        return None
+    anteil_roh = hell_roh.get("--glas-anteil", "").strip()
+    treffer = re.fullmatch(r"(\d+(?:\.\d+)?)%", anteil_roh)
+    if not treffer:
+        befunde.append(f"theme.css: --glas-anteil ist keine Prozentzahl ({anteil_roh!r}) -- Punkt 9 kann Glas nicht rechnen")
+    glas_anteil = float(treffer.group(1)) / 100 if treffer else None
 
-    gruende = {n: wert(n) for n in ("--background", "--card", "--secondary")}
-    for text in ("--primary", "--destructive", "--muted-foreground"):
-        farbe = wert(text)
-        if not farbe:
-            continue
-        flaechen = {n: g for n, g in gruende.items() if g}
-        # Der Wisch auf `--secondary` ist keine Lage, die vorkommt: Badge und
-        # Meldung stehen auf der Seite oder in einer Karte.
-        for n in ("--background", "--card"):
-            if not flaechen.get(n):
+    for thema, werte in (("Hell", hell_roh), ("Dunkel", dunkel_roh)):
+        def wert(name: str) -> str | None:
+            roh = werte.get(name, "").strip().lower()
+            if re.fullmatch(r"#[0-9a-f]{6}", roh):
+                return roh
+            befunde.append(f"theme.css ({thema}): {name} ist kein sechsstelliges Hex ({roh!r}) -- Punkt 9 kann nicht rechnen")
+            return None
+
+        gruende = {n: wert(n) for n in ("--background", "--card", "--secondary")}
+        for text in ("--primary", "--destructive", "--muted-foreground"):
+            farbe = wert(text)
+            if not farbe:
                 continue
-            g = flaechen[n]
-            flaechen[f"10-%-Wisch auf {n}"] = _mischen(farbe, g, 0.1)
-        for n, g in flaechen.items():
-            k = kontrast(farbe, g)
-            if k < 4.5:
-                befunde.append(f"theme.css: {text} auf {n} hat {k:.2f}:1, verlangt sind 4,5:1")
-    vorn, knopf = wert("--primary-foreground"), wert("--primary")
-    if vorn and knopf and kontrast(vorn, knopf) < 4.5:
-        befunde.append(
-            f"theme.css: --primary-foreground auf --primary hat {kontrast(vorn, knopf):.2f}:1, "
-            "verlangt sind 4,5:1"
-        )
+            flaechen = {n: g for n, g in gruende.items() if g}
+            # Der Wisch auf `--secondary` ist keine Lage, die vorkommt: Badge und
+            # Meldung stehen auf der Seite oder in einer Karte.
+            for n in ("--background", "--card"):
+                if not flaechen.get(n):
+                    continue
+                g = flaechen[n]
+                flaechen[f"10-%-Wisch auf {n}"] = _mischen(farbe, g, 0.1)
+            for n, g in flaechen.items():
+                k = kontrast(farbe, g)
+                if k < 4.5:
+                    befunde.append(f"theme.css ({thema}): {text} auf {n} hat {k:.2f}:1, verlangt sind 4,5:1")
+        for vorn_n, knopf_n in (("--primary-foreground", "--primary"), ("--destructive-foreground", "--destructive")):
+            vorn, knopf = wert(vorn_n), wert(knopf_n)
+            if vorn and knopf and kontrast(vorn, knopf) < 4.5:
+                befunde.append(
+                    f"theme.css ({thema}): {vorn_n} auf {knopf_n} hat {kontrast(vorn, knopf):.2f}:1, "
+                    "verlangt sind 4,5:1"
+                )
+
+        # Glas: die Fuellung ist `--popover` zu `--glas-anteil` ueber dem,
+        # was darunter liegt. Gerechnet wird die schlechteste Stelle.
+        glas = wert("--popover")
+        if glas and glas_anteil is not None:
+            # Text darunter zaehlt nicht: die Unschaerfe von 16 px verwischt
+            # einen Strich zur Farbe seiner Flaeche. Eine Flaeche bleibt.
+            unter = {n: wert(n) for n in ("--background", "--card", "--secondary", "--primary")}
+            for text in ("--foreground", "--muted-foreground"):
+                farbe = wert(text)
+                if not farbe:
+                    continue
+                for n, g in unter.items():
+                    if not g:
+                        continue
+                    flaeche = _mischen(glas, g, glas_anteil)
+                    k = kontrast(farbe, flaeche)
+                    if k < 4.5:
+                        befunde.append(
+                            f"theme.css ({thema}): {text} auf Glas ueber {n} hat {k:.2f}:1, "
+                            "verlangt sind 4,5:1"
+                        )
     return befunde
 
 
@@ -708,7 +762,7 @@ def main() -> int:
     # 8. Die Beispielapp steht auf dieser Fassung (Phase H6).
     befunde.extend(beispielapp_pruefen(wurzel, fassung.group(1) if fassung else None))
 
-    # 9. Text in Farbe haelt 4,5:1 im hellen Thema.
+    # 9. Text in Farbe haelt 4,5:1, in beiden Themen und auf Glas.
     befunde.extend(kontrast_pruefen(wurzel))
 
     # 10. Was ins offene Ara-Kit geht, spricht nicht von innen.

@@ -7,7 +7,7 @@ import {
   ListOrdered,
   Server,
   Users,
-} from 'lucide-react';
+} from '@marken/symbole';
 import type { ReactNode } from 'react';
 
 /**

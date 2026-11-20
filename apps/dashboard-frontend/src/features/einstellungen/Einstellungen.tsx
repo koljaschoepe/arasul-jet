@@ -11,7 +11,7 @@
  * Am Handy ist die Leiste ein Blatt, und dort steht „Abmelden" als letzter
  * Eintrag: die Fußzeile mit dem Kontomenü gibt es unter 900 px nicht.
  */
-import { Lock, LogOut, Monitor, Moon, Palette, Sun, User } from 'lucide-react';
+import { Lock, LogOut, Monitor, Moon, Palette, Sun, User } from '@marken/symbole';
 import { useState } from 'react';
 import {
   Button,
@@ -20,6 +20,7 @@ import {
   Leerzustand,
   RadioGroup,
   RadioGroupItem,
+  Switch,
   useSchmalesFenster,
   type SeitenleistenGruppe,
 } from '@marken';
@@ -44,7 +45,7 @@ const THEME_WAHLEN: ReadonlyArray<{ wert: ThemeWahl; label: string; icon: typeof
 ];
 
 function Erscheinungsbild() {
-  const { wahl, setTheme } = useTheme();
+  const { wahl, setTheme, transparenzReduziert, setTransparenzReduziert } = useTheme();
   return (
     <>
       <Kopf titel="Erscheinungsbild" symbol={<Palette />} />
@@ -71,6 +72,24 @@ function Erscheinungsbild() {
           </div>
         ))}
       </RadioGroup>
+      {/* Glas auf Menüs und Meldungen wird deckend. Was das System wünscht
+          (weniger Transparenz, mehr Kontrast), gilt ohnehin. */}
+      <div className="mt-6 flex items-center gap-3">
+        <Switch
+          id="transparenz-reduzieren"
+          checked={transparenzReduziert}
+          onCheckedChange={wert => {
+            void setTransparenzReduziert(wert === true).catch(() => {});
+          }}
+          data-testid="transparenz-reduzieren"
+        />
+        <Label
+          htmlFor="transparenz-reduzieren"
+          className="cursor-pointer text-sm font-medium text-foreground"
+        >
+          Transparenz reduzieren
+        </Label>
+      </div>
     </>
   );
 }

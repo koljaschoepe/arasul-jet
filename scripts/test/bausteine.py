@@ -60,6 +60,14 @@ In ALLEM unter `src/`, ohne Ausnahme (siehe „Der Ausnahmeordner ist weg"):
    zugleich). Jede weitere Datei, die eine Ansicht aufmacht oder per
    `navigate`/`Link` an eine Adresse springt, steht in NAVIGATION_AUSNAHMEN,
    mit Grund. Benannte Ausnahme: die Kacheln und Hinweise der Startseite.
+10. Ein freier Import von `lucide-react` ausserhalb der Bibliothek (Karte
+   glas-grundton-bibliothek, 20.11.2026; `gestaltung.md`, Icons: „nur ueber
+   einen Baustein der Bibliothek, kein freier Import mehr“). Symbole kommen
+   aus `@marken/symbole`, gezeichnet mit `Icon` (drei Groessen, eine
+   Strichstaerke). Die Shell ist vollstaendig umgestellt; das
+   Entwickler-Cockpit laedt die Bibliothek zur Laufzeit, wo es den Ausgang
+   `symbole` nicht gibt, und steht mit seinen Dateien als RATSCHE in
+   `LUCIDE_RATSCHE`: die Zahl darf sinken, nie steigen.
 
 Der Ausnahmeordner ist weg (Phase H5)
 -------------------------------------
@@ -363,6 +371,12 @@ def in_der_palette(r: int, g: int, b: int) -> bool:
     ton, saettigung = farbton(r, g, b)
     if saettigung < 0.15:
         return True  # Grau, Schwarz, Weiss
+    # Die warmen Neutralen der Marke (Creme, Panel, Tinte, Linie): ein Ton
+    # zwischen 30 und 50 Grad, aber kaum Farbe, hoechstens 0,16 Abstand
+    # zwischen dem staerksten und dem schwaechsten Kanal. Creme liegt bei
+    # 0,04, Linie stark bei 0,15; ein Orange (#ec8b2c) bei 0,75 faellt.
+    if 30 <= ton <= 50 and (max(r, g, b) - min(r, g, b)) / 255 <= 0.16:
+        return True
     return 190 <= ton <= 250 or ton >= 340 or ton <= 20  # Blau oder Rot
 
 
@@ -559,6 +573,52 @@ def navigation_doppelt(wurzel: Path) -> list[str]:
     return befunde
 
 
+# --------------------------------------------------------------------------
+# Die zehnte Regel: Symbole nur ueber die Bibliothek (20.11.2026)
+# --------------------------------------------------------------------------
+LUCIDE_IMPORT = re.compile(r"""(?:from\s+|import\(\s*)['"]lucide-react(?:/[^'"]*)?['"]""")
+LUCIDE_ORDNER = ['apps/dashboard-frontend/src', 'apps/dashboard-frontend/demo', 'apps/entwickler-cockpit/src']
+# Dateien, die Lucide noch selbst holen duerfen, und warum. Die Ratsche: wer
+# eine umstellt, nimmt sie hier heraus; eine neue kommt nicht dazu.
+LUCIDE_RATSCHE = {
+    'apps/entwickler-cockpit/src/App.tsx': 'Cockpit, Bibliothek zur Laufzeit ohne `symbole`',
+    'apps/entwickler-cockpit/src/AppsAnsicht.tsx': 'dito',
+    'apps/entwickler-cockpit/src/TestNachLive.tsx': 'dito',
+    'apps/entwickler-cockpit/src/Eingang.tsx': 'dito',
+}
+
+
+def lucide_frei(wurzel: Path) -> list[str]:
+    befunde: list[str] = []
+    gesehen: set[str] = set()
+    for basis in LUCIDE_ORDNER:
+        ordner = wurzel / basis
+        if not ordner.is_dir():
+            continue
+        for datei in sorted(list(ordner.rglob('*.ts')) + list(ordner.rglob('*.tsx'))):
+            if 'node_modules' in datei.parts:
+                continue
+            relativ = datei.relative_to(wurzel).as_posix()
+            text = ohne_ts_kommentare(datei.read_text(encoding='utf-8'))
+            if not LUCIDE_IMPORT.search(text):
+                continue
+            gesehen.add(relativ)
+            if relativ in LUCIDE_RATSCHE:
+                continue
+            befunde.append(
+                f'{relativ}  importiert `lucide-react` selbst. Symbole kommen aus '
+                '`@marken/symbole` und werden mit `Icon` gezeichnet.'
+            )
+    for relativ in sorted(set(LUCIDE_RATSCHE) - gesehen):
+        if not (wurzel / relativ).parent.is_dir():
+            continue  # ein Baum ohne diesen Ordner (der Selbsttest der Waechter)
+        befunde.append(
+            f'{relativ}  steht in LUCIDE_RATSCHE, importiert Lucide aber nicht mehr: '
+            'aus der Ratsche nehmen, damit sie nicht wieder aufgeht.'
+        )
+    return befunde
+
+
 def pruefe(wurzel: Path) -> list[str]:
     befunde = []
     for basis in WURZELN:
@@ -599,6 +659,7 @@ def main() -> int:
         + farben_pruefen(wurzel)
         + groessen_und_gewichte(wurzel)
         + navigation_doppelt(wurzel)
+        + lucide_frei(wurzel)
     )
     if not befunde:
         print('   Baustein-Set: eingehalten')

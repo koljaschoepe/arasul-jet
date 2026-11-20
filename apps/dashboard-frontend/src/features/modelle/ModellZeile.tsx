@@ -14,7 +14,7 @@
  * Die Zeile bricht um, statt zu rollen. Bei 390 px stehen Name, Merkmale und
  * Knöpfe untereinander.
  */
-import { Cpu, Trash2 } from 'lucide-react';
+import { Cpu, Trash2 } from '@marken/symbole';
 import { Button } from '@marken';
 import { formatBytes } from '@/utils/formatting';
 import { modellAnzeigeName } from '@/utils/modelDisplay';

@@ -11,7 +11,7 @@
  * an den Stellen, an denen es wirkt.
  */
 import { useRef, useState } from 'react';
-import { Building2, ImageUp } from 'lucide-react';
+import { Building2, ImageUp } from '@marken/symbole';
 import { Button, Feldgruppe, Input, Label } from '@marken';
 import { PLATFORM_NAME } from '@/config/branding';
 import { useToast } from '@/contexts/ToastContext';

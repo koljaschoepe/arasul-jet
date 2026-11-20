@@ -10,7 +10,7 @@
  * Person hier in der Liste.
  */
 import { useState } from 'react';
-import { Download, FileText, HardDrive } from 'lucide-react';
+import { Download, FileText, HardDrive } from '@marken/symbole';
 import {
   Button,
   Feldgruppe,

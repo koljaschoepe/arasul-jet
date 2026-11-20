@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ShieldAlert } from '@marken/symbole';
 import { Alert, AlertDescription, Button, Checkbox, cn, Input, Label } from '@marken';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/contexts/AuthContext';

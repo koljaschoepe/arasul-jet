@@ -63,16 +63,23 @@ describe('Button', () => {
     expect(link).toBeInTheDocument();
   });
 
-  it('der Hauptknopf trägt den Blauverlauf aus dem Token, die anderen sind flach', () => {
+  it('der Hauptknopf ist blau gefüllt ohne Verlauf, kompakt 32 px', () => {
     render(
       <>
         <Button variant="solid">Ablegen</Button>
         <Button>Abbrechen</Button>
+        <Button size="icon" aria-label="Löschen" />
       </>
     );
-    expect(screen.getByRole('button', { name: 'Ablegen' }).className).toContain(
-      'bg-(image:--gradient-primary)'
-    );
+    const haupt = screen.getByRole('button', { name: 'Ablegen' });
+    expect(haupt.className).toContain('bg-primary');
+    expect(haupt.className).not.toContain('gradient');
+    expect(haupt.className).toContain('h-[32px]');
     expect(screen.getByRole('button', { name: 'Abbrechen' }).className).not.toContain('gradient');
+    // Icon-Knopf: 28 px, ohne Rahmen, Trefferfläche bei grobem Zeiger 44 px.
+    const icon = screen.getByRole('button', { name: 'Löschen' });
+    expect(icon.className).toContain('size-[28px]');
+    expect(icon.className).toContain('border-transparent');
+    expect(icon.className).toContain('pointer-coarse:before:min-h-11');
   });
 });

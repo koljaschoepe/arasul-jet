@@ -137,8 +137,8 @@ const chromiumOptionen = {
  * denn Hell braucht seit H1 keinen Selektor.
  */
 const THEMES = [
-  { name: 'hell', wert: 'light', attribut: null, flaeche: 'rgb(246, 246, 246)' },
-  { name: 'dunkel', wert: 'dark', attribut: 'dark', flaeche: 'rgb(20, 20, 20)' },
+  { name: 'hell', wert: 'light', attribut: null, flaeche: 'rgb(246, 243, 237)' },
+  { name: 'dunkel', wert: 'dark', attribut: 'dark', flaeche: 'rgb(10, 22, 40)' },
 ];
 
 const bilder = [];

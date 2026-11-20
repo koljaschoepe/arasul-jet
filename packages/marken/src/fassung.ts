@@ -180,4 +180,20 @@
  * (`@media (hover: hover)`); auf einem Touch-Geraet blieb sie nach dem Tippen
  * angehoben stehen. Kein Name, keine Eigenschaft aendert sich.
  */
-export const FASSUNG = '5.6.1';
+/*
+ * 5.7.0: der Grundton der Marke. Die Farben sind die der Marke (Creme, Panel,
+ * Tinte, Linie, Blau; dunkel Navy), hinter dem Rahmen liegt ein ruhiger
+ * Verlauf (`--verlauf-grund`), die Schrift Inter kommt mit der Bibliothek
+ * (`schrift/`, auch fuer eine App zur Laufzeit). Menues, Aufklappfelder,
+ * kurze Meldungen und der Schleier unter einem Dialog sind Glas (`.glas`,
+ * `--glas-*`, `--ara-glas*`), deckend, wo der Browser keine Unschaerfe kann,
+ * der Mensch „Transparenz reduzieren“ gewaehlt hat
+ * (`data-transparenz="reduziert"`) oder das System weniger Transparenz
+ * oder mehr Kontrast wuenscht. Knoepfe sind kompakt (32 px mit Text, 28 px
+ * als Icon-Knopf, bei grobem Zeiger 44 px Trefferflaeche), der Hauptknopf
+ * ist flach blau. Neu: `Icon` mit drei Groessen und einer Strichstaerke,
+ * dazu der Ausgang `@marken/symbole` fuer den Bau. `--gradient-primary` und
+ * `--ara-verlauf-haupt` bleiben als Namen und sind jetzt flach. Kein Name
+ * faellt weg; eine App auf 5.6.1 sieht nur das neue Aussehen.
+ */
+export const FASSUNG = '5.7.0';

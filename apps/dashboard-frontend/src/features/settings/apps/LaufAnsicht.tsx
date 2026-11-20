@@ -15,7 +15,7 @@
  * mehrere Bildschirme lang sein.
  */
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Brain, PenLine, Users, Info } from 'lucide-react';
+import { ChevronDown, ChevronRight, Brain, PenLine, Users, Info } from '@marken/symbole';
 import { Button, cn, useSchmalesFenster } from '@marken';
 import { formatDate } from '@/utils/formatting';
 import type { AppLauf, AppLaufDetail, LaufFreigabe, LaufSchritt } from './useAppVerwaltung';

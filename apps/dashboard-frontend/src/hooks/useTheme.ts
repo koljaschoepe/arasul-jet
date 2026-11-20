@@ -105,6 +105,18 @@ export function themeAmDokument(dokument: Document, theme: Theme): void {
 }
 
 /**
+ * „Transparenz reduzieren“ an EIN Dokument schreiben, wie das Theme: an die
+ * Shell und an den iframe einer App. `theme.css` macht jede Glasflaeche
+ * deckend, sobald `data-transparenz="reduziert"` am `<html>` steht. Der
+ * Normalfall setzt nichts.
+ */
+export function transparenzAmDokument(dokument: Document, reduziert: boolean): void {
+  const root = dokument.documentElement;
+  if (reduziert) root.setAttribute('data-transparenz', 'reduziert');
+  else root.removeAttribute('data-transparenz');
+}
+
+/**
  * Das Theme des Angemeldeten, lesen und setzen.
  *
  * Es gibt keinen eigenen Zustand daneben: die Quelle ist der Benutzer aus dem
@@ -134,6 +146,19 @@ export function useTheme() {
   }, [wahl]);
 
   const theme: Theme = wahl === 'system' ? (systemDunkel ? 'dark' : 'light') : wahl;
+  const transparenzReduziert = user?.transparenzReduziert === true;
+
+  const setTransparenzReduziert = useCallback(
+    async (neu: boolean) => {
+      const antwort = await api.put<{ data: { transparenz_reduziert: boolean } }>('/darstellung', {
+        transparenz_reduziert: neu,
+      });
+      benutzerAktualisieren({
+        transparenzReduziert: antwort?.data?.transparenz_reduziert ?? neu,
+      });
+    },
+    [api, benutzerAktualisieren]
+  );
 
   const setTheme = useCallback(
     async (neu: ThemeWahl) => {
@@ -188,6 +213,9 @@ export function useTheme() {
   useEffect(() => {
     themeAmDokument(document, theme);
   }, [theme]);
+  useEffect(() => {
+    transparenzAmDokument(document, transparenzReduziert);
+  }, [transparenzReduziert]);
 
-  return { theme, wahl, setTheme } as const;
+  return { theme, wahl, setTheme, transparenzReduziert, setTransparenzReduziert } as const;
 }

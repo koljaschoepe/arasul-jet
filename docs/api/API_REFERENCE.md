@@ -2926,13 +2926,19 @@ Den Schalter setzt der Administrator: `PUT /api/apps/:id/bilder-an-agenten`
 Die Darstellung der Oberfläche, **je Mensch**. Drei Werte: `light` (Vorgabe),
 `dark` und `system` (das Betriebssystem entscheidet, Migration 194). »Schwarz« ist mit H1 gefallen.
 
-| Method | Endpoint                | Description                                  |
-| ------ | ----------------------- | -------------------------------------------- |
-| PUT    | `/api/darstellung`      | Meine Darstellung setzen, Body `{ theme }`   |
-| GET    | `/api/darstellung/logo` | Das Logo des Hauses als Bild, ohne Anmeldung |
+| Method | Endpoint                | Description                                                                      |
+| ------ | ----------------------- | -------------------------------------------------------------------------------- |
+| PUT    | `/api/darstellung`      | Meine Darstellung setzen, Body `{ theme, transparenz_reduziert }`, beide einzeln |
+| GET    | `/api/darstellung/logo` | Das Logo des Hauses als Bild, ohne Anmeldung                                     |
 
 Antwort `{ data: { theme } }`. `theme` ist `light`, `dark` oder `system`; alles andere
 ist `400` (`schemas/darstellung.js`), nicht `500` aus dem CHECK der Spalte.
+
+`transparenz_reduziert` (Boolean, Migration 216, Bibliothek 5.7.0): „Transparenz
+reduzieren“ aus den Einstellungen, Glas wird deckend. Jedes der beiden Felder ist
+einzeln setzbar, was fehlt, bleibt; ein leerer Body ist `400`. Antwort
+`{ data: { theme, transparenz_reduziert } }`. Gelesen kommt der Wert als
+`transparenzReduziert` mit `GET /api/auth/session`, `GET /api/auth/me` und der Anmeldung.
 
 **GET /api/darstellung/logo** (M5, 04.10.2026): das Logo des Hauses mit dem
 Medientyp, mit dem es hinterlegt wurde (`image/png`, `image/jpeg`,

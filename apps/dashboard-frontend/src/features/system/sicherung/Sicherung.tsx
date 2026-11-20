@@ -34,7 +34,7 @@ import {
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
-} from 'lucide-react';
+} from '@marken/symbole';
 import { Kennzahl, Kennzahlen } from '@marken';
 import {
   Alert,

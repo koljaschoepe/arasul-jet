@@ -8,7 +8,7 @@
  * Sperren (Bereich Personen) ist der mildere Weg und kommt vor Löschen.
  */
 import { useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2 } from '@marken/symbole';
 import {
   Button,
   Dialogform,

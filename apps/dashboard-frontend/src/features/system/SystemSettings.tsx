@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Server, Wrench } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Server, Wrench } from '@marken/symbole';
+import type { LucideIcon } from '@marken/symbole';
 import type { ComponentType } from 'react';
 import {
   Accordion,

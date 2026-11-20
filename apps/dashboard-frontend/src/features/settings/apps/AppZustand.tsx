@@ -7,7 +7,7 @@
  * kann: eine Fassung, die nicht ausgeliefert werden kann, ein Server-Teil, der
  * steht oder Fehler meldet, eine eingetragene Verbindung, die abgewiesen wird.
  */
-import { TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from '@marken/symbole';
 import { freigabeVon, useFreigaben } from '../personen/useAppFreigaben';
 import { useBenutzer } from '../personen/usePersonen';
 import { standardSatz } from './Standard';

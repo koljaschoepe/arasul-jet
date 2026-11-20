@@ -11,7 +11,7 @@
  * Ereignis gehören keinem Menschen; sie stehen unter „Ohne Person", und der
  * Administrator sieht und bricht auch sie ab.
  */
-import { ListOrdered } from 'lucide-react';
+import { ListOrdered } from '@marken/symbole';
 import { Button, Kopf, Leerzustand } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAlleApps } from './personen/useAppFreigaben';

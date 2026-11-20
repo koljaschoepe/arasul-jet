@@ -14,13 +14,14 @@ import {
   CalendarDays,
   ChartLine,
   FileText,
+  Inbox,
   Italic,
   LayoutDashboard,
   Package,
   Settings,
   Underline,
   Users,
-} from 'lucide-react';
+} from '@marken/symbole';
 import {
   Accordion,
   AccordionContent,
@@ -36,6 +37,7 @@ import {
   CarouselPrevious,
   Collapsible,
   CollapsibleContent,
+  Icon,
   CollapsibleTrigger,
   Command,
   CommandEmpty,
@@ -193,6 +195,19 @@ export function SchaustueckeH4() {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+        </Zustand>
+      </Schaustueck>
+
+      <Schaustueck
+        name="Icon"
+        satz="Ein Symbol aus Lucide in drei Größen, immer mit derselben Strichstärke."
+      >
+        <Zustand name="klein, mittel, groß">
+          <div className="flex items-center gap-4 text-foreground">
+            <Icon symbol={Inbox} groesse="klein" />
+            <Icon symbol={Inbox} />
+            <Icon symbol={Inbox} groesse="gross" aria-label="Eingang" />
+          </div>
         </Zustand>
       </Schaustueck>
 

@@ -242,7 +242,7 @@ function Sidebar({
       >
         <div
           data-sidebar="sidebar"
-          className="flex h-full w-full flex-col overflow-hidden bg-background group-data-[form=schwebend]:rounded-lg group-data-[form=schwebend]:border group-data-[form=schwebend]:border-border"
+          className="flex h-full w-full flex-col overflow-hidden bg-transparent group-data-[form=schwebend]:bg-background group-data-[form=schwebend]:rounded-lg group-data-[form=schwebend]:border group-data-[form=schwebend]:border-border"
         >
           {children}
         </div>
@@ -314,7 +314,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<'main'>) {
   return (
     <main
       data-slot="sidebar-inset"
-      className={cn('relative flex w-full min-w-0 flex-1 flex-col bg-background', className)}
+      className={cn('relative flex w-full min-w-0 flex-1 flex-col', className)}
       {...props}
     />
   );
