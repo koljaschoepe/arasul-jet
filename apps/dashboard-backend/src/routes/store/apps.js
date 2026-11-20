@@ -751,6 +751,20 @@ router.post(
 );
 
 /**
+ * Schalten darf der Administrator -- und seit dem Entwickler-Cockpit (J44, M7)
+ * auch, wer das Kennzeichen Entwickler traegt, ohne Admin zu sein
+ * (`company/schleife.md`, Teil „Test nach Live": der Entwickler sieht, was im
+ * Test neu ist, und schaltet es live). Das Kennzeichen frisch aus der
+ * Datenbank, wie an jedem Weg des Cockpits.
+ */
+const adminOderEntwickler = asyncHandler(async (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    await rueckmeldungen.pruefeEntwickler(req.user.id);
+  }
+  next();
+});
+
+/**
  * POST /api/apps/:id/schalten — den Livestand setzen oder zuruecknehmen
  * (Phase D4).
  *
@@ -768,7 +782,8 @@ router.post(
 router.post(
   '/:id/schalten',
   requireAuth,
-  requireRole('admin'),
+  requireRole('admin', 'mitarbeiter'),
+  adminOderEntwickler,
   validateParams(AppParams),
   validateBody(SchaltenBody),
   asyncHandler(async (req, res) => {
@@ -782,7 +797,12 @@ router.post(
     logSecurityEvent({
       userId: req.user.id,
       action: 'app_geschaltet',
-      details: { app_id: req.params.id, ziel: req.body.ziel, version: data.version },
+      details: {
+        app_id: req.params.id,
+        ziel: req.body.ziel,
+        version: data.version,
+        rolle: req.user.role,
+      },
       ipAddress: req.ip,
       requestId: req.headers['x-request-id'],
     });

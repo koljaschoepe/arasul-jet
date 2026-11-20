@@ -4,6 +4,7 @@
  *   POST   /api/rueckmeldungen          melden (jeder mit Zugang zur App)
  *   GET    /api/rueckmeldungen          die Liste (nur Kennzeichen Entwickler)
  *   GET    /api/rueckmeldungen/:id/bild das Bildschirmfoto (nur Entwickler)
+ *   PATCH  /api/rueckmeldungen/:id      Stand setzen (nur Entwickler, J44)
  *   DELETE /api/rueckmeldungen/:id      entfernen, mit Bild (nur Entwickler)
  *
  * Der Melder sieht nach dem Absenden nur die Bestaetigung: die Antwort auf
@@ -26,7 +27,9 @@ const {
   RueckmeldungBody,
   RueckmeldungId,
   RueckmeldungenQuery,
+  StandSetzenBody,
 } = require('../schemas/rueckmeldungen');
+const { logSecurityEvent } = require('../utils/auditLog');
 const rueckmeldungen = require('../services/rueckmeldung/rueckmeldungen');
 
 /** Vor jedem lesenden Weg: das Kennzeichen, frisch aus der Datenbank. */
@@ -75,6 +78,44 @@ router.get(
   asyncHandler(async (req, res) => {
     const bytes = await rueckmeldungen.bild(req.params.id);
     res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store' }).send(bytes);
+  })
+);
+
+/**
+ * Den Stand setzen, im Entwickler-Cockpit (J44): neu, angenommen, umgesetzt,
+ * abgelehnt; bei abgelehnt mit Grund. Dieselbe Regel und derselbe Eintrag im
+ * Protokoll wie beim Kit (`rueckmeldung_stand_gesetzt`), nur mit der Person
+ * statt eines Schluessels. Der Melder erfaehrt davon nichts (Regel 2).
+ */
+router.patch(
+  '/:id',
+  requireAuth,
+  requireRole('admin', 'mitarbeiter'),
+  nurEntwickler,
+  validateParams(RueckmeldungId),
+  validateBody(StandSetzenBody),
+  asyncHandler(async (req, res) => {
+    const data = await rueckmeldungen.setzeStandAmGeraet({
+      id: req.params.id,
+      standMeldung: req.body.stand_meldung,
+      grund: req.body.grund,
+      durch: `person:${req.user.id}`,
+    });
+    await logSecurityEvent({
+      userId: req.user.id,
+      action: 'rueckmeldung_stand_gesetzt',
+      details: {
+        app_id: data.app_id,
+        rueckmeldung: data.id,
+        vorher: data.vorher,
+        nachher: data.stand_meldung,
+        mit_grund: Boolean(data.grund),
+        durch: 'cockpit',
+      },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({ data, timestamp: new Date().toISOString() });
   })
 );
 

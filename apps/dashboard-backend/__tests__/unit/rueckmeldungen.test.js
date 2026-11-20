@@ -247,7 +247,7 @@ describe('Lesen nur mit dem Kennzeichen Entwickler', () => {
     });
     expect(res.body.data[0]).not.toHaveProperty('bild');
     expect(res.body.data[1]).toMatchObject({ hat_bild: false, person: null });
-    expect(db.query.mock.calls[1][1]).toEqual(['belege', 200]);
+    expect(db.query.mock.calls[1][1]).toEqual(['belege', 500]);
   });
 
   test('das Bild kommt als PNG; fehlt die Datei, ist es 404', async () => {

@@ -254,4 +254,63 @@ beschreibe('Rückmeldungen gegen echtes Postgres', () => {
       ).rejects.toMatchObject({ statusCode: 404 });
     });
   });
+
+  describe('Entwickler-Cockpit (J44)', () => {
+    test('Stand am Gerät setzen: Person in stand_geaendert_durch, Grund geprüft', async () => {
+      const { id } = await dienst.melde({
+        personId: mia,
+        appId: 'jrm-belege',
+        stand: 'live',
+        seite: '/apps/jrm-belege/',
+        text: 'Cockpit-Probe',
+      });
+      const gesetzt = await dienst.setzeStandAmGeraet({
+        id,
+        standMeldung: 'abgelehnt',
+        grund: 'Gibt es schon.',
+        durch: `person:${chef}`,
+      });
+      expect(gesetzt).toMatchObject({
+        id,
+        app_name: 'Belege Probe',
+        stand_meldung: 'abgelehnt',
+        grund: 'Gibt es schon.',
+        vorher: 'neu',
+      });
+      expect(gesetzt.stand_geaendert_am).toBeTruthy();
+      const { rows } = await db.query(
+        'SELECT stand_geaendert_durch FROM public.rueckmeldungen WHERE id = $1',
+        [id]
+      );
+      expect(rows[0].stand_geaendert_durch).toBe(`person:${chef}`);
+      const liste = await dienst.liste({ appId: 'jrm-belege' });
+      expect(liste.find(m => m.id === id)).toMatchObject({ grund: 'Gibt es schon.' });
+      await expect(
+        dienst.setzeStandAmGeraet({ id: 999999999, standMeldung: 'neu', durch: 'x' })
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    test('die Übersicht der Apps rechnet Test, Live und offene Meldungen', async () => {
+      await db.query(
+        `INSERT INTO public.app_staende (app_id, stand, version, manifest, aenderungstext)
+         VALUES ('jrm-belege', 'test', '1.1.0', '{"symbol":"receipt"}'::jsonb, 'Filter nach Monat.')
+         ON CONFLICT (app_id, stand) DO UPDATE SET version = EXCLUDED.version`
+      );
+      const cockpit = require('../../src/services/app/entwicklerCockpit');
+      const apps = await cockpit.apps();
+      const belege = apps.find(a => a.id === 'jrm-belege');
+      expect(belege).toMatchObject({
+        live: { version: '1.0.0' },
+        test: { version: '1.1.0', aenderungstext: 'Filter nach Monat.' },
+        test_neuer: true,
+        symbol: 'receipt',
+      });
+      const { rows } = await db.query(
+        `SELECT COUNT(*)::int AS n FROM public.rueckmeldungen
+          WHERE app_id = 'jrm-belege' AND stand_meldung IN ('neu', 'angenommen')`
+      );
+      expect(belege.meldungen.offen).toBe(rows[0].n);
+      expect(apps.at(-1)).toMatchObject({ id: 'entwickler-cockpit', mitgeliefert: true });
+    });
+  });
 });

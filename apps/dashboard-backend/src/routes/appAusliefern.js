@@ -59,6 +59,7 @@ const { imOrdnerHalten } = require('../services/app/appPfad');
 const { AppId } = require('../schemas/apps');
 const appStore = require('../services/app/appStore');
 const appZugang = require('../services/app/appZugang');
+const mitgeliefert = require('../services/app/mitgeliefert');
 const appSperrseite = require('../services/app/appSperrseite');
 const { ApiError } = require('../utils/errors');
 
@@ -200,7 +201,11 @@ router.use(
       );
     }
 
-    const ziel = await appStore.ausliefernAus(kennung, stand);
+    // Eine mitgelieferte App (J44) liegt im Abbild des Backends, nicht in
+    // APPS_DIR; ausgeliefert wird sie auf demselben Weg.
+    const ziel = mitgeliefert.istMitgeliefert(kennung)
+      ? mitgeliefert.ausliefernAus(kennung)
+      : await appStore.ausliefernAus(kennung, stand);
     if (!ziel) {
       const fehler = new NotFoundError(
         `${kennung} hat in diesem Stand keine Oberfläche, die sich im Browser öffnen ließe.`

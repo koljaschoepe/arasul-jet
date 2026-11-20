@@ -26,6 +26,7 @@ const appSchluessel = require('./appSchluessel');
 const appDatenbank = require('./appDatenbank');
 const appFlows = require('./appFlows');
 const appAbschluss = require('./appAbschluss');
+const mitgeliefert = require('./mitgeliefert');
 
 /** Die Staende einer App, als `{ test, live }` mit `null`, wo keiner ist. */
 async function staendeVon(appId) {
@@ -751,7 +752,10 @@ async function appsFuerNutzer(benutzerId) {
           : null,
     });
   }
-  return apps.filter(a => a.live || a.test);
+  // Dazu die Apps, die mit Arasul kommen (J44): nur mit dem Kennzeichen
+  // Entwickler, hinten angehaengt; die Reihenfolge ordnet der Mensch selbst.
+  const mitgelieferte = await mitgeliefert.fuerNutzer(benutzerId);
+  return [...apps.filter(a => a.live || a.test), ...mitgelieferte];
 }
 
 /**
