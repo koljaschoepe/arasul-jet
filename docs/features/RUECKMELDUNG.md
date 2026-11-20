@@ -117,6 +117,13 @@ Teststand), Person, Zeit, Text, Seite und das Foto mit der Stelle, das auf
 Klick groß aufgeht; „Entfernen“ mit Rückfrage. Bewusst nicht mehr: den Eingang
 mit Ständen und die Sicht je App baut das Entwickler-Cockpit (J44).
 
+## Abnahme am Orin
+
+`scripts/test/rueckmeldung-im-rahmen-abnahme.mjs`, am 20.11.2026 nach dem
+Deploy 49 von 49 grün (Chromium und WebKit, 1440 und 390 px, Belege, Abschluss,
+Probe-App). Bericht und Bilder:
+[`docs/plans/audits/2026-11-20-rueckmeldung/`](../plans/audits/2026-11-20-rueckmeldung/README.md).
+
 ## Was diese Karte nicht baut
 
 Die Schnittstelle für das Kit und den Schalter je App, ob Bilder an den Agenten
