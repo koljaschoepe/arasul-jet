@@ -63,18 +63,25 @@ export function wartetAufLive(apps: readonly AppStand[]): AppStand[] {
     );
 }
 
+/** Wie lange nach dem Live-Schalten das Cockpit „Zurück“ anbietet. */
+export const RUECKWEG_MS = 24 * 60 * 60 * 1000;
+
 /**
- * Apps, die zuletzt live geschaltet wurden und eine Fassung davor haben: für
- * „zurück“. Der Rückweg ist ein Tausch (`{"ziel":"zurueck"}`), wie in der
- * Verwaltung.
+ * Apps, die in den letzten 24 Stunden live geschaltet wurden und eine Fassung
+ * davor haben: für „zurück“. Der Rückweg ist ein Tausch (`{"ziel":"zurueck"}`),
+ * wie in der Verwaltung. Ältere Schaltungen stehen hier nicht: ein Knopf, der
+ * eine App nach Wochen auf eine alte Fassung setzt, gehört nicht neben die
+ * Arbeit des Tages (gefunden in der Abnahme am Orin, 20.11.2026). Die
+ * Verwaltung behält ihren Rückweg.
  */
-export function zurueckMoeglich(apps: readonly AppStand[]): AppStand[] {
+export function zurueckMoeglich(apps: readonly AppStand[], jetzt = Date.now()): AppStand[] {
   return apps.filter(
     a =>
       !a.mitgeliefert &&
       a.letzte_schaltung?.ergebnis === 'live' &&
       a.live?.version === a.letzte_schaltung.nach_version &&
-      Boolean(a.live?.vorige_version)
+      Boolean(a.live?.vorige_version) &&
+      jetzt - new Date(a.letzte_schaltung.am).getTime() < RUECKWEG_MS
   );
 }
 

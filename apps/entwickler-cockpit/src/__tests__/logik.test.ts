@@ -69,9 +69,15 @@ describe('logik des Cockpits', () => {
         am: '2026-11-20T11:00:00Z',
       },
     });
-    expect(zurueckMoeglich([geschaltet])).toHaveLength(1);
+    const jetzt = new Date('2026-11-20T12:00:00Z').getTime();
+    expect(zurueckMoeglich([geschaltet], jetzt)).toHaveLength(1);
+    // Eine Schaltung von vor Wochen bekommt keinen Knopf mehr.
+    expect(zurueckMoeglich([geschaltet], jetzt + 30 * 24 * 60 * 60 * 1000)).toHaveLength(0);
     expect(
-      zurueckMoeglich([{ ...geschaltet, live: { ...geschaltet.live!, vorige_version: null } }])
+      zurueckMoeglich(
+        [{ ...geschaltet, live: { ...geschaltet.live!, vorige_version: null } }],
+        jetzt
+      )
     ).toHaveLength(0);
     expect(
       zurueckMoeglich([
