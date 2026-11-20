@@ -1,11 +1,13 @@
 /**
- * Die Aktivitätsleiste (M5): oben das Haus mit der Zahl offener Freigaben,
- * darunter die Apps als Symbol, unten Verwaltung (nur Administrator), Zahnrad
- * und das eigene Bild mit Name und Abmelden. Die Rolle blendet aus, das
+ * Die Aktivitätsleiste: oben das Haus mit der Zahl offener Freigaben,
+ * darunter jede App genau einmal als Symbol, unten Verwaltung (nur
+ * Administrator), Zahnrad und das Konto mit Abmelden (seit der Karte
+ * glas-rahmen-und-leiste). Die Rolle blendet aus, das
  * Backend entscheidet — hier wird nur das Ausblenden geprüft.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ActivityBar } from '../ActivityBar';
 import { AppSymbol } from '@/components/AppSymbol';
@@ -36,6 +38,8 @@ const APPS = [
   },
 ];
 
+const abmelden = vi.fn();
+
 function zeige({ freigaben = 0, logo = null as string | null } = {}) {
   get.mockImplementation(async (pfad: string) => {
     if (pfad === '/auth/needs-setup') return { needsSetup: false, firmenname: 'Muster GmbH', logo };
@@ -48,28 +52,33 @@ function zeige({ freigaben = 0, logo = null as string | null } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ActivityBar />
+      <ActivityBar onLogout={abmelden} />
     </QueryClientProvider>
   );
 }
 
 describe('ActivityBar', () => {
   beforeEach(() => {
-    useWorkspaceStore.setState({ ansicht: { type: 'dashboard' } });
+    useWorkspaceStore.setState({ ansicht: { type: 'dashboard' }, zuletztStand: {} });
+    abmelden.mockReset();
     angemeldet({ role: 'admin', anzeigeName: 'Ada Admin' });
   });
 
-  it('zeigt dem Administrator Startseite, Apps, Verwaltung und Zahnrad, kein eigenes Bild', async () => {
+  it('zeigt dem Administrator Startseite, jede App einmal, Verwaltung, Zahnrad und Konto', async () => {
     zeige();
     expect(await screen.findByLabelText('Urlaubsantrag')).toBeInTheDocument();
-    expect(screen.getByLabelText('(Test) Urlaubsantrag')).toBeInTheDocument();
     expect(screen.getByLabelText('Rechnung prüfen')).toBeInTheDocument();
+    // Live und Test einer App sind EIN Eintrag; umgeschaltet wird in der Kapsel.
+    expect(screen.queryByLabelText('(Test) Urlaubsantrag')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId(/^leiste-app-/)).toHaveLength(2);
     for (const name of ['Startseite', 'Verwaltung', 'Einstellungen']) {
       expect(screen.getByLabelText(name)).toBeInTheDocument();
     }
-    // Bild, Name und Abmelden stehen seit dem 07.10.2026 in der Fußzeile.
-    expect(screen.queryByTestId('workspace-benutzermenue')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('workspace-abmelden')).not.toBeInTheDocument();
+    // Drei Abschnitte, zwei Trenner, unten das Konto.
+    expect(screen.getAllByTestId('leiste-trenner')).toHaveLength(2);
+    expect(screen.getByTestId('leiste-unten')).toContainElement(
+      screen.getByTestId('workspace-benutzermenue')
+    );
     // Die Modelle sind seit M5 ein Bereich der Verwaltung, „Apps" keine
     // Ansicht mehr, sondern die Apps selbst.
     expect(screen.queryByLabelText('Modelle')).not.toBeInTheDocument();
@@ -82,8 +91,7 @@ describe('ActivityBar', () => {
     expect(logo).toHaveAttribute('src', '/api/darstellung/logo?stand=2026-10-04T20%3A00%3A00.000Z');
     expect(logo).toHaveAttribute('alt', 'Muster GmbH');
     // Es steht vor dem Haus.
-    const leiste = screen.getByTestId('aktivitaetsleiste');
-    expect(leiste.firstElementChild).toBe(logo);
+    expect(screen.getByTestId('leiste-oben').firstElementChild).toBe(logo);
   });
 
   it('ohne Logo steht dort nichts, auch kein Platzhalter', async () => {
@@ -130,14 +138,14 @@ describe('ActivityBar', () => {
   it('ein Klick öffnet genau eine Ansicht, die Auswahl ist markiert', async () => {
     zeige();
     expect(screen.getByLabelText('Startseite')).toHaveAttribute('aria-current', 'page');
-    fireEvent.click(await screen.findByLabelText('(Test) Urlaubsantrag'));
+    fireEvent.click(await screen.findByLabelText('Urlaubsantrag'));
     expect(useWorkspaceStore.getState().ansicht).toEqual({
       type: 'app',
       appId: 'urlaub',
-      stand: 'test',
+      stand: 'live',
       title: 'Urlaubsantrag',
     });
-    expect(screen.getByLabelText('(Test) Urlaubsantrag')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByLabelText('Urlaubsantrag')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByLabelText('Startseite')).not.toHaveAttribute('aria-current');
 
     fireEvent.click(screen.getByLabelText('Verwaltung'));
@@ -146,6 +154,27 @@ describe('ActivityBar', () => {
     expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'settings' });
     fireEvent.click(screen.getByLabelText('Startseite'));
     expect(useWorkspaceStore.getState().ansicht).toEqual({ type: 'dashboard' });
+  });
+
+  it('eine App öffnet in der Fassung, in der man sie zuletzt offen hatte', async () => {
+    zeige();
+    useWorkspaceStore
+      .getState()
+      .oeffne({ type: 'app', appId: 'urlaub', stand: 'test', title: 'Urlaubsantrag' });
+    useWorkspaceStore.getState().oeffne({ type: 'dashboard' });
+    fireEvent.click(await screen.findByLabelText('Urlaubsantrag'));
+    expect(useWorkspaceStore.getState().ansicht).toMatchObject({ appId: 'urlaub', stand: 'test' });
+    // Auch in Test ist es derselbe, eine Eintrag, und er ist gewählt.
+    expect(screen.getByLabelText('Urlaubsantrag')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('das Konto zeigt Name und Rolle und meldet ab', async () => {
+    zeige();
+    await userEvent.click(screen.getByTestId('workspace-benutzermenue'));
+    expect(await screen.findByTestId('konto-name')).toHaveTextContent('Ada Admin');
+    expect(screen.getByTestId('konto-rolle')).toHaveTextContent('Administrator');
+    await userEvent.click(screen.getByTestId('workspace-abmelden'));
+    expect(abmelden).toHaveBeenCalledTimes(1);
   });
 
   it('ein zweiter Klick auf das Zahnrad lässt den Bereich der Einstellungen stehen', async () => {

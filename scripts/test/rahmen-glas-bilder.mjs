@@ -35,7 +35,9 @@ async function ladePlaywright() {
   } catch {
     const ort = process.env.ARASUL_PLAYWRIGHT;
     if (!ort) {
-      console.log('ROT    playwright fehlt: ARASUL_PLAYWRIGHT=<Ordner mit node_modules/playwright>.');
+      console.log(
+        'ROT    playwright fehlt: ARASUL_PLAYWRIGHT=<Ordner mit node_modules/playwright>.'
+      );
       process.exit(1);
     }
     return createRequire(path.join(ort, 'x.js'))('playwright');
@@ -158,7 +160,8 @@ async function rahmenLesen(seite) {
       testRand: document.querySelector('[data-testid="ansicht-test-rand"]')
         ? kasten(document.querySelector('[data-testid="ansicht-test-rand"]'))
         : null,
-      testWort: document.querySelector('[data-testid="ansicht-test-wort"]')?.textContent?.trim() ?? null,
+      testWort:
+        document.querySelector('[data-testid="ansicht-test-wort"]')?.textContent?.trim() ?? null,
       rueckmeldung: Boolean(document.querySelector('[data-testid="rueckmeldung-knopf"]')),
       statuszeile: Boolean(document.querySelector('[data-testid="statusbar"]')),
       konto: Boolean(leiste?.querySelector('[data-testid="workspace-benutzermenue"]')),
@@ -208,7 +211,9 @@ try {
         pruefe(
           `${name}: Leiste ist Glas`,
           m.leiste && m.leiste.filter.includes('blur') && m.leiste.schatten !== 'none',
-          m.leiste ? `${m.leiste.filter}, Schatten ${m.leiste.schatten.slice(0, 30)}` : 'keine Leiste'
+          m.leiste
+            ? `${m.leiste.filter}, Schatten ${m.leiste.schatten.slice(0, 30)}`
+            : 'keine Leiste'
         );
         pruefe(
           `${name}: Leiste schwebt (8 px Abstand, Radius 16 px)`,
@@ -217,7 +222,9 @@ try {
             (ansicht.mobil
               ? Math.abs(m.leiste.unten - 8) < 1.5 || m.leiste.unten > 8
               : Math.abs(m.leiste.links - 8) < 0.6 && Math.abs(m.leiste.oben - 8) < 0.6),
-          m.leiste ? `links ${m.leiste.links}, oben ${m.leiste.oben}, unten ${m.leiste.unten}, Radius ${m.leiste.radius}` : ''
+          m.leiste
+            ? `links ${m.leiste.links}, oben ${m.leiste.oben}, unten ${m.leiste.unten}, Radius ${m.leiste.radius}`
+            : ''
         );
         pruefe(
           `${name}: Ansicht deckend, Radius 14 px`,
@@ -225,7 +232,9 @@ try {
             Math.abs(m.flaeche.radius - 14) < 0.6 &&
             !/rgba\(.*, 0(\.\d+)?\)$/.test(m.flaeche.hintergrund) &&
             m.flaeche.hintergrund !== 'rgba(0, 0, 0, 0)',
-          m.flaeche ? `${m.flaeche.hintergrund}, Radius ${m.flaeche.radius}, rechts ${m.flaeche.rechts}` : ''
+          m.flaeche
+            ? `${m.flaeche.hintergrund}, Radius ${m.flaeche.radius}, rechts ${m.flaeche.rechts}`
+            : ''
         );
         pruefe(`${name}: höchstens drei Glasflächen`, m.glasflaechen <= 3, `${m.glasflaechen}`);
         const kennungen = m.appKennungen.map(k => k.replace(/^leiste-app-/, ''));
@@ -262,7 +271,9 @@ try {
             pruefe(
               `${name}: Testfassung mit farbigem Rand und dem Wort Test`,
               m.testRand && m.testRand.randBreite >= 1.5 && m.testWort === 'Test',
-              m.testRand ? `${m.testRand.rand}, ${m.testRand.randBreite} px, „${m.testWort}“` : 'kein Rand'
+              m.testRand
+                ? `${m.testRand.rand}, ${m.testRand.randBreite} px, „${m.testWort}“`
+                : 'kein Rand'
             );
             // Das Wort Test hält 4,5:1 auf seiner Fläche.
             const k = await seite.evaluate(() => {
@@ -301,7 +312,11 @@ try {
       await seite.locator(`[data-testid="${knopf}"]`).click();
       await seite.waitForTimeout(500);
       const abmelden = await seite.locator('[data-testid="workspace-abmelden"]').count();
-      pruefe(`${ansicht.name}: „Abmelden“ unter ${ansicht.mobil ? '„Mehr“' : 'dem Konto'}`, abmelden === 1, `${abmelden}`);
+      pruefe(
+        `${ansicht.name}: „Abmelden“ unter ${ansicht.mobil ? '„Mehr“' : 'dem Konto'}`,
+        abmelden === 1,
+        `${abmelden}`
+      );
       const filter = await seite.evaluate(() => {
         const m = document.querySelector('[role="menu"],[data-testid="leiste-mehr-menue"]');
         return m ? getComputedStyle(m).backdropFilter : null;
@@ -313,7 +328,10 @@ try {
   }
 } finally {
   await browser.close();
-  const r = await api.put('/api/darstellung', { headers: await kopf(), data: { theme: themeVorher } });
+  const r = await api.put('/api/darstellung', {
+    headers: await kopf(),
+    data: { theme: themeVorher },
+  });
   pruefe(`Theme wieder ${themeVorher}`, r.ok(), `HTTP ${r.status()}`);
   await api.post('/api/auth/logout', { headers: await kopf() }).catch(() => {});
 }

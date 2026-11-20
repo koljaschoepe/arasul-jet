@@ -44,7 +44,7 @@ function symbolName(name: string): string {
  */
 export function AppSymbol({
   symbol,
-  klasse = 'size-4.5',
+  klasse = 'size-[18px]',
 }: {
   symbol?: string | null;
   klasse?: string;

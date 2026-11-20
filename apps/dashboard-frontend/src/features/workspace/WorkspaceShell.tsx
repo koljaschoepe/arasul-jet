@@ -11,7 +11,6 @@ import {
 } from '@/stores/workspaceStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { bereichAusAdresse } from '@/features/settings/sections';
-import { StatusBar } from './StatusBar';
 import { AnsichtInhalt } from './AnsichtInhalt';
 import { cn, useSchmalesFenster } from '@marken';
 import { ActivityBar } from './ActivityBar';
@@ -57,21 +56,20 @@ function ausDerAdresse(pathname: string, search: string): Ansicht | null {
 }
 
 /**
- * Der Rahmen (M5, Karte rahmen-aktivitaetsleiste, 03.10.2026):
+ * Der Rahmen (Karte glas-rahmen-und-leiste, 20.11.2026, `gestaltung.md`,
+ * Rahmen):
  *
- *   Aktivitätsleiste · genau eine Ansicht
- *   Statusleiste (unten)
+ *   Verlauf des Rahmens (`--verlauf-rahmen`), darauf mit 8 px Abstand
+ *   Leiste aus Glas · Fläche der Ansicht (deckend, Radius 14 px)
  *
- * Es gibt keine Kopfleiste, keine Tab-Leiste, keine rechte Spalte und keine
- * zweite Seitenleiste mehr (`frontend.md`, Abschnitt Rahmen). Bis dahin stand
- * hier ein Dreispalten-Raster aus react-resizable-panels mit Sidebar, Mitte
- * samt Tab-Leiste und den Notizen rechts, darüber eine Menüleiste, und unter
- * 900 px ein eigener Aufbau mit Hamburger-Menü. Jede Funktion steht jetzt an
- * genau einer Stelle: in der Leiste.
+ * Es gibt keine Kopfleiste, keine Tab-Leiste, keine rechte Spalte, keine
+ * zweite Seitenleiste und seit dieser Karte auch keine Statuszeile mehr: das
+ * Konto steht unten in der Leiste, Datum und Uhrzeit zeigt Arasul nicht, eine
+ * Störung erscheint als Meldung. Über einer App schwebt oben rechts die
+ * Kapsel (`features/apps/Kapsel.tsx`).
  *
- * Unter 900 px steht dieselbe Leiste unten (`LeisteUnten`), die Statusleiste
- * entfällt, und die App füllt den Schirm; „Abmelden" steht dann als letzter
- * Eintrag in der Leiste der Einstellungen.
+ * Unter 900 px schwebt dieselbe Leiste unten (`LeisteUnten`), die Fläche
+ * darüber; „Abmelden" steht dort unter „Mehr".
  *
  * Die Ansicht wird in der URL gespiegelt (/workspace/...), in beide
  * Richtungen; gespeichert wird sonst nichts.
@@ -134,16 +132,19 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
 
   return (
     <div
-      className="flex h-dvh w-screen flex-col overflow-hidden text-foreground"
+      className={cn(
+        'flex h-dvh w-screen gap-2 overflow-hidden bg-background bg-[image:var(--verlauf-rahmen)] p-2 text-foreground',
+        schmal && 'flex-col-reverse pb-[max(0.5rem,env(safe-area-inset-bottom))]'
+      )}
       data-testid="workspace-shell"
     >
-      <div className={cn('flex min-h-0 flex-1 overflow-hidden', schmal && 'flex-col-reverse')}>
-        <ActivityBar />
-        <main className="min-h-0 min-w-0 flex-1 bg-background" data-testid="workspace-ansicht">
-          <AnsichtInhalt />
-        </main>
-      </div>
-      {!schmal && <StatusBar onLogout={onLogout} />}
+      <ActivityBar onLogout={onLogout} />
+      <main
+        className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-[14px] border border-border bg-background shadow-md"
+        data-testid="workspace-ansicht"
+      >
+        <AnsichtInhalt />
+      </main>
     </div>
   );
 }

@@ -320,7 +320,7 @@ export interface AppLaufDetail extends AppLauf {
  * der fragt neben dem Katalog noch drei weitere Wege ab (geladenes Modell,
  * Standardmodell, `/apps` im alten Store-Format), die für die Frage „welches
  * Modell soll diesen Flow treiben" nichts beitragen. Dieselbe Überlegung wie
- * in `features/workspace/StatusBar.tsx`.
+ * in der früheren Statuszeile der Shell.
  */
 export function useKurzliste() {
   const api = useApi();

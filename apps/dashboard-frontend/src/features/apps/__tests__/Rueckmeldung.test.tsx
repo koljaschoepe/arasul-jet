@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -71,16 +72,49 @@ describe('Rückmeldung im Rahmen', () => {
     fotoVomRahmen.mockClear();
   });
 
-  it('das Icon steht über der App, im Rahmen und nicht in ihr', async () => {
+  it('das Icon steht in der Kapsel über der App, im Rahmen und nicht in ihr', async () => {
     render(<AppRahmen appId="belege" stand="live" />, { wrapper: huelle() });
     const rahmen = await screen.findByTestId('app-rahmen-belege');
     const knopf = screen.getByTestId('rueckmeldung-knopf');
     expect(knopf).toHaveAccessibleName('Rückmeldung zu dieser Seite');
-    // Geschwister des iframes in derselben Hülle, nicht im Dokument der App.
-    expect(knopf.parentElement).toBe(rahmen.parentElement);
-    expect(knopf.className).toMatch(/absolute/);
-    expect(knopf.className).toMatch(/top-0/);
-    expect(knopf.className).toMatch(/right-0/);
+    // In der Kapsel, die Geschwister des iframes ist, nicht im Dokument der App.
+    const kapsel = screen.getByTestId('rahmen-kapsel');
+    expect(kapsel).toContainElement(knopf);
+    expect(kapsel.parentElement).toBe(rahmen.parentElement);
+    expect(kapsel.className).toMatch(/glas/);
+    expect(kapsel.className).toMatch(/absolute/);
+  });
+
+  it('die Kapsel schaltet zwischen Live und Test, wo es beide gibt', async () => {
+    const nutzer = userEvent.setup();
+    useWorkspaceStore.setState({
+      ansicht: { type: 'app', appId: 'belege', stand: 'live' },
+      zuletztStand: {},
+    });
+    render(<AppRahmen appId="belege" stand="live" />, { wrapper: huelle() });
+    const live = await screen.findByTestId('kapsel-stand-live');
+    expect(live).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByTestId('ansicht-test-rand')).not.toBeInTheDocument();
+    await nutzer.click(screen.getByTestId('kapsel-stand-test'));
+    expect(useWorkspaceStore.getState().ansicht).toMatchObject({ appId: 'belege', stand: 'test' });
+  });
+
+  it('die Testfassung trägt den Rand mit dem Wort Test', async () => {
+    render(<AppRahmen appId="belege" stand="test" />, { wrapper: huelle() });
+    await screen.findByTestId('app-rahmen-belege');
+    expect(screen.getByTestId('ansicht-test-rand')).toHaveClass('border-primary');
+    expect(screen.getByTestId('ansicht-test-wort')).toHaveTextContent('Test');
+    expect(screen.getByTestId('kapsel-stand-test')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('ohne Teststand gibt es keinen Umschalter, nur das Icon', async () => {
+    apiMock.get.mockResolvedValue({
+      data: [{ ...MEINE.data[0], test: null }],
+    });
+    render(<AppRahmen appId="belege" stand="live" />, { wrapper: huelle() });
+    await screen.findByTestId('app-rahmen-belege');
+    expect(screen.getByTestId('rueckmeldung-knopf')).toBeInTheDocument();
+    expect(screen.queryByTestId('kapsel-stand-live')).not.toBeInTheDocument();
   });
 
   it('Text ist Pflicht; abgesendet wird mit App, Stand, Seite und Foto, danach nur die Bestätigung', async () => {

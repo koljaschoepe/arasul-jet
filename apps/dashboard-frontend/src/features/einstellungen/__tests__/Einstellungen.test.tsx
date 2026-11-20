@@ -167,17 +167,12 @@ describe('Einstellungen, persönlich', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Profil' })).toBeInTheDocument();
   });
 
-  it('am Handy steht „Abmelden" als letzter Eintrag der Leiste', async () => {
+  it('„Abmelden" steht nicht in den Einstellungen, auch am Handy nicht', () => {
+    // Es steht im Konto unten in der Leiste, am Handy unter „Mehr":
+    // eine Stelle je Funktion (Karte glas-rahmen-und-leiste).
     schmal = true;
-    const user = userEvent.setup();
     zeige();
-    const leiste = screen.getByTestId('einstellungen-bereiche');
-    const knoepfe = leiste.querySelectorAll('[data-sidebar="menu-button"]');
-    const letzter = knoepfe[knoepfe.length - 1] as HTMLElement;
-    expect(letzter).toHaveTextContent('Abmelden');
-    expect(letzter).toHaveAttribute('data-testid', 'workspace-abmelden');
-    await user.click(letzter);
-    expect(abmelden).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('workspace-abmelden')).not.toBeInTheDocument();
   });
 
   it('nennt „Meine Ausweise" nicht mehr und erzeugt im Browser keinen Ausweis', async () => {
