@@ -229,11 +229,19 @@
 }
 
 .ara-kopf__vorne {
-  display: flex;
+  display: inline-flex;
   flex-shrink: 0;
   align-items: center;
   height: 28px;
-  margin-left: -4px;
+}
+
+/* Ein feiner Strich zwischen den Werkzeugen der Seite und dem Knopf der
+   Seitenleiste. */
+.ara-kopf__trenner {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background-color: var(--ara-kante);
 }
 
 .ara-kopf__vorne--allein {
@@ -248,10 +256,10 @@
 .ara-kopf__titel {
   margin: 0;
   overflow: hidden;
-  font-size: var(--ara-groesse-lg);
+  font-size: 20px;
   font-weight: 600;
   line-height: 28px;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ara-text);
@@ -598,7 +606,7 @@ button.ara-karte:focus-visible {
   flex: 1 1 12rem;
   margin: 0;
   overflow: hidden;
-  font-size: var(--ara-groesse-lg);
+  font-size: var(--ara-groesse);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;

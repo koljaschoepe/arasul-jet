@@ -90,7 +90,7 @@ export function Kennzahl({ beschriftung, wert, einheit, fussnote, verlauf }: Ken
     >
       <div className="truncate text-ui-sm text-muted-foreground">{beschriftung}</div>
       <div className="mt-1 flex items-end justify-between gap-3">
-        <div className="flex min-w-0 items-baseline gap-1 text-xl leading-tight font-semibold text-foreground tabular-nums">
+        <div className="flex min-w-0 items-baseline gap-1 text-2xl leading-tight font-semibold text-foreground tabular-nums">
           {wert}
           {einheit && (
             <span className="text-ui-sm font-normal text-muted-foreground">{einheit}</span>
@@ -126,12 +126,12 @@ export interface KennzahlenProps {
   className?: string;
 }
 
-/** Feste Spaltenzahl statt `auto-fit`, siehe Kopfkommentar. */
+/** Feste Spaltenzahl statt `auto-fit`, siehe Kopfkommentar. Seit 5.9.1 auch
+ * am Handy zwei Spalten: vier Kacheln untereinander fuellten dort den ganzen
+ * ersten Bildschirm. */
 export function Kennzahlen({ children, className }: KennzahlenProps) {
   return (
-    <div
-      className={cn('grid min-w-0 grid-cols-1 gap-ui-2 sm:grid-cols-2 lg:grid-cols-4', className)}
-    >
+    <div className={cn('grid min-w-0 grid-cols-2 gap-ui-2 lg:grid-cols-4', className)}>
       {children}
     </div>
   );

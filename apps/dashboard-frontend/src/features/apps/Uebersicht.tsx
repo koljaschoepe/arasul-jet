@@ -141,7 +141,7 @@ export function Uebersicht({
   const name = user?.vorname?.trim() || user?.anzeigeName || user?.username || '';
 
   return (
-    <div className="ara-strom" data-testid="uebersicht-seite">
+    <div className="ara-strom pt-[10px]" data-testid="uebersicht-seite">
       <StartKopf name={name} offen={offen} />
 
       {/* Zuerst das, was auf eine ANTWORT wartet, danach das, was offen
@@ -162,7 +162,7 @@ export function Uebersicht({
           }
         />
       ) : (
-        <section aria-labelledby="start-apps" data-testid="uebersicht-apps">
+        <section aria-labelledby="start-apps" className="mb-6" data-testid="uebersicht-apps">
           <h2 id="start-apps" className="mb-2 text-sm font-medium text-foreground">
             Ihre Apps
           </h2>

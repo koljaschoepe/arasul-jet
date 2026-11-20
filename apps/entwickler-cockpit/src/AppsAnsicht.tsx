@@ -15,12 +15,12 @@ import {
   type Spalte,
 } from '@marken';
 import { anzahl, wartetAufLive, zeit } from './logik';
-import { fest, leise, spalte } from './stil';
+import { leise, spalte } from './stil';
 import type { AppStand, Fassung } from './typen';
 
 function FassungZelle({ fassung, leerText }: { fassung: Fassung | null; leerText: string }) {
   if (!fassung) return <span style={leise}>{leerText}</span>;
-  return <span style={fest}>{fassung.version}</span>;
+  return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fassung.version}</span>;
 }
 
 const SPALTEN: ReadonlyArray<Spalte<AppStand>> = [
@@ -97,7 +97,6 @@ export function AppsAnsicht({
 }) {
   const offen = apps.reduce((summe, a) => summe + a.meldungen.offen, 0);
   const neu = apps.reduce((summe, a) => summe + a.meldungen.neu, 0);
-  const umgesetzt = apps.reduce((summe, a) => summe + a.meldungen.umgesetzt, 0);
   const wartend = wartetAufLive(apps).length;
   return (
     <div style={spalte(4)} data-testid="cockpit-apps">
@@ -112,11 +111,7 @@ export function AppsAnsicht({
             <Kennzahl beschriftung="Apps" wert={apps.length} />
             <Kennzahl beschriftung="Offene Meldungen" wert={offen} />
             <Kennzahl beschriftung="Davon neu" wert={neu} />
-            <Kennzahl
-              beschriftung="Warten auf Live"
-              wert={wartend}
-              fussnote={`${anzahl(umgesetzt, 'Meldung', 'Meldungen')} umgesetzt`}
-            />
+            <Kennzahl beschriftung="Warten auf Live" wert={wartend} />
           </Kennzahlen>
         </div>
       )}
