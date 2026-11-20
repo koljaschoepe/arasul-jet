@@ -414,8 +414,8 @@ Shell setzt beide über `components/Bereichsrahmen.tsx` zusammen.
 Unter 900 px schwebt die Aktivitätsleiste unten als Glas, 8 px vom Rand:
 Start, bis zu vier Apps und „Mehr“ mit den übrigen Apps, Terminal,
 Verwaltung, Einstellungen und „Abmelden“. Ungewählt stehen nur Symbole, der
-gewählte Eintrag trägt seinen Namen auf einer blau getönten Fläche; so wird
-kein Name abgeschnitten. Verwaltung und Einstellungen öffnen ihre Leiste dort
+gewählte Eintrag trägt seinen Namen auf einer blau getönten Fläche, auch
+„Mehr“, wenn dort etwas offen ist; so wird kein Name abgeschnitten. Verwaltung und Einstellungen öffnen ihre Leiste dort
 als Blatt über einen Knopf oben.
 
 **Die Rolle blendet aus, das Backend entscheidet.** Ein Mitarbeiter sieht die

@@ -9,7 +9,7 @@ import {
 } from '@marken/symbole';
 import { Popover, PopoverContent, PopoverTrigger, cn } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWorkspaceStore, ansichtId } from '@/stores/workspaceStore';
+import { useWorkspaceStore, ansichtId, ansichtTitel } from '@/stores/workspaceStore';
 import { useMeineApps, zuLeiste, ordneLeiste, useAppReihenfolge } from '@/features/apps/meineApps';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import { AppSymbol } from '@/components/AppSymbol';
@@ -150,18 +150,33 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
       ))}
 
       <Popover open={offen} onOpenChange={setOffen}>
+        {/* Steht, was offen ist, unter „Mehr", trägt „Mehr" seinen Namen:
+            der Name steht immer am gewählten Eintrag. */}
         <PopoverTrigger
-          aria-label="Mehr"
+          aria-label={mehrAktiv ? `Mehr, offen: ${ansichtTitel(ansicht)}` : 'Mehr'}
           data-testid="leiste-mehr"
           aria-current={mehrAktiv ? 'page' : undefined}
           className={cn(
-            'flex h-[44px] min-w-[44px] flex-1 items-center justify-center rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
-            mehrAktiv || offen
-              ? 'bg-primary/14 text-primary dark:bg-primary/24'
-              : 'text-muted-foreground hover:text-foreground'
+            'flex h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
+            mehrAktiv
+              ? 'max-w-[calc(100%-236px)] min-w-0 shrink-0 bg-primary/14 px-3 text-primary dark:bg-primary/24'
+              : cn(
+                  'flex-1',
+                  offen
+                    ? 'bg-primary/14 text-primary dark:bg-primary/24'
+                    : 'text-muted-foreground hover:text-foreground'
+                )
           )}
         >
-          <Ellipsis className="size-5" aria-hidden="true" />
+          <Ellipsis className="size-5 shrink-0" aria-hidden="true" />
+          {mehrAktiv && (
+            <span
+              className="min-w-0 text-left text-xs leading-tight font-medium break-words text-foreground"
+              data-testid="leiste-mehr-name"
+            >
+              {ansichtTitel(ansicht)}
+            </span>
+          )}
         </PopoverTrigger>
         <PopoverContent
           side="top"

@@ -222,4 +222,9 @@
  * zu 62 %, dunkel Creme zu 6 %), dazu `--schatten-flaeche` fuer die Flaeche
  * der Ansicht. Kein Name, keine Eigenschaft aendert sich.
  */
-export const FASSUNG = '5.8.2';
+/*
+ * 5.8.3: der Verlauf des Rahmens laeuft diagonal (135 Grad), damit jeder
+ * Rand Farbe traegt; dazu `--glas-schatten-klein` fuer Glas ueber Inhalt.
+ * Kein Name, keine Eigenschaft aendert sich.
+ */
+export const FASSUNG = '5.8.3';

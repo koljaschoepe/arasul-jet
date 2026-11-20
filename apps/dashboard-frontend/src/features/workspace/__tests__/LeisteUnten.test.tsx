@@ -82,6 +82,14 @@ describe('Leiste unten', () => {
     expect(screen.getByLabelText('Start')).not.toHaveTextContent('Start');
   });
 
+  it('ist unter „Mehr" etwas offen, trägt „Mehr" seinen Namen', async () => {
+    useWorkspaceStore.setState({ ansicht: { type: 'verwaltung' }, zuletztStand: {} });
+    zeige();
+    await screen.findByLabelText('App eins');
+    expect(screen.getByTestId('leiste-mehr')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('leiste-mehr-name')).toHaveTextContent('Verwaltung');
+  });
+
   it('„Abmelden" steht unter „Mehr"', async () => {
     zeige();
     await screen.findByLabelText('App eins');

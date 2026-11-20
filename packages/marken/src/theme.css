@@ -333,7 +333,7 @@
   --rahmen-stufe-1: #0d2349;
   --rahmen-stufe-2: #121d33;
   --rahmen-stufe-3: #22252c;
-  --rahmen-schein: #14315f;
+  --rahmen-schein: #112a52;
 }
 
 /* -----------------------------------------------------------------------------
@@ -362,7 +362,7 @@
   --verlauf-rahmen:
     radial-gradient(120% 80% at 100% 100%, var(--rahmen-schein) 0%, transparent 62%),
     linear-gradient(
-      165deg,
+      135deg,
       var(--rahmen-stufe-1) 0%,
       var(--rahmen-stufe-2) 50%,
       var(--rahmen-stufe-3) 100%
@@ -375,6 +375,8 @@
   /* Dieses Glas ist neutral, nicht blau: hell Weiss, dunkel ein Hauch Creme
      ueber dem Verlauf. `--popover` als Grund hielt die Leiste hell im Ton
      der Flaeche und machte sie dunkel zu einer blauen Saeule. */
+  /* Glas ueber Inhalt (die Kapsel) mit kleiner Kante statt weitem Hof. */
+  --glas-schatten-klein: 0 0 0 1px rgba(30, 27, 22, 0.08), 0 1px 3px rgba(30, 27, 22, 0.1);
   --glas-grund-basis: #ffffff;
   --glas-anteil-grund: 62%;
   --glas-flaeche-grund: var(--popover);
@@ -392,13 +394,14 @@
 }
 
 [data-theme='dark'] {
+  --glas-schatten-klein: 0 0 0 1px rgba(246, 243, 237, 0.1), 0 1px 3px rgba(0, 0, 0, 0.4);
   --glas-grund-basis: #f6f3ed;
   --glas-anteil-grund: 6%;
   --schatten-flaeche: 0 0 0 1px rgba(246, 243, 237, 0.05), 0 16px 40px -12px rgba(0, 0, 0, 0.7);
   --verlauf-rahmen:
     radial-gradient(90% 70% at 0% 0%, var(--rahmen-schein) 0%, transparent 65%),
     linear-gradient(
-      165deg,
+      135deg,
       var(--rahmen-stufe-1) 0%,
       var(--rahmen-stufe-2) 50%,
       var(--rahmen-stufe-3) 100%

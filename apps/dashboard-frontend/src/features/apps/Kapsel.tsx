@@ -33,7 +33,7 @@ export function Kapsel({ appId, name, stand, staende, children }: KapselProps) {
   const umschalter = staende.includes('live') && staende.includes('test');
   return (
     <div
-      className="glas absolute top-[8px] right-[8px] z-20 flex h-[32px] items-center gap-[4px] rounded-full border px-[4px]"
+      className="glas absolute top-[8px] right-[8px] z-20 flex h-[32px] items-center gap-[4px] rounded-full border px-[4px] shadow-[var(--glas-schatten-klein)]"
       data-testid="rahmen-kapsel"
     >
       {umschalter && (
