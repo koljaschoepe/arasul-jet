@@ -1029,6 +1029,7 @@ function kontrakt() {
         'marken.js': 'Bausteine, Primitive, Muster, dazu h, rendern und die Hooks',
         'marken.css': 'Tokens beider Themes, Regeln der Bausteine, Klassen der Primitive',
         'diagramm.js': 'Chart, Sparkline, SERIENFARBEN',
+        // Additiv (J50): ein Eingang mehr, die Kontraktversion bleibt.
         'symbole.js': 'Lucide wie @marken/symbole, gezeichnet mit Icon (seit 5.9.0)',
         'react.js': 'react',
         'react-dom.js': 'react-dom',

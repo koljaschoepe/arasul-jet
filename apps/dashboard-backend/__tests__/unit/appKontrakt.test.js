@@ -421,7 +421,7 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // den Nachweis seit Kit-PR 119 und prueft ihn vor jedem `--deploy` mit
     // denselben Codes. Eine 15 hielte jedes Kit an, das nur bis 14 zaehlt,
     // ohne dass ihm etwas fehlte. Die Zahl bleibt bei 14.
-    expect(abdruck).toBe('45c2c62fa48dfa500aee49399c9242962cd6cdc0e1ca18d17c13e9984fc1d1c0');
+    expect(abdruck).toBe('0157f1d949d1e8e8ee05ce8fdf845dcd70429be7a131c8f26158a3a1d74c3d0b');
   });
 
   /**
