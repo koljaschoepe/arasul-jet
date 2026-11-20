@@ -46,14 +46,8 @@ export const VERWALTUNG = [
     '/workspace/verwaltung/apps',
     '[data-testid="apps-seite"]',
   ],
-  // Seit J42 (M7): steht nur mit dem Kennzeichen Entwickler in der Leiste;
-  // ueber die Adresse zeigt sie ohne Kennzeichen einen Hinweis, dieselbe Seite.
-  [
-    'Verwaltung · Rückmeldungen',
-    'verwaltung-rueckmeldungen',
-    '/workspace/verwaltung/rueckmeldungen',
-    '[data-testid="rueckmeldungen-seite"]',
-  ],
+  // Die Seite Rückmeldungen (J42) ist seit dem Entwickler-Cockpit (J44, #946)
+  // gestrichen, ihre Adresse fuehrt auf Apps; die Meldungen stehen im Cockpit.
   [
     'Verwaltung · Läufe',
     'verwaltung-laeufe',

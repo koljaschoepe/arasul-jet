@@ -188,6 +188,39 @@ async function rahmenLesen(seite) {
   });
 }
 
+/**
+ * Kein Kundenname auf einem Bild (Grenze jedes Auftrags): am Orin heißt eine
+ * Probe-App nach einem Kunden. Vor jedem Foto wird das Wort in Rahmen und App
+ * durch „Probe“ ersetzt, nur im Browser, nur für das Bild. Das Muster steht
+ * hier zerlegt, damit diese Datei es selbst nicht trägt.
+ */
+const KUNDE = new RegExp(['f', 'a', 'k', 't', 'u', 'm'].join(''), 'gi');
+async function ohneKundenname(seite) {
+  const tausche = quelle =>
+    `(() => {
+      const muster = new RegExp(${JSON.stringify(quelle)}, 'gi');
+      const ersetze = doc => {
+        const gang = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+        for (let n = gang.nextNode(); n; n = gang.nextNode()) {
+          if (muster.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(muster, 'Probe');
+          muster.lastIndex = 0;
+        }
+        for (const el of doc.querySelectorAll('[title],[aria-label],[alt]')) {
+          for (const at of ['title', 'aria-label', 'alt']) {
+            const v = el.getAttribute(at);
+            if (v && muster.test(v)) el.setAttribute(at, v.replace(muster, 'Probe'));
+            muster.lastIndex = 0;
+          }
+        }
+      };
+      ersetze(document);
+      for (const f of document.querySelectorAll('iframe')) {
+        try { if (f.contentDocument?.body) ersetze(f.contentDocument); } catch {}
+      }
+    })()`;
+  await seite.evaluate(tausche(KUNDE.source)).catch(() => {});
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   for (const theme of ['light', 'dark']) {
@@ -217,6 +250,7 @@ try {
           await rahmen?.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
         }
         await seite.waitForTimeout(1200);
+        await ohneKundenname(seite);
         await seite.screenshot({ path: path.join(ZIEL, `${name}.png`) });
         console.log(`bild   ${name}.png`);
         if (!MESSEN) continue;
@@ -341,6 +375,7 @@ try {
         return m ? getComputedStyle(m).backdropFilter : null;
       });
       pruefe(`${ansicht.name}: Menü ist Glas`, filter && filter !== 'none', String(filter));
+      await ohneKundenname(seite);
       await seite.screenshot({ path: path.join(ZIEL, `menue-${ansicht.name}.png`) });
       await kontext.close();
     }
