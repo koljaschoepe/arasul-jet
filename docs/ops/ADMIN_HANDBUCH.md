@@ -986,8 +986,9 @@ Ansichten:
 - **Test nach Live**: welche App im Test eine neuere Fassung hat als live,
   mit dem Text des Entwicklers dazu. „Live schalten“ tut dasselbe wie unter
   Verwaltung → Apps: die Daten der App werden vorher gesichert, und startet
-  die neue Fassung nicht, schaltet Arasul selbst zurück. Danach steht dort
-  „Zurück“ auf die Fassung davor.
+  die neue Fassung nicht, schaltet Arasul selbst zurück. Einen Tag lang steht
+  danach dort „Zurück“ auf die Fassung davor; später geht das unter
+  Verwaltung → Apps.
 
 Bis zum 20.11.2026 stand die Liste der Meldungen unter Verwaltung →
 Rückmeldungen; die gibt es nicht mehr.

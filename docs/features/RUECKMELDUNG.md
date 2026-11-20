@@ -131,7 +131,7 @@ auch für den Administrator). Drei Ansichten:
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Eingang**        | Die Meldungen aller Apps, neueste zuerst, Filter je App und Stand (Vorgabe „offen“ = neu und angenommen). Ein Klick öffnet eine Meldung: Text, Seite, Person, Zeit, Bildschirmfoto mit der Stelle, Stand setzen, bei „abgelehnt“ mit Pflichtgrund; Entfernen mit Rückfrage |
 | **Apps**           | Je App die Fassung in Test und Live, zuletzt geändert, die Zahl offener Meldungen; ein Klick zeigt ihre Meldungen im Eingang                                                                                                                                               |
-| **Test nach Live** | Was im Test neuer ist als live, mit dem Änderungstext der Fassung. „Live schalten“ nach einer Rückfrage; darunter „Zurück“ auf die Fassung davor                                                                                                                           |
+| **Test nach Live** | Was im Test neuer ist als live, mit dem Änderungstext der Fassung. „Live schalten“ nach einer Rückfrage; darunter „Zurück“ auf die Fassung davor, in den 24 Stunden nach einer Schaltung                                                                                   |
 
 **Wie es an die Meldungen kommt, ohne die Regel der Apps zu brechen.** Die
 Regel vom 01.10.2026 sagt: eine App erreicht nur ihre eigene Datenbank und die
@@ -178,6 +178,14 @@ Bestätigung, Meldung, Leerzustand), Typen, Tests
 Frontends) und die Regeln der Gestalt (Tokens, drei Größen).
 
 ## Abnahme am Orin
+
+Das Entwickler-Cockpit: `scripts/test/entwickler-cockpit-abnahme.mjs`, am
+20.11.2026 nach dem Deploy 70 von 70 grün (Abweisung ohne Kennzeichen, alle
+drei Ansichten in Chromium und WebKit bei 1440 und 390 px, Stand setzen, Live
+schalten mit Sicherung und Zurück). Bericht und Bilder:
+[`docs/plans/audits/2026-11-20-entwickler-cockpit/`](../plans/audits/2026-11-20-entwickler-cockpit/README.md).
+
+Die Rückmeldung im Rahmen:
 
 `scripts/test/rueckmeldung-im-rahmen-abnahme.mjs`, am 20.11.2026 nach dem
 Deploy 49 von 49 grün (Chromium und WebKit, 1440 und 390 px, Belege, Abschluss,
