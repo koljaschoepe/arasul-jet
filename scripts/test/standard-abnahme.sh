@@ -59,6 +59,15 @@ schluessel_ruf() {
 paket_ruf() {
   CODE=$(curl -sk -o "$RUMPF_DATEI" -w '%{http_code}' --max-time 600 \
     -H "x-api-key: $SCHLUESSEL" -F "paket=@$1" "$BASIS/api/v1/external/apps")
+  # Das Geraet nimmt hoechstens 20 Uploads je Minute (`uploadLimiter`), und
+  # dieses Skript schickt zwoelf. Zwei Laeufe kurz nacheinander reissen die
+  # Grenze; dann einmal das Fenster abwarten statt die Drossel zu messen.
+  if [ "$CODE" = 429 ]; then
+    printf '       (429, warte 65 s auf das Fenster der Upload-Drossel)\n'
+    sleep 65
+    CODE=$(curl -sk -o "$RUMPF_DATEI" -w '%{http_code}' --max-time 600 \
+      -H "x-api-key: $SCHLUESSEL" -F "paket=@$1" "$BASIS/api/v1/external/apps")
+  fi
 }
 rumpf() { cat "$RUMPF_DATEI" 2>/dev/null; }
 feld() {
@@ -70,7 +79,8 @@ for k in sys.argv[1].split("."):
     elif isinstance(d, list) and k.isdigit() and int(k) < len(d): d = d[int(k)]
     else: d = None
     if d is None: break
-print("" if d is None else (d if isinstance(d,(str,int,float)) else json.dumps(d, ensure_ascii=False)))' "$1" 2>/dev/null
+# Wahrheitswerte als JSON (`true`), nicht als Python (`True`).
+print("" if d is None else (d if isinstance(d,(str,int,float)) and not isinstance(d,bool) else json.dumps(d, ensure_ascii=False)))' "$1" 2>/dev/null
 }
 
 # --- Pakete ------------------------------------------------------------------
@@ -119,7 +129,7 @@ abgewiesen() {
   local codes
   codes=$(rumpf | feld error.details.standard)
   pruefe "  Code $code in details.standard" \
-    "$(case "$codes" in *"\"$code\""*) echo ja ;; *) echo nein ;; esac)" "$codes"
+    "$(grep -qF "\"$code\"" <<<"$codes" && echo ja || echo nein)" "$codes"
   pruefe "  Satz auf Deutsch: '$satz'" \
     "$(grep -qF "$satz" <<<"$(rumpf | feld error.message)" && echo ja || echo nein)"
 }
