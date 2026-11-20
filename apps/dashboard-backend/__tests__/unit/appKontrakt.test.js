@@ -421,7 +421,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // den Nachweis seit Kit-PR 119 und prueft ihn vor jedem `--deploy` mit
     // denselben Codes. Eine 15 hielte jedes Kit an, das nur bis 14 zaehlt,
     // ohne dass ihm etwas fehlte. Die Zahl bleibt bei 14.
-    expect(abdruck).toBe('0157f1d949d1e8e8ee05ce8fdf845dcd70429be7a131c8f26158a3a1d74c3d0b');
+    //
+    // 21.11.2026 (M7, J51, Auftrag palette-symbol-und-demo): `symbol` gehoert
+    // zum Standard, Code `symbol-fehlt`, ein Satz in den Regeln und im
+    // Manifest. Enger wird es nur beim Ausrollen, und das Geraet sagt in einem
+    // Satz, was fehlt. Ein Kit, das bis 14 zaehlt, spielt sonst ein wie
+    // bisher; eine 15 hielte es ohne Not an. Die Zahl bleibt bei 14.
+    expect(abdruck).toBe('83e314b0d5faa634da3ad651e705fd619e85082f638cb2abeaff7bb29ad9ec68');
   });
 
   /**

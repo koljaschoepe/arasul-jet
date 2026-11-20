@@ -668,6 +668,7 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | PUT    | `/api/apps/:id/flows/:name/aktiv`                    | Einen Flow aus- und einschalten `{ aktiv }`; ein inaktiver startet nicht (M5)                                   |
 | PUT    | `/api/apps/:id/flows/:name/zeitplan`                 | Den Zeitplan eines Flows pausieren `{ pausiert }`; nur der Zeitplan, nicht `aktiv` (M5)                         |
 | PUT    | `/api/apps/:id/bilder-an-agenten`                    | Schalter „Bildschirmfotos an den Agenten“ `{ erlaubt }`, Vorgabe aus; siehe Rückmeldungen für das Kit (J43)     |
+| PUT    | `/api/apps/:id/symbol`                               | Symbol der Leiste `{ symbol }` (Lucide-Name, Kürzel oder `null`), gilt, bis die App eines mitbringt (J51)       |
 | GET    | `/api/apps/:id/schritt-modelle`                      | Je Flow die Schritte mit Modell: Original, was gilt, Fähigkeiten, wählbare Modelle (M5)                         |
 | PUT    | `/api/apps/:id/flows/:name/schritte/:schritt/modell` | Einen Schritt auf ein installiertes Modell umstellen `{ modell }`, `null` = Original (M5)                       |
 | GET    | `/api/apps/modell-hinweise`                          | Schritte, deren Modell fehlt oder deren Wahl nicht mehr passt, über alle Apps (M5)                              |

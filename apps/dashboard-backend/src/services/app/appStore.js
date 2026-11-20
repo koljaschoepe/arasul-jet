@@ -722,7 +722,7 @@ async function entferneApp(appId, { dateien = true } = {}) {
  */
 async function appsFuerNutzer(benutzerId) {
   const result = await db.query(
-    `SELECT a.id, a.name, a.beschreibung, f.stand AS freigegeben_bis,
+    `SELECT a.id, a.name, a.beschreibung, a.symbol_ersatz, f.stand AS freigegeben_bis,
             l.version AS live_version, t.version AS test_version,
             l.manifest AS live_manifest, t.manifest AS test_manifest
        FROM public.app_members f
@@ -740,8 +740,9 @@ async function appsFuerNutzer(benutzerId) {
       name: z.name,
       beschreibung: z.beschreibung,
       // Das Symbol der Leiste (Kontrakt 8): der Livestand gilt, der Test nur,
-      // wenn es keinen gibt. Fehlt es, zeichnet die Shell das Kuerzel.
-      symbol: z.live_manifest?.symbol ?? z.test_manifest?.symbol ?? null,
+      // wenn es keinen gibt; bringt keiner eines mit, das des Administrators
+      // (J51, `symbol_ersatz`). Fehlt alles, zeichnet die Shell ein Fenster.
+      symbol: z.live_manifest?.symbol ?? z.test_manifest?.symbol ?? z.symbol_ersatz ?? null,
       live:
         z.live_version && (await seiteDa(z.live_manifest))
           ? {
@@ -764,6 +765,24 @@ async function appsFuerNutzer(benutzerId) {
   // Entwickler, hinten angehaengt; die Reihenfolge ordnet der Mensch selbst.
   const mitgelieferte = await mitgeliefert.fuerNutzer(benutzerId);
   return [...apps.filter(a => a.live || a.test), ...mitgelieferte];
+}
+
+/**
+ * Das Symbol, das der Administrator einer App gibt (J51, Migration 217).
+ * `null` nimmt es zurueck. Es gilt, bis die App in app.json eines mitbringt.
+ */
+async function setzeSymbolErsatz(appId, symbol) {
+  const { rows } = await db.query(
+    `UPDATE public.apps a SET symbol_ersatz = $2
+       FROM (SELECT symbol_ersatz AS vorher FROM public.apps WHERE id = $1) alt
+      WHERE a.id = $1
+     RETURNING a.id, a.symbol_ersatz, alt.vorher`,
+    [appId, symbol]
+  );
+  if (rows.length === 0) {
+    throw new NotFoundError(`App ${appId} gibt es am Gerät nicht`);
+  }
+  return { app_id: rows[0].id, symbol_ersatz: rows[0].symbol_ersatz, vorher: rows[0].vorher };
 }
 
 /**
@@ -869,6 +888,7 @@ module.exports = {
   entferneApp,
   appsFuerNutzer,
   leseReihenfolge,
+  setzeSymbolErsatz,
   setzeReihenfolge,
   ausliefernAus,
   pruefeStaende,

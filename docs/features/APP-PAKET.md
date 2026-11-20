@@ -151,6 +151,9 @@ Bis zum 19.11.2026 warnte das Gerät nur. Seit J45 nimmt
 2. **Tests mitbringt**, die gegen diesen Stand grün liefen, und
 3. **den Nachweis des Kit-Ablaufs trägt:** `nachweis.json` in der Wurzel,
    geschrieben vom Kit beim `--build` (seit Kit-PR 119).
+4. **ein Symbol nennt** (seit 21.11.2026, J51): `symbol` in `app.json`, das
+   Bild in der Leiste. Nur beim Ausrollen geprüft; laufende Apps bleiben
+   unberührt, ihnen gibt der Administrator in der Verwaltung eines.
 
 Sonst weist das Gerät das Paket mit `400` ab, **bevor es baut**, mit einem
 Satz je Grund. Das Kit zeigt diese Sätze dem, der baut; die Codes stehen in
@@ -163,25 +166,26 @@ nach diesem Blatt, in dessen Reihenfolge und mit dessen Codes
 vor jedem `--deploy` (`verify` mit `ort: "paket"`). Ein Paket, das am
 Rechner besteht, besteht am Gerät.
 
-| Code                 | Das Gerät weist ab, wenn                                                                         |
-| -------------------- | ------------------------------------------------------------------------------------------------ |
-| `fremder-container`  | Kein Frontend und ein fertiges Image statt eines eigenen Baus (trägt laut Blatt keinen Nachweis) |
-| `bibliothek-fehlt`   | Die App hat ein Frontend und nennt unter `marken` keine Fassung                                  |
-| `bibliothek-alt`     | `marken` nennt eine andere Hauptzahl als die des Geräts                                          |
-| `unlesbar`           | `nachweis.json` ist kein JSON-Objekt                                                             |
-| `fehlt`              | Es gibt keine `nachweis.json`: nicht über den Ablauf gebaut                                      |
-| `schema`             | `schema` ist nicht 1                                                                             |
-| `siegel`             | Das Siegel passt nicht zur Datei: von Hand geändert                                              |
-| `kennung`, `version` | `app` oder `version` ist nicht die des Manifests: andere App oder früherer Bau                   |
-| `paket-fehlt`        | `inhalt.paket` fehlt                                                                             |
-| `paket-geaendert`    | Die Prüfsumme des Pakets, wie es ankam, ist nicht `inhalt.paket`: nach dem Bau geändert          |
-| `schritt-fehlt`      | Einer von `interview`, `bau`, `test` fehlt (etwa eine Vorführung ohne Plan)                      |
-| `reihenfolge`        | Die Zeiten der drei Schritte fallen                                                              |
-| `tests-fehlen`       | Keine Testdatei oder kein Fall gezählt                                                           |
-| `tests-rot`          | Der letzte Testlauf war nicht grün                                                               |
-| `tests-veraltet`     | Die Tests liefen gegen einen anderen Stand des Quelltexts                                        |
-| `bau-veraltet`       | Der Schritt `bau` steht auf einem anderen Quelltext als der Nachweis                             |
-| `bibliothek`         | `bibliothek.marken` im Nachweis ist nicht `marken` im Manifest                                   |
+| Code                 | Das Gerät weist ab, wenn                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `fremder-container`  | Kein Frontend und ein fertiges Image statt eines eigenen Baus (trägt laut Blatt keinen Nachweis)   |
+| `symbol-fehlt`       | `app.json` nennt kein `symbol` (seit 21.11.2026, J51; nur beim Ausrollen, laufende Apps unberührt) |
+| `bibliothek-fehlt`   | Die App hat ein Frontend und nennt unter `marken` keine Fassung                                    |
+| `bibliothek-alt`     | `marken` nennt eine andere Hauptzahl als die des Geräts                                            |
+| `unlesbar`           | `nachweis.json` ist kein JSON-Objekt                                                               |
+| `fehlt`              | Es gibt keine `nachweis.json`: nicht über den Ablauf gebaut                                        |
+| `schema`             | `schema` ist nicht 1                                                                               |
+| `siegel`             | Das Siegel passt nicht zur Datei: von Hand geändert                                                |
+| `kennung`, `version` | `app` oder `version` ist nicht die des Manifests: andere App oder früherer Bau                     |
+| `paket-fehlt`        | `inhalt.paket` fehlt                                                                               |
+| `paket-geaendert`    | Die Prüfsumme des Pakets, wie es ankam, ist nicht `inhalt.paket`: nach dem Bau geändert            |
+| `schritt-fehlt`      | Einer von `interview`, `bau`, `test` fehlt (etwa eine Vorführung ohne Plan)                        |
+| `reihenfolge`        | Die Zeiten der drei Schritte fallen                                                                |
+| `tests-fehlen`       | Keine Testdatei oder kein Fall gezählt                                                             |
+| `tests-rot`          | Der letzte Testlauf war nicht grün                                                                 |
+| `tests-veraltet`     | Die Tests liefen gegen einen anderen Stand des Quelltexts                                          |
+| `bau-veraltet`       | Der Schritt `bau` steht auf einem anderen Quelltext als der Nachweis                               |
+| `bibliothek`         | `bibliothek.marken` im Nachweis ist nicht `marken` im Manifest                                     |
 
 **Was der Mensch tut**, steht im Blatt des Kits: fast immer `--build` noch
 einmal (lässt die Tests laufen und schreibt den Nachweis neu), bei `fehlt` und

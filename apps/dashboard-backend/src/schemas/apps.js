@@ -789,8 +789,15 @@ const StufePersonBody = z
   })
   .strict();
 
+/**
+ * Das Symbol, das der Administrator einer App gibt (J51): dieselbe Form wie
+ * im Manifest, oder `null`, um es zurueckzunehmen.
+ */
+const SymbolErsatzBody = z.object({ symbol: AppSymbol.nullable() }).strict();
+
 module.exports = {
   AppId,
+  SymbolErsatzBody,
   MITGELIEFERTE_APPS,
   ReihenfolgeBody,
   Stand,

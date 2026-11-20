@@ -686,6 +686,81 @@ describe('/api/apps/meine', () => {
     expect(res.body.data[0].symbol).toBe('file-text');
     expect(res.body.data[1].symbol).toBeNull();
   });
+
+  test('das Symbol des Admins gilt, bis die App eines mitbringt (J51)', async () => {
+    const zeile = {
+      id: 'urlaub',
+      name: 'Urlaub',
+      beschreibung: null,
+      freigegeben_bis: 'live',
+      live_version: '1.0.0',
+      test_version: null,
+      symbol_ersatz: 'plane',
+    };
+    db.query.mockResolvedValueOnce({
+      rows: [
+        { ...zeile, live_manifest: { symbol: 'file-text' } },
+        { ...zeile, id: 'zwei', live_manifest: {} },
+      ],
+    });
+    const res = await request(verwaltung()).get('/api/apps/meine');
+    expect(res.body.data[0].symbol).toBe('file-text');
+    expect(res.body.data[1].symbol).toBe('plane');
+  });
+});
+
+describe('Das Symbol, das der Admin einer App gibt (J51)', () => {
+  const { logSecurityEvent } = require('../../src/utils/auditLog');
+
+  test('der Admin setzt es; es steht im Protokoll mit vorher und nachher', async () => {
+    auth.__setUser(ADMIN);
+    logSecurityEvent.mockClear();
+    db.query.mockResolvedValueOnce({
+      rows: [{ id: 'urlaub', symbol_ersatz: 'plane', vorher: null }],
+    });
+    const res = await request(verwaltung())
+      .put('/api/apps/urlaub/symbol')
+      .send({ symbol: 'plane' });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ app_id: 'urlaub', symbol_ersatz: 'plane' });
+    expect(db.query.mock.calls[0][1]).toEqual(['urlaub', 'plane']);
+    expect(logSecurityEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'app_symbol_gesetzt',
+        details: { app_id: 'urlaub', vorher: null, nachher: 'plane' },
+      })
+    );
+  });
+
+  test('null nimmt es zurück, eine falsche Form 400, ein Mitarbeiter 403, eine fremde App 404', async () => {
+    auth.__setUser(ADMIN);
+    db.query.mockResolvedValueOnce({
+      rows: [{ id: 'urlaub', symbol_ersatz: null, vorher: 'plane' }],
+    });
+    const weg = await request(verwaltung()).put('/api/apps/urlaub/symbol').send({ symbol: null });
+    expect(weg.status).toBe(200);
+    expect(weg.body.data.symbol_ersatz).toBeNull();
+
+    db.query.mockClear();
+    const falsch = await request(verwaltung())
+      .put('/api/apps/urlaub/symbol')
+      .send({ symbol: 'Kein Name!' });
+    expect(falsch.status).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+
+    auth.__setUser(MITARBEITER);
+    const verboten = await request(verwaltung())
+      .put('/api/apps/urlaub/symbol')
+      .send({ symbol: 'plane' });
+    expect(verboten.status).toBe(403);
+
+    auth.__setUser(ADMIN);
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const fremd = await request(verwaltung())
+      .put('/api/apps/gibtsnicht/symbol')
+      .send({ symbol: 'plane' });
+    expect(fremd.status).toBe(404);
+  });
 });
 
 describe('/api/apps/reihenfolge', () => {

@@ -58,6 +58,7 @@ const MANIFEST = AppManifest.parse({
   // Seit J45 Pflicht: die Bibliothek des Geraets (Hauptzahl 5) und der
   // Nachweis des Kit-Ablaufs (`stemple` in `vollstaendig`).
   marken: '5',
+  symbol: 'file-text',
   frontend: { verzeichnis: 'frontend' },
   backend: { image: 'probeapp:1.0.0', bauen: { verzeichnis: 'backend' } },
   ports: { backend: 8080 },

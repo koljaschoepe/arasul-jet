@@ -40,6 +40,7 @@ const {
   SchaltenBody,
   ZugangQuery,
   ReihenfolgeBody,
+  SymbolErsatzBody,
 } = require('../../schemas/apps');
 const appStore = require('../../services/app/appStore');
 const liveSchalten = require('../../services/app/liveSchalten');
@@ -658,6 +659,34 @@ router.put(
     });
     res.json({
       data: { app_id: data.app_id, bilder_an_agenten: data.bilder_an_agenten },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * PUT /api/apps/:id/symbol — das Symbol, das der Administrator einer App gibt
+ * (J51, M7, Migration 217). Es gilt in der Leiste, bis die App in app.json
+ * eines mitbringt; `null` nimmt es zurueck. Fuer Apps, die schon laufen und
+ * keines nennen: der Standard verlangt es erst beim naechsten Ausrollen.
+ */
+router.put(
+  '/:id/symbol',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppParams),
+  validateBody(SymbolErsatzBody),
+  asyncHandler(async (req, res) => {
+    const data = await appStore.setzeSymbolErsatz(req.params.id, req.body.symbol);
+    logSecurityEvent({
+      userId: req.user.id,
+      action: 'app_symbol_gesetzt',
+      details: { app_id: data.app_id, vorher: data.vorher, nachher: data.symbol_ersatz },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({
+      data: { app_id: data.app_id, symbol_ersatz: data.symbol_ersatz },
       timestamp: new Date().toISOString(),
     });
   })

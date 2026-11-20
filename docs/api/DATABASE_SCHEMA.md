@@ -885,6 +885,7 @@ Backend wurde neu gestartet, der Lauf wurde abgebrochen). Bewusst getrennt von
 | `angelegt_am`       | timestamp with time zone | ⛔       | `now()` |
 | `geaendert_am`      | timestamp with time zone | ⛔       | `now()` |
 | `bilder_an_agenten` | boolean                  | ⛔       | `false` |
+| `symbol_ersatz`     | text                     | ✅       |         |
 
 **Primary key:** `id`
 
@@ -892,6 +893,10 @@ Backend wurde neu gestartet, der Lauf wurde abgebrochen). Bewusst getrennt von
 Agenten“ unter Einstellungen › Apps. Aus heißt: die Rückmeldungen dieser App
 gehen über `/api/v1/external/apps/:id/rueckmeldungen` ohne Bild, Markierung
 und Verweis an das Kit (`docs/features/RUECKMELDUNG.md`).
+
+`symbol_ersatz` (Migration 217, J51): das Symbol der Leiste, das der
+Administrator unter Verwaltung › Apps wählt (`PUT /api/apps/:id/symbol`).
+Es gilt, bis die App in `app.json` eines mitbringt; höchstens 50 Zeichen.
 
 Die Kennung kommt aus dem Manifest und ist zugleich Pfad (`/apps/<id>/`),
 Containername (`arasul-app-<id>-live`) und Traefik-Router. Eine zweite,
