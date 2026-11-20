@@ -200,6 +200,7 @@
  * 5.7.1: das Blau des hellen Themas (`--primary`) eine Stufe tiefer und
  * das Ende des Verlaufs heller. Ein Abzeichen mit seinem
  * Wisch stand in einer App direkt auf dem Verlauf und hielt dort nur 4,2:1.
- * Kein Name, keine Eigenschaft aendert sich.
+ * Die Karten der `Datenliste` am Handy sind deckend (`bg-card`), wie jede
+ * Karte. Kein Name, keine Eigenschaft aendert sich.
  */
 export const FASSUNG = '5.7.1';
