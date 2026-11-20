@@ -61,7 +61,9 @@ const SPALTEN: ReadonlyArray<Spalte<AppStand>> = [
     titel: 'Zuletzt geändert',
     wert: a => a.zuletzt_geaendert ?? '',
     zelle: a => (
-      <span style={leise}>{a.mitgeliefert ? 'mit dem Gerät' : zeit(a.zuletzt_geaendert)}</span>
+      <span style={{ ...leise, fontVariantNumeric: 'tabular-nums' }}>
+        {a.mitgeliefert ? 'mit dem Gerät' : zeit(a.zuletzt_geaendert)}
+      </span>
     ),
   },
   {
