@@ -243,4 +243,13 @@
  * Tabelle, nur `Werkzeug`, `KopfVorne`, `verlauf`, `art` und `symbole.js`
  * bekommt sie erst mit einem Neubau.
  */
-export const FASSUNG = '5.9.0';
+/*
+ * 5.9.1: Befunde der ersten unbeteiligten Durchsicht. Der Knopf der
+ * Seitenleiste steht im `Kopf` als letztes Werkzeug (Titel und Inhalt haben
+ * eine linke Kante), der Titel 20 px; der Titel einer `Karte` in Textgroesse,
+ * damit er nicht groesser ist als der Seitentitel; die Karte der
+ * `Datenliste` am Handy zeigt die erste Spalte in bis zu zwei Zeilen und den
+ * Rest in einer Zeile; `Kennzahl` mit groesserer Zahl, `Kennzahlen` am Handy
+ * zwei Spalten. Kein Name, keine Eigenschaft aendert sich.
+ */
+export const FASSUNG = '5.9.1';

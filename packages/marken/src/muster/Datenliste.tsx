@@ -321,35 +321,42 @@ export function Datenliste<Zeile>({
       {schmal ? (
         <ul className="flex flex-col gap-ui-2" aria-label={beschriftung}>
           {sortiert.map(zeile => {
+            // Die Karte am Handy (5.9.1): die erste Spalte als Titel in bis zu
+            // zwei Zeilen, alles andere in einer Zeile darunter, getrennt mit
+            // „·“. Bis 5.9.0 stand jede Spalte mit ihrer Beschriftung in einer
+            // eigenen Zeile, und die Karte war dreimal so hoch wie ihr Inhalt.
+            // Die Beschriftung bleibt fuer Vorlesewerkzeuge.
+            const inKarte = spalten.filter(spalte => spalte.inKarte !== false);
+            const [erste, ...rest] = inKarte;
             const inhalt = (
               <>
-                {spalten
-                  .filter(spalte => spalte.inKarte !== false)
-                  .map((spalte, i) => (
-                    <div
-                      key={spalte.schluessel}
-                      className={cn(
-                        'flex items-baseline justify-between gap-3',
-                        i === 0 && 'text-ui font-medium text-foreground'
-                      )}
-                    >
-                      {i > 0 && (
-                        <span className="shrink-0 text-ui-xs text-muted-foreground">
-                          {spalte.titel}
+                {erste && (
+                  <div
+                    className="line-clamp-2 text-ui font-medium text-foreground"
+                    title={erste.kuerzen ? volltext(erste, zeile) : undefined}
+                  >
+                    {erste.zelle(zeile)}
+                  </div>
+                )}
+                {rest.length > 0 && (
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-ui-sm text-muted-foreground">
+                    {rest.map((spalte, i) => (
+                      <React.Fragment key={spalte.schluessel}>
+                        {i > 0 && <span aria-hidden="true">·</span>}
+                        <span
+                          className={cn(
+                            'inline-flex min-w-0 items-center',
+                            spalte.kuerzen && 'max-w-full truncate'
+                          )}
+                          title={spalte.kuerzen ? volltext(spalte, zeile) : undefined}
+                        >
+                          <span className="sr-only">{spalte.titel}: </span>
+                          {spalte.zelle(zeile)}
                         </span>
-                      )}
-                      <span
-                        className={cn(
-                          'min-w-0',
-                          i > 0 && 'text-right text-ui-sm',
-                          spalte.kuerzen && 'truncate'
-                        )}
-                        title={spalte.kuerzen ? volltext(spalte, zeile) : undefined}
-                      >
-                        {spalte.zelle(zeile)}
-                      </span>
-                    </div>
-                  ))}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
               </>
             );
             const istGewaehlt = gewaehlt != null && kennung(zeile) === gewaehlt;

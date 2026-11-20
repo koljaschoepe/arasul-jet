@@ -71,8 +71,8 @@ describe('Kennzahlen', () => {
     );
     const klassen = container.firstElementChild?.className ?? '';
     expect(klassen).toContain('gap-ui-2');
-    expect(klassen).toContain('grid-cols-1');
-    expect(klassen).toContain('sm:grid-cols-2');
+    // Seit 5.9.1 am Handy zwei Spalten statt einer.
+    expect(klassen).toContain('grid-cols-2');
     expect(klassen).toContain('lg:grid-cols-4');
     expect(klassen).not.toContain('auto-fit');
     expect(klassen).not.toContain('grid-cols-3');

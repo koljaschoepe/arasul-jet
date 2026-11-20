@@ -222,7 +222,7 @@ eigenen Eingang der Laufzeit; `LUCIDE_RATSCHE` ist damit leer und bleibt es.
 | Feld im Formular   | 32 px hoch (`Input`, `SelectTrigger`)                        |
 | Menü, Aufklappfeld | Glas, Radius 12 px                                           |
 | Dialog             | Fläche deckend, Radius 16 px, Schleier mit Unschärfe         |
-| Seitenkopf         | Zeile 28 px, Titel 16 px, Satz 13 px, 20 px Abstand darunter |
+| Seitenkopf         | Zeile 28 px, Titel 20 px, Satz 13 px, 20 px Abstand darunter |
 | Werkzeug           | 28 px, Symbol 16 px, 2 px Abstand in der Werkzeugleiste      |
 | Tabellenzeile      | 40 px, Kopfzeile 32 px, Fläche deckend, Radius 12 px         |
 
@@ -231,10 +231,13 @@ eigenen Eingang der Laufzeit; `LUCIDE_RATSCHE` ist damit leer und bleibt es.
 Karte bausteine-seitenkopf-und-kompakt (J50, 20.11.2026), Vorgabe ist der
 Abschnitt „Neue Bausteine der Bibliothek" im Entwurf `gestaltung.md`.
 
-- **Jede Seite beginnt gleich.** `Kopf` zeichnet eine Zeile: links der Knopf
-  der Seitenleiste (`KopfVorne`, gesetzt vom `Bereichsrahmen` und vom
-  Rahmen einer App), Titel und ein Satz, rechts die Werkzeugleiste
-  (`werkzeuge`, `role="toolbar"`) aus `Werkzeug`-Knöpfen, daneben höchstens
+- **Jede Seite beginnt gleich.** `Kopf` zeichnet eine Zeile: links Titel und
+  ein Satz, rechts die Werkzeugleiste (`werkzeuge`, `role="toolbar"`) aus
+  `Werkzeug`-Knöpfen, als letztes nach einem feinen Strich der Knopf der
+  Seitenleiste (`KopfVorne`, gesetzt vom `Bereichsrahmen` und vom Rahmen einer
+  App; seit 5.9.1 dort, damit Titel und Inhalt eine linke Kante haben).
+  Ränder der Seite überall gleich: oben 10 px, seitlich 16 bis 24 px,
+  höchstens 64rem breit. Daneben höchstens
   Knöpfe mit Text (`aktionen`). Keine Trennlinie, kein Symbol vor dem Titel,
   keine eigene Zeile mit einem einzelnen Icon darüber. Steht in einem Bereich
   kein Kopf, zeigt `KopfVorne` den Knopf allein, damit die Leiste am Handy
@@ -247,7 +250,8 @@ Abschnitt „Neue Bausteine der Bibliothek" im Entwurf `gestaltung.md`.
 - **Kompakte Tabelle.** `Table` hat Kopfzeile 32 px und Zeilen 40 px; die
   `Datenliste` liegt deckend auf `--card` (Radius 12 px, feine Kante), ihre
   Beschriftung ist nur für Vorlesewerkzeuge, unter 640 px ihres Kastens
-  stehen Karten. Eine Zelle hat eine Zeile: was zwei braucht, wird eine
+  stehen Karten (die erste Spalte als Titel in bis zu zwei Zeilen, der Rest in
+  einer Zeile darunter). Eine Zelle hat eine Zeile: was zwei braucht, wird eine
   zweite Spalte. Der `Leerzustand` sagt einen Satz und bietet eine Aktion.
 - **Formular.** Felder 32 px am Rechner, bei grobem Zeiger 44 px.
 - **Kennzahl und Diagramm.** `Kennzahl` liegt deckend, die Zahl 20 px, auf

@@ -112,12 +112,19 @@ function Auswahl({
   kennung: string;
 }) {
   return (
-    <div style={zeile(2)}>
-      <Label htmlFor={kennung} style={leise}>
+    // Die Beschriftung nur für Vorlesewerkzeuge: der Wert („Alle Apps“,
+    // „Offen (neu und angenommen)“) sagt es schon, und zwei verschieden lange
+    // Wörter davor rückten die Felder am Handy verschieden weit ein.
+    <div>
+      <Label htmlFor={kennung} className="sr-only">
         {beschriftung}
       </Label>
       <Select value={wert} onValueChange={setze}>
-        <SelectTrigger id={kennung} data-testid={kennung} style={{ minWidth: '12rem' }}>
+        <SelectTrigger
+          id={kennung}
+          data-testid={kennung}
+          style={{ width: '15rem', maxWidth: '100%' }}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -326,7 +333,7 @@ export function Eingang({
           </>
         }
       />
-      <div style={zeile(4)}>
+      <div style={zeile(2)}>
         <Auswahl
           kennung="cockpit-filter-app"
           beschriftung="App"

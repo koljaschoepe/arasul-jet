@@ -26,8 +26,9 @@ export const zeile = (abstand = 2): CSSProperties => ({
  */
 export const inhalt: CSSProperties = {
   ...spalte(4),
-  padding: '10px var(--ara-abstand-4) var(--ara-abstand-4)',
-  maxWidth: '72rem',
+  // Dieselben Ränder wie Verwaltung und Einstellungen (`Bereichsrahmen`).
+  padding: '10px clamp(16px, 4vw, 24px) 24px',
+  maxWidth: '64rem',
   width: '100%',
   boxSizing: 'border-box',
 };

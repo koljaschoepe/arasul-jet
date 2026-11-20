@@ -296,7 +296,8 @@ try {
           const hoehen = m.werkzeuge.map(w => Math.round(w.hoehe));
           pruefe(
             `${name}: Werkzeuge im Kopf 28 px`,
-            hoehen.length > 0 && hoehen.every(h => h === 28),
+            // Die Startseite hat keine Aktion und damit keine Werkzeuge.
+            (s.name === 'start' || hoehen.length > 0) && hoehen.every(h => h === 28),
             hoehen.join(', ')
           );
         }

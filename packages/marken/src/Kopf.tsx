@@ -142,16 +142,21 @@ export function Kopf({
       : kontext?.erster === kennung
         ? kontext.knopf
         : null;
+  // Der Knopf der Seitenleiste steht in der Werkzeugleiste, als letzter
+  // (5.9.1): stand er links vor dem Titel, hatten Titel und Inhalt darunter
+  // zwei linke Kanten, und am Handy rueckte der Satz um seine Breite ein.
+  const leiste = !mittig && (werkzeuge || links);
   return (
     <header className="ara-kopf" data-mittig={mittig ? 'true' : undefined}>
-      {links && <div className="ara-kopf__vorne">{links}</div>}
       <div className="ara-kopf__text">
         <Titel className="ara-kopf__titel">{titel}</Titel>
         {beschreibung && <p className="ara-kopf__satz">{beschreibung}</p>}
       </div>
-      {!mittig && werkzeuge && (
+      {leiste && (
         <div className="ara-kopf__werkzeuge" role="toolbar" aria-label={`Aktionen: ${titel}`}>
           {werkzeuge}
+          {werkzeuge && links && <span className="ara-kopf__trenner" aria-hidden="true" />}
+          {links && <span className="ara-kopf__vorne">{links}</span>}
         </div>
       )}
       {aktionen && <div className="ara-kopf__aktionen">{aktionen}</div>}

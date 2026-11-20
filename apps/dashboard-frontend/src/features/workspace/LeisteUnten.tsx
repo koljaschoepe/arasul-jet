@@ -56,7 +56,8 @@ function Feld({
       {aktiv && (
         // Der Name in Tinte, nicht in Blau: Blau auf der getönten Fläche über
         // dem Glas fiele am blauen Ende des Verlaufs unter 4,5:1.
-        <span className="min-w-0 text-left text-xs leading-tight font-medium break-words text-foreground">
+        // Trennen nach Silben statt mitten im Wort („Einstellung / en“).
+        <span className="min-w-0 text-left text-xs leading-tight font-medium hyphens-auto text-foreground">
           {name}
         </span>
       )}

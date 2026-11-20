@@ -46,7 +46,9 @@ export function Bereichsrahmen({ titel, gruppen, kennzeichen, children }: Bereic
       />
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-background">
         <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto animate-in fade-in">
-          <div className="min-w-0 max-w-225 px-6 pt-[14px] pb-[calc(24px+var(--ara-leiste-platz,0px))] max-md:px-4">
+          {/* Dieselben Ränder wie im Entwickler-Cockpit (`stil.ts`): oben
+              10 px, seitlich 16 bis 24 px, höchstens 64rem breit. */}
+          <div className="min-w-0 max-w-[64rem] px-[clamp(16px,4vw,24px)] pt-[10px] pb-[calc(24px+var(--ara-leiste-platz,0px))]">
             <KopfVorne knopf={<SidebarTrigger data-testid={`${kennzeichen}-oeffnen`} />}>
               {children}
             </KopfVorne>
