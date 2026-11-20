@@ -33,7 +33,7 @@ const TOKENS = {
     background: '#f6f3ed',
     foreground: '#1e1b16',
     card: '#fbf8f2',
-    primary: '#2862c2',
+    primary: '#2559b1',
     'muted-foreground': '#6b6250',
   },
   dunkel: {

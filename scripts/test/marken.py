@@ -448,14 +448,24 @@ def kontrast_pruefen(wurzel: Path) -> list[str]:
             return None
 
         gruende = {n: wert(n) for n in ("--background", "--card", "--secondary")}
+        # Der Grund ist seit 5.7.0 ein Verlauf (`--verlauf-grund`), und Text
+        # steht auf jeder seiner Stufen: in einer App liegt eine Tabelle
+        # durchsichtig darauf. Jede Stufe zaehlt als eigene Flaeche.
+        verlauf = werte.get("--verlauf-grund", "")
+        stufen = re.findall(r"#[0-9a-fA-F]{6}", verlauf)
+        if not stufen:
+            befunde.append(f"theme.css ({thema}): --verlauf-grund traegt keine Hex-Stufen ({verlauf!r}) -- Punkt 9 kann nicht rechnen")
+        for i, stufe in enumerate(stufen):
+            gruende[f"Stufe {i + 1} von --verlauf-grund"] = stufe.lower()
         for text in ("--primary", "--destructive", "--muted-foreground"):
             farbe = wert(text)
             if not farbe:
                 continue
             flaechen = {n: g for n, g in gruende.items() if g}
-            # Der Wisch auf `--secondary` ist keine Lage, die vorkommt: Badge und
-            # Meldung stehen auf der Seite oder in einer Karte.
-            for n in ("--background", "--card"):
+            # Ein Abzeichen (Badge) traegt den 10-%-Wisch seiner Farbe und
+            # steht auf der Seite, in einer Karte oder auf dem Verlauf. Der
+            # Wisch auf `--secondary` ist keine Lage, die vorkommt.
+            for n in [n for n in flaechen if n != "--secondary"]:
                 if not flaechen.get(n):
                     continue
                 g = flaechen[n]

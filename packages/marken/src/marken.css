@@ -77,7 +77,7 @@
   --ara-text: var(--foreground, #1e1b16);
   --ara-text-leise: var(--muted-foreground, #6b6250);
   --ara-kante: var(--border, #dfd6c4);
-  --ara-akzent: var(--primary, #2862c2);
+  --ara-akzent: var(--primary, #2559b1);
   --ara-akzent-text: var(--primary-foreground, #ffffff);
   --ara-fehler: var(--destructive, #c42020);
 

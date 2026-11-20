@@ -347,12 +347,12 @@ export function Datenliste<Zeile>({
                     onClick={() => aufZeile(zeile)}
                     aria-current={istGewaehlt ? 'true' : undefined}
                     data-state={istGewaehlt ? 'selected' : undefined}
-                    className="flex w-full flex-col gap-1 rounded-md border border-border p-ui-2 text-left transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none data-[state=selected]:border-foreground data-[state=selected]:bg-foreground/8"
+                    className="flex w-full flex-col gap-1 rounded-md border border-border bg-card p-ui-2 text-left transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none data-[state=selected]:border-foreground data-[state=selected]:bg-foreground/8"
                   >
                     {inhalt}
                   </button>
                 ) : (
-                  <div className="flex flex-col gap-1 rounded-md border border-border p-ui-2">
+                  <div className="flex flex-col gap-1 rounded-md border border-border bg-card p-ui-2">
                     {inhalt}
                   </div>
                 )}
