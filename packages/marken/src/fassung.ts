@@ -217,4 +217,9 @@
  * Verlauf des Rahmens hell kraeftiger und dunkel ruhiger. Kein Name, keine
  * Eigenschaft aendert sich.
  */
-export const FASSUNG = '5.8.1';
+/*
+ * 5.8.2: Glas auf dem Grund ist neutral (`--glas-grund-basis`: hell Weiss
+ * zu 62 %, dunkel Creme zu 6 %), dazu `--schatten-flaeche` fuer die Flaeche
+ * der Ansicht. Kein Name, keine Eigenschaft aendert sich.
+ */
+export const FASSUNG = '5.8.2';

@@ -41,7 +41,7 @@ export function Kapsel({ appId, name, stand, staende, children }: KapselProps) {
           <div
             role="group"
             aria-label="Fassung"
-            className="flex h-[24px] items-center rounded-full bg-muted p-[2px]"
+            className="flex h-[24px] items-center rounded-full bg-accent p-[2px]"
           >
             {(['live', 'test'] as const).map(s => (
               <button

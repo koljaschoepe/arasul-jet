@@ -223,8 +223,8 @@ Umschalter Live und Test etwa 130 px; wer dort einen eigenen Knopf hat, rückt
 ihn nach innen. Den Platz nennt der Rahmen der App als CSS-Variable
 `--ara-kapsel-platz` am `<html>` ihres Dokuments (vom rechten Rand gemessen,
 heute 144 px mit Umschalter, sonst 52 px); ein Seitenkopf hält ihn frei. Die
-Testfassung trägt einen 2 px breiten blauen Rand mit dem Wort Test auf der
-Oberkante, in der Mitte. Vertrag:
+Testfassung trägt einen 2 px breiten blauen Rand und oben in der Mitte, innen
+an der Kante, das Wort Test. Vertrag:
 [`RUECKMELDUNG.md`](RUECKMELDUNG.md).
 
 ### Die App sagt, auf welcher Fassung sie steht (Phase H6)
