@@ -218,10 +218,29 @@ async function gesund(weg, sekunden) {
 const probeStand = async () =>
   ((await daten(await haupt.api.get('/entwickler/apps'))) ?? []).find(a => a.id === PROBE);
 
+// Wird der Lauf wiederholt, nimmt er die eigene Probe-App vom ersten Lauf
+// und rollt eine neue Fassung in den Test, statt eine zweite App anzulegen.
+let ALT = '1.0.0';
+let NEU = '3.0.0';
+async function aufraeumen() {
+  if (schluesselId) {
+    const weg = await haupt.api.del(`/v1/external/api-keys/${schluesselId}`);
+    pruefe('Wegwerf-Schlüssel widerrufen', weg.ok(), String(weg.status()));
+    schluesselId = '';
+  }
+  fs.rmSync(arbeit, { recursive: true, force: true });
+}
+// Auch ein Abbruch widerruft den Schlüssel.
+process.on('uncaughtException', async fehler => {
+  console.log(`ROT    Abbruch: ${fehler.message.split('\n')[0]}`);
+  await aufraeumen().catch(() => {});
+  process.exit(1);
+});
 {
   const vorher = await haupt.api.get(`/apps/${PROBE}`);
-  if (vorher.status() === 200) {
-    console.log(`ROT    Die App ${PROBE} gibt es schon; ARASUL_PROBE_APP=<andere Kennung>.`);
+  const wiederholung = vorher.status() === 200;
+  if (wiederholung && (await daten(vorher))?.name !== 'Probe Cockpit') {
+    console.log(`ROT    Die App ${PROBE} gibt es schon und ist nicht die Probe dieser Abnahme.`);
     process.exit(2);
   }
   const roh = await (
@@ -235,19 +254,26 @@ const probeStand = async () =>
   schluessel = roh?.data?.api_key ?? roh?.api_key ?? '';
   schluesselId = roh?.data?.key_id ?? roh?.key_id ?? '';
   pruefe('Wegwerf-Schlüssel mit app:deploy', Boolean(schluessel));
+  if (wiederholung) {
+    ALT = (await probeStand())?.live?.version ?? '3.0.0';
+    const [a, b, c] = ALT.split('.').map(Number);
+    NEU = `${a}.${b}.${c + 1}`;
+    console.log(`—      ${PROBE} gibt es vom ersten Lauf, live ${ALT}; neu in den Test: ${NEU}`);
+  } else {
+    pruefe(
+      `${PROBE} ${ALT} in den Test`,
+      [200, 201].includes(await ausrollen(ALT, '1', 'Erste Fassung.'))
+    );
+    await haupt.api.post('/freigaben', { app_id: PROBE, benutzer_id: ich.id, stand: 'test' });
+    await gesund(`/apps/${PROBE}/test/api/gesund`, 300);
+    const erst = await haupt.api.post(`/apps/${PROBE}/schalten`, { ziel: 'live' });
+    pruefe(`${PROBE} ${ALT} live (über die Schnittstelle)`, erst.ok(), String(erst.status()));
+    await gesund(`/apps/${PROBE}/api/gesund`, 180);
+    await haupt.api.post(`roh:/apps/${PROBE}/api/eintrag?text=Probe%20vor%20dem%20Schalten`);
+  }
   pruefe(
-    `${PROBE} 1.0.0 in den Test`,
-    [200, 201].includes(await ausrollen('1.0.0', '1', 'Erste Fassung.'))
-  );
-  await haupt.api.post('/freigaben', { app_id: PROBE, benutzer_id: ich.id, stand: 'test' });
-  await gesund(`/apps/${PROBE}/test/api/gesund`, 300);
-  const erst = await haupt.api.post(`/apps/${PROBE}/schalten`, { ziel: 'live' });
-  pruefe(`${PROBE} 1.0.0 live (über die Schnittstelle)`, erst.ok(), String(erst.status()));
-  await gesund(`/apps/${PROBE}/api/gesund`, 180);
-  await haupt.api.post(`roh:/apps/${PROBE}/api/eintrag?text=Probe%20vor%20dem%20Schalten`);
-  pruefe(
-    `${PROBE} 3.0.0 in den Test, mit Änderungstext`,
-    [200, 201].includes(await ausrollen('3.0.0', '3', 'Neu: Kostenstelle je Eintrag.'))
+    `${PROBE} ${NEU} in den Test, mit Änderungstext`,
+    [200, 201].includes(await ausrollen(NEU, '3', 'Neu: Kostenstelle je Eintrag.'))
   );
   await gesund(`/apps/${PROBE}/test/api/gesund`, 300);
   const s = await probeStand();
@@ -267,220 +293,265 @@ const kein_seitliches_rollen = async seite => {
     () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
   );
 };
-const bild = async (seite, name, abdecken = []) => {
-  if (BILDER) await seite.screenshot({ path: path.join(ZIEL, `${name}.png`), mask: abdecken });
+const bild = async (seite, name) => {
+  if (BILDER) await seite.screenshot({ path: path.join(ZIEL, `${name}.png`) });
 };
 async function zuAnsicht(seite, schmal, kennung) {
   const r = rahmen(seite);
-  if (schmal) await r.locator('[data-testid="cockpit-leiste-umschalten"]').click();
-  await r.locator(`[data-testid="cockpit-leiste-${kennung}"]`).first().click();
-}
-
-for (const motor of MOTOREN) {
-  const browser = motor === 'chromium' ? chromium : await pw[motor].launch();
-  for (const [breite, hoehe] of BREITEN) {
-    const schmal = breite < 900;
-    const { ctx } = await anmelden(browser, ADMIN, ADMIN_PASS, { width: breite, height: hoehe });
-    const seite = await ctx.newPage();
-    const name = `${motor} ${breite}px`;
-    await seite.goto(`${URL}/workspace`);
-    await seite.locator('[data-testid="aktivitaetsleiste"]').waitFor({ timeout: 30000 });
-    if (!schmal) {
-      pruefe(
-        `${name}: Cockpit in der Leiste`,
-        (await seite.locator(`[data-testid="leiste-app-${COCKPIT}-live"]`).count()) === 1
-      );
-      await seite.locator(`[data-testid="leiste-app-${COCKPIT}-live"]`).click();
-    } else {
-      await seite.goto(`${URL}/workspace/app/${COCKPIT}`);
-    }
-    const r = rahmen(seite);
-    const eingang = r.locator('[data-testid="cockpit-eingang"]');
-    pruefe(
-      `${name}: der Eingang lädt im Rahmen`,
-      await eingang.waitFor({ timeout: 30000 }).then(
-        () => true,
-        () => false
-      )
-    );
-    await r
-      .getByText('Abnahme J42', { exact: false })
-      .first()
-      .waitFor({ timeout: 15000 })
-      .catch(() => {});
-    const zahl = await r.getByText('Abnahme J42', { exact: false }).count();
-    pruefe(`${name}: die Meldungen „Abnahme J42“ stehen da`, zahl >= 4, String(zahl));
-    pruefe(`${name}: kein seitliches Rollen im Eingang`, await kein_seitliches_rollen(seite));
-    await bild(seite, `${motor}-${breite}-eingang`);
-
-    await zuAnsicht(seite, schmal, 'apps');
-    await r.locator('[data-testid="cockpit-apps"]').waitFor({ timeout: 15000 });
-    await r
-      .getByText('Probe Cockpit')
-      .first()
-      .waitFor({ timeout: 15000 })
-      .catch(() => {});
-    pruefe(`${name}: Apps zeigt die Probe-App`, (await r.getByText('Probe Cockpit').count()) > 0);
-    pruefe(`${name}: kein seitliches Rollen in Apps`, await kein_seitliches_rollen(seite));
-    const abdecken = ABDECKEN
-      ? [r.locator('tr, li, [role="row"], [data-slot="card"]').filter({ hasText: ABDECKEN })]
-      : [];
-    await bild(seite, `${motor}-${breite}-apps`, abdecken);
-
-    await zuAnsicht(seite, schmal, 'live');
-    const karte = r.locator(`[data-testid="cockpit-wartet-${PROBE}"]`);
-    pruefe(
-      `${name}: Test nach Live zeigt 3.0.0`,
-      await karte.waitFor({ timeout: 15000 }).then(
-        () => true,
-        () => false
-      )
-    );
-    pruefe(
-      `${name}: mit Änderungstext`,
-      (
-        await r
-          .locator(`[data-testid="cockpit-aenderung-${PROBE}"]`)
-          .textContent()
-          .catch(() => '')
-      )?.includes('Kostenstelle')
-    );
-    pruefe(
-      `${name}: kein seitliches Rollen in Test nach Live`,
-      await kein_seitliches_rollen(seite)
-    );
-    await bild(seite, `${motor}-${breite}-test-nach-live`);
-
-    if (motor === 'chromium' && breite === 1440) {
-      // Verwaltung › Rückmeldungen gibt es nicht mehr.
-      const v = await ctx.newPage();
-      await v.goto(`${URL}/workspace/verwaltung/apps`);
-      await v.locator('[data-testid="verwaltung-bereiche"]').waitFor({ timeout: 30000 });
-      pruefe(
-        'Verwaltung ohne Bereich Rückmeldungen',
-        (await v.locator('[data-testid="verwaltung-rueckmeldungen"]').count()) === 0
-      );
-      await v.close();
-
-      // stand: Meldung 1 ablehnen, im Browser.
-      const alt = ((await daten(await haupt.api.get('/rueckmeldungen'))) ?? []).find(
-        m => m.id === 1
-      );
-      await zuAnsicht(seite, false, 'eingang');
-      await r
-        .getByText(alt?.text ?? 'Abnahme J42')
-        .first()
-        .click();
-      const dialog = r.locator('[data-testid="cockpit-meldung"]');
-      await dialog.waitFor({ timeout: 10000 });
-      if (alt?.hat_bild) {
-        pruefe(
-          'Meldung offen mit Bild',
-          await r
-            .locator('[data-testid="cockpit-bild"]')
-            .evaluate(i => i.complete && i.naturalWidth > 0)
-            .catch(() => false)
-        );
-      }
-      await r.locator('[data-testid="cockpit-stand-wahl"]').click();
-      await r.getByRole('option', { name: 'Abgelehnt' }).click();
-      pruefe(
-        'Abgelehnt ohne Grund: Speichern gesperrt',
-        await r.locator('[data-testid="cockpit-stand-speichern"]').isDisabled()
-      );
-      await r.locator('[data-testid="cockpit-grund"]').fill('Abnahme J44: nur eine Probe.');
-      await bild(seite, 'chromium-1440-meldung');
-      await r.locator('[data-testid="cockpit-stand-speichern"]').click();
-      await dialog.waitFor({ state: 'detached', timeout: 15000 }).catch(() => {});
-      const neu = ((await daten(await haupt.api.get('/rueckmeldungen'))) ?? []).find(
-        m => m.id === 1
-      );
-      pruefe(
-        'Stand und Grund stehen am Gerät',
-        neu?.stand_meldung === 'abgelehnt' && neu?.grund === 'Abnahme J44: nur eine Probe.'
-      );
-      const zurueck = await haupt.api.patch('/rueckmeldungen/1', {
-        stand_meldung: alt?.stand_meldung ?? 'neu',
-        ...(alt?.grund ? { grund: alt.grund } : {}),
-      });
-      pruefe('Stand der Meldung 1 wieder wie vorher', zurueck.ok(), alt?.stand_meldung);
-
-      // dunkel, ein Bild.
-      const f = seite.frames().find(fr => fr.url().includes(`/apps/${COCKPIT}/`));
-      await f?.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
-      await seite.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
-      await bild(seite, 'chromium-1440-eingang-dunkel');
-      await f?.evaluate(() => document.documentElement.removeAttribute('data-theme'));
-      await seite.evaluate(() => document.documentElement.removeAttribute('data-theme'));
-
-      // live: ein Klick, mit Rückfrage.
-      const staendeVorher = ((await daten(await haupt.api.get('/backup/staende'))) ?? []).map(
-        s => s.id
-      );
-      await zuAnsicht(seite, false, 'live');
-      await r.locator(`[data-testid="cockpit-live-schalten-${PROBE}"]`).click();
-      await r.getByRole('button', { name: 'Live schalten' }).last().click();
-      const ausgang = r.locator('[data-testid="cockpit-schalt-ausgang"]');
-      await ausgang.waitFor({ timeout: 10 * 60_000 }).catch(() => {});
-      const satz = (await ausgang.textContent().catch(() => '')) ?? '';
-      pruefe('Live geschaltet, Satz im Cockpit', satz.includes('3.0.0'), satz.slice(0, 80));
-      await bild(seite, 'chromium-1440-live-geschaltet');
-      let s = await probeStand();
-      pruefe(
-        'Live steht auf 3.0.0, nichts wartet',
-        s?.live?.version === '3.0.0' && s?.test_neuer === false
-      );
-      const staende = (await daten(await haupt.api.get('/backup/staende'))) ?? [];
-      const davor = staende.find(
-        x => !staendeVorher.includes(x.id) && x.fuer?.art === 'live' && x.fuer?.id === PROBE
-      );
-      pruefe('Sicherung vorher: ein Stand „vor dem Live-Schalten“', Boolean(davor), davor?.id);
-      const eintraege = await (
-        await haupt.api.get(`roh:/apps/${PROBE}/api/eintraege`)
-      )
-        .json()
-        .catch(() => ({}));
-      pruefe(
-        'Die Live-Daten sind noch da',
-        (eintraege.eintraege ?? []).includes('Probe vor dem Schalten')
-      );
-
-      // zurück: derselbe Weg.
-      await r.locator(`[data-testid="cockpit-zurueck-${PROBE}"]`).waitFor({ timeout: 30000 });
-      await bild(seite, 'chromium-1440-zurueck-moeglich');
-      await r.locator(`[data-testid="cockpit-zurueck-${PROBE}"]`).click();
-      await r.getByRole('button', { name: 'Zurückschalten' }).click();
-      await warte(2000);
-      await r
-        .locator('[data-testid="cockpit-schalt-ausgang"]')
-        .filter({ hasText: 'zurück' })
-        .waitFor({ timeout: 10 * 60_000 })
-        .catch(() => {});
-      s = await probeStand();
-      pruefe(
-        'Zurück: live wieder 1.0.0, 3.0.0 wartet wieder',
-        s?.live?.version === '1.0.0' && s?.test_neuer === true
-      );
-
-      // Am Ende steht 3.0.0 live, damit im Cockpit nichts liegen bleibt.
-      const wieder = await haupt.api.post(`/apps/${PROBE}/schalten`, { ziel: 'live' });
-      s = await probeStand();
-      pruefe(
-        'Am Ende: 3.0.0 live, nichts wartet',
-        wieder.ok() && s?.live?.version === '3.0.0' && !s?.test_neuer
-      );
-    }
-    await ctx.close();
+  if (!schmal) {
+    await r.locator(`[data-testid="cockpit-leiste-${kennung}"]`).first().click();
+    return;
   }
-  if (motor !== 'chromium') await browser.close();
+  // Unter 900 px ist die Leiste ein Blatt: erst warten, bis das vorige zu
+  // ist, dann öffnen, dann im Blatt wählen.
+  const blatt = r.locator('[data-slot="sidebar"][data-schmal="true"]');
+  await blatt.waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
+  await r.locator('[data-testid="cockpit-leiste-umschalten"]').click();
+  await blatt.locator(`[data-testid="cockpit-leiste-${kennung}"]`).click();
+  await blatt.waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
 }
+
+// Chromium bei 1440 px zuletzt: dort wird geschaltet, und davor soll jede
+// Ansicht die wartende Fassung noch sehen.
+const LAEUFE = MOTOREN.flatMap(m => BREITEN.map(b => [m, b])).sort(
+  (x, y) =>
+    Number(x[0] === 'chromium' && x[1][0] === 1440) -
+    Number(y[0] === 'chromium' && y[1][0] === 1440)
+);
+const weitere = {};
+for (const [motor, [breite, hoehe]] of LAEUFE) {
+  const browser = motor === 'chromium' ? chromium : (weitere[motor] ??= await pw[motor].launch());
+  const schmal = breite < 900;
+  const { ctx } = await anmelden(browser, ADMIN, ADMIN_PASS, { width: breite, height: hoehe });
+  const seite = await ctx.newPage();
+  const name = `${motor} ${breite}px`;
+  await seite.goto(`${URL}/workspace`);
+  await seite.locator('[data-testid="aktivitaetsleiste"]').waitFor({ timeout: 30000 });
+  if (!schmal) {
+    pruefe(
+      `${name}: Cockpit in der Leiste`,
+      (await seite.locator(`[data-testid="leiste-app-${COCKPIT}-live"]`).count()) === 1
+    );
+    await seite.locator(`[data-testid="leiste-app-${COCKPIT}-live"]`).click();
+  } else {
+    await seite.goto(`${URL}/workspace/app/${COCKPIT}`);
+  }
+  const r = rahmen(seite);
+  const eingang = r.locator('[data-testid="cockpit-eingang"]');
+  pruefe(
+    `${name}: der Eingang lädt im Rahmen`,
+    await eingang.waitFor({ timeout: 30000 }).then(
+      () => true,
+      () => false
+    )
+  );
+  await r
+    .getByText('Abnahme J42', { exact: false })
+    .first()
+    .waitFor({ timeout: 15000 })
+    .catch(() => {});
+  const zahl = await r.getByText('Abnahme J42', { exact: false }).count();
+  pruefe(`${name}: die Meldungen „Abnahme J42“ stehen da`, zahl >= 4, String(zahl));
+  pruefe(`${name}: kein seitliches Rollen im Eingang`, await kein_seitliches_rollen(seite));
+  await bild(seite, `${motor}-${breite}-eingang`);
+  if (schmal) {
+    // Am Handy: eine Meldung öffnen, lesen, wieder schließen.
+    await r.getByText('Abnahme J42', { exact: false }).first().click();
+    const offen = await r
+      .locator('[data-testid="cockpit-meldung"]')
+      .waitFor({ timeout: 10000 })
+      .then(
+        () => true,
+        () => false
+      );
+    pruefe(`${name}: eine Meldung öffnet sich`, offen);
+    await warte(800);
+    await bild(seite, `${motor}-${breite}-meldung`);
+    await seite.keyboard.press('Escape');
+    await r
+      .locator('[data-testid="cockpit-meldung"]')
+      .waitFor({ state: 'detached', timeout: 10000 })
+      .catch(() => {});
+  }
+
+  await zuAnsicht(seite, schmal, 'apps');
+  await r.locator('[data-testid="cockpit-apps"]').waitFor({ timeout: 15000 });
+  await r
+    .getByText('Probe Cockpit')
+    .first()
+    .waitFor({ timeout: 15000 })
+    .catch(() => {});
+  pruefe(`${name}: Apps zeigt die Probe-App`, (await r.getByText('Probe Cockpit').count()) > 0);
+  pruefe(`${name}: kein seitliches Rollen in Apps`, await kein_seitliches_rollen(seite));
+  // Zeilen mit einem Namen, der nicht ins Bild gehört, werden unscharf.
+  // Eine Maske von Playwright über ein iframe bricht in Chromium ab.
+  if (ABDECKEN) {
+    const f = seite.frames().find(fr => fr.url().includes(`/apps/${COCKPIT}/`));
+    const zahl = await f?.evaluate(wort => {
+      let n = 0;
+      for (const el of document.querySelectorAll('tr, li, [role="row"], [data-slot="card"]')) {
+        if (el.textContent?.includes(wort)) {
+          el.style.filter = 'blur(10px)';
+          n += 1;
+        }
+      }
+      return n;
+    }, ABDECKEN);
+    pruefe(`${name}: Zeilen im Bild abgedeckt`, (zahl ?? 0) > 0, String(zahl));
+  }
+  await bild(seite, `${motor}-${breite}-apps`);
+
+  await zuAnsicht(seite, schmal, 'live');
+  const karte = r.locator(`[data-testid="cockpit-wartet-${PROBE}"]`);
+  pruefe(
+    `${name}: Test nach Live zeigt ${NEU}`,
+    await karte.waitFor({ timeout: 15000 }).then(
+      () => true,
+      () => false
+    )
+  );
+  pruefe(
+    `${name}: mit Änderungstext`,
+    (
+      await r
+        .locator(`[data-testid="cockpit-aenderung-${PROBE}"]`)
+        .textContent()
+        .catch(() => '')
+    )?.includes('Kostenstelle')
+  );
+  pruefe(`${name}: kein seitliches Rollen in Test nach Live`, await kein_seitliches_rollen(seite));
+  await bild(seite, `${motor}-${breite}-test-nach-live`);
+
+  if (motor === 'chromium' && breite === 1440) {
+    // Verwaltung › Rückmeldungen gibt es nicht mehr.
+    const v = await ctx.newPage();
+    await v.goto(`${URL}/workspace/verwaltung/apps`);
+    await v.locator('[data-testid="verwaltung-bereiche"]').waitFor({ timeout: 30000 });
+    pruefe(
+      'Verwaltung ohne Bereich Rückmeldungen',
+      (await v.locator('[data-testid="verwaltung-rueckmeldungen"]').count()) === 0
+    );
+    await v.close();
+
+    // stand: Meldung 1 ablehnen, im Browser.
+    const alt = ((await daten(await haupt.api.get('/rueckmeldungen'))) ?? []).find(m => m.id === 1);
+    await zuAnsicht(seite, false, 'eingang');
+    await r
+      .getByText(alt?.text ?? 'Abnahme J42')
+      .first()
+      .click();
+    const dialog = r.locator('[data-testid="cockpit-meldung"]');
+    await dialog.waitFor({ timeout: 10000 });
+    if (alt?.hat_bild) {
+      pruefe(
+        'Meldung offen mit Bild',
+        await r
+          .locator('[data-testid="cockpit-bild"]')
+          .evaluate(
+            i =>
+              new Promise(fertig => {
+                if (i.complete) return fertig(i.naturalWidth > 0);
+                i.addEventListener('load', () => fertig(i.naturalWidth > 0));
+                i.addEventListener('error', () => fertig(false));
+                setTimeout(() => fertig(false), 15000);
+              })
+          )
+          .catch(() => false)
+      );
+    }
+    await r.locator('[data-testid="cockpit-stand-wahl"]').click();
+    await r.getByRole('option', { name: 'Abgelehnt' }).click();
+    pruefe(
+      'Abgelehnt ohne Grund: Speichern gesperrt',
+      await r.locator('[data-testid="cockpit-stand-speichern"]').isDisabled()
+    );
+    await r.locator('[data-testid="cockpit-grund"]').fill('Abnahme J44: nur eine Probe.');
+    await warte(500);
+    await bild(seite, 'chromium-1440-meldung');
+    await r.locator('[data-testid="cockpit-stand-speichern"]').click();
+    await dialog.waitFor({ state: 'detached', timeout: 15000 }).catch(() => {});
+    const neu = ((await daten(await haupt.api.get('/rueckmeldungen'))) ?? []).find(m => m.id === 1);
+    pruefe(
+      'Stand und Grund stehen am Gerät',
+      neu?.stand_meldung === 'abgelehnt' && neu?.grund === 'Abnahme J44: nur eine Probe.'
+    );
+    const zurueck = await haupt.api.patch('/rueckmeldungen/1', {
+      stand_meldung: alt?.stand_meldung ?? 'neu',
+      ...(alt?.grund ? { grund: alt.grund } : {}),
+    });
+    pruefe('Stand der Meldung 1 wieder wie vorher', zurueck.ok(), alt?.stand_meldung);
+
+    // dunkel, ein Bild.
+    const f = seite.frames().find(fr => fr.url().includes(`/apps/${COCKPIT}/`));
+    await f?.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    await seite.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    await bild(seite, 'chromium-1440-eingang-dunkel');
+    await f?.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+    await seite.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+
+    // live: ein Klick, mit Rückfrage.
+    const staendeVorher = ((await daten(await haupt.api.get('/backup/staende'))) ?? []).map(
+      s => s.id
+    );
+    await zuAnsicht(seite, false, 'live');
+    await r.locator(`[data-testid="cockpit-live-schalten-${PROBE}"]`).click();
+    await r.getByRole('button', { name: 'Live schalten' }).last().click();
+    const ausgang = r.locator('[data-testid="cockpit-schalt-ausgang"]');
+    await ausgang.waitFor({ timeout: 10 * 60_000 }).catch(() => {});
+    const satz = (await ausgang.textContent().catch(() => '')) ?? '';
+    pruefe('Live geschaltet, Satz im Cockpit', satz.includes(NEU), satz.slice(0, 80));
+    await bild(seite, 'chromium-1440-live-geschaltet');
+    let s = await probeStand();
+    pruefe(
+      `Live steht auf ${NEU}, nichts wartet`,
+      s?.live?.version === NEU && s?.test_neuer === false
+    );
+    const staende = (await daten(await haupt.api.get('/backup/staende'))) ?? [];
+    const davor = staende.find(
+      x => !staendeVorher.includes(x.id) && x.fuer?.art === 'live' && x.fuer?.id === PROBE
+    );
+    pruefe('Sicherung vorher: ein Stand „vor dem Live-Schalten“', Boolean(davor), davor?.id);
+    const eintraege = await (
+      await haupt.api.get(`roh:/apps/${PROBE}/api/eintraege`)
+    )
+      .json()
+      .catch(() => ({}));
+    pruefe(
+      'Die Live-Daten sind noch da',
+      (eintraege.eintraege ?? []).includes('Probe vor dem Schalten')
+    );
+
+    // zurück: derselbe Weg.
+    await r.locator(`[data-testid="cockpit-zurueck-${PROBE}"]`).waitFor({ timeout: 30000 });
+    await bild(seite, 'chromium-1440-zurueck-moeglich');
+    await r.locator(`[data-testid="cockpit-zurueck-${PROBE}"]`).click();
+    await r.getByRole('button', { name: 'Zurückschalten' }).click();
+    await warte(2000);
+    await r
+      .locator('[data-testid="cockpit-schalt-ausgang"]')
+      .filter({ hasText: 'zurück' })
+      .waitFor({ timeout: 10 * 60_000 })
+      .catch(() => {});
+    s = await probeStand();
+    pruefe(
+      `Zurück: live wieder ${ALT}, ${NEU} wartet wieder`,
+      s?.live?.version === ALT && s?.test_neuer === true
+    );
+
+    // Am Ende steht die neue Fassung live, damit im Cockpit nichts liegen bleibt.
+    const wieder = await haupt.api.post(`/apps/${PROBE}/schalten`, { ziel: 'live' });
+    s = await probeStand();
+    pruefe(
+      `Am Ende: ${NEU} live, nichts wartet`,
+      wieder.ok() && s?.live?.version === NEU && !s?.test_neuer
+    );
+  }
+  await ctx.close();
+}
+for (const b of Object.values(weitere)) await b.close();
 
 // --- aufräumen: nur der Schlüssel, gelöscht wird nichts ------------------------
-if (schluesselId) {
-  const weg = await haupt.api.del(`/v1/external/api-keys/${schluesselId}`);
-  pruefe('Wegwerf-Schlüssel widerrufen', weg.ok(), String(weg.status()));
-}
-fs.rmSync(arbeit, { recursive: true, force: true });
+await aufraeumen();
 console.log(`—      Die Probe-App ${PROBE} bleibt am Gerät (nichts wird gelöscht).`);
 await haupt.ctx.close();
 await chromium.close();
