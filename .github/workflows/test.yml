@@ -719,6 +719,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends restic rsync >/dev/null
           bash scripts/test/sicherung-zurueckholen.sh
 
+      # Karte sicherung-belege-wieder-weg-vom-geraet (M5, 20.11.2026): der
+      # Puller am Mac zieht das Repo der Staende per rsync, prueft es mit
+      # restic check, legt Weggefallenes in den Papierkorb, spiegelt kein
+      # geschrumpftes Repo und spielt einen Abzug in ein Wegwerf-Postgres.
+      - name: Die Kopie am Mac (ziehen, pruefen, Ausfall, zurueckspielen)
+        run: bash scripts/test/sicherung-am-mac.sh
+
       - name: Selbsttest der Waechter
         run: bash scripts/test/waechter-selbsttest.sh
 
