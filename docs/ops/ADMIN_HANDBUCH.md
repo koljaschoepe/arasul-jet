@@ -995,8 +995,8 @@ Ansichten:
   danach dort „Zurück“ auf die Fassung davor; später geht das unter
   Verwaltung → Apps.
 
-Bis zum 20.11.2026 stand die Liste der Meldungen unter Verwaltung →
-Rückmeldungen; die gibt es nicht mehr.
+Bis zum 20.11.2026 stand die Liste der Meldungen in der Verwaltung als
+eigene Seite; die gibt es nicht mehr, ihre alte Adresse führt zu den Apps.
 
 Gespeichert wird nur am Gerät: der Text in der Datenbank, das Foto als Datei
 bei den Apps (`data/apps/.rueckmeldungen/`). Beides geht in die nächtliche
