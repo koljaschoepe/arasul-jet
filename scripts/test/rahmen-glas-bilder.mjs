@@ -167,6 +167,13 @@ async function rahmenLesen(seite) {
       konto: Boolean(leiste?.querySelector('[data-testid="workspace-benutzermenue"]')),
       trenner: leiste?.querySelectorAll('[data-testid="leiste-trenner"]').length ?? 0,
       appKennungen: apps.map(a => a.getAttribute('data-testid')),
+      mehrImSchirm: (() => {
+        const m = document.querySelector('[data-testid="leiste-mehr"]');
+        if (!m) return null;
+        const r = m.getBoundingClientRect();
+        const n = leiste.getBoundingClientRect();
+        return r.width > 0 && r.left >= n.left && r.right <= n.right + 0.5;
+      })(),
       namen,
       glasflaechen,
     };
@@ -245,6 +252,7 @@ try {
           `${kennungen.length} Einträge, ${meine.length} Apps`
         );
         if (ansicht.mobil) {
+          pruefe(`${name}: „Mehr“ steht ganz in der Leiste`, m.mehrImSchirm === true);
           pruefe(
             `${name}: kein abgeschnittener Name in der Leiste`,
             m.namen.every(n => !n.abgeschnitten),

@@ -133,8 +133,8 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
   return (
     <div
       className={cn(
-        'flex h-dvh w-screen gap-2 overflow-hidden bg-background bg-[image:var(--verlauf-rahmen)] p-2 text-foreground',
-        schmal && 'flex-col-reverse pb-[max(0.5rem,env(safe-area-inset-bottom))]'
+        'flex h-dvh w-screen gap-[8px] overflow-hidden bg-background bg-[image:var(--verlauf-rahmen)] p-[8px] text-foreground',
+        schmal && 'flex-col-reverse pb-[max(8px,env(safe-area-inset-bottom))]'
       )}
       data-testid="workspace-shell"
     >

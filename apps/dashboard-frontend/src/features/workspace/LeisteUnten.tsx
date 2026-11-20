@@ -48,7 +48,7 @@ function Feld({
       className={cn(
         'flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
         aktiv
-          ? 'max-w-[45%] shrink-0 bg-primary/14 px-3 text-primary'
+          ? 'max-w-[calc(100%-232px)] min-w-0 shrink-0 bg-primary/14 px-3 text-primary'
           : 'flex-1 text-muted-foreground hover:text-foreground'
       )}
     >
@@ -106,7 +106,7 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
     <nav
       aria-label="Aktivitätsleiste"
       data-testid="aktivitaetsleiste"
-      className="glas glas-grund flex h-14 shrink-0 items-center gap-0.5 rounded-2xl border px-1.5"
+      className="glas glas-grund flex h-[56px] shrink-0 items-center gap-[2px] overflow-hidden rounded-[16px] border px-[6px]"
     >
       <Feld
         name={wartend > 0 ? `Start, ${wartend} offen` : 'Start'}
