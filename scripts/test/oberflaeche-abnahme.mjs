@@ -33,8 +33,8 @@
  *        Mitarbeiter: Anmeldung, Startseite, App im Rahmen, Einstellungen.
  *        Administrator: Startseite und die acht Bereiche der Verwaltung
  *        (`ansichten.mjs`).
- *   3. Die Leiste: ab 900 px links über die ganze Höhe, darunter unten über
- *      die ganze Breite (`useSchmalesFenster`).
+ *   3. Die Leiste schwebt: ab 900 px links, darunter unten, je 8 px vom Rand
+ *      (`useSchmalesFenster`).
  *   4. Tastatur: die Reihenfolge durch die Anmeldung und durch die Shell,
  *      Enter meldet an, Escape schließt einen Dialog.
  *   5. Fehlerzustände: ein Mitarbeiter auf einer Admin-Adresse, eine Adresse,
@@ -354,7 +354,10 @@ const VERSUCHE_JE_ZELLE = 3;
  * kein Rot: hinter Traefik zählen die Drosseln je IP, und die Oberfläche zeigt
  * dann die Anmeldung. Gemerkt, abgewartet, die Zelle noch einmal.
  */
-async function ansichtMessen(seite, { name, dateiname, breite, pfad, kennzeichen }) {
+async function ansichtMessen(
+  seite,
+  { name, dateiname, breite, pfad, kennzeichen, mindestZeichen }
+) {
   let da = false;
   let gedrosselt = null;
   for (let versuch = 1; versuch <= VERSUCHE_JE_ZELLE && !da; versuch += 1) {
@@ -411,7 +414,9 @@ async function ansichtMessen(seite, { name, dateiname, breite, pfad, kennzeichen
   const fremde = konsole.length - eigene.length;
   const fragen = [
     ['rollt nicht waagerecht', !mass.rollt, `${mass.scrollWidth} gegen ${mass.clientWidth}`],
-    ['es steht etwas da', mass.zeichen > 40, `${mass.zeichen} Zeichen`],
+    // Der Rahmen selbst trägt seit der Glasleiste kaum Text (keine
+    // Statuszeile mehr); eine kleine Probe-App darf mit wenig auskommen.
+    ['es steht etwas da', mass.zeichen > (mindestZeichen ?? 40), `${mass.zeichen} Zeichen`],
     [
       'keine Fehler in der Konsole',
       eigene.length === 0,
@@ -439,7 +444,11 @@ async function ansichtMessen(seite, { name, dateiname, breite, pfad, kennzeichen
   return ok;
 }
 
-/** Die Leiste: ab 900 px links über die ganze Höhe, darunter unten über die ganze Breite. */
+/**
+ * Die Leiste schwebt (Karte glas-rahmen-und-leiste): ab 900 px links mit 8 px
+ * Abstand zu Rand, oben und unten, darunter unten mit 8 px Abstand zu Rand,
+ * links und rechts.
+ */
 async function leisteMessen(seite, breite, wer) {
   const schmal = breite.px < SCHMAL_AB_PX;
   const kasten = await seite
@@ -448,12 +457,14 @@ async function leisteMessen(seite, breite, wer) {
     .boundingBox()
     .catch(() => null);
   const fenster = seite.viewportSize();
+  const acht = wert => Math.abs(wert - 8) <= 1;
   const richtig =
     kasten &&
     (schmal
-      ? Math.abs(kasten.y + kasten.height - fenster.height) <= 1 &&
-        Math.abs(kasten.width - fenster.width) <= 1
-      : kasten.x <= 1 && Math.abs(kasten.height - fenster.height) <= 40);
+      ? acht(fenster.height - kasten.y - kasten.height) &&
+        acht(kasten.x) &&
+        acht(fenster.width - kasten.x - kasten.width)
+      : acht(kasten.x) && acht(kasten.y) && acht(fenster.height - kasten.y - kasten.height));
   pruefe(
     `${breite.px} px · ${wer}: die Leiste steht ${schmal ? 'unten' : 'links'}`,
     Boolean(richtig),
@@ -685,6 +696,8 @@ try {
       breite,
       pfad: `/workspace/app/${APP}`,
       kennzeichen: `[data-testid="app-rahmen-${APP}"]`,
+      // Die Probe-App zeigt ein Feld und „lange Seite“, rund 20 Zeichen.
+      mindestZeichen: 10,
     });
   }
   for (const breite of BREITEN) {

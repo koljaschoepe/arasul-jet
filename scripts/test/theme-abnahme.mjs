@@ -70,8 +70,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { chromium, request as pwRequest } from 'playwright';
 import {
   drosselAbwarten,
   drosselBilanz,
@@ -81,6 +81,25 @@ import {
   seitenladungAbwarten,
 } from './drossel.mjs';
 import { pruefbenutzerAnlegen } from './anmeldung.mjs';
+
+// `playwright` steht in keinem Lockfile dieses Repos: entweder installiert
+// oder ARASUL_PLAYWRIGHT=<Ordner mit node_modules/playwright>, wie in den
+// übrigen Reihen.
+async function ladePlaywright() {
+  try {
+    return await import('playwright');
+  } catch {
+    const ort = process.env.ARASUL_PLAYWRIGHT;
+    if (!ort) {
+      console.log(
+        'ROT    playwright fehlt: ARASUL_PLAYWRIGHT=<Ordner mit node_modules/playwright>.'
+      );
+      process.exit(1);
+    }
+    return createRequire(path.join(ort, 'x.js'))('playwright');
+  }
+}
+const { chromium, request: pwRequest } = await ladePlaywright();
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
@@ -277,6 +296,13 @@ async function appVorbereiten(token) {
     const app = WUNSCH_APP || mitLive.find(a => a.id === 'beispielapp')?.id || mitLive[0]?.id || '';
     if (!app || !ich) return { app: '', selbstFreigegeben: false, ich };
 
+    // Steht schon eine Freigabe, bleibt sie, wie sie ist: ein POST mit
+    // `stand: 'live'` stufte eine Test-Freigabe auf Live herunter (am Orin am
+    // 20.11.2026 so geschehen, die Testperson war danach keine mehr).
+    const bestehend = await kanal.get(`/api/freigaben?app_id=${app}&benutzer_id=${ich}`);
+    const schon = bestehend.ok() ? ((await bestehend.json()).data ?? []) : [];
+    if (schon.length > 0) return { app, selbstFreigegeben: false, ich };
+
     // 201 heisst neu, 200 heisst „stand schon da". Nur was dieser Lauf
     // angelegt hat, raeumt er am Ende auch wieder weg.
     const frei = await kanal.post('/api/freigaben', {
@@ -389,7 +415,7 @@ async function rahmenAbwarten(seite, appId, erwartet, thema, grenze = 20000) {
  * GEKLICKT WIRD, NICHT NAVIGIERT. `page.goto` auf die Einstellungen laedt die
  * ganze Shell neu und damit auch den Rahmen -- die Probe waere rot, ohne dass
  * am Produkt etwas waere. Der Weg hier ist der, den ein Mensch hat: Zahnrad,
- * »Dunkel«, Tab-Leiste zurueck.
+ * »Dunkel«, ueber die App in der Leiste zurueck.
  */
 async function rahmenOhneNeuladen(seite, appId, token) {
   // ZUERST HELL, UND ZWAR AUSDRUECKLICH (Phase H5).
@@ -445,14 +471,6 @@ async function rahmenOhneNeuladen(seite, appId, token) {
     `data-theme=${vorher.attribut}, Flaeche ${vorher.flaeche}`
   );
 
-  // Welcher Tab gerade vorn ist -- gemerkt als Platz in der Leiste. Der Titel
-  // eines App-Tabs steht anfangs auf »App« und wird nachgetragen, sobald der
-  // Name da ist; ein Klick nach Text traefe je nach Augenblick etwas anderes.
-  const appTabPlatz = await seite
-    .locator('[role="tab"]')
-    .evaluateAll(tabs => tabs.findIndex(t => t.getAttribute('aria-selected') === 'true'))
-    .catch(() => -1);
-
   const markiert = await seite.evaluate(id => {
     const element = document.querySelector(`[data-testid="app-rahmen-${id}"]`);
     if (!element?.contentWindow) return false;
@@ -461,15 +479,24 @@ async function rahmenOhneNeuladen(seite, appId, token) {
   }, appId);
   if (!pruefe('eine Marke sitzt am Fenster des Rahmens', markiert)) return;
 
-  // Zahnrad in der Aktivitaetsleiste -- nicht das in der Kopfleiste, damit
-  // die Zeile nennt, welcher der beiden Wege gemessen wurde.
+  // Das Zahnrad in der Aktivitaetsleiste, der einzige Weg dorthin.
   const insZahnrad = await seite
-    .locator('nav[aria-label="Workspace-Navigation"] [aria-label="Einstellungen"]')
+    .locator('[data-testid="leiste-einstellungen"]')
     .first()
     .click({ timeout: 15000 })
     .then(() => true)
     .catch(() => false);
   if (!pruefe('der Weg in die Einstellungen geht ueber das Zahnrad', insZahnrad)) return;
+
+  // Die Einstellungen oeffnen beim Profil; das Erscheinungsbild ist ein
+  // eigener Bereich in ihrer Leiste (am Handy hinter dem Knopf darueber).
+  const knopfBereiche = seite.locator('[data-testid="einstellungen-bereiche-oeffnen"]');
+  if (await knopfBereiche.isVisible().catch(() => false)) await knopfBereiche.click();
+  await seite
+    .locator('[data-testid="einstellungen-erscheinungsbild"]')
+    .first()
+    .click({ timeout: 15000 })
+    .catch(() => {});
 
   const dunkel = seite.getByRole('radio', { name: /Dunkel/ });
   const umgestellt = await dunkel
@@ -483,15 +510,14 @@ async function rahmenOhneNeuladen(seite, appId, token) {
     })
     .catch(() => {});
 
-  const zurueck =
-    appTabPlatz >= 0 &&
-    (await seite
-      .locator('[role="tab"]')
-      .nth(appTabPlatz)
-      .click({ timeout: 15000 })
-      .then(() => true)
-      .catch(() => false));
-  if (!pruefe('und ueber die Tab-Leiste zurueck zur App', zurueck)) return;
+  // Zurueck ueber die App in der Leiste (seit M5 gibt es keine Tab-Leiste;
+  // die App bleibt im Hintergrund am Leben, `AppStapel`).
+  const zurueck = await seite
+    .locator(`[data-testid="leiste-app-${appId}"]`)
+    .click({ timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!pruefe('und ueber die Leiste zurueck zur App', zurueck)) return;
 
   await rahmenAbwarten(seite, appId, THEMES[1].flaeche, THEMES[1].wert);
   const nachher = await rahmenStand(seite, appId);
@@ -578,10 +604,12 @@ async function main() {
     // --- 2. Der Mensch stellt in den Einstellungen »Dunkel« ein --------------
     const ctxA = await fensterMitToken(browser, token);
     const seiteA = await ctxA.newPage();
-    await laden(seiteA, `${URL}/workspace/settings?tab=general`);
+    // Die persönlichen Einstellungen, Bereich Erscheinungsbild (seit M5 eine
+    // eigene Adresse; `?tab=general` führt heute in die Verwaltung).
+    await laden(seiteA, `${URL}/workspace/settings/erscheinungsbild`);
 
     const erscheinung = await seiteA
-      .waitForSelector('text=Erscheinungsbild', { timeout: 30000 })
+      .waitForSelector('[role="radiogroup"], [role="radio"]', { timeout: 30000 })
       .then(() => true)
       .catch(() => false);
     if (!pruefe('Einstellungen → Erscheinungsbild steht da', erscheinung)) {
@@ -590,7 +618,9 @@ async function main() {
     }
 
     const optionen = await seiteA.getByRole('radio').count();
-    pruefe('genau zwei Optionen (»Schwarz« ist gefallen)', optionen === 2, `${optionen} Optionen`);
+    // System, Hell, Dunkel (»Schwarz« ist mit H1 gefallen, »System« kam am
+    // 07.10.2026 dazu).
+    pruefe('genau drei Optionen: System, Hell, Dunkel', optionen === 3, `${optionen} Optionen`);
 
     await seiteA.getByRole('radio', { name: /Dunkel/ }).click();
     const nachKlick = await seiteA
