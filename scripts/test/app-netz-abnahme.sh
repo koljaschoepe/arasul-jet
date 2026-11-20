@@ -129,6 +129,7 @@ m["backend"]["image"] = "arasul-%s:%s" % (kennung, m["version"])
 m["verbindungen"] = ["api.example.com"]
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
+node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ARBEIT/paket"  # J45: der App-Standard
 COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket.tgz" -C "$ARBEIT/paket" .
 CODE=$(curl -sk -o "$ARBEIT/antwort" -w '%{http_code}' --max-time "$GEDULD" \
   -H "x-api-key: $SCHLUESSEL" -F "paket=@$ARBEIT/paket.tgz" "$BASIS/api/v1/external/apps")

@@ -145,6 +145,7 @@ PY
   # `._`-Begleiter mit erweiterten Attributen ins Archiv. Das Geraet weist ihn
   # nicht ab (es sind gewoehnliche Dateien), aber sie landen im Frontend und
   # werden ausgeliefert.
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket-$version.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/paket-$version.tgz"
 }
@@ -251,6 +252,7 @@ pruefe "Paket $V1 gebaut" "$([ -n "$PAKET1" ] && echo ja || echo nein)" "$(basen
 mkdir -p "$ARBEIT/boese"
 cp "$ARBEIT/paket-$V1/app.json" "$ARBEIT/boese/app.json"
 ln -sf /etc/hostname "$ARBEIT/boese/verweis"
+node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ARBEIT/boese"  # J45: der App-Standard
 COPYFILE_DISABLE=1 tar czf "$ARBEIT/boese.tgz" -C "$ARBEIT/boese" . 2>/dev/null
 paket_ruf /api/v1/external/apps "$ARBEIT/boese.tgz"
 pruefe 'Ein Paket mit einem Symlink wird abgewiesen' "$(ja_wenn "$CODE" 400)" "HTTP $CODE"

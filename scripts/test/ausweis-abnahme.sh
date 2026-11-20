@@ -244,6 +244,7 @@ if [ -n "$SCHLUESSEL" ]; then
 }
 JSON
     rm -f "$PAKET_DATEI"
+    node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$PAKET_DIR/inhalt"  # J45: der App-Standard
     tar czf "$PAKET_DATEI" -C "$PAKET_DIR/inhalt" .
   }
   paket_schicken() {

@@ -153,6 +153,7 @@ m["beschreibung"] = "Probe für die Bilder der Startseite: hält an einer Freiga
 m["backend"]["image"] = "arasul-%s:%s" % (kennung, version)
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
+node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
 COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket.tgz" -C "$ordner" .
 CODE=$(curl -sk -o "$RUMPF_DATEI" -w '%{http_code}' --max-time 900 \
   -H "x-api-key: $SCHLUESSEL" -F "paket=@$ARBEIT/paket.tgz" "$BASIS/api/v1/external/apps")

@@ -90,6 +90,7 @@ m["name"] = "Beispielapp (Probe %s)" % stempel
 m["backend"]["image"] = "arasul-%s:%s" % (kennung, m["version"])
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
+  node "$_BEISPIEL_WURZEL/scripts/test/nachweis-stempeln.mjs" "$arbeit/paket"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$arbeit/paket.tgz" -C "$arbeit/paket" .
 
   code=$(curl -sk -o "$arbeit/antwort" -w '%{http_code}' --max-time 900 \

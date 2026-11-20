@@ -223,6 +223,7 @@ m["backend"]["image"] = "arasul-%s:%s" % (kennung, version)
 m["backend"]["umgebung"] = {"PROBE_VERSION": version, "PROBE_STRUKTUR": struktur}
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket-$version.tgz" -C "$ordner" .
   local -a mit_text=()
   [ -n "$text" ] && mit_text=(-F "aenderungstext=$text")

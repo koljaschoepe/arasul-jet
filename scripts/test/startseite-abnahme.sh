@@ -142,6 +142,7 @@ m["backend"]["umgebung"]["PROBE_VERSION"] = version
 m["verbindungen"] = ["example.org", "haus.arasul.localhost"]
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket-$version.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/paket-$version.tgz"
 }

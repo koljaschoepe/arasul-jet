@@ -208,6 +208,7 @@ m["name"] = "Probe: Zeitplan (%s)" % kennung.rsplit("-", 1)[-1]
 m["backend"]["image"] = "arasul-%s:%s" % (kennung, version)
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/paket.tgz"
 }
@@ -309,6 +310,7 @@ m["backend"]["image"] = "arasul-%s:%s" % (kennung, version)
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
 rm -f "$BOESE"/flows/*.bak
+node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$BOESE"  # J45: der App-Standard
 COPYFILE_DISABLE=1 tar czf "$ARBEIT/boese.tgz" -C "$BOESE" .
 CODE=$(curl -sk -o "$RUMPF_DATEI" -w '%{http_code}' --max-time "$GEDULD" \
   -H "x-api-key: $SCHLUESSEL" -F "paket=@$ARBEIT/boese.tgz" "$BASIS/api/v1/external/apps")

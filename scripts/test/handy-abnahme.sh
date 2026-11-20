@@ -118,6 +118,7 @@ if symbol:
     m["symbol"] = symbol
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket-$i.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/paket-$i.tgz"
 }

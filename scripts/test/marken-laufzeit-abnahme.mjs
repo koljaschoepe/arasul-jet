@@ -402,6 +402,8 @@ async function einspielen({ api, kopf }) {
     manifest.name = `Probe Marken ${APP.split('-').pop()}`;
     fs.writeFileSync(path.join(arbeit, 'paket/app.json'), JSON.stringify(manifest, null, 2));
     const archiv = path.join(arbeit, 'paket.tgz');
+    // J45: der App-Standard, das Gerät nimmt nur Pakete mit Nachweis an.
+    execFileSync('node', [path.join(WURZEL, 'scripts/test/nachweis-stempeln.mjs'), path.join(arbeit, 'paket')]);
     execFileSync('tar', ['czf', archiv, '-C', path.join(arbeit, 'paket'), '.'], {
       env: { ...process.env, COPYFILE_DISABLE: '1' },
     });

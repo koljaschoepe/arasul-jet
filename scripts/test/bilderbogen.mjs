@@ -205,6 +205,8 @@ function paketBauen(arbeit) {
   manifest.beschreibung = 'Kamera für scripts/test/bilderbogen.mjs, wird am Ende entfernt.';
   fs.writeFileSync(path.join(ordner, 'app.json'), JSON.stringify(manifest, null, 2));
   const datei = path.join(arbeit, 'paket.tgz');
+  // J45: der App-Standard, das Gerät nimmt nur Pakete mit Nachweis an.
+  execFileSync('node', [path.join(WURZEL, 'scripts/test/nachweis-stempeln.mjs'), ordner]);
   execFileSync('tar', ['czf', datei, '-C', ordner, '.'], {
     env: { ...process.env, COPYFILE_DISABLE: '1' },
   });

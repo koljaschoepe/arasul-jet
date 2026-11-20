@@ -161,6 +161,7 @@ if zeigt == "ja":
     m["beschreibung"] = "Messgeraet fuer scripts/test/rueckfall-abnahme.sh: erklaert zeigt_freigaben, die Startseite oeffnet sie mit ?freigabe= (M5)."
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket-$app.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/paket-$app.tgz"
 }

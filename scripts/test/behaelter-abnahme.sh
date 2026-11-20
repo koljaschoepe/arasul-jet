@@ -142,6 +142,7 @@ d["koepfe"] = {"benutzer": k.get("benutzer"), "rolle": k.get("rolle"), "rollen":
 d["kontrakt"] = kontrakt.get("version")
 json.dump(d, open(p, "w"), ensure_ascii=False, indent=2)
 PY
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$paket"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$paket.tgz" -C "$paket" . || return 1
   echo "$paket.tgz"
 }

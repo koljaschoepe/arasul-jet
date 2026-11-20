@@ -127,6 +127,7 @@ baue_paket() {
   rm -rf "$ordner"
   mkdir -p "$ordner"
   cp -R "$QUELLE/backend" "$QUELLE/flows" "$QUELLE/app.json" "$ordner/"
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/paket.tgz"
 }
