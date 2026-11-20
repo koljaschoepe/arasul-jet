@@ -16,7 +16,7 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
   **jeder App** auf dem Gerät. Ein Pfad-Alias und **kein npm-Paket**: die
   Bibliothek wird mit der Shell übersetzt, steht in keinem Lockfile und hat
   kein `dist/`, das jemand vergessen könnte. Drei Sätze plus Tokens:
-  - **Primitive** (`src/primitive/`, 46 Stück, auf Radix + Tailwind): Button,
+  - **Primitive** (`src/primitive/`, 47 Stück, auf Radix + Tailwind): Button,
     Input, Select, Dialog, Sheet, Tabs, Card, Table, Calendar, Chart, Command,
     Sidebar, … **Der einzige Ort dafür** — ein zweiter Button in der Shell ist
     ein Befund (`scripts/test/bausteine.py`). `Drawer` und `Sonner` gibt es
@@ -285,7 +285,8 @@ src/
                    • **ActivityBar** — oben das Haus (Startseite, mit der
                      Zahl offener Freigaben aus `useOffeneFreigaben`),
                      darunter die eigenen Apps als Symbol (`symbol` aus
-                     `app.json`: Lucide-Name, nachgeladen in
+                     `app.json`: Lucide-Name, über `symbolsatzLaden` aus
+                     `@marken/symbole` nachgeladen in
                      `components/AppSymbol.tsx`, oder Kürzel; ohne Symbol ein
                      neutrales Fenster-Symbol, keine Buchstaben) mit dem
                      Namen im Tooltip (`GET /api/apps/meine`, ab etwa zehn
@@ -338,9 +339,11 @@ src/
                      unter „mehr“ die übrigen Apps, Verwaltung und
                      Einstellungen; Abmelden steht in der Leiste der
                      Einstellungen.
-                   • **Flächenfarbe** — Leiste und Ansicht teilen
-                     `--background`; Trennung nur über Borders. `--card`
-                     bleibt erhabenen Elementen vorbehalten (DESIGN.md).
+                   • **Flächenfarbe** — Leiste und Ansicht stehen
+                     durchsichtig auf dem Grund (`body`: `--background` mit
+                     dem ruhigen Verlauf `--verlauf-grund`, 5.7.0); Trennung
+                     nur über Borders. `--card` bleibt erhabenen Elementen
+                     vorbehalten, Glas schwebenden Bedienflächen (DESIGN.md).
   components/
     ui/            NUR NOCH, WAS ÜBER DIESES GERÄT BESCHEID WEISS. Eine neue
                    Seite baut auf `@marken` auf, statt die Klassenkette neu
@@ -496,6 +499,29 @@ einen Benutzer oder die Marke kennt, bleibt in der Shell. Wer eine
 Zusammensetzung dort einträgt, prüft zuerst, ob sie diesen Test besteht —
 `Modal`, `FilterBar` und `StatTile` bestanden ihn nicht und sind seither in
 `@marken` gewandert.
+
+### 5a. Symbole nur über die Bibliothek, Glas nur, wo es schwebt
+
+Seit der Bibliothek 5.7.0 (Karte glas-grundton-bibliothek, 20.11.2026) gilt,
+was `company/gestaltung.md` des Überordners im Abschnitt „Produkt“ vorgibt:
+
+- **Symbole** kommen aus `@marken/symbole`, gezeichnet mit `Icon` aus
+  `@marken` in drei Größen (`klein` 14, `mittel` 16, `gross` 20 px) und einer
+  Strichstärke (1,75 px). Ein freier Import von `lucide-react` außerhalb von
+  `packages/marken/` ist ein Befund (`bausteine.py`, Regel 10).
+- **Glas** (`.glas`, `--glas-*`) nur auf schwebenden Bedienflächen: Menüs,
+  Aufklappfelder, kurze Meldungen, der Schleier unter Dialog und Blatt.
+  Karten, Tabellen, Formulare und der Inhalt eines Dialogs bleiben deckend.
+  „Transparenz reduzieren“ steht je Person in den Einstellungen
+  (Erscheinungsbild) und kommt als `data-transparenz="reduziert"` an das
+  `<html>` der Shell und jeder App im Rahmen; die Systemwünsche gelten ohne
+  Zutun.
+- **Knöpfe** kompakt: 32 px mit Text, 28 px als Icon-Knopf ohne Rahmen,
+  Felder 32 px, in Pixeln (die Wurzelschrift ist 17 px). Bei grobem Zeiger
+  wächst nur die Trefferfläche auf 44 px. Hauptknopf blau ohne Verlauf, Rot
+  nur für Löschen.
+- **Schrift** Inter aus der Bibliothek, Farben der Marke hell und dunkel
+  (Tabelle in `docs/development/DESIGN.md`).
 
 ### 6. Code-splitting for non-critical routes
 

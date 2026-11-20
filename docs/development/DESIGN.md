@@ -9,8 +9,12 @@
 
 ## Grundsatz
 
-Eine neutrale, monochrome Fläche und **ein** gedämpfter Akzent. Flächen
-trennen sich durch Linien, nicht durch eine zweite Flächenfarbe. Farbe
+Die Farben der Marke: ein warmes Creme als Grund (dunkel Navy), Tinte als
+Text und **ein** Blau als Akzent. Seit der Bibliothek 5.7.0 (20.11.2026,
+Karte glas-grundton-bibliothek, Vorgabe ist der Abschnitt „Produkt“ in
+`company/gestaltung.md` des Überordners) liegt hinter dem Rahmen ein ruhiger
+Verlauf, schwebende Bedienflächen sind aus Glas, und Inhalt bleibt deckend.
+Flächen trennen sich durch Linien, nicht durch eine zweite Flächenfarbe. Farbe
 bedeutet etwas: Akzent für die **Primäraktion und den Verweis**, Statusfarben
 nur, wenn ein Zustand gemeint ist. Alles andere ist Graustufe.
 
@@ -43,20 +47,21 @@ Drei Regeln, die ein Wächter hält:
    `scripts/test/bausteine.py`, Punkt 7 (die Shell und jedes CSS — er rechnet
    den Farbton jedes Werts und lässt nur Blau, Rot und Grau durch).
 2. **Eine Flächenfarbe.** Grundflächen (Aktivitätsleiste, Ansicht, die Leiste
-   der Bereiche in der Verwaltung) tragen `bg-background`; `bg-card` ist
+   der Bereiche in der Verwaltung) stehen durchsichtig auf dem Grund
+   (`body`: `--background` mit `--verlauf-grund` darüber); `bg-card` ist
    erhabenen Elementen darauf vorbehalten (Karten, Popover, Dialoge,
    Eingabefelder, Tabellenköpfe). **Auswahl ist eine getönte Fläche, kein
    Balken** (M5): gewählt ist ein Hauch Akzent (`bg-primary/12`, in der `Liste`
    `color-mix` mit `--ara-akzent`), überfahren der neutrale Wisch
    (`--accent`), der in 120 ms einblendet; „weniger Bewegung" schaltet den
    Übergang ab.
-   **Verlauf nur am Hauptknopf** (M5, Karte jet-gesicht-startseite,
-   07.10.2026, Vorbild Linear): `Button variant="solid"` und
-   `Knopf art="haupt"` tragen einen leichten Blauverlauf aus
-   `--gradient-primary` (von `--primary` zu einem um 15 % dunkleren Blau, aus
-   `--primary` gerechnet und damit in beiden Themen gültig; `marken.css`
-   rechnet `--ara-verlauf-haupt` mit derselben Formel aus `--ara-akzent`),
-   Überfahren hellt in 120 ms auf. Sonst ist alles flach. Schatten gibt es nur
+   **Der einzige Verlauf ist der Grund** (5.7.0): `--verlauf-grund`, hell
+   von Creme nach einem Hauch Blau, dunkel von Navy nach Anthrazit, fest am
+   Fenster, kein Bild, keine Körnung. Der Hauptknopf (`Button
+variant="solid"`, `Knopf art="haupt"`) ist blau gefüllt **ohne** Verlauf;
+   Überfahren nimmt `--primary-hover`, Drücken `--primary-active`, in 120 ms.
+   `--gradient-primary` und `--ara-verlauf-haupt` gibt es als Namen weiter,
+   einfarbig, damit eine App auf 5.6 nicht bricht. Schatten gibt es nur
    an Menüs und an der angehobenen Karte (`--ara-schatten-hoch`): eine `Karte`,
    die ein Knopf ist, hebt sich beim Überfahren um 2 px, bei „weniger
    Bewegung" nur mit Schatten. Die einzige zweite getönte Fläche ist das Band
@@ -72,8 +77,12 @@ Drei Regeln, die ein Wächter hält:
 TypeScript, React 19, Tailwind v4 (Utility-First, Tokens über `@theme`),
 shadcn/ui (Radix-Primitive seit H3 in `packages/marken/src/primitive/`, seit H4
 vollständig; die Muster darüber in `packages/marken/src/muster/`),
-lucide-react für Symbole, `cn()` aus `@marken` für bedingte Klassen.
-Inter als Schrift, JetBrains Mono für Code.
+Lucide für Symbole, **nur über die Bibliothek** (unten, Symbole), `cn()` aus
+`@marken` für bedingte Klassen. Inter als Schrift, ausgeliefert mit der
+Bibliothek (`packages/marken/src/schrift/`, SIL OFL 1.1, eine Datei mit
+veränderlicher Stärke je Zeichensatz, `font-src 'self'`), damit Rahmen und
+jede App im iframe auf jedem Rechner gleich aussehen. Mono nur für Pfade,
+Befehle und Zahlen in Tabellen.
 
 ## Die Jet-Palette: zwei Themes
 
@@ -110,28 +119,36 @@ durch.
 
 | Token                | Hell (`:root`, Vorgabe) | Dunkel                   |
 | -------------------- | ----------------------- | ------------------------ |
-| `--background`       | `#F6F6F6`               | `#141414`                |
-| `--card`             | `#FFFFFF`               | `#181818`                |
-| `--popover`          | `#FFFFFF`               | `#1c1c1c`                |
-| `--muted`            | `#ECECEC`               | `#181818`                |
-| `--foreground`       | `#1a1a1a`               | `#e6e6e6`                |
-| `--muted-foreground` | `#666666`               | `rgba(228,228,228,0.55)` |
-| `--border`           | `rgba(16,16,16,0.10)`   | `rgba(228,228,228,0.08)` |
-| `--accent` (Hover)   | `rgba(16,16,16,0.05)`   | `rgba(228,228,228,0.07)` |
-| `--primary`          | `#1E6AA4` (Blau)        | `#81A1C1` (Graublau)     |
+| `--background`       | `#F6F3ED` (Creme)       | `#0A1628` (Navy)         |
+| `--card`             | `#FBF8F2` (Panel hell)  | `#0E1E38` (Panel Navy)   |
+| `--popover`          | `#FBF8F2`               | `#11233F`                |
+| `--muted`            | `#EFE9DF` (Panel)       | `#152A4A`                |
+| `--foreground`       | `#1E1B16` (Tinte)       | `#F6F3ED` (Creme)        |
+| `--muted-foreground` | `#6B6250` (Tinte weich) | `#A3ABB8`                |
+| `--border`           | `#DFD6C4` (Linie)       | `rgba(246,243,237,0.10)` |
+| `--accent` (Hover)   | `rgba(30,27,22,0.05)`   | `rgba(246,243,237,0.07)` |
+| `--primary`          | `#2862C2` (Blau)        | `#6A9AE6`, Schrift Navy  |
 | `--ring`             | = `--primary`           | = `--primary`            |
 
-**Text in Farbe hält im hellen Thema 4,5:1** (seit 26.09.2026, J35): Blau,
-Rot und das Textgrau auf Seite, Karte, `--secondary` und ihrem eigenen
-10-%-Wisch, Weiß auf dem vollen Blau. Das alte Blau `#2D8FD9` hielt 3,2:1,
-das alte Rot 3,5:1. `scripts/test/marken.py` rechnet es nach (Punkt 9).
+Das Blau ist hell **eine Stufe dunkler** als das Blau der Website (`#2E6FD6`,
+hier `--primary-hover`): jenes hält als Fläche mit weißer Schrift 4,8:1, als
+Text auf Creme aber nur 4,4:1, und `--primary` ist beides. Dunkel ist es eine
+helle Stufe mit Navy als Schrift auf dem vollen Knopf; ein Blau, das weiße
+Schrift trägt, kann als Text auf Navy nicht 4,5:1 halten.
+
+**Text hält 4,5:1, in beiden Themen und auf Glas** (seit 26.09.2026 hell, seit
+5.7.0 auch dunkel und auf Glas): Blau, Rot und das Textgrau auf Seite, Karte,
+`--secondary` und ihrem eigenen 10-%-Wisch, die Schrift auf dem vollen Blau
+und dem vollen Rot, und Text auf Glas über Seite, Karte, Panel und dem
+Hauptknopf. Icons stehen in derselben Farbe wie Text und halten damit
+mindestens 3:1. `scripts/test/marken.py` rechnet es nach (Punkt 9).
 
 Eine Linienfarbe mit niedriger Alpha, keine zweite „dicke" Kante. Hover ist
 eine neutrale Alpha, kein eigener Farbton. Scrollbalken: Spur transparent,
 Griff neutral.
 
 **Statusfarben** nur für Zustände, und es sind zwei: `--destructive`
-(`#C42020` hell, `#EF4444` dunkel) für einen Fehler, `--primary` für Erfolg und Hinweis. Eine
+(`#C42020` hell, `#F26D6D` mit Navy als Schrift dunkel) für einen Fehler, `--primary` für Erfolg und Hinweis. Eine
 Warnung ist `--muted-foreground` mit Text. `--success` und `--warning` gibt
 es seit dem 30.08.2026 nicht mehr; die Varianten `success`/`warning` an
 `Badge`, `Toast`, `Button` und `Meldung` bleiben als Bedeutung und bekommen
@@ -143,9 +160,61 @@ Blau beziehungsweise Grau. Für Text auf hellem Alpha-Grund die Tripel
 Drei Farben für drei Werte derselben Einheit behaupten eine Bedeutung, die es
 nicht gibt.
 
+## Glas
+
+Glas sitzt **nur auf schwebenden Bedienflächen**: Menüs, Aufklappfelder
+(`Select`, `Popover`, `HoverCard`, Kontextmenü, Menüleiste), kurze Meldungen
+(`Toast`), das Menü der Bausteine (`ara-menue`) und der Schleier unter Dialog
+und Blatt. Tabellen, Formulare, Karten und der **Inhalt** eines Dialogs
+bleiben deckend. Höchstens drei Glasflächen je Ansicht.
+
+- Die Klasse `.glas` (in `theme.css`, Schicht `components`) setzt Füllung,
+  Unschärfe, Kante und Schatten; `.glas-schleier` die leichte Unschärfe des
+  Schleiers. In einer App ohne Bau: `--ara-glas`, `--ara-glas-filter`,
+  `--ara-glas-kante`.
+- **Deckend ist der Normalfall.** `--glas-flaeche` ist `--popover`; erst wenn
+  der Browser `backdrop-filter` kann, wird es `--popover` zu `--glas-anteil`
+  (88 %), Unschärfe 16 px mit leichter Sättigung. Die Unschärfe wird nie
+  animiert. Die Kante trägt den Eindruck: 1 px heller Rand, weicher Schatten.
+- **Transparenz reduzieren** je Person in den Einstellungen (Erscheinungsbild,
+  `admin_users.transparenz_reduziert`, Migration 216, `PUT /api/darstellung`):
+  die Shell setzt `data-transparenz="reduziert"` an ihr `<html>` und an das
+  jeder App im Rahmen, und Glas wird deckend. Die Systemwünsche
+  `prefers-reduced-transparency` und `prefers-contrast: more` gelten ohne
+  Zutun, „weniger Bewegung“ wie bisher.
+- Glas über einem iframe sieht nur, was im Dokument des Rahmens darunter liegt,
+  nicht den Inhalt der App.
+
+## Symbole
+
+Lucide, **nur über die Bibliothek**: `import { Trash2 } from '@marken/symbole'`
+und gezeichnet mit `<Icon symbol={Trash2} groesse="klein|mittel|gross" />`
+(14, 16, 20 px). Eine Strichstärke, 1,75 px, unabhängig von der Größe:
+`theme.css` zieht jedes Lucide-Symbol darauf (`non-scaling-stroke`), auch
+eines, das direkt als Komponente steht. `scripts/test/bausteine.py` (Regel 10)
+meldet jeden freien Import von `lucide-react` außerhalb von
+`packages/marken/`; das Entwickler-Cockpit lädt die Bibliothek zur Laufzeit,
+wo es den Ausgang `symbole` nicht gibt, und steht als Ratsche in
+`LUCIDE_RATSCHE` (die Zahl darf sinken, nie steigen).
+
 ## Maße
 
-- **Radien** `--radius-xs/sm/md/lg/xl` = 4/6/8/12/16 px.
+| Teil               | Maß                                                        |
+| ------------------ | ---------------------------------------------------------- |
+| Button mit Text    | 32 px hoch, Radius 8 px, Schrift 14 px (`size` default)    |
+| Icon-Button        | 28 px, ohne Rahmen, getönt beim Überfahren (`size="icon"`) |
+| Feld im Formular   | 32 px hoch (`Input`, `SelectTrigger`)                      |
+| Menü, Aufklappfeld | Glas, Radius 12 px                                         |
+| Dialog             | Fläche deckend, Radius 16 px, Schleier mit Unschärfe       |
+
+Höhen von Knopf und Feld stehen in **Pixeln**, nicht in rem: die Shell rechnet
+mit 17 px Wurzelschrift (Root-Hebel unten), 2 rem wären dort 34 px. Bei
+grobem Zeiger und am Handy ist jede **Trefferfläche** mindestens 44 px, der
+sichtbare Knopf bleibt kompakt: `Button` legt ein leeres `::before` von 44 px
+darüber, und die allgemeine 44-px-Regel in `index.css` lässt ihn deshalb aus.
+Nichts ist kleiner als 24 px. Rot nur für Löschen.
+
+- **Radien** `--radius-xs/sm/md/lg/2xl/xl` = 4/6/8/12/14/16 px.
 - **Dichte-Skala** für die Shell und normierte Ansichten (Systemstatus):
   Text `text-xs/sm/lg` = 12/13/16 px (drei Größen, zwei Gewichte
   `font-normal`/`font-medium`; `bausteine.py` hält das), Abstände `*-ui-1…4` =
@@ -156,8 +225,8 @@ nicht gibt.
 - **Root-Hebel** `html { font-size: 106.25% }` (17 px): skaliert alle
   rem-Werte um ~6 %. Feste px-Werte (Symbole `--icon-*`) sind deshalb eine
   Stufe angehoben.
-- Berührungsziele mindestens 44 px. Übergänge aus `--transition-fast/base/slow`
-  (0,15/0,2/0,3 s), keine eigenen Zeiten.
+- Übergänge aus `--transition-fast/base/slow` (0,15/0,2/0,3 s), keine eigenen
+  Zeiten; Knöpfe 120 ms.
 
 ## Das Designsystem für alle Apps (`packages/marken/`)
 
