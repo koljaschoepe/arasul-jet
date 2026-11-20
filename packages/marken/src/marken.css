@@ -85,7 +85,7 @@
      (Abschnitt GLAS); ohne diese Datei ist die Flaeche deckend. */
   --ara-glas: var(--glas-flaeche, var(--ara-flaeche-hoch));
   --ara-glas-filter: var(--glas-filter, none);
-  --ara-glas-kante: var(--glas-kante, var(--ara-kante));
+  --ara-glas-kante: var(--glas-kante, rgba(255, 255, 255, 0.7));
 
   /* Der Schatten der angehobenen Karte, beim Ueberfahren. Ausser an Menues
      ist er der einzige Schatten der Bibliothek. */
@@ -143,6 +143,7 @@
   --ara-akzent-text: var(--primary-foreground, #0a1628);
   --ara-fehler: var(--destructive, #f26d6d);
   --ara-schleier: var(--backdrop-color, rgba(4, 10, 20, 0.6));
+  --ara-glas-kante: var(--glas-kante, rgba(246, 243, 237, 0.12));
   --ara-schatten-hoch:
     0 6px 18px -6px color-mix(in srgb, black 55%, transparent),
     0 2px 4px -2px color-mix(in srgb, black 35%, transparent);

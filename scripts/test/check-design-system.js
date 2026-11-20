@@ -43,6 +43,9 @@ const ALLOWED_COLORS = [
   '#10b981', '#3498db',
   '#000', '#000000', '#fff', '#ffffff',
   '#1d2835',
+  // Die Farben der Marke (5.7.0): Creme, Panel hell, Tinte, Linie, Navy, Blau.
+  '#f6f3ed', '#fbf8f2', '#efe9df', '#1e1b16', '#6b6250', '#dfd6c4',
+  '#0a1628', '#0e1e38', '#11233f', '#2862c2', '#2e6fd6', '#6a9ae6', '#f26d6d',
 ];
 
 // --- Thresholds (ratchet — never increase) -----------------------------------
@@ -151,12 +154,14 @@ function checkIndexCSS() {
   // werden deshalb beide Seiten -- ein Wert, den nur eines der beiden Themes
   // hat, ist ein Wert, der im anderen fehlt.
   // Siehe docs/development/DESIGN.md.
-  // Hell seit 26.09.2026 #1E6AA4 statt #2D8FD9: das alte Blau hielt 3,2:1 auf
-  // dem hellen Grund, verlangt sind 4,5:1 (`marken.py`, Punkt 9).
-  if (!lower.includes('--primary: #1e6aa4')) errors.push('Primary (Hell) nicht #1E6AA4');
-  if (!lower.includes('--background: #f6f6f6')) errors.push('Background (Hell) nicht #F6F6F6');
-  if (!lower.includes('--primary: #81a1c1')) errors.push('Primary (Dunkel) nicht #81A1C1');
-  if (!lower.includes('--background: #141414')) errors.push('Background (Dunkel) nicht #141414');
+  // Seit dem Grundton der Marke (Bibliothek 5.7.0, 20.11.2026) die Farben
+  // der Marke: Creme als Grund, Navy im Dunkeln. Das Blau ist hell eine Stufe
+  // dunkler als das der Website, damit es als Text auf Creme 4,5:1 haelt,
+  // dunkel eine helle Stufe mit Navy als Schrift (`marken.py`, Punkt 9).
+  if (!lower.includes('--primary: #2862c2')) errors.push('Primary (Hell) nicht #2862C2');
+  if (!lower.includes('--background: #f6f3ed')) errors.push('Background (Hell) nicht #F6F3ED');
+  if (!lower.includes('--primary: #6a9ae6')) errors.push('Primary (Dunkel) nicht #6A9AE6');
+  if (!lower.includes('--background: #0a1628')) errors.push('Background (Dunkel) nicht #0A1628');
   if (!lower.includes('--text-primary')) errors.push('--text-primary Variable fehlt');
 
   // »Schwarz« ist mit H1 gefallen, und mit ihm die Klasse `.light`: Hell IST

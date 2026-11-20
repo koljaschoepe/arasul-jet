@@ -30,18 +30,18 @@
 
 const TOKENS = {
   hell: {
-    background: '#f6f6f6',
-    foreground: '#1a1a1a',
-    card: '#ffffff',
-    primary: '#1e6aa4',
-    'muted-foreground': '#666666',
+    background: '#f6f3ed',
+    foreground: '#1e1b16',
+    card: '#fbf8f2',
+    primary: '#2862c2',
+    'muted-foreground': '#6b6250',
   },
   dunkel: {
-    background: '#141414',
-    foreground: '#e6e6e6',
-    card: '#181818',
-    primary: '#81a1c1',
-    'muted-foreground': 'rgba(228, 228, 228, 0.55)',
+    background: '#0a1628',
+    foreground: '#f6f3ed',
+    card: '#0e1e38',
+    primary: '#6a9ae6',
+    'muted-foreground': '#a3abb8',
   },
 };
 

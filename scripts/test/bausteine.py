@@ -610,6 +610,8 @@ def lucide_frei(wurzel: Path) -> list[str]:
                 '`@marken/symbole` und werden mit `Icon` gezeichnet.'
             )
     for relativ in sorted(set(LUCIDE_RATSCHE) - gesehen):
+        if not (wurzel / relativ).parent.is_dir():
+            continue  # ein Baum ohne diesen Ordner (der Selbsttest der Waechter)
         befunde.append(
             f'{relativ}  steht in LUCIDE_RATSCHE, importiert Lucide aber nicht mehr: '
             'aus der Ratsche nehmen, damit sie nicht wieder aufgeht.'

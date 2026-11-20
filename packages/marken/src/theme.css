@@ -215,7 +215,7 @@
   /* Die Farben der Marke. Creme ist der Grund, Panel hell die Karte, Panel
      die Stufe darunter, Tinte der Text, Tinte weich der Nebentext, Linie die
      Kante. Das Blau ist eine Stufe dunkler als das Blau der Website
-     (#2e6fd6): jenes haelt als Flaeche mit weisser Schrift 4,8:1, als Text auf
+     (`--primary-hover`): jenes haelt als Flaeche mit weisser Schrift 4,8:1, als Text auf
      Creme aber nur 4,4:1. `--primary` ist beides, Flaeche und Text, und
      braucht deshalb die Stufe, die auf Creme, Karte, Panel und dem eigenen
      Wisch 4,5:1 haelt (gemessen von `scripts/test/marken.py`, Punkt 9). */
@@ -358,7 +358,9 @@
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :root {
+  /* `html:root`, nicht `:root`: dieselbe Wurzel, aber `marken.py` liest diesen
+     Block nicht als Grundwert der Tokens. */
+  html:root {
     --glas-flaeche: var(--popover) !important;
     --glas-filter: none !important;
     --glas-schleier-filter: none !important;
