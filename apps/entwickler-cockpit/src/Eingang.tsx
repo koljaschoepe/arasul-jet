@@ -93,6 +93,7 @@ const SPALTEN: ReadonlyArray<Spalte<Meldung>> = [
   {
     schluessel: 'stand',
     titel: 'Stand',
+    inKarteOben: true,
     wert: m => STAENDE.indexOf(m.stand_meldung),
     zelle: m => <StandAbzeichen stand={m.stand_meldung} />,
   },
@@ -115,16 +116,12 @@ function Auswahl({
     // Die Beschriftung nur für Vorlesewerkzeuge: der Wert („Alle Apps“,
     // „Offen (neu und angenommen)“) sagt es schon, und zwei verschieden lange
     // Wörter davor rückten die Felder am Handy verschieden weit ein.
-    <div>
+    <div style={{ flex: '1 1 14rem', maxWidth: '18rem' }}>
       <Label htmlFor={kennung} className="sr-only">
         {beschriftung}
       </Label>
       <Select value={wert} onValueChange={setze}>
-        <SelectTrigger
-          id={kennung}
-          data-testid={kennung}
-          style={{ width: '15rem', maxWidth: '100%' }}
-        >
+        <SelectTrigger id={kennung} data-testid={kennung} style={{ width: '100%' }}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -315,7 +312,7 @@ export function Eingang({
   }, [offenId, laedt, gewaehlt]);
 
   return (
-    <div style={spalte(4)} data-testid="cockpit-eingang">
+    <div style={spalte(2)} data-testid="cockpit-eingang">
       <Kopf
         titel="Eingang"
         beschreibung={`Was in den Apps über das Icon oben rechts gemeldet wurde. ${anzahl(offen, 'Meldung ist', 'Meldungen sind')} offen.`}

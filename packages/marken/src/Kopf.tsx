@@ -4,6 +4,7 @@ import {
   useContext,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ButtonHTMLAttributes,
   type ReactNode,
@@ -127,6 +128,8 @@ export function Kopf({
   ebene = 1,
 }: KopfProps) {
   const Titel = ebene === 2 ? 'h2' : 'h1';
+  const kasten = useRef<HTMLElement>(null);
+  const frei = useKapselFrei(kasten, mittig);
   const kontext = useContext(VorneKontext);
   const [kennung] = useState(() => naechsteKennung++);
   const anmelden = kontext?.anmelden;
@@ -147,7 +150,12 @@ export function Kopf({
   // zwei linke Kanten, und am Handy rueckte der Satz um seine Breite ein.
   const leiste = !mittig && (werkzeuge || links);
   return (
-    <header className="ara-kopf" data-mittig={mittig ? 'true' : undefined}>
+    <header
+      ref={kasten}
+      className="ara-kopf"
+      data-mittig={mittig ? 'true' : undefined}
+      style={frei === null ? undefined : { paddingRight: frei }}
+    >
       <div className="ara-kopf__text">
         <Titel className="ara-kopf__titel">{titel}</Titel>
         {beschreibung && <p className="ara-kopf__satz">{beschreibung}</p>}
@@ -162,6 +170,43 @@ export function Kopf({
       {aktionen && <div className="ara-kopf__aktionen">{aktionen}</div>}
     </header>
   );
+}
+
+/**
+ * Wie viel der Kopf rechts fuer die Kapsel frei haelt (5.9.2): nur so viel,
+ * wie er in sie hineinreicht. `--ara-kapsel-platz` ist vom rechten Rand der
+ * App gemessen; steht der Kopf mit dem Rand der Seite und ihrer Hoechstbreite
+ * ohnehin weiter links, braucht er nichts, und seine Werkzeuge enden buendig
+ * mit Tabelle und Kacheln darunter. Ohne Messung (erstes Bild) gilt die
+ * Regel aus `marken.css`, der ganze Platz.
+ */
+function useKapselFrei(kasten: { current: HTMLElement | null }, aus: boolean): number | null {
+  const [frei, setFrei] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (aus || typeof window === 'undefined') return;
+    const messen = () => {
+      const el = kasten.current;
+      if (!el) return;
+      const platz = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--ara-kapsel-platz')
+      );
+      if (!Number.isFinite(platz) || platz <= 0) {
+        setFrei(0);
+        return;
+      }
+      const abstand = document.documentElement.clientWidth - el.getBoundingClientRect().right;
+      setFrei(Math.max(0, Math.ceil(platz - abstand)));
+    };
+    messen();
+    const beobachter = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(messen);
+    beobachter?.observe(document.documentElement);
+    window.addEventListener('resize', messen);
+    return () => {
+      beobachter?.disconnect();
+      window.removeEventListener('resize', messen);
+    };
+  }, [kasten, aus]);
+  return frei;
 }
 
 /**

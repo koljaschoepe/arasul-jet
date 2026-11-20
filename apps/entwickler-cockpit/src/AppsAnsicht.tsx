@@ -41,12 +41,14 @@ const SPALTEN: ReadonlyArray<Spalte<AppStand>> = [
     schluessel: 'live',
     titel: 'Live',
     wert: a => a.live?.version ?? '',
+    kartenText: a => (a.live ? `Live ${a.live.version}` : 'noch nicht live'),
     zelle: a => <FassungZelle fassung={a.live} leerText="noch nicht live" />,
   },
   {
     schluessel: 'test',
     titel: 'Test',
     wert: a => a.test?.version ?? '',
+    kartenText: a => (a.test ? `Test ${a.test.version}` : null),
     zelle: a => (
       <span style={{ display: 'inline-flex', gap: 'var(--ara-abstand-1)', alignItems: 'center' }}>
         <FassungZelle fassung={a.test} leerText={a.mitgeliefert ? '—' : 'nichts im Test'} />
@@ -66,6 +68,13 @@ const SPALTEN: ReadonlyArray<Spalte<AppStand>> = [
     schluessel: 'offen',
     titel: 'Offene Meldungen',
     ausrichtung: 'rechts',
+    inKarteOben: true,
+    kartenText: a =>
+      a.meldungen.offen > 0 ? (
+        <Badge variant={a.meldungen.neu > 0 ? 'primary' : 'default'}>
+          {anzahl(a.meldungen.offen, 'Meldung', 'Meldungen')}
+        </Badge>
+      ) : null,
     wert: a => a.meldungen.offen,
     zelle: a =>
       a.meldungen.offen > 0 ? (
@@ -99,7 +108,7 @@ export function AppsAnsicht({
   const neu = apps.reduce((summe, a) => summe + a.meldungen.neu, 0);
   const wartend = wartetAufLive(apps).length;
   return (
-    <div style={spalte(4)} data-testid="cockpit-apps">
+    <div style={spalte(2)} data-testid="cockpit-apps">
       <Kopf
         titel="Apps"
         werkzeuge={werkzeuge}

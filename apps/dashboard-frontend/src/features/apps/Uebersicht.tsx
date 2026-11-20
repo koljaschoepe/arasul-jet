@@ -141,7 +141,12 @@ export function Uebersicht({
   const name = user?.vorname?.trim() || user?.anzeigeName || user?.username || '';
 
   return (
-    <div className="ara-strom pt-[10px]" data-testid="uebersicht-seite">
+    // Dieselben Ränder wie jede Seite (Bereichsrahmen, Cockpit): linksbündig,
+    // oben 10 px, seitlich 16 bis 24 px, höchstens 64rem breit.
+    <div
+      className="max-w-[64rem] px-[clamp(16px,4vw,24px)] pt-[10px] pb-6"
+      data-testid="uebersicht-seite"
+    >
       <StartKopf name={name} offen={offen} />
 
       {/* Zuerst das, was auf eine ANTWORT wartet, danach das, was offen

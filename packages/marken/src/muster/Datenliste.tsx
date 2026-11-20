@@ -69,6 +69,14 @@ export interface Spalte<Zeile> {
   /** Unter 900 px: steht die Spalte in der Karte? Vorgabe ja. */
   inKarte?: boolean;
   /**
+   * Was die Spalte in der Karte zeigt, wenn es dort anders heissen muss
+   * (seit 5.9.2): in der Zeile ohne Beschriftung braucht „0.2.0" ein
+   * „Live" davor. `null` laesst die Spalte in dieser Karte weg.
+   */
+  kartenText?: (zeile: Zeile) => React.ReactNode;
+  /** Die Spalte steht in der Karte oben rechts neben dem Titel, etwa ein Abzeichen (5.9.2). */
+  inKarteOben?: boolean;
+  /**
    * Eine lange Zelle endet mit „…" statt die Tabelle zu verbreitern. Die
    * Spalte nimmt dann den Platz, der uebrig bleibt, und nicht mehr: ein
    * langer Titel schob sonst bei 1280 px die Spalten rechts von ihm aus der
@@ -327,20 +335,39 @@ export function Datenliste<Zeile>({
             // eigenen Zeile, und die Karte war dreimal so hoch wie ihr Inhalt.
             // Die Beschriftung bleibt fuer Vorlesewerkzeuge.
             const inKarte = spalten.filter(spalte => spalte.inKarte !== false);
-            const [erste, ...rest] = inKarte;
+            const oben = inKarte.filter(spalte => spalte.inKarteOben);
+            const [erste, ...uebrige] = inKarte.filter(spalte => !spalte.inKarteOben);
+            const karte = (spalte: Spalte<Zeile>) =>
+              spalte.kartenText ? spalte.kartenText(zeile) : spalte.zelle(zeile);
+            // Was in dieser Karte nichts zeigt, steht auch nicht da, samt Trenner.
+            const rest = uebrige
+              .map(spalte => ({ spalte, inhalt: karte(spalte) }))
+              .filter(({ inhalt }) => inhalt !== null && inhalt !== undefined && inhalt !== '');
             const inhalt = (
               <>
                 {erste && (
-                  <div
-                    className="line-clamp-2 text-ui font-medium text-foreground"
-                    title={erste.kuerzen ? volltext(erste, zeile) : undefined}
-                  >
-                    {erste.zelle(zeile)}
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      className="line-clamp-2 min-w-0 text-ui font-medium text-foreground"
+                      title={erste.kuerzen ? volltext(erste, zeile) : undefined}
+                    >
+                      {karte(erste)}
+                    </div>
+                    {oben.length > 0 && (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {oben.map(spalte => (
+                          <span key={spalte.schluessel}>
+                            <span className="sr-only">{spalte.titel}: </span>
+                            {karte(spalte)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {rest.length > 0 && (
                   <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-ui-sm text-muted-foreground">
-                    {rest.map((spalte, i) => (
+                    {rest.map(({ spalte, inhalt: text }, i) => (
                       <React.Fragment key={spalte.schluessel}>
                         {i > 0 && <span aria-hidden="true">·</span>}
                         <span
@@ -351,7 +378,7 @@ export function Datenliste<Zeile>({
                           title={spalte.kuerzen ? volltext(spalte, zeile) : undefined}
                         >
                           <span className="sr-only">{spalte.titel}: </span>
-                          {spalte.zelle(zeile)}
+                          {text}
                         </span>
                       </React.Fragment>
                     ))}
