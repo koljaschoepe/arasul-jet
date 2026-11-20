@@ -46,8 +46,6 @@ COPY apps/dashboard-backend/__tests__/ ./__tests__/
 COPY apps/dashboard-backend/__mocks__/ ./__mocks__/
 COPY apps/dashboard-backend/jest.setup.js ./jest.setup.js
 COPY apps/dashboard-backend/openapi.yaml ./
-# Die mitgelieferte App: `app.json` und `frontend/` (J44).
-COPY --from=cockpit /app/apps/entwickler-cockpit/dist/ ./mitgeliefert/entwickler-cockpit/
 ENV NODE_ENV=test
 CMD ["npx", "jest", "--passWithNoTests", "--maxWorkers=2"]
 
@@ -83,6 +81,8 @@ RUN npm ci --omit=dev --workspace=arasul-dashboard-backend --include-workspace-r
 WORKDIR /app/apps/dashboard-backend
 COPY apps/dashboard-backend/src/ ./src/
 COPY apps/dashboard-backend/openapi.yaml ./
+# Die mitgelieferte App: `app.json` und `frontend/` (J44).
+COPY --from=cockpit /app/apps/entwickler-cockpit/dist/ ./mitgeliefert/entwickler-cockpit/
 
 EXPOSE 3001
 
