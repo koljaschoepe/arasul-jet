@@ -11,6 +11,7 @@
  *
  *   marken.js          alle drei Saetze, dazu `h`, `rendern` und die Hooks
  *   diagramm.js        `Chart`, `Sparkline`, `SERIENFARBEN` (eigener Eingang)
+ *   symbole.js         Lucide, wie `@marken/symbole` (eigener Eingang, 5.9.0)
  *   react.js           React, fuer eine App mit eigenem Bau
  *   react-dom.js       React-DOM
  *   react-dom-client.js  `createRoot`, `hydrateRoot`
@@ -134,7 +135,13 @@ function stempeln() {
           fassung,
           haupt: Number(haupt),
           adresse: `/marken/${haupt}/`,
-          eingaenge: ['marken.js', 'marken.css', 'diagramm.js', ...Object.keys(REACT_EINGAENGE)],
+          eingaenge: [
+            'marken.js',
+            'marken.css',
+            'diagramm.js',
+            'symbole.js',
+            ...Object.keys(REACT_EINGAENGE),
+          ],
           dateien,
         };
         writeFileSync(path.join(ziel, 'marken.json'), JSON.stringify(stempel, null, 2) + '\n');
@@ -169,6 +176,7 @@ export default defineConfig({
       input: {
         marken: path.join(wurzel, 'laufzeit/marken.ts'),
         diagramm: path.join(wurzel, 'laufzeit/diagramm.ts'),
+        symbole: path.join(wurzel, 'laufzeit/symbole.ts'),
         stil: path.join(wurzel, 'laufzeit/marken.css'),
         ...Object.fromEntries(
           Object.entries(REACT_EINGAENGE).map(([datei, modul]) => [

@@ -582,12 +582,9 @@ LUCIDE_IMPORT = re.compile(r"""(?:from\s+|import\(\s*)['"]lucide-react(?:/[^'"]*
 LUCIDE_ORDNER = ['apps/dashboard-frontend/src', 'apps/dashboard-frontend/demo', 'apps/entwickler-cockpit/src']
 # Dateien, die Lucide noch selbst holen duerfen, und warum. Die Ratsche: wer
 # eine umstellt, nimmt sie hier heraus; eine neue kommt nicht dazu.
-LUCIDE_RATSCHE = {
-    'apps/entwickler-cockpit/src/App.tsx': 'Cockpit, Bibliothek zur Laufzeit ohne `symbole`',
-    'apps/entwickler-cockpit/src/AppsAnsicht.tsx': 'dito',
-    'apps/entwickler-cockpit/src/TestNachLive.tsx': 'dito',
-    'apps/entwickler-cockpit/src/Eingang.tsx': 'dito',
-}
+# Leer seit J50 (Bibliothek 5.9.0): das Cockpit bindet `@marken/symbole` an
+# `/marken/5/symbole.js` und zeichnet mit `Icon`.
+LUCIDE_RATSCHE: dict[str, str] = {}
 
 
 def lucide_frei(wurzel: Path) -> list[str]:

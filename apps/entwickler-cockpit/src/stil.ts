@@ -19,9 +19,14 @@ export const zeile = (abstand = 2): CSSProperties => ({
   gap: `var(--ara-abstand-${abstand})`,
 });
 
+/**
+ * Die Fläche einer Ansicht. Oben 10 px: der Seitenkopf (28 px hoch) steht
+ * damit auf derselben Linie wie die Kapsel des Rahmens (8 px vom Rand,
+ * 32 px hoch), deren Platz er rechts freihält.
+ */
 export const inhalt: CSSProperties = {
   ...spalte(4),
-  padding: 'var(--ara-abstand-4)',
+  padding: '10px var(--ara-abstand-4) var(--ara-abstand-4)',
   maxWidth: '72rem',
   width: '100%',
   boxSizing: 'border-box',

@@ -292,6 +292,7 @@ einer festen Adresse auf derselben Herkunft wie jede App:
 /marken/5/marken.css        Tokens, Regeln der Bausteine, Klassen der Primitive
 /marken/5/marken.js         alle drei Sätze, dazu h, rendern und die Hooks
 /marken/5/diagramm.js       Chart, Sparkline, SERIENFARBEN
+/marken/5/symbole.js        Lucide wie @marken/symbole, gezeichnet mit Icon (seit 5.9.0)
 /marken/5/react.js          react            (für eine App mit Bau)
 /marken/5/react-dom.js      react-dom
 /marken/5/react-dom-client.js  react-dom/client
@@ -371,6 +372,7 @@ const vomGeraet = {
   'react/jsx-runtime': MARKEN + 'jsx-runtime.js',
   '@marken': MARKEN + 'marken.js',
   '@marken/diagramm': MARKEN + 'diagramm.js',
+  '@marken/symbole': MARKEN + 'symbole.js',
 };
 export default defineConfig({
   base: './',

@@ -210,8 +210,8 @@ und gezeichnet mit `<Icon symbol={Trash2} groesse="klein|mittel|gross" />`
 eines, das direkt als Komponente steht. `scripts/test/bausteine.py` (Regel 10)
 meldet jeden freien Import von `lucide-react` außerhalb von
 `packages/marken/`; das Entwickler-Cockpit lädt die Bibliothek zur Laufzeit,
-wo es den Ausgang `symbole` nicht gibt, und steht als Ratsche in
-`LUCIDE_RATSCHE` (die Zahl darf sinken, nie steigen).
+und bindet seit 5.9.0 `@marken/symbole` an `/marken/5/symbole.js`, einen
+eigenen Eingang der Laufzeit; `LUCIDE_RATSCHE` ist damit leer und bleibt es.
 
 ## Maße
 

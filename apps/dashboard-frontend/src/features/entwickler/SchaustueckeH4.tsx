@@ -281,6 +281,21 @@ export function SchaustueckeH4() {
             />
           </div>
         </Zustand>
+        <Zustand name="Balken (5.9.0)">
+          <div className="w-72">
+            <Chart
+              art="balken"
+              data={VERLAUF}
+              series={REIHEN.slice(0, 1)}
+              xKey="t"
+              formatX={wert => `${wert} h`}
+              formatY={wert => `${wert}%`}
+              yDomain={[0, 100]}
+              height={180}
+              label="Arbeitsspeicher der letzten sechs Stunden"
+            />
+          </div>
+        </Zustand>
         <Zustand name="Sparkline">
           <div className="w-32">
             <Sparkline values={VERLAUF.map(punkt => punkt.RAM)} />

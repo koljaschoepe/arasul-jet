@@ -56,6 +56,7 @@ const vomGeraet = {
   'react/jsx-runtime': MARKEN + 'jsx-runtime.js',
   '@marken': MARKEN + 'marken.js',
   '@marken/diagramm': MARKEN + 'diagramm.js',
+  '@marken/symbole': MARKEN + 'symbole.js',
 };
 // build.rollupOptions: { external: Object.keys(vomGeraet), output: { paths: vomGeraet } }
 ```

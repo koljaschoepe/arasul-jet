@@ -33,7 +33,8 @@ describe('Leerzustand', () => {
     // der fünf Aufrufer.
     const { container } = render(<Leerzustand titel="Keine Ereignisse" />);
     const huelle = container.querySelector('[aria-hidden="true"]');
-    expect(huelle?.className).toContain('[&>svg]:size-6');
+    // Seit 5.9.0 kompakt: 20 px auf einem getoenten Kreis.
+    expect(huelle?.className).toContain('[&>svg]:size-5');
     expect(huelle?.className).not.toContain('text-5xl');
     expect(huelle?.className).not.toContain('opacity-50');
   });

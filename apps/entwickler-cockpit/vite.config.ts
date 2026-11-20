@@ -24,6 +24,8 @@ const vomGeraet: Record<string, string> = {
   'react-dom/client': MARKEN + 'react-dom-client.js',
   'react/jsx-runtime': MARKEN + 'jsx-runtime.js',
   '@marken': MARKEN + 'marken.js',
+  // Seit Bibliothek 5.9.0: Symbole vom Gerät, nicht mehr Lucide im Bündel.
+  '@marken/symbole': MARKEN + 'symbole.js',
 };
 
 /** `app.json` neben `frontend/` legen: die Form eines Pakets. */

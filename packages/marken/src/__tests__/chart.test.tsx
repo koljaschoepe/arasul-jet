@@ -111,11 +111,9 @@ describe('Chart', () => {
     // Nur die Achsen selbst, nicht ihre Zahlen: recharts rechnet die Marken
     // aus der gemessenen Flaeche, und die ist in jsdom null. Was die Achse
     // beschriftet, prueft der Aufrufer an seinem eigenen Text.
+    // Seit 5.9.0 tragen die Achsen keinen Strich mehr; gezaehlt werden die
+    // Achsen selbst.
     expect(container.querySelectorAll('.recharts-yAxis')).toHaveLength(2);
-    const seiten = Array.from(
-      container.querySelectorAll('.recharts-yAxis line.recharts-cartesian-axis-line')
-    ).map(knoten => knoten.getAttribute('x1'));
-    expect(new Set(seiten).size).toBe(2);
   });
 
   it('bringt keine eigene Karte mit, die Fläche stellt der Aufrufer', () => {

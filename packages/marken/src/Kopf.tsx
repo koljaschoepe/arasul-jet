@@ -20,7 +20,7 @@ import {
  * waere in vier Wochen keine Entscheidung mehr, sondern ein Zufall.
  *
  * SEIT 5.9.0 BEGINNT JEDE SEITE GLEICH (Karte bausteine-seitenkopf-und-
- * kompakt, `company/gestaltung.md` des Ueberordners, „Neue Bausteine"): eine
+ * kompakt, Entwurf „Neue Bausteine der Bibliothek"): eine
  * Zeile, links Titel und Satz, rechts `werkzeuge`, davor der Knopf der
  * Seitenleiste. Die eigene Zeile mit dem einen Icon darueber und die
  * Trennlinie darunter gibt es nicht mehr; der Titel steht in der
@@ -68,6 +68,11 @@ export interface KopfProps {
    * der Groesse eines Titels, ohne Werkzeuge.
    */
   mittig?: boolean;
+  /**
+   * `2` zeichnet den Titel als `h2`, sonst gleich: fuer ein Beispiel auf der
+   * Schauseite, die ihr eigenes `h1` schon hat. Eine Seite nimmt die Vorgabe.
+   */
+  ebene?: 1 | 2;
 }
 
 interface Vorne {
@@ -119,7 +124,9 @@ export function Kopf({
   aktionen,
   vorne,
   mittig = false,
+  ebene = 1,
 }: KopfProps) {
+  const Titel = ebene === 2 ? 'h2' : 'h1';
   const kontext = useContext(VorneKontext);
   const [kennung] = useState(() => naechsteKennung++);
   const anmelden = kontext?.anmelden;
@@ -139,7 +146,7 @@ export function Kopf({
     <header className="ara-kopf" data-mittig={mittig ? 'true' : undefined}>
       {links && <div className="ara-kopf__vorne">{links}</div>}
       <div className="ara-kopf__text">
-        <h1 className="ara-kopf__titel">{titel}</h1>
+        <Titel className="ara-kopf__titel">{titel}</Titel>
         {beschreibung && <p className="ara-kopf__satz">{beschreibung}</p>}
       </div>
       {!mittig && werkzeuge && (

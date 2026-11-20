@@ -1,17 +1,28 @@
 /**
  * Der Rahmen des Cockpits: die Seitenleiste der Bibliothek mit drei
  * Einträgen (Eingang, Apps, Test nach Live), daneben die gewählte Ansicht.
- * Unter 900 px wird die Leiste ein Blatt, das der Knopf oben öffnet. Die
+ * Unter 900 px wird die Leiste ein Blatt. Der Knopf dafür sitzt im
+ * Seitenkopf jeder Ansicht (`KopfVorne`, Bibliothek 5.9.0), nicht mehr in
+ * einer eigenen Zeile darüber. Die
  * Ansicht steht im Fragment der Adresse (`#apps`), damit Neuladen dort
  * bleibt, wo man war.
  */
 import { useEffect, useState, type ReactNode } from 'react';
-import { AppWindow, ArrowUpFromLine, Inbox } from 'lucide-react';
-import { Seitenleiste, SidebarInset, SidebarProvider, SidebarTrigger } from '@marken';
+import { useQueryClient } from '@tanstack/react-query';
+import { AppWindow, ArrowUpFromLine, Inbox, RefreshCw } from '@marken/symbole';
+import {
+  Icon,
+  KopfVorne,
+  Seitenleiste,
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+  Werkzeug,
+} from '@marken';
 import { AppsAnsicht } from './AppsAnsicht';
 import { Eingang } from './Eingang';
 import { TestNachLive } from './TestNachLive';
-import { useApps, useMeldungen } from './daten';
+import { SCHLUESSEL, useApps, useMeldungen } from './daten';
 import {
   FILTER_VORGABE,
   ansichtAusAdresse,
@@ -19,7 +30,7 @@ import {
   wartetAufLive,
   type EingangFilter,
 } from './logik';
-import { inhalt, text } from './stil';
+import { inhalt } from './stil';
 import type { Ansicht } from './typen';
 
 const NAMEN: Record<Ansicht, string> = {
@@ -33,6 +44,18 @@ export function App() {
   const [filter, setFilter] = useState<EingangFilter>(FILTER_VORGABE);
   const meldungen = useMeldungen();
   const apps = useApps();
+  const qc = useQueryClient();
+  const neuLaden = (
+    <Werkzeug
+      symbol={<Icon symbol={RefreshCw} />}
+      beschriftung="Neu laden"
+      onClick={() => {
+        void qc.invalidateQueries({ queryKey: SCHLUESSEL.meldungen });
+        void qc.invalidateQueries({ queryKey: SCHLUESSEL.apps });
+      }}
+      data-testid="cockpit-neu-laden"
+    />
+  );
 
   useEffect(() => {
     const folgen = () => setAnsicht(ansichtAusAdresse(window.location.hash));
@@ -64,56 +87,49 @@ export function App() {
         gruppen={[
           {
             eintraege: [
-              eintrag('eingang', <Inbox />, offen),
-              eintrag('apps', <AppWindow />),
-              eintrag('live', <ArrowUpFromLine />, wartend),
+              eintrag('eingang', <Icon symbol={Inbox} />, offen),
+              eintrag('apps', <Icon symbol={AppWindow} />),
+              eintrag('live', <Icon symbol={ArrowUpFromLine} />, wartend),
             ],
           },
         ]}
       />
       <SidebarInset>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--ara-abstand-2)',
-            padding: 'var(--ara-abstand-2) var(--ara-abstand-3)',
-            borderBottom: '1px solid var(--ara-kante)',
-          }}
-        >
-          <SidebarTrigger data-testid="cockpit-leiste-umschalten" />
-          <span style={text}>{NAMEN[ansicht]}</span>
-        </div>
-        <main style={inhalt}>
-          {ansicht === 'eingang' && (
-            <Eingang
-              meldungen={meldungen.data ?? []}
-              apps={apps.data ?? []}
-              laedt={meldungen.isLoading}
-              fehler={meldungen.isError ? meldungen.error.message : null}
-              filter={filter}
-              setzeFilter={setFilter}
-            />
-          )}
-          {ansicht === 'apps' && (
-            <AppsAnsicht
-              apps={apps.data ?? []}
-              laedt={apps.isLoading}
-              fehler={apps.isError ? apps.error.message : null}
-              zeigeMeldungen={appId => {
-                setFilter({ app: appId, stand: 'offen' });
-                oeffne('eingang');
-              }}
-            />
-          )}
-          {ansicht === 'live' && (
-            <TestNachLive
-              apps={apps.data ?? []}
-              laedt={apps.isLoading}
-              fehler={apps.isError ? apps.error.message : null}
-            />
-          )}
-        </main>
+        <KopfVorne knopf={<SidebarTrigger data-testid="cockpit-leiste-umschalten" />}>
+          <div style={inhalt}>
+            {ansicht === 'eingang' && (
+              <Eingang
+                meldungen={meldungen.data ?? []}
+                apps={apps.data ?? []}
+                laedt={meldungen.isLoading}
+                fehler={meldungen.isError ? meldungen.error.message : null}
+                filter={filter}
+                setzeFilter={setFilter}
+                werkzeuge={neuLaden}
+              />
+            )}
+            {ansicht === 'apps' && (
+              <AppsAnsicht
+                apps={apps.data ?? []}
+                laedt={apps.isLoading}
+                fehler={apps.isError ? apps.error.message : null}
+                werkzeuge={neuLaden}
+                zeigeMeldungen={appId => {
+                  setFilter({ app: appId, stand: 'offen' });
+                  oeffne('eingang');
+                }}
+              />
+            )}
+            {ansicht === 'live' && (
+              <TestNachLive
+                apps={apps.data ?? []}
+                laedt={apps.isLoading}
+                fehler={apps.isError ? apps.error.message : null}
+                werkzeuge={neuLaden}
+              />
+            )}
+          </div>
+        </KopfVorne>
       </SidebarInset>
     </SidebarProvider>
   );

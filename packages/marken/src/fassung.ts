@@ -227,4 +227,20 @@
  * Rand Farbe traegt; dazu `--glas-schatten-klein` fuer Glas ueber Inhalt.
  * Kein Name, keine Eigenschaft aendert sich.
  */
-export const FASSUNG = '5.8.3';
+/*
+ * 5.9.0: das Innere der Flaeche. Der `Kopf` beginnt jede Seite gleich: links
+ * Titel und ein Satz, rechts `werkzeuge` (neu `Werkzeug`, ein Icon-Button von
+ * 28 px), davor der Knopf der Seitenleiste (neu `KopfVorne`); keine
+ * Trennlinie, kein Symbol vor dem Titel (`symbol` bleibt als Name und zeichnet
+ * nichts), rechts frei fuer `--ara-kapsel-platz`; dazu `ebene`. Die Tabelle
+ * ist kompakt (Kopfzeile 32 px, Zeile 40 px), die `Datenliste` liegt deckend
+ * auf `--card` mit Radius 12 px, ihre Beschriftung ist nur fuer
+ * Vorlesewerkzeuge, neu `zeilenKennzeichen`; der `Leerzustand` ist kompakt,
+ * `Kennzahl` deckend und mit `verlauf`, `Chart` mit `art` Linie oder Balken
+ * in einem Stil; das Feld eines `Formular` ist am Rechner 32 px hoch, der
+ * `SidebarTrigger` 28 px. Neu zur Laufzeit `symbole.js`. Kein Name faellt
+ * weg; eine App auf 5.8.3 sieht ohne Neubau den neuen Kopf und die neue
+ * Tabelle, nur `Werkzeug`, `KopfVorne`, `verlauf`, `art` und `symbole.js`
+ * bekommt sie erst mit einem Neubau.
+ */
+export const FASSUNG = '5.9.0';

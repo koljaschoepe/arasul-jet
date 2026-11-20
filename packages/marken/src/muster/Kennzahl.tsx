@@ -85,7 +85,7 @@ export function Kennzahl({ beschriftung, wert, einheit, fussnote, verlauf }: Ken
   const pfad = verlauf ? verlaufPfad(verlauf) : null;
   return (
     <div
-      className="min-w-0 rounded-[12px] border border-border bg-card px-4 py-3"
+      className="min-w-0 rounded-[12px] border border-border bg-card p-ui-3"
       data-slot="kennzahl"
     >
       <div className="truncate text-ui-sm text-muted-foreground">{beschriftung}</div>

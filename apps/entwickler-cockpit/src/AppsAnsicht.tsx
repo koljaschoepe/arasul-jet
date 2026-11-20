@@ -4,9 +4,17 @@
  * diese App. Gelesen über alle Apps des Geräts, nicht nur die freigegebenen:
  * wer das Kennzeichen trägt, baut die Apps dieses Hauses.
  */
-import { AppWindow } from 'lucide-react';
-import { Badge, Datenliste, Kopf, Meldung as Hinweis, type Spalte } from '@marken';
-import { anzahl, zeit } from './logik';
+import type { ReactNode } from 'react';
+import {
+  Badge,
+  Datenliste,
+  Kennzahl,
+  Kennzahlen,
+  Kopf,
+  Meldung as Hinweis,
+  type Spalte,
+} from '@marken';
+import { anzahl, wartetAufLive, zeit } from './logik';
 import { fest, leise, spalte } from './stil';
 import type { AppStand, Fassung } from './typen';
 
@@ -20,8 +28,10 @@ const SPALTEN: ReadonlyArray<Spalte<AppStand>> = [
     schluessel: 'name',
     titel: 'App',
     wert: a => a.name,
+    // Eine Zeile (40 px, Bibliothek 5.9.0): „kommt mit Arasul" steht als
+    // leiser Zusatz hinter dem Namen, nicht mehr darunter.
     zelle: a => (
-      <span style={spalte(1)}>
+      <span style={{ display: 'inline-flex', gap: 'var(--ara-abstand-2)', alignItems: 'baseline' }}>
         <span>{a.name}</span>
         {a.mitgeliefert && <span style={leise}>kommt mit Arasul</span>}
       </span>
@@ -76,20 +86,40 @@ export function AppsAnsicht({
   laedt,
   fehler,
   zeigeMeldungen,
+  werkzeuge,
 }: {
   apps: readonly AppStand[];
   laedt: boolean;
   fehler: string | null;
   zeigeMeldungen: (appId: string) => void;
+  /** Werkzeuge, die jede Ansicht trägt (Neu laden), aus dem Rahmen des Cockpits. */
+  werkzeuge?: ReactNode;
 }) {
   const offen = apps.reduce((summe, a) => summe + a.meldungen.offen, 0);
+  const neu = apps.reduce((summe, a) => summe + a.meldungen.neu, 0);
+  const umgesetzt = apps.reduce((summe, a) => summe + a.meldungen.umgesetzt, 0);
+  const wartend = wartetAufLive(apps).length;
   return (
     <div style={spalte(4)} data-testid="cockpit-apps">
       <Kopf
         titel="Apps"
-        symbol={<AppWindow />}
+        werkzeuge={werkzeuge}
         beschreibung={`Je App die Fassung in Test und Live. ${anzahl(offen, 'offene Meldung', 'offene Meldungen')} über alle Apps; ein Klick zeigt sie.`}
       />
+      {!fehler && !laedt && apps.length > 0 && (
+        <div data-testid="cockpit-kennzahlen">
+          <Kennzahlen>
+            <Kennzahl beschriftung="Apps" wert={apps.length} />
+            <Kennzahl beschriftung="Offene Meldungen" wert={offen} />
+            <Kennzahl beschriftung="Davon neu" wert={neu} />
+            <Kennzahl
+              beschriftung="Warten auf Live"
+              wert={wartend}
+              fussnote={`${anzahl(umgesetzt, 'Meldung', 'Meldungen')} umgesetzt`}
+            />
+          </Kennzahlen>
+        </div>
+      )}
       {fehler ? (
         <Hinweis
           art="fehler"
