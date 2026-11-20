@@ -133,15 +133,26 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
     navigate(pfad);
   }, [ansicht]);
 
+  // Am Handy schwebt die Leiste ÜBER der Fläche (J50): Inhalt rollt unter das
+  // Glas, und was unten steht, hält ihren Platz frei. Die Shell nennt ihn
+  // als `--ara-leiste-platz` (Leiste 56 px, 8 px Luft, dazu der sichere Rand
+  // unten); Bereichsrahmen, Startseite und der Rahmen einer App lesen ihn.
   return (
     <div
       className={cn(
-        'flex h-dvh w-screen gap-[8px] overflow-hidden bg-background bg-[image:var(--verlauf-rahmen)] p-[8px] text-foreground',
-        schmal && 'flex-col-reverse pb-[max(8px,env(safe-area-inset-bottom))]'
+        'relative flex h-dvh w-screen gap-[8px] overflow-hidden bg-background bg-[image:var(--verlauf-rahmen)] p-[8px] text-foreground',
+        schmal &&
+          'pb-[max(8px,env(safe-area-inset-bottom))] [--ara-leiste-platz:calc(64px+env(safe-area-inset-bottom))]'
       )}
       data-testid="workspace-shell"
     >
-      <ActivityBar onLogout={onLogout} />
+      {schmal ? (
+        <div className="absolute inset-x-[8px] bottom-[max(8px,env(safe-area-inset-bottom))] z-40">
+          <ActivityBar onLogout={onLogout} />
+        </div>
+      ) : (
+        <ActivityBar onLogout={onLogout} />
+      )}
       <div className="relative flex min-h-0 min-w-0 flex-1">
         <main
           className={cn(

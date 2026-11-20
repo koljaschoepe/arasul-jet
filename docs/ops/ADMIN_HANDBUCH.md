@@ -72,13 +72,17 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   **Test**. Ein Klick auf die App in der Leiste öffnet die Fassung, die Sie
   zuletzt offen hatten.
 - **Ansicht:** immer genau eine: die Startseite, eine App, die Einstellungen
-  oder die Verwaltung. Die **Startseite** beginnt mit einem blauen Band: der
-  Gruß mit dem Vornamen (ohne Vornamen mit dem Anzeigenamen) und rechts daneben
-  ein Knopf „Zwei Freigaben warten auf Sie", der zur Liste darunter rollt;
-  wartet nichts, steht dort „Alles erledigt". Darunter **Für Sie**: die
-  Freigaben, die bei ihm liegen (siehe unten), dann die eigenen Apps als
-  Kacheln: Symbol, Name und eine Zeile mit den offenen Freigaben dieser App.
-  Im Band steht nie Technik, auch beim Administrator nicht. Als Administrator
+  oder die Verwaltung. Jede Seite beginnt gleich: links Titel und ein Satz,
+  rechts kleine Knöpfe für ihre Aktionen (der Name steht beim Überfahren),
+  davor der Knopf, der die Leiste des Bereichs ein- und ausklappt. Die
+  **Startseite** beginnt mit dem Gruß mit dem Vornamen (ohne Vornamen mit dem
+  Anzeigenamen) und einem Satz; warten Freigaben, steht rechts ein Knopf
+  „Zwei Freigaben warten auf Sie", der zur Liste darunter rollt, sonst „Alles
+  erledigt". Darunter **Für Sie**: die Freigaben, die bei Ihnen liegen (siehe
+  unten), dann die eigenen Apps als Kacheln, jede App einmal: Symbol, Name
+  und eine Zeile mit den offenen Freigaben dieser App. Ein Klick öffnet die
+  Fassung, die Sie zuletzt offen hatten. Oben steht nie Technik, auch beim
+  Administrator nicht. Als Administrator
   steht unter den Kacheln
   zusätzlich, **was Aufmerksamkeit braucht**: Sicherung fehlgeschlagen oder
   älter als ein Tag, eine neue Fassung bereit, eine App gestört, eine Fassung,

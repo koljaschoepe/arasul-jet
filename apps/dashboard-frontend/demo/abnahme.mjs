@@ -216,7 +216,7 @@ async function weg(browser, basis, sprache, breite) {
   await ueberlauf(seite, `${wo} Startseite`);
   await bild(seite, name('1-start'));
   if (SAMMELN) await sammeln(seite);
-  const hatCockpit = await seite.getByTestId('uebersicht-app-entwickler-cockpit-live').count();
+  const hatCockpit = await seite.getByTestId('uebersicht-app-entwickler-cockpit').count();
   if (hatCockpit) rot(`${wo}: der Mitarbeiter sieht das Cockpit`);
 
   // Die Hilfe im Band
@@ -227,7 +227,7 @@ async function weg(browser, basis, sprache, breite) {
   await seite.locator('.demo-band-hilfe').click();
 
   // 2. App Angebote (live, ohne Rabatt)
-  await seite.getByTestId('uebersicht-app-angebote-live').click();
+  await seite.getByTestId('uebersicht-app-angebote').click();
   const app = seite
     .frameLocator('[data-testid="app-rahmen-angebote"] iframe, iframe[src="/apps/angebote/"]')
     .first();

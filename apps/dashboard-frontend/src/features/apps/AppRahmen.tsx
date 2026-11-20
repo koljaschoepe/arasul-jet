@@ -174,7 +174,10 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
   // Fläche, nicht zur App).
   const staende = (['live', 'test'] as const).filter(s => app?.[s]);
   return (
-    <div className="relative h-full w-full">
+    // Am Handy endet die App über der schwebenden Leiste (`--ara-leiste-platz`,
+    // gesetzt von der Shell): eine App, die ihn nicht kennt, verliert so
+    // nichts unter dem Glas.
+    <div className="relative h-full w-full pb-(--ara-leiste-platz,0px)">
       <iframe
         // Der Schlüssel bindet den Rahmen an App UND Stand: ohne ihn behielte
         // React beim Wechsel dasselbe iframe-Element und lüde die neue Adresse

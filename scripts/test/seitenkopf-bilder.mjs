@@ -60,7 +60,12 @@ const ANSICHTEN = [
 ];
 const SEITEN = [
   { name: 'start', pfad: '/workspace/dashboard' },
-  { name: 'cockpit-eingang', pfad: '/workspace/app/entwickler-cockpit', rahmen: true, anker: 'eingang' },
+  {
+    name: 'cockpit-eingang',
+    pfad: '/workspace/app/entwickler-cockpit',
+    rahmen: true,
+    anker: 'eingang',
+  },
   { name: 'cockpit-apps', pfad: '/workspace/app/entwickler-cockpit', rahmen: true, anker: 'apps' },
   { name: 'verwaltung', pfad: '/workspace/verwaltung/apps' },
   { name: 'einstellungen', pfad: '/workspace/settings/erscheinungsbild' },
@@ -103,7 +108,14 @@ async function innenLesen(seite, imRahmen) {
   const lesen = () => {
     const kasten = el => {
       const r = el.getBoundingClientRect();
-      return { links: r.left, oben: r.top, rechts: r.right, unten: r.bottom, breite: r.width, hoehe: r.height };
+      return {
+        links: r.left,
+        oben: r.top,
+        rechts: r.right,
+        unten: r.bottom,
+        breite: r.width,
+        hoehe: r.height,
+      };
     };
     const sichtbar = el => {
       const r = el.getBoundingClientRect();
@@ -113,7 +125,9 @@ async function innenLesen(seite, imRahmen) {
     const kopf = koepfe[0] ?? null;
     const s = kopf ? getComputedStyle(kopf) : null;
     const werkzeuge = kopf
-      ? Array.from(kopf.querySelectorAll('.ara-werkzeug, [data-slot="sidebar-trigger"]')).filter(sichtbar).map(kasten)
+      ? Array.from(kopf.querySelectorAll('.ara-werkzeug, [data-slot="sidebar-trigger"]'))
+          .filter(sichtbar)
+          .map(kasten)
       : [];
     const tabelle = Array.from(document.querySelectorAll('table')).find(sichtbar) ?? null;
     const zeilen = tabelle ? Array.from(tabelle.querySelectorAll('tbody tr')).filter(sichtbar) : [];
@@ -121,8 +135,12 @@ async function innenLesen(seite, imRahmen) {
     const deckend = el => {
       for (let e = el; e; e = e.parentElement) {
         const f = getComputedStyle(e).backgroundColor;
-        const a = f.match(/rgba?\(([^)]+)\)/)?.[1].split(',').map(Number)[3];
-        if (f && f !== 'rgba(0, 0, 0, 0)' && f !== 'transparent') return a === undefined || a >= 0.99;
+        const a = f
+          .match(/rgba?\(([^)]+)\)/)?.[1]
+          .split(',')
+          .map(Number)[3];
+        if (f && f !== 'rgba(0, 0, 0, 0)' && f !== 'transparent')
+          return a === undefined || a >= 0.99;
       }
       return false;
     };
@@ -160,7 +178,13 @@ async function innenLesen(seite, imRahmen) {
     return { links: r.left, oben: r.top, rechts: r.right, unten: r.bottom };
   });
   if (app && versatz) {
-    const schieben = k => ({ ...k, links: k.links + versatz.x, rechts: k.rechts + versatz.x, oben: k.oben + versatz.y, unten: k.unten + versatz.y });
+    const schieben = k => ({
+      ...k,
+      links: k.links + versatz.x,
+      rechts: k.rechts + versatz.x,
+      oben: k.oben + versatz.y,
+      unten: k.unten + versatz.y,
+    });
     app.werkzeuge = app.werkzeuge.map(schieben);
     if (app.kopf) app.kopf = schieben(app.kopf);
   }
@@ -173,8 +197,14 @@ const ueberdeckt = (a, b) =>
 /** Die Namen auf den Kacheln der Startseite. */
 async function kachelnLesen(seite) {
   return seite.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-testid^="start-app-"]')).map(
-      k => k.querySelector('.ara-karte__titel, [data-slot="karte-titel"]')?.textContent?.trim() ?? k.textContent.trim()
+    Array.from(
+      document.querySelectorAll(
+        '[data-testid^="uebersicht-app-"]:not([data-testid$="-wartend"]):not([data-testid$="-ruhig"])'
+      )
+    ).map(
+      k =>
+        k.querySelector('.ara-karte__titel, [data-slot="karte-titel"]')?.textContent?.trim() ??
+        k.textContent.trim()
     )
   );
 }
@@ -250,7 +280,11 @@ try {
         if (!MESSEN) continue;
 
         const m = await innenLesen(seite, Boolean(s.rahmen));
-        pruefe(`${name}: Seitenkopf da, genau ein h1`, m.kopf && m.h1 === 1, `${m.anzahlKoepfe} Köpfe, ${m.h1} h1`);
+        pruefe(
+          `${name}: Seitenkopf da, genau ein h1`,
+          m.kopf && m.h1 === 1,
+          `${m.anzahlKoepfe} Köpfe, ${m.h1} h1`
+        );
         pruefe(`${name}: Seitenkopf ohne Trennlinie`, m.kopfLinie === 0, `${m.kopfLinie} px`);
         pruefe(`${name}: Seitenkopf mit einem Satz`, m.kopfSatz);
         pruefe(
@@ -270,7 +304,9 @@ try {
           pruefe(
             `${name}: Kapsel überdeckt kein Werkzeug`,
             m.kapsel && m.werkzeuge.every(w => !ueberdeckt(w, m.kapsel)),
-            m.kapsel ? `Kapsel ab x ${Math.round(m.kapsel.links)}, Werkzeuge bis x ${Math.round(Math.max(0, ...m.werkzeuge.map(w => w.rechts)))}` : 'keine Kapsel'
+            m.kapsel
+              ? `Kapsel ab x ${Math.round(m.kapsel.links)}, Werkzeuge bis x ${Math.round(Math.max(0, ...m.werkzeuge.map(w => w.rechts)))}`
+              : 'keine Kapsel'
           );
         }
         if (m.tabelle && !ansicht.mobil) {
@@ -285,7 +321,9 @@ try {
           const namen = await kachelnLesen(seite);
           pruefe(
             `${name}: jede App einmal auf der Startseite, ohne „(Test)“`,
-            namen.length > 0 && new Set(namen).size === namen.length && namen.every(n => !n.startsWith('(Test)')),
+            namen.length > 0 &&
+              new Set(namen).size === namen.length &&
+              namen.every(n => !n.startsWith('(Test)')),
             namen.join(', ')
           );
         }
