@@ -120,6 +120,8 @@ export default defineConfig({
       // eigenem Bau (`apps/entwickler-cockpit/vite.config.ts`), aber mit
       // denselben Werkzeugen geprueft -- Typen, Tests, Regeln der Gestalt.
       '../entwickler-cockpit/src/**/*.{test,spec}.{ts,tsx}',
+      // Die Demo (J46): gespielte Antworten und Wörterbuch, ohne Browser geprüft.
+      'demo/**/*.test.ts',
     ],
     exclude: ['e2e/**', 'node_modules/**'],
     // Die Zeitzone gehoert zur Messung, nicht zur Maschine (28.08.2026).

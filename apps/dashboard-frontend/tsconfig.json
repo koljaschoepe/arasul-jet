@@ -32,5 +32,6 @@
       "@marken/*": ["../../packages/marken/src/*"]
     }
   },
-  "include": ["src", "../../packages/marken/src", "../entwickler-cockpit/src"]
+  "include": ["src", "demo/*.ts", "../../packages/marken/src", "../entwickler-cockpit/src"],
+  "exclude": ["demo/vite.config.ts"]
 }

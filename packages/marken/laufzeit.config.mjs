@@ -55,7 +55,13 @@ export function fassungLesen() {
 }
 
 const { fassung, haupt } = fassungLesen();
-const ziel = path.join(wurzel, '../../apps/dashboard-frontend/dist/marken', haupt);
+// Wohin der Bau geht: zum Gerät nach `dist/marken/`, für die Demo (J46)
+// nach `dist-demo/marken/` (`apps/dashboard-frontend/demo/bauen.mjs`).
+const ziel = path.join(
+  process.env.MARKEN_LAUFZEIT_ZIEL ??
+    path.join(wurzel, '../../apps/dashboard-frontend/dist/marken'),
+  haupt
+);
 
 /**
  * React ist CommonJS. Ein `export * from 'react'` gaebe nach dem Bau keine

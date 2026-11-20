@@ -66,3 +66,7 @@ updates/
 *.pem
 *.key
 admin.hash
+
+# Die Demo ohne Gerät (J46): eigener Bau, nie im Abbild des Geräts.
+apps/dashboard-frontend/demo/
+apps/dashboard-frontend/dist-demo/
