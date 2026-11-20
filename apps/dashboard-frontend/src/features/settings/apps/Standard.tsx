@@ -17,6 +17,33 @@
 import { CircleCheck, TriangleAlert } from '@marken/symbole';
 import type { AppStandDetail, StandardUrteil } from './useAppVerwaltung';
 
+/**
+ * Die Sätze des Standards kommen aus dem Kit und tragen Namen in Backticks
+ * (`app.json`, `marken`). Wörtlich stand das als „`marken`“ im Text; hier
+ * wird ein Stück in Backticks als Code ausgezeichnet, ohne die Zeichen.
+ */
+export function MitAuszeichnung({ text }: { text: string }) {
+  const teile = text.split('`');
+  // Eine ungerade Zahl von Backticks: der letzte hat keinen Partner und
+  // bleibt als Zeichen stehen, statt den Rest des Satzes zu verschlucken.
+  const offen = teile.length % 2 === 0;
+  return (
+    <>
+      {teile.map((teil, i) => {
+        const istCode = i % 2 === 1 && !(offen && i === teile.length - 1);
+        if (istCode) {
+          return (
+            <code key={i} className="font-mono">
+              {teil}
+            </code>
+          );
+        }
+        return <span key={i}>{offen && i === teile.length - 1 ? '`' + teil : teil}</span>;
+      })}
+    </>
+  );
+}
+
 /** Kein Urteil (ein älteres Backend), erfüllt, ausgenommen oder mit Funden. */
 type Art = 'unbekannt' | 'erfuellt' | 'ausgenommen' | 'fehlt';
 
@@ -73,7 +100,7 @@ export function Standard({
         <ul className="mt-1 list-disc pl-4">
           {(urteil?.funde ?? []).map(fund => (
             <li key={fund.code} data-code={fund.code}>
-              {fund.text}
+              <MitAuszeichnung text={fund.text} />
             </li>
           ))}
         </ul>
