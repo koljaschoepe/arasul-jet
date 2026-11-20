@@ -2,7 +2,7 @@
 
 Am Orin nach dem Deploy von #942 (`5f2a88f2`, Migration 214 angewandt),
 `scripts/test/rueckmeldung-im-rahmen-abnahme.mjs` als `probe-admin` und
-`probe-j36-a`, Apps Belege, Abschluss, Probe-App (`probe-faktum-belege`),
+`probe-j36-a`, Apps Belege, Abschluss, eine Probe-App,
 Chromium und WebKit, 1440 und 390 px. Ergebnis: **49 von 49 grün**.
 
 | Prüfung                                                                              | Ergebnis                                                          |
@@ -18,8 +18,7 @@ Chromium und WebKit, 1440 und 390 px. Ergebnis: **49 von 49 grün**.
 
 Bilder:
 
-- `chromium-1440-belege.png`, `chromium-390-belege.png`, `chromium-390-abschluss.png`,
-  `chromium-1440-probe-faktum-belege.png`: das Icon über den Apps.
+- `chromium-1440-belege.png`, `chromium-390-belege.png`, `chromium-390-abschluss.png`: das Icon über den Apps.
 - `chromium-1440-formular.png`, `chromium-390-formular.png`, `webkit-390-formular.png`:
   Formular mit Foto und markierter Stelle.
 - `chromium-1440-bestaetigung.png`: was der Melder danach sieht.

@@ -24,7 +24,7 @@
  *   ARASUL_BENUTZER=probe-admin \
  *   ARASUL_PASSWORT="$(geheim get 'Arasul Jet Dashboard, probe-admin (Orin)')" \
  *   ARASUL_A=probe-j36-a ARASUL_A_PASSWORT="$(geheim get 'Arasul Orin Probe-Konto probe-j36-a')" \
- *   ARASUL_APPS=belege,abschluss,probe-faktum-belege ARASUL_BILDER=1 \
+ *   ARASUL_APPS=belege,abschluss,<probe-app> ARASUL_BILDER=1 \
  *   node scripts/test/rueckmeldung-im-rahmen-abnahme.mjs
  *
  * Passwörter nur aus der Umgebung, nie das Konto admin. Bilder:
