@@ -8,7 +8,8 @@ import { cn } from '../cn';
 // Kompakt am Rechner: 32 px mit Text, 28 px als Icon-Knopf, Radius 8 px,
 // Schrift 14 px. Bei grobem Zeiger waechst die TREFFERFLAECHE auf 44 px, nicht
 // der sichtbare Knopf: ein leeres `::before` legt sich mittig darueber
-// (`TREFFER`). Die Masse sind Gestaltungs-Pixel bei 16 px Wurzelschrift.
+// (`TREFFER`). Die Hoehen stehen in Pixeln, nicht in rem: die Shell rechnet
+// mit 17 px Wurzelschrift (Komfort-Dichte), und 2rem waeren dort 34 px.
 const TREFFER =
   "relative pointer-coarse:before:absolute pointer-coarse:before:top-1/2 pointer-coarse:before:left-1/2 pointer-coarse:before:size-full pointer-coarse:before:min-h-11 pointer-coarse:before:min-w-11 pointer-coarse:before:-translate-x-1/2 pointer-coarse:before:-translate-y-1/2 pointer-coarse:before:content-['']";
 
@@ -48,14 +49,14 @@ const buttonVariants = cva(
           'border border-muted-foreground/30 bg-muted-foreground/10 text-muted-foreground hover:bg-muted-foreground/20 hover:border-muted-foreground/50',
       },
       size: {
-        default: 'h-8 px-3 has-[>svg]:px-2.5',
-        xs: "h-6 gap-1 px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        sm: 'h-7 gap-1 px-2.5 has-[>svg]:px-2',
-        lg: 'h-9 px-4 has-[>svg]:px-3',
-        icon: 'size-7',
-        'icon-xs': "size-6 [&_svg:not([class*='size-'])]:size-3.5",
-        'icon-sm': 'size-6',
-        'icon-lg': "size-8 [&_svg:not([class*='size-'])]:size-5",
+        default: 'h-[32px] px-3 has-[>svg]:px-2.5',
+        xs: "h-[24px] gap-1 px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        sm: 'h-[28px] gap-1 px-2.5 has-[>svg]:px-2',
+        lg: 'h-[36px] px-4 has-[>svg]:px-3',
+        icon: 'size-[28px]',
+        'icon-xs': "size-[24px] [&_svg:not([class*='size-'])]:size-3.5",
+        'icon-sm': 'size-[24px]',
+        'icon-lg': "size-[32px] [&_svg:not([class*='size-'])]:size-5",
       },
     },
     // Ein Icon-Knopf im Grundton hat keinen Rahmen und keine Flaeche: er ist

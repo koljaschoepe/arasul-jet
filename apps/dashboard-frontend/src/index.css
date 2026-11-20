@@ -345,8 +345,13 @@
        Radix rendert sie als `button` mit fester Groesse und runder oder
        eckiger Form; 44 px Mindesthoehe und -breite zogen den Kreis eines
        Radios am Handy zum Oval und die Checkbox zum Klotz. Ihre Trefferflaeche
-       ist die Zeile mit dem Label daneben. */
-    button:not([role='checkbox']):not([role='radio']):not([role='switch']),
+       ist die Zeile mit dem Label daneben.
+       Der `Button` der Bibliothek auch nicht (5.7.0): er bleibt sichtbar
+       kompakt und legt selbst eine Trefferflaeche von 44 px darueber
+       (`TREFFER` in `button.tsx`). */
+    button:not([role='checkbox']):not([role='radio']):not([role='switch']):not(
+        [data-slot='button']
+      ),
     [role='button'],
     a,
     select {

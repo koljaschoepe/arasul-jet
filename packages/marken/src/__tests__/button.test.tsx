@@ -74,11 +74,11 @@ describe('Button', () => {
     const haupt = screen.getByRole('button', { name: 'Ablegen' });
     expect(haupt.className).toContain('bg-primary');
     expect(haupt.className).not.toContain('gradient');
-    expect(haupt.className).toContain('h-8');
+    expect(haupt.className).toContain('h-[32px]');
     expect(screen.getByRole('button', { name: 'Abbrechen' }).className).not.toContain('gradient');
     // Icon-Knopf: 28 px, ohne Rahmen, Trefferfläche bei grobem Zeiger 44 px.
     const icon = screen.getByRole('button', { name: 'Löschen' });
-    expect(icon.className).toContain('size-7');
+    expect(icon.className).toContain('size-[28px]');
     expect(icon.className).toContain('border-transparent');
     expect(icon.className).toContain('pointer-coarse:before:min-h-11');
   });
