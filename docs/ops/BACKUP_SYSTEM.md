@@ -418,6 +418,37 @@ Ohne Code bekommt ein neu aufgesetztes Geraet einen neuen Schluessel und ein
 neues Repo daneben; die alten Staende bleiben unangetastet und lassen sich mit
 dem Code spaeter noch zurueckholen.
 
+### 5b. Die Kopie am Mac (Puller, seit 20.11.2026)
+
+Der Datenträger am Gerät hilft nicht, wenn das Gerät samt Stick verschwindet.
+Deshalb zieht ein Rechner **außerhalb** jede Nacht das Repo der Stände über
+SSH an sich: `scripts/ops/sicherung-am-mac.mjs`, eingerichtet als launchd-Dienst
+`de.arasul.sicherung` am Mac. Die Quelle lag bis zum 20.11.2026 in
+arasul-werkstatt (archiviert) und suchte dort noch die Einzelabzüge unter
+`postgres/apps/`, die es seit M5 nicht mehr gibt; von 05.10. bis 20.11.2026
+kam deshalb nichts weg vom Gerät.
+
+```bash
+node scripts/ops/sicherung-am-mac.mjs --einrichten       # kopiert sich nach ~/Library/Application Support/de.arasul.sicherung/, lädt launchd
+node scripts/ops/sicherung-am-mac.mjs --ziehen --jetzt   # ein Lauf sofort
+node scripts/ops/sicherung-am-mac.mjs --status           # letzter Erfolg, neuester Stand, Ausfall
+node scripts/ops/sicherung-am-mac.mjs --wiederherstellen [--db arasul_app_belege_live] [--stand <id>]
+```
+
+| Was                | Wie                                                                                                                                             |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Zug                | `rsync` von `data/backups/staende-<abdruck>/` nach `~/Sicherungen/arasul-orin/staende/`, erst `data/`, dann der Rest; `--partial`, setzt fort   |
+| Was am Gerät fällt | landet am Mac in `papierkorb/<repo>/<zeit>/`, 30 Tage, statt gelöscht zu werden                                                                 |
+| Schutz             | Repo am Gerät ohne `config`, ohne Stand oder mit weniger als der Hälfte der Dateien: nicht gespiegelt, sofort AUSFALL                           |
+| Prüfung            | `restic check --read-data-subset=5%` auf der Kopie am Mac; der neueste Stand muss jünger als 26 Stunden sein                                    |
+| Schlüssel          | Schlüsselbund, Dienst `ara-kit`, Konto `ARASUL_BACKUP_KEY_ORIN[_<abdruck>]`; restic holt ihn per `security`, er steht in keiner Datei           |
+| Meldung            | `~/Sicherungen/arasul-orin/AUSFALL.txt`, Mitteilung am Mac, Protokoll `~/Library/Logs/arasul-sicherung.log`                                     |
+| Wiederherstellung  | `restic dump` des Abzugs aus dem Stand in ein Wegwerf-Postgres unter `$TMPDIR`, eine Transaktion, zählen, abbauen; das Gerät wird nicht gefragt |
+
+Der Mac braucht `restic`, `rsync` (Homebrew) und für die Wiederherstellung ein
+Postgres (`brew install postgresql@16` oder `--pg-bin <ordner>`). Geprüft ohne
+Gerät von `scripts/test/sicherung-am-mac.sh` (CI).
+
 ### 6. WAL Archive
 
 If WAL segments are being shipped into `/backups/wal` (Postgres
