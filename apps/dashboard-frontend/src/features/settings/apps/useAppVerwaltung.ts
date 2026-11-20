@@ -172,6 +172,8 @@ export interface AppDetail {
   staende: { test: AppStandDetail | null; live: AppStandDetail | null };
   /** Der letzte Versuch, live zu schalten (M5), oder null. */
   letzte_schaltung?: AppSchaltung | null;
+  /** Gehen Bildschirmfotos der Rückmeldungen an den Agenten (J43)? Vorgabe aus. */
+  bilder_an_agenten?: boolean;
 }
 
 /** Die Flow-Datei selbst (`GET /api/apps/:id/flows/:name`). */
@@ -548,6 +550,23 @@ export function useFlowAktiv(appId: string) {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: appKey(appId) });
       void qc.invalidateQueries({ queryKey: ['apps', 'flow', appId] });
+    },
+  });
+}
+
+/**
+ * Der Schalter „Bildschirmfotos an den Agenten" (J43,
+ * `PUT /api/apps/:id/bilder-an-agenten`). Er gilt nur für das, was das Kit
+ * über die Schnittstelle bekommt; im Gerät sehen Entwickler die Bilder immer.
+ */
+export function useBilderAnAgenten(appId: string) {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (erlaubt: boolean) =>
+      api.put(`/apps/${appId}/bilder-an-agenten`, { erlaubt }, { showError: false }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: appKey(appId) });
     },
   });
 }

@@ -166,4 +166,92 @@ beschreibe('Rückmeldungen gegen echtes Postgres', () => {
     const eintrag = (await dienst.liste({ appId: 'jrm-belege' })).find(m => m.id === id);
     expect(eintrag).toMatchObject({ text: 'von jemandem, der geht', person: null });
   });
+  /*
+   * Die Seite fuer das Kit (J43, Migration 215): Schalter je App, Stand mit
+   * Grund. Gegen echtes Postgres, weil die Abfragen hier Spaltennamen,
+   * `ANY($2::text[])` und eine Pruefung der Tabelle tragen.
+   */
+  describe('für den Agenten (J43)', () => {
+    it('der Schalter steht nach Migration 215 auf aus', async () => {
+      const { rows } = await db.query(
+        `SELECT bilder_an_agenten FROM public.apps WHERE id = 'jrm-belege'`
+      );
+      expect(rows[0].bilder_an_agenten).toBe(false);
+    });
+
+    it('aus: kein Feld bild; an: Weg und Markierung', async () => {
+      const markierung = { x: 0.5, y: 0.5, breite: 0.1, hoehe: 0.1 };
+      const { id } = await dienst.melde(meldung({ bild: PIXEL, markierung, text: 'mit Bild' }));
+
+      const aus = await dienst.fuerAgenten({ appId: 'jrm-belege' });
+      expect(aus.bilder_an_agenten).toBe(false);
+      const ohne = aus.meldungen.find(m => m.id === id);
+      expect(ohne).not.toHaveProperty('bild');
+      expect(JSON.stringify(aus)).not.toMatch(/\.png|markierung/);
+      await expect(dienst.bildFuerAgenten('jrm-belege', id)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+
+      expect(await dienst.setzeBilderAnAgenten('jrm-belege', true)).toMatchObject({
+        bilder_an_agenten: true,
+        vorher: false,
+      });
+      const an = await dienst.fuerAgenten({ appId: 'jrm-belege' });
+      expect(an.meldungen.find(m => m.id === id).bild).toEqual({
+        weg: `/api/v1/external/apps/jrm-belege/rueckmeldungen/${id}/bild`,
+        format: 'png',
+        markierung,
+      });
+      expect((await dienst.bildFuerAgenten('jrm-belege', id)).subarray(1, 4).toString()).toBe(
+        'PNG'
+      );
+      await dienst.setzeBilderAnAgenten('jrm-belege', false);
+    });
+
+    it('Stand setzen, filtern, und abgelehnt nur mit Grund', async () => {
+      const { id } = await dienst.melde(meldung({ text: 'bitte ablehnen' }));
+      const gesetzt = await dienst.setzeStand({
+        appId: 'jrm-belege',
+        nr: id,
+        standMeldung: 'abgelehnt',
+        grund: 'Gibt es schon',
+        durch: 'schluessel:aras_probe1',
+      });
+      expect(gesetzt).toMatchObject({
+        id,
+        stand_meldung: 'abgelehnt',
+        grund: 'Gibt es schon',
+        vorher: 'neu',
+        person: { id: mia, anzeigeName: 'Mia Muster' },
+      });
+      expect(gesetzt.stand_geaendert_am).toBeInstanceOf(Date);
+
+      const abgelehnt = await dienst.fuerAgenten({
+        appId: 'jrm-belege',
+        standMeldung: ['abgelehnt'],
+      });
+      expect(abgelehnt.meldungen.map(m => m.id)).toEqual([id]);
+      const offen = await dienst.fuerAgenten({ appId: 'jrm-belege', standMeldung: ['neu'] });
+      expect(offen.meldungen.map(m => m.id)).not.toContain(id);
+
+      // Ein neuer Stand ohne Grund nimmt den alten Grund mit.
+      const wieder = await dienst.setzeStand({
+        appId: 'jrm-belege',
+        nr: id,
+        standMeldung: 'angenommen',
+        durch: 'schluessel:aras_probe1',
+      });
+      expect(wieder.grund).toBeNull();
+
+      await expect(
+        db.query(
+          `UPDATE public.rueckmeldungen SET stand_meldung = 'abgelehnt', grund = NULL WHERE id = $1`,
+          [id]
+        )
+      ).rejects.toThrow(/rueckmeldungen_grund_bei_ablehnung/);
+      await expect(
+        dienst.setzeStand({ appId: 'andere-app', nr: id, standMeldung: 'neu', durch: 'x' })
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+  });
 });

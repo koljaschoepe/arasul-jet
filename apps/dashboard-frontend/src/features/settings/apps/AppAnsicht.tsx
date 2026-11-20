@@ -11,6 +11,7 @@
  *   Freigabestufen   wer je Stufe zuerst gefragt wird
  *   Flows            Schritte, Art, Auslöser, Schalter „aktiv"
  *   Verbindungen     wohin sie ins Internet darf, lesbar benannt
+ *   Rückmeldungen    ob Bildschirmfotos an den Agenten gehen (J43)
  *
  * Darunter ein Weg zu den Läufen dieser App (Bereich Läufe der Verwaltung, die
  * eine Stelle dafür) und, erst auf „Zeigen": Modellaufrufe und Protokoll. Ein
@@ -26,6 +27,7 @@ import {
   FileText,
   Globe,
   ListOrdered,
+  MessageSquarePlus,
   ScrollText,
   Trash2,
   Users,
@@ -35,6 +37,7 @@ import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import type { ApiError } from '@/hooks/useApi';
 import type { Stand } from '../personen/useAppFreigaben';
+import { AppBilderAnAgenten } from './AppBilderAnAgenten';
 import { AppEntfernenDialog } from './AppEntfernenDialog';
 import { AppFlows } from './AppFlows';
 import { AppSchrittModelle } from './AppSchrittModelle';
@@ -341,6 +344,18 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
           <AppVerbindungen
             appId={appId}
             flows={[...(app.staende.live?.flows ?? []), ...(app.staende.test?.flows ?? [])]}
+          />
+        </Feldgruppe>
+
+        <Feldgruppe
+          titel="Rückmeldungen"
+          symbol={<MessageSquarePlus />}
+          beschreibung="Was der Agent über das Kit von den Rückmeldungen zu dieser App bekommt. Entwickler sehen am Gerät immer alles."
+        >
+          <AppBilderAnAgenten
+            appId={appId}
+            name={app.name}
+            erlaubt={app.bilder_an_agenten === true}
           />
         </Feldgruppe>
 

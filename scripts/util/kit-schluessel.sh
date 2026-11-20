@@ -25,6 +25,7 @@
 #   cd ~/arasul/arasul-jet
 #   bash scripts/util/kit-schluessel.sh anlegen "Kit von Firma Meier"
 #   bash scripts/util/kit-schluessel.sh anlegen "Update 0.8.15" system:update
+#   bash scripts/util/kit-schluessel.sh anlegen "Rueckmeldungen" feedback:agent
 #   bash scripts/util/kit-schluessel.sh liste
 #   bash scripts/util/kit-schluessel.sh widerrufen aras_ab12cd3
 #
@@ -33,6 +34,10 @@
 # Schluessel und nie im Deploy-Schluessel des Kits: wer eine App einspielen
 # darf, darf damit nicht das ganze Geraet austauschen. Der Schluessel dafuer
 # wird fuer den Anlass angelegt und danach widerrufen.
+#
+# DER DRITTE BEREICH (J43): `feedback:agent` liest die Rueckmeldungen einer App
+# und setzt ihren Stand (`/api/v1/external/apps/:id/rueckmeldungen`). Ebenfalls
+# ein eigener Schluessel: wer ausrollen darf, liest damit keine Meldungen.
 #
 # Rueckgabe 0 bei Erfolg.
 # =============================================================================
@@ -44,9 +49,9 @@ NAME="${2:-Ara-Kit}"
 BEREICH="${3:-app:deploy}"
 
 case "$BEREICH" in
-  app:deploy | system:update) ;;
+  app:deploy | system:update | feedback:agent) ;;
   *)
-    echo "Unbekannter Bereich: $BEREICH (erlaubt: app:deploy, system:update)"
+    echo "Unbekannter Bereich: $BEREICH (erlaubt: app:deploy, system:update, feedback:agent)"
     exit 2
     ;;
 esac

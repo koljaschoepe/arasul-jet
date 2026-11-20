@@ -166,7 +166,9 @@ src/
                      (`AppFlows.tsx`, Datei in `FlowAnsicht.tsx`, Modell
                      in `ModellDialog.tsx`), Verbindungen lesbar benannt
                      (`AppVerbindungen.tsx`, `useVerbindungen.ts`, rot nur
-                     bei `stoerung`); darunter ein Weg zu den Läufen
+                     bei `stoerung`), Rückmeldungen mit dem Schalter
+                     „Bildschirmfotos an den Agenten“ (`AppBilderAnAgenten.tsx`,
+                     J43, Vorgabe aus); darunter ein Weg zu den Läufen
                      dieser App (Bereich Läufe, App als Filter), auf „Zeigen" KI-Aufrufe, Protokoll
                      (`Aufklappen.tsx`). Abfragen/Mutationen in
                      `apps/useAppVerwaltung.ts`. Apps, Flows und

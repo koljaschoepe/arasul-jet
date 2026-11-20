@@ -225,7 +225,192 @@ async function loesche(id) {
   logger.info(`Rückmeldung ${id} entfernt${rows[0].bild ? ', Bild mit' : ''}`);
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * Fuer den Agenten (J43, M7, Karte rueckmeldung-schnittstelle)
+ * ---------------------------------------------------------------------------
+ *
+ * Das Kit liest die Meldungen einer App mit einem Schluessel im Bereich
+ * `feedback:agent` und setzt ihren Stand. Was es bekommt, entscheidet der
+ * Schalter `apps.bilder_an_agenten` (Vorgabe aus, company/schleife.md Regel 3):
+ *
+ *   aus  -> je Meldung KEIN Feld `bild`, keine Markierung, kein Weg zum Bild,
+ *           nicht einmal, ob es eines gibt. Der Abholweg antwortet 403.
+ *   an   -> je Meldung `bild`: null ohne Foto, sonst `{ weg, markierung }`.
+ *
+ * Im Geraet selbst (Liste der Entwickler, spaeter das Cockpit) aendert der
+ * Schalter nichts; das Bild verlaesst nur ueber diesen Weg das Haus.
+ */
+
+/** Die Basis der Wege fuer das Kit; steht so auch im Kontrakt. */
+const KIT_BASIS = '/api/v1/external/apps';
+
+/**
+ * Die App, mit ihrem Schalter. 404, wenn es sie am Geraet nicht gibt -- eine
+ * Meldung zu einer entfernten App ist Sache der Entwickler am Geraet, nicht
+ * des Kits.
+ */
+async function appMitSchalter(appId) {
+  const { rows } = await db.query(
+    'SELECT id, name, bilder_an_agenten FROM public.apps WHERE id = $1',
+    [appId]
+  );
+  if (rows.length === 0) {
+    throw new NotFoundError(`App ${appId} gibt es am Gerät nicht`);
+  }
+  return {
+    id: rows[0].id,
+    name: rows[0].name,
+    bilderAnAgenten: rows[0].bilder_an_agenten === true,
+  };
+}
+
+/**
+ * Eine Zeile so, wie sie an den Agenten geht. Ohne Erlaubnis fehlt `bild`
+ * ganz: kein `null`, kein `hat_bild`, kein Weg (Regel 3, Karte J43).
+ */
+function fuerAgentenZeile(z, mitBildern) {
+  const zeile = {
+    id: Number(z.id),
+    app_id: z.app_id,
+    stand: z.stand,
+    seite: z.seite,
+    text: z.text,
+    person: z.person_id == null ? null : { id: Number(z.person_id), anzeigeName: anzeigeName(z) },
+    erstellt_am: z.erstellt_am,
+    stand_meldung: z.stand_meldung,
+    grund: z.grund ?? null,
+    stand_geaendert_am: z.stand_geaendert_am ?? null,
+  };
+  if (mitBildern) {
+    zeile.bild = z.bild
+      ? {
+          weg: `${KIT_BASIS}/${z.app_id}/rueckmeldungen/${Number(z.id)}/bild`,
+          format: 'png',
+          markierung: z.markierung ?? null,
+        }
+      : null;
+  }
+  return zeile;
+}
+
+/** Was eine Zeile fuer den Agenten braucht, mit dem Namen der Person. */
+const AGENTEN_SPALTEN = `SELECT r.id, r.app_id, r.stand, r.seite, r.text, r.bild, r.markierung,
+            r.person_id, r.stand_meldung, r.grund, r.stand_geaendert_am, r.erstellt_am,
+            u.username, u.vorname, u.nachname
+       FROM public.rueckmeldungen r
+       LEFT JOIN public.admin_users u ON u.id = r.person_id`;
+
+/**
+ * Die Meldungen einer App fuer den Agenten, aelteste zuerst: in der
+ * Reihenfolge, in der sie kamen, liest ein Agent sie auch.
+ *
+ * @param {{appId: string, standMeldung?: string[], stand?: 'test'|'live', grenze?: number}} f
+ * @returns {Promise<{app_id: string, app_name: string, bilder_an_agenten: boolean, anzahl: number, meldungen: object[]}>}
+ */
+async function fuerAgenten({ appId, standMeldung, stand, grenze = 200 }) {
+  const app = await appMitSchalter(appId);
+  const { rows } = await db.query(
+    `${AGENTEN_SPALTEN}
+      WHERE r.app_id = $1
+        AND ($2::text[] IS NULL OR r.stand_meldung = ANY($2::text[]))
+        AND ($3::text IS NULL OR r.stand = $3)
+      ORDER BY r.erstellt_am ASC, r.id ASC
+      LIMIT $4`,
+    [appId, standMeldung ?? null, stand ?? null, grenze]
+  );
+  const meldungen = rows.map(z => fuerAgentenZeile(z, app.bilderAnAgenten));
+  return {
+    app_id: app.id,
+    app_name: app.name,
+    bilder_an_agenten: app.bilderAnAgenten,
+    anzahl: meldungen.length,
+    meldungen,
+  };
+}
+
+/**
+ * Das Bild einer Meldung fuer den Agenten. 403, wenn der Schalter der App aus
+ * ist -- VOR jeder Frage nach der Meldung, damit die Antwort nicht verraet, ob
+ * es eine Meldung mit Bild gibt.
+ */
+async function bildFuerAgenten(appId, nr) {
+  const app = await appMitSchalter(appId);
+  if (!app.bilderAnAgenten) {
+    throw new ForbiddenError(
+      `Für die App ${appId} gehen keine Bildschirmfotos an den Agenten. ` +
+        'Ein Administrator erlaubt es unter Einstellungen › Apps.'
+    );
+  }
+  const { rows } = await db.query(
+    'SELECT id FROM public.rueckmeldungen WHERE id = $1 AND app_id = $2',
+    [nr, appId]
+  );
+  if (rows.length === 0) {
+    throw new NotFoundError(`Keine Rückmeldung ${nr} zur App ${appId}`);
+  }
+  return bild(nr);
+}
+
+/**
+ * Den Stand einer Meldung setzen (neu, angenommen, umgesetzt, abgelehnt).
+ * `grund` ist Pflicht bei `abgelehnt` (Schema und Datenbank), sonst frei; ein
+ * neuer Stand ohne Grund loescht den alten Grund, damit kein Ablehnungsgrund
+ * an einer umgesetzten Meldung haengen bleibt.
+ *
+ * @param {{appId: string, nr: number, standMeldung: string, grund?: string, durch: string}} a
+ */
+async function setzeStand({ appId, nr, standMeldung, grund, durch }) {
+  const app = await appMitSchalter(appId);
+  const { rows } = await db.query(
+    `WITH alt AS (
+       SELECT id, stand_meldung FROM public.rueckmeldungen WHERE id = $1 AND app_id = $2
+     )
+     UPDATE public.rueckmeldungen r
+        SET stand_meldung = $3, grund = $4,
+            stand_geaendert_am = NOW(), stand_geaendert_durch = $5
+       FROM alt
+      WHERE r.id = alt.id
+     RETURNING r.id, alt.stand_meldung AS vorher`,
+    [nr, appId, standMeldung, grund ?? null, durch]
+  );
+  if (rows.length === 0) {
+    throw new NotFoundError(`Keine Rückmeldung ${nr} zur App ${appId}`);
+  }
+  const vorher = rows[0].vorher;
+  logger.info(`Rückmeldung ${nr} zu ${appId}: ${vorher} -> ${standMeldung} (${durch})`);
+  const { rows: nachher } = await db.query(
+    `${AGENTEN_SPALTEN}
+      WHERE r.id = $1`,
+    [nr]
+  );
+  return { ...fuerAgentenZeile(nachher[0], app.bilderAnAgenten), vorher };
+}
+
+/** Den Schalter „Bildschirmfotos an den Agenten" einer App setzen. */
+async function setzeBilderAnAgenten(appId, erlaubt) {
+  const { rows } = await db.query(
+    `UPDATE public.apps a SET bilder_an_agenten = $2
+       FROM (SELECT bilder_an_agenten AS vorher FROM public.apps WHERE id = $1) alt
+      WHERE a.id = $1
+     RETURNING a.id, a.bilder_an_agenten, alt.vorher`,
+    [appId, erlaubt]
+  );
+  if (rows.length === 0) {
+    throw new NotFoundError(`App ${appId} gibt es am Gerät nicht`);
+  }
+  return {
+    app_id: rows[0].id,
+    bilder_an_agenten: rows[0].bilder_an_agenten,
+    vorher: rows[0].vorher,
+  };
+}
+
 module.exports = {
+  fuerAgenten,
+  bildFuerAgenten,
+  setzeStand,
+  setzeBilderAnAgenten,
   melde,
   liste,
   bild,

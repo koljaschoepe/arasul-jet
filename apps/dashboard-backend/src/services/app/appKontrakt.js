@@ -39,6 +39,7 @@ const {
   BILD_MAX_ZEICHEN,
 } = require('../../schemas/externalApi');
 const { VORGABE_ENDPUNKTE, ALLE_ENDPUNKTE } = require('../../config/apiBereiche');
+const { STAENDE_MELDUNG } = require('../../schemas/rueckmeldungen');
 const { KOPF_BENUTZER, KOPF_ROLLE } = require('./appZugang');
 const appPaket = require('./appPaket');
 const appFlows = require('./appFlows');
@@ -568,6 +569,23 @@ const BILDER_REGELN = Object.freeze([
 ]);
 
 /**
+ * Die Rueckmeldungen einer App fuer das Kit (J43, 20.11.2026). Additiv, die
+ * Kontraktversion bleibt bei 14: neue Wege und ein neuer Abschnitt, nichts,
+ * worauf sich ein Kit bisher verlassen hat, aendert sich. Ein Kit vor einer
+ * hoeheren Nummer hielte an und spielte gar nichts mehr ein (Begruendung wie
+ * bei J30 und J35).
+ */
+const RUECKMELDUNGEN_REGELN = Object.freeze([
+  'Gelesen wird mit einem Schlüssel im Bereich `feedback:agent`. Ein Schlüssel, der nur `app:deploy` trägt, bekommt 403: in den Meldungen stehen Namen von Mitarbeitern.',
+  'Ob Bildschirmfotos an den Agenten gehen, legt der Admin je App fest (Einstellungen › Apps, Vorgabe aus). Die Antwort sagt es in `bilder_an_agenten`.',
+  'Ist es aus, fehlt das Feld `bild` an jeder Meldung ganz: kein Bild, keine Markierung, kein Weg dorthin, kein Hinweis, ob es eins gibt. Der Abholweg des Bildes antwortet 403.',
+  'Ist es an, trägt jede Meldung `bild`: `null` ohne Foto, sonst `weg` (relativ zur Adresse des Geräts), `format` und `markierung` (`x`, `y`, `breite`, `hoehe` als Anteile von 0 bis 1, oder `null`). Die Stelle ist zusätzlich ins PNG gezeichnet.',
+  'Die Stände einer Meldung: `neu`, `angenommen`, `umgesetzt`, `abgelehnt`. Wer ablehnt, nennt `grund`; ein neuer Stand ohne Grund löscht den alten.',
+  'Jede Abfrage, jedes abgeholte Bild und jeder gesetzte Stand steht im Protokoll des Geräts: welcher Schlüssel, wann, welche App, mit oder ohne Bilder.',
+  'Mitarbeiter sehen ihre Meldungen nach dem Absenden nicht wieder und bekommen keine Antwort über diesen Weg; der Stand ist für den Entwickler.',
+]);
+
+/**
  * Was ein Kit am Geraet aufrufen kann.
  *
  * Der Bereich (`bereich`) ist der Wert, der in `allowed_endpoints` eines
@@ -611,6 +629,24 @@ const ENDPUNKTE = Object.freeze(
       pfad: '/api/v1/external/apps/:id?bestaetigung=<id>&dateien=<true|false>',
       bereich: 'app:deploy',
       was: 'App weg: beide Container samt Volumes, beide Stände, alle Freigaben, ihre Datenbanken (die Sicherungen davon bleiben)',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/apps/:id/rueckmeldungen?stand_meldung=<neu,angenommen,…>&stand=<test|live>&grenze=<1..500>',
+      bereich: 'feedback:agent',
+      was: 'Die Rückmeldungen einer App, älteste zuerst (seit 20.11.2026, siehe `rueckmeldungen`): Text, Seite, Person, Zeit, Stand der Meldung. Ein Bild nur, wenn der Admin es für diese App erlaubt; sonst fehlt das Feld `bild` ganz',
+    },
+    {
+      verb: 'GET',
+      pfad: '/api/v1/external/apps/:id/rueckmeldungen/:nr/bild',
+      bereich: 'feedback:agent',
+      was: 'Das Bildschirmfoto einer Rückmeldung als PNG, mit eingezeichneter Stelle. 403, wenn die App keine Bilder an den Agenten gibt',
+    },
+    {
+      verb: 'PATCH',
+      pfad: '/api/v1/external/apps/:id/rueckmeldungen/:nr',
+      bereich: 'feedback:agent',
+      was: 'Den Stand einer Rückmeldung setzen: `{"stand_meldung":"angenommen"}`, `"umgesetzt"`, `"neu"` oder `{"stand_meldung":"abgelehnt","grund":"…"}` (Grund Pflicht)',
     },
     {
       verb: 'GET',
@@ -982,6 +1018,31 @@ function kontrakt() {
       theme: 'data-theme="dark" am <html> der App, gesetzt von der Shell; Hell ist kein Attribut',
       regeln: MARKEN_REGELN,
     },
+    // Additiv (J43): die Rueckmeldungen fuer das Kit.
+    rueckmeldungen: {
+      bereich: 'feedback:agent',
+      wege: {
+        lesen: '/api/v1/external/apps/:id/rueckmeldungen',
+        bild: '/api/v1/external/apps/:id/rueckmeldungen/:nr/bild',
+        stand: '/api/v1/external/apps/:id/rueckmeldungen/:nr',
+      },
+      staende: [...STAENDE_MELDUNG],
+      felder: [
+        'id',
+        'app_id',
+        'stand',
+        'seite',
+        'text',
+        'person',
+        'erstellt_am',
+        'stand_meldung',
+        'grund',
+        'stand_geaendert_am',
+      ],
+      bild_nur_mit_erlaubnis: ['bild'],
+      grenze: { vorgabe: 200, hoechstens: 500 },
+      regeln: RUECKMELDUNGEN_REGELN,
+    },
     endpunkte: ENDPUNKTE,
   };
 }
@@ -998,6 +1059,7 @@ module.exports = {
   AUSLESEN_REGELN,
   BILDER_REGELN,
   MARKEN_REGELN,
+  RUECKMELDUNGEN_REGELN,
   ENDPUNKTE,
   VERGEBENE_PFADE,
   kontrakt,

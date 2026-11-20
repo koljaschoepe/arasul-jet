@@ -822,6 +822,7 @@ describe('Die Seite einer App (M5)', () => {
       'Freigabestufen',
       'Flows',
       'Verbindungen',
+      'Rückmeldungen',
       'Läufe',
       'KI-Aufrufe',
       'Protokoll',

@@ -1166,3 +1166,48 @@ describe('Auslieferung unter /apps/<id>/', () => {
     expect(res.body.error.code).toBe('NOT_FOUND');
   });
 });
+
+describe('Der Schalter „Bildschirmfotos an den Agenten" (J43)', () => {
+  const { logSecurityEvent } = require('../../src/utils/auditLog');
+
+  test('der Admin schaltet ihn an; es steht im Protokoll mit vorher und nachher', async () => {
+    auth.__setUser(ADMIN);
+    logSecurityEvent.mockClear();
+    db.query.mockResolvedValueOnce({
+      rows: [{ id: 'urlaub', bilder_an_agenten: true, vorher: false }],
+    });
+    const res = await request(verwaltung())
+      .put('/api/apps/urlaub/bilder-an-agenten')
+      .send({ erlaubt: true });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ app_id: 'urlaub', bilder_an_agenten: true });
+    expect(db.query.mock.calls[0][1]).toEqual(['urlaub', true]);
+    expect(logSecurityEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'app_bilder_an_agenten_an',
+        details: { app_id: 'urlaub', vorher: false, nachher: true },
+      })
+    );
+  });
+
+  test('ein Mitarbeiter bekommt 403, ohne Wahrheitswert 400, eine fremde App 404', async () => {
+    auth.__setUser(MITARBEITER);
+    const verboten = await request(verwaltung())
+      .put('/api/apps/urlaub/bilder-an-agenten')
+      .send({ erlaubt: true });
+    expect(verboten.status).toBe(403);
+
+    auth.__setUser(ADMIN);
+    const falsch = await request(verwaltung())
+      .put('/api/apps/urlaub/bilder-an-agenten')
+      .send({ erlaubt: 'ja' });
+    expect(falsch.status).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const fremd = await request(verwaltung())
+      .put('/api/apps/gibtsnicht/bilder-an-agenten')
+      .send({ erlaubt: false });
+    expect(fremd.status).toBe(404);
+  });
+});

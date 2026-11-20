@@ -51,6 +51,8 @@ const flowSettings = require('../../services/flows/flowSettings');
 const schrittModelle = require('../../services/flows/schrittModelle');
 const abschluss = require('../../services/flows/abschluss');
 const kiProtokoll = require('../../services/app/kiProtokoll');
+const rueckmeldungen = require('../../services/rueckmeldung/rueckmeldungen');
+const { BilderAnAgentenBody } = require('../../schemas/rueckmeldungen');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const { NotFoundError, ValidationError } = require('../../utils/errors');
 
@@ -627,6 +629,35 @@ router.put(
         flow_name: name,
         zeitplan: live.find(f => f.name === name)?.zeitplan ?? flow.zeitplan,
       },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * PUT /api/apps/:id/bilder-an-agenten — der Schalter „Bildschirmfotos an den
+ * Agenten" (J43, M7, Migration 215). Vorgabe aus. Er entscheidet nur, was das
+ * Kit ueber `GET /api/v1/external/apps/:id/rueckmeldungen` bekommt; im Geraet
+ * sieht ein Entwickler die Bilder immer (docs/features/RUECKMELDUNG.md).
+ * Sicherheitsprotokoll wie beim Schalter eines Flows.
+ */
+router.put(
+  '/:id/bilder-an-agenten',
+  requireAuth,
+  requireRole('admin'),
+  validateParams(AppParams),
+  validateBody(BilderAnAgentenBody),
+  asyncHandler(async (req, res) => {
+    const data = await rueckmeldungen.setzeBilderAnAgenten(req.params.id, req.body.erlaubt);
+    logSecurityEvent({
+      userId: req.user.id,
+      action: data.bilder_an_agenten ? 'app_bilder_an_agenten_an' : 'app_bilder_an_agenten_aus',
+      details: { app_id: data.app_id, vorher: data.vorher, nachher: data.bilder_an_agenten },
+      ipAddress: req.ip,
+      requestId: req.headers['x-request-id'],
+    });
+    res.json({
+      data: { app_id: data.app_id, bilder_an_agenten: data.bilder_an_agenten },
       timestamp: new Date().toISOString(),
     });
   })
