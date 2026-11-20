@@ -33,7 +33,7 @@ export function Kapsel({ appId, name, stand, staende, children }: KapselProps) {
   const umschalter = staende.includes('live') && staende.includes('test');
   return (
     <div
-      className="glas absolute top-2 right-2 z-20 flex h-8 items-center gap-1 rounded-full border px-1"
+      className="glas absolute top-[8px] right-[8px] z-20 flex h-[32px] items-center gap-[4px] rounded-full border px-[4px]"
       data-testid="rahmen-kapsel"
     >
       {umschalter && (
@@ -41,7 +41,7 @@ export function Kapsel({ appId, name, stand, staende, children }: KapselProps) {
           <div
             role="group"
             aria-label="Fassung"
-            className="flex h-6 items-center rounded-full bg-muted p-0.5"
+            className="flex h-[24px] items-center rounded-full bg-muted p-[2px]"
           >
             {(['live', 'test'] as const).map(s => (
               <button
@@ -55,7 +55,7 @@ export function Kapsel({ appId, name, stand, staende, children }: KapselProps) {
                   stand !== s && oeffne({ type: 'app', appId, stand: s, title: name ?? undefined })
                 }
                 className={cn(
-                  'relative flex h-5 items-center rounded-full px-2.5 text-xs font-medium transition-colors duration-120 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none',
+                  'relative flex h-[20px] items-center rounded-full px-[10px] text-xs font-medium transition-colors duration-120 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none',
                   'pointer-coarse:before:absolute pointer-coarse:before:inset-x-0 pointer-coarse:before:top-1/2 pointer-coarse:before:min-h-11 pointer-coarse:before:-translate-y-1/2 pointer-coarse:before:content-[""]',
                   stand === s
                     ? s === 'test'
@@ -68,7 +68,7 @@ export function Kapsel({ appId, name, stand, staende, children }: KapselProps) {
               </button>
             ))}
           </div>
-          <span className="h-4 w-px bg-border" aria-hidden="true" />
+          <span className="h-[16px] w-px bg-border" aria-hidden="true" />
         </>
       )}
       {children}
