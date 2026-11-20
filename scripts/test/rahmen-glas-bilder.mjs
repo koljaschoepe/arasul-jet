@@ -162,7 +162,11 @@ async function rahmenLesen(seite) {
         const w = document.querySelector('[data-testid="ansicht-test-wort"]');
         if (!w) return null;
         const r = w.getBoundingClientRect();
-        return r.top >= 0 && r.left >= 0 && r.right <= innerWidth;
+        const f = document
+          .querySelector('[data-testid="workspace-ansicht"]')
+          .getBoundingClientRect();
+        // Ganz innen in der Fläche, nicht am Rand des Schirms angeschnitten.
+        return r.top >= f.top && r.left >= f.left && r.right <= f.right;
       })(),
       testWort:
         document.querySelector('[data-testid="ansicht-test-wort"]')?.textContent?.trim() ?? null,

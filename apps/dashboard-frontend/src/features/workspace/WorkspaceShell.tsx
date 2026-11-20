@@ -83,8 +83,8 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const oeffne = useWorkspaceStore(s => s.oeffne);
   const schmal = useSchmalesFenster();
-  // Die Testfassung einer App trägt einen blauen Rand und das Wort Test auf
-  // dem Rand, wie die Beschriftung eines Rahmens (`gestaltung.md`, Kapsel).
+  // Die Testfassung einer App trägt einen blauen Rand und oben in der Mitte,
+  // innen an der Kante, das Wort Test (`gestaltung.md`, Kapsel).
   const testfassung = ansicht.type === 'app' && ansicht.stand === 'test';
 
   // Der Pfad, auf dem Adresse und Store zuletzt übereinstimmten. Store → URL
@@ -145,7 +145,7 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
       <div className="relative flex min-h-0 min-w-0 flex-1">
         <main
           className={cn(
-            'relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-[14px] border bg-background shadow-md',
+            'relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-[14px] border bg-background shadow-[var(--schatten-flaeche)]',
             testfassung ? 'border-2 border-primary' : 'border-border'
           )}
           data-testid="workspace-ansicht"
@@ -155,7 +155,7 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
         </main>
         {testfassung && (
           <span
-            className="pointer-events-none absolute top-0 left-1/2 z-30 h-[16px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary px-[10px] text-xs leading-[16px] font-medium text-primary-foreground"
+            className="pointer-events-none absolute top-[6px] left-1/2 z-30 h-[18px] -translate-x-1/2 rounded-full bg-primary px-[10px] text-xs leading-[18px] font-medium text-primary-foreground shadow-sm"
             data-testid="ansicht-test-wort"
           >
             Test

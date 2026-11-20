@@ -333,7 +333,7 @@
   --rahmen-stufe-1: #0d2349;
   --rahmen-stufe-2: #121d33;
   --rahmen-stufe-3: #22252c;
-  --rahmen-schein: #173a70;
+  --rahmen-schein: #14315f;
 }
 
 /* -----------------------------------------------------------------------------
@@ -372,8 +372,14 @@
   /* Glas, das nur auf dem Grund des Rahmens liegt (die Leiste links, die
      Leiste unten am Handy): darunter ist nie Text und nie ein Knopf, nur der
      Verlauf. Es darf deshalb duenner sein, damit der Verlauf durchscheint. */
-  --glas-anteil-grund: 66%;
+  /* Dieses Glas ist neutral, nicht blau: hell Weiss, dunkel ein Hauch Creme
+     ueber dem Verlauf. `--popover` als Grund hielt die Leiste hell im Ton
+     der Flaeche und machte sie dunkel zu einer blauen Saeule. */
+  --glas-grund-basis: #ffffff;
+  --glas-anteil-grund: 62%;
   --glas-flaeche-grund: var(--popover);
+  /* Die Flaeche der Ansicht schwebt mit einer Haarlinie und weichem Schatten. */
+  --schatten-flaeche: 0 1px 2px rgba(30, 27, 22, 0.06), 0 12px 32px -12px rgba(23, 42, 82, 0.2);
   --glas-filter: none;
   --glas-schleier-filter: none;
   --glas-kante: rgba(255, 255, 255, 0.7);
@@ -386,6 +392,9 @@
 }
 
 [data-theme='dark'] {
+  --glas-grund-basis: #f6f3ed;
+  --glas-anteil-grund: 6%;
+  --schatten-flaeche: 0 0 0 1px rgba(246, 243, 237, 0.05), 0 16px 40px -12px rgba(0, 0, 0, 0.7);
   --verlauf-rahmen:
     radial-gradient(90% 70% at 0% 0%, var(--rahmen-schein) 0%, transparent 65%),
     linear-gradient(
@@ -403,7 +412,11 @@
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root:not([data-transparenz='reduziert']) {
     --glas-flaeche: color-mix(in srgb, var(--popover) var(--glas-anteil), transparent);
-    --glas-flaeche-grund: color-mix(in srgb, var(--popover) var(--glas-anteil-grund), transparent);
+    --glas-flaeche-grund: color-mix(
+      in srgb,
+      var(--glas-grund-basis) var(--glas-anteil-grund),
+      transparent
+    );
     --glas-filter: blur(16px) saturate(1.4);
     --glas-schleier-filter: blur(4px);
   }

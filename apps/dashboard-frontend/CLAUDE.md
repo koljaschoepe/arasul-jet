@@ -345,7 +345,7 @@ src/
                      das Rückmelde-Icon; der App nennt `AppRahmen` den Platz
                      als `--ara-kapsel-platz`. Die Testfassung trägt (in
                      `WorkspaceShell`) 2 px Blau um die Fläche und das Wort
-                     Test auf der Oberkante.
+                     Test oben innen.
                    • **Unter 900 px** schwebt statt der Aktivitätsleiste die
                      Leiste unten als Glas (`LeisteUnten.tsx`): Start, vier
                      Apps, „Mehr“ mit den übrigen Apps, Terminal,

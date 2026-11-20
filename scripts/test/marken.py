@@ -504,8 +504,8 @@ def kontrast_pruefen(wurzel: Path) -> list[str]:
                             "verlangt sind 4,5:1"
                         )
 
-        # Glas auf dem Grund des Rahmens (`.glas-grund`): `--popover` zu
-        # `--glas-anteil-grund` ueber jeder Stufe von `--verlauf-rahmen`
+        # Glas auf dem Grund des Rahmens (`.glas-grund`): `--glas-grund-basis`
+        # zu `--glas-anteil-grund` (je Thema) ueber jeder Stufe von `--verlauf-rahmen`
         # (`--rahmen-stufe-1` bis `-3` und `--rahmen-schein`). Auf
         # dem Verlauf selbst steht kein Text, auf dem Glas darueber schon
         # (der Name am gewaehlten Eintrag der Handyleiste, in Blau).
@@ -515,18 +515,22 @@ def kontrast_pruefen(wurzel: Path) -> list[str]:
         ]
         if not rahmen_stufen:
             befunde.append(f"theme.css ({thema}): --rahmen-stufe-*/--rahmen-schein tragen keine Hex-Werte -- Punkt 9 kann nicht rechnen")
-        anteil_grund = re.fullmatch(r"(\d+(?:\.\d+)?)%", hell_roh.get("--glas-anteil-grund", "").strip())
+        anteil_grund = re.fullmatch(r"(\d+(?:\.\d+)?)%", werte.get("--glas-anteil-grund", "").strip())
         if not anteil_grund:
-            befunde.append("theme.css: --glas-anteil-grund ist keine Prozentzahl -- Punkt 9 kann die Leiste nicht rechnen")
-        if glas and anteil_grund:
+            befunde.append(f"theme.css ({thema}): --glas-anteil-grund ist keine Prozentzahl -- Punkt 9 kann die Leiste nicht rechnen")
+        basis = wert("--glas-grund-basis")
+        if basis and anteil_grund:
             for stufe in rahmen_stufen:
-                flaeche = _mischen(glas, stufe.lower(), float(anteil_grund.group(1)) / 100)
-                for text in ("--foreground", "--muted-foreground", "--primary"):
+                flaeche = _mischen(basis, stufe.lower(), float(anteil_grund.group(1)) / 100)
+                # Text in Tinte und Tinte weich 4,5:1. Blau steht auf der
+                # Leiste nur als Symbol (der gewaehlte Eintrag), dafuer gilt
+                # 3:1 (WCAG 1.4.11); der Name am Handy steht in Tinte.
+                for text, soll in (("--foreground", 4.5), ("--muted-foreground", 4.5), ("--primary", 3.0)):
                     farbe = wert(text)
-                    if farbe and kontrast(farbe, flaeche) < 4.5:
+                    if farbe and kontrast(farbe, flaeche) < soll:
                         befunde.append(
                             f"theme.css ({thema}): {text} auf der Leiste ueber {stufe} des "
-                            f"Rahmens hat {kontrast(farbe, flaeche):.2f}:1, verlangt sind 4,5:1"
+                            f"Rahmens hat {kontrast(farbe, flaeche):.2f}:1, verlangt sind {soll}:1"
                         )
     return befunde
 

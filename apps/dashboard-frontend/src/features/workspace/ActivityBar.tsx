@@ -151,7 +151,7 @@ function Konto({ onLogout }: { onLogout: () => Promise<void> | void }) {
       >
         <PersonAvatar name={name} bild={bild} className="size-7" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="right" align="end" sideOffset={10} className="min-w-48">
+      <DropdownMenuContent side="right" align="end" sideOffset={16} className="min-w-48">
         <DropdownMenuLabel className="flex flex-col font-normal">
           <span className="truncate text-sm text-foreground" data-testid="konto-name">
             {name}
