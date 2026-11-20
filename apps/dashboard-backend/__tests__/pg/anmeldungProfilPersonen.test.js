@@ -312,10 +312,25 @@ beschreibe('Anmeldung, Profil und Personen gegen echtes Postgres', () => {
       theme: 'dark',
     });
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual({ theme: 'dark' });
+    expect(res.body.data).toEqual({ theme: 'dark', transparenz_reduziert: false });
 
     const sitzung = await mitToken(request(app).get('/api/auth/session'), adminToken);
     expect(sitzung.body.user.theme).toBe('dark');
+    expect(sitzung.body.user.transparenzReduziert).toBe(false);
+  });
+
+  test('PUT /api/darstellung setzt Transparenz reduzieren allein, das Theme bleibt', async () => {
+    const res = await mitToken(request(app).put('/api/darstellung'), adminToken).send({
+      transparenz_reduziert: true,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ theme: 'dark', transparenz_reduziert: true });
+
+    const sitzung = await mitToken(request(app).get('/api/auth/session'), adminToken);
+    expect(sitzung.body.user.transparenzReduziert).toBe(true);
+
+    const leer = await mitToken(request(app).put('/api/darstellung'), adminToken).send({});
+    expect(leer.status).toBe(400);
   });
 
   // --- Personen in der Verwaltung --------------------------------------------
