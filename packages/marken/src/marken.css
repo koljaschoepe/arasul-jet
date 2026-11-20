@@ -81,6 +81,11 @@
   --ara-akzent-text: var(--primary-foreground, #ffffff);
   --ara-fehler: var(--destructive, #c42020);
 
+  /* Der Verlauf des Hauptknopfs bis 5.6.1. Seit 5.7.0 ist der Hauptknopf
+     flach; der Name bleibt fuer Apps, die ihn benutzen, und zeichnet die
+     Marke einfarbig. */
+  --ara-verlauf-haupt: linear-gradient(var(--ara-akzent), var(--ara-akzent));
+
   /* Glas fuer schwebende Flaechen. Die Werte stehen in `theme.css`
      (Abschnitt GLAS); ohne diese Datei ist die Flaeche deckend. */
   --ara-glas: var(--glas-flaeche, var(--ara-flaeche-hoch));

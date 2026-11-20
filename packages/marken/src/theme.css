@@ -480,6 +480,8 @@ svg.lucide * {
   --shadow-xl: 0 20px 32px -8px rgba(30, 27, 22, 0.14);
   /* Der Hauptknopf hat keinen Verlauf mehr (Fassung 5.7.0): blau gefuellt,
      flach. Der einzige Verlauf der Oberflaeche ist der Grund. */
+  /* Der Name bleibt fuer Apps, die ihn benutzen: einfarbig die Marke. */
+  --gradient-primary: linear-gradient(var(--primary), var(--primary));
   --gradient-card: linear-gradient(135deg, #fbf8f2 0%, #f9f6f0 100%);
   /* Das Band der Startseite: ein blau getönter Grund, der nach rechts in die
      Karte ausläuft. Aus `--primary` gemischt, damit es beiden Themen folgt. */
