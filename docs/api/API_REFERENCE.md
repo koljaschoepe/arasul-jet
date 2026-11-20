@@ -2845,6 +2845,26 @@ könnte die Kopfzeile sonst selbst schreiben.
 `GET /api/auth/me` und `/api/auth/session` tragen seit Migration 213 das Feld
 `entwickler`; die Shell zeigt danach den Eintrag Terminal.
 
+### Rückmeldungen (J42, M7, 20.11.2026)
+
+Über jeder App zeigt der Rahmen oben rechts ein Icon; ein Mitarbeiter schreibt
+dort freien Text und markiert eine Stelle auf einem Bildschirmfoto der Seite.
+Melden darf jeder, der die App in diesem Stand benutzen darf (dieselbe Prüfung
+wie vor jeder Seite der App); lesen, das Bild holen und entfernen nur, wer das
+Kennzeichen Entwickler trägt (`admin_users.entwickler`, bei jedem Aufruf frisch
+aus der Datenbank, auch beim Administrator). Vertrag:
+[`docs/features/RUECKMELDUNG.md`](../features/RUECKMELDUNG.md).
+
+| Method | Endpoint                          | Auth                  | Description                                                                                                                                                                                                                                                       |
+| ------ | --------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/rueckmeldungen`             | admin, mitarb.        | Body `{ app_id, stand, seite, text, bild?, markierung? }`. `seite` liegt unter `/apps/<app_id>/`, `text` 1 bis 5000 Zeichen, `bild` ein `data:image/png;base64,…` bis 6 MB, `markierung` `{ x, y, breite, hoehe }` in Anteilen 0 bis 1. 201 `{ data: { id, erstellt_am } }`; 403 ohne Zugang zur App, 400 bei Seite außerhalb der App oder anderem Bild als PNG |
+| GET    | `/api/rueckmeldungen`             | Kennzeichen Entwickler | Neueste zuerst, höchstens 200, `?app_id=` filtert. Je Meldung `id, app_id, app_name, stand, seite, text, hat_bild, markierung, person { id, anzeigeName } \| null, stand_meldung, erstellt_am`. 403 ohne Kennzeichen                                                  |
+| GET    | `/api/rueckmeldungen/:id/bild`    | Kennzeichen Entwickler | Das Bildschirmfoto als `image/png` mit der markierten Stelle. 404 ohne Bild oder wenn die Datei am Gerät fehlt                                                                                                                                                  |
+| DELETE | `/api/rueckmeldungen/:id`         | Kennzeichen Entwickler | Entfernt Meldung und Bilddatei. 404, wenn es sie nicht gibt                                                                                                                                                                                                      |
+
+Der Melder bekommt nach dem Absenden nur Nummer und Zeit zurück; einen Weg,
+die eigenen Meldungen wieder zu lesen, gibt es nicht (`schleife.md`, Regel 2).
+
 ### Darstellung (Phase H1)
 
 Die Darstellung der Oberfläche, **je Mensch**. Drei Werte: `light` (Vorgabe),

@@ -40,7 +40,15 @@ const STUFEN = ['inhalte', 'auslieferung'];
 
 /** Ordner, deren INHALT geleert wird. Der Ordner selbst bleibt, er ist ein Mountpunkt. */
 const ORDNER = {
-  inhalte: [],
+  // Die Bilder der Rueckmeldungen (J42, M7). Ihre Zeilen stehen bei den
+  // INHALTEN, also gehen die Dateien mit derselben Stufe; bei `auslieferung`
+  // leert der Ordner der Apps sie ohnehin noch einmal mit.
+  inhalte: [
+    [
+      path.join(process.env.APPS_DIR || '/arasul/apps', '.rueckmeldungen'),
+      'Bilder der Rückmeldungen',
+    ],
+  ],
   auslieferung: [
     [process.env.FLOWS_DIR || '/arasul/flows', 'Flow-Definitionen'],
     // Die Apps des Kunden (Phase C3). Ohne diese Zeile blieben ihre Dateien

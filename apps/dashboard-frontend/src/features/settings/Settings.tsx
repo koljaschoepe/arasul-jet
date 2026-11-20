@@ -3,6 +3,7 @@ import type { SeitenleistenGruppe } from '@marken';
 import { Bereichsrahmen } from '@/components/Bereichsrahmen';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   SETTINGS_SECTIONS,
   bereichAusAdresse,
@@ -15,6 +16,7 @@ import { LaeufeSettings } from './LaeufeSettings';
 import { FirmenordnerSettings } from './FirmenordnerSettings';
 import { DatenSettings } from './DatenSettings';
 import { GeraetSettings } from './GeraetSettings';
+import { RueckmeldungenSettings } from './RueckmeldungenSettings';
 import { SystemSettings } from '../system/SystemSettings';
 
 interface VerwaltungProps {
@@ -46,6 +48,9 @@ function Settings({ modelle }: VerwaltungProps) {
   // Alte Adressen (Datenschutz, System → Sicherung) landen im Bereich Daten.
   const { bereich, abschnitt } = bereichAusAdresse(ansicht.bereich, ansicht.abschnitt);
   const waehle = (id: SettingsSectionId) => oeffne({ type: 'verwaltung', bereich: id });
+  // Das Kennzeichen blendet „Rückmeldungen" ein (J42, M7); das Backend prüft es
+  // bei jedem Aufruf selbst.
+  const entwickler = useAuth().user?.entwickler === true;
 
   const renderContent = () => {
     switch (bereich) {
@@ -58,6 +63,12 @@ function Settings({ modelle }: VerwaltungProps) {
                 oeffne({ type: 'verwaltung', bereich: 'apps', ...(id ? { abschnitt: id } : {}) })
               }
             />
+          </ComponentErrorBoundary>
+        );
+      case 'rueckmeldungen':
+        return (
+          <ComponentErrorBoundary componentName="Rückmeldungen">
+            <RueckmeldungenSettings entwickler={entwickler} />
           </ComponentErrorBoundary>
         );
       case 'laeufe':
@@ -116,7 +127,9 @@ function Settings({ modelle }: VerwaltungProps) {
 
   const gruppen: SeitenleistenGruppe[] = (['Arbeit', 'Betrieb'] as const).map(titel => ({
     titel,
-    eintraege: SETTINGS_SECTIONS.filter(s => s.gruppe === titel).map(section => ({
+    eintraege: SETTINGS_SECTIONS.filter(
+      s => s.gruppe === titel && (!s.nurEntwickler || entwickler)
+    ).map(section => ({
       kennung: section.id,
       name: section.label,
       symbol: section.icon,

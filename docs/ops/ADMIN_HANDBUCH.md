@@ -959,6 +959,31 @@ entfernt auch seinen Ordner am Gerät.
 
 Mehr dazu: [`docs/features/TERMINAL.md`](../features/TERMINAL.md).
 
+### Rückmeldungen aus den Apps
+
+Über jeder App steht oben rechts ein kleines Icon mit einer Sprechblase. Wer
+mit einer App arbeitet, tippt darauf, schreibt, was fehlt oder nicht stimmt,
+und markiert auf einem Bildschirmfoto der Seite die Stelle. Das Foto lässt
+sich abwählen. App, Seite, Name und Uhrzeit gehen von selbst mit. Danach sieht
+die Person nur „Ihre Rückmeldung ist angekommen.“ und ihre Meldung nicht
+wieder.
+
+Lesen kann die Meldungen nur, wer das Kennzeichen **Entwickler** trägt, auch
+der Administrator nicht ohne es: **Verwaltung → Personen**, Schalter
+„Entwickler“. Mit dem Kennzeichen steht in der Verwaltung der Bereich
+**Verwaltung → Rückmeldungen**: neueste zuerst, je Meldung App, Person, Zeit,
+Text, Seite und das Foto, das auf Klick groß aufgeht. „Entfernen“ nimmt
+Meldung und Foto vom Gerät; in älteren Sicherungen bleiben sie, bis diese
+ablaufen.
+
+Gespeichert wird nur am Gerät: der Text in der Datenbank, das Foto als Datei
+bei den Apps (`data/apps/.rueckmeldungen/`). Beides geht in die nächtliche
+Sicherung. Wird eine Person gelöscht, bleiben ihre Meldungen ohne Namen
+stehen. Die Apps können das Icon nicht abschalten, und keine braucht dafür
+eigenen Code.
+
+Mehr dazu: [`docs/features/RUECKMELDUNG.md`](../features/RUECKMELDUNG.md).
+
 ### Passwort ändern
 
 1. Öffnen Sie **Einstellungen → Passwort**

@@ -174,6 +174,12 @@ src/
                      (die Tabelle Apps unter Personen schaltet dieselben
                      Freigaben). `features/apps/` ist die Nutzer-Sicht —
                      zwei Ordner, zwei Fragen, dasselbe Wort.
+                   - **Rückmeldungen** (`RueckmeldungenSettings.tsx` +
+                     `rueckmeldungen/`, J42, M7): steht nach Apps und NUR mit
+                     dem Kennzeichen Entwickler in der Leiste
+                     (`nurEntwickler` in `sections.tsx`); einfache Liste,
+                     neueste zuerst, Foto groß auf Klick, Entfernen mit
+                     Rückfrage. Den Eingang mit Ständen baut das Cockpit (J44).
                    - **Personen** (`PersonenSettings.tsx` +
                      `personen/`, M5; ersetzt den Reiter „Mitarbeiter",
                      Tieflink bleibt `?tab=benutzer`): Liste mit Bild und
@@ -231,7 +237,13 @@ src/
                    Wechsel) und schickt `postMessage {typ:'arasul:theme',
                    theme}`. Das Theme steht **weder im `key` noch in der
                    Adresse** — beides tauschte das iframe-Element aus, und
-                   die App finge von vorn an.
+                   die App finge von vorn an. Über dem iframe schwebt oben
+                   rechts das Icon der **Rückmeldung** (`rueckmeldung/`, J42,
+                   M7): Foto des Dokuments im Rahmen mit `modern-screenshot`
+                   (`bildschirmfoto.ts`, Bibliothek erst beim ersten Foto
+                   nachgeladen), Stelle markieren (`Markierung.tsx`), Formular
+                   (`RueckmeldungKnopf.tsx`), `POST /api/rueckmeldungen`. Keine
+                   App bekommt dafür Code. Vertrag `docs/features/RUECKMELDUNG.md`.
     freigaben/     „Für Sie" auf der Startseite, seit M5 (04.10.2026) für
                    JEDEN: nur die Freigaben, die bei mir liegen (bei mir
                    persönlich oder, ohne Standardperson der Stufe, bei allen

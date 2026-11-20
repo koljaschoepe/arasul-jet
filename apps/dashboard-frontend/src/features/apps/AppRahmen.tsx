@@ -48,6 +48,11 @@
  * in den `key` noch in die Adresse: beides tauschte das iframe-Element aus,
  * die App finge von vorn an, und ein halb ausgefülltes Formular wäre weg.
  * Geschrieben wird in das Dokument, das schon dasteht.
+ *
+ * UND ÜBER JEDER APP DAS ICON DER RÜCKMELDUNG (J42, M7). Dieselbe Herkunft,
+ * die das Theme hineinreicht, lässt den Rahmen auch heraus lesen: die Adresse
+ * der Seite und ein Bildschirmfoto des Dokuments (`rueckmeldung/`). Vertrag:
+ * `docs/features/RUECKMELDUNG.md`.
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { AppWindow } from 'lucide-react';
@@ -56,6 +61,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { appPfad, useWorkspaceStore, type AppStand } from '@/stores/workspaceStore';
 import { useMeineApps } from './meineApps';
 import { Ladezustand, Leerzustand } from '@marken';
+import { RueckmeldungKnopf } from './rueckmeldung/RueckmeldungKnopf';
 
 interface AppRahmenProps {
   appId: string;
@@ -147,24 +153,31 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
     );
   }
 
+  // Das Icon der Rückmeldung (J42, M7) schwebt oben rechts über dem Rahmen.
+  // Es gehört dem Rahmen, nicht der App: keine App bekommt dafür Code, und
+  // keine kann es abschalten. Die Hülle trägt nur die Lage, das iframe bleibt
+  // dasselbe Element (der Schlüssel unten tauscht es wie bisher).
   return (
-    <iframe
-      // Der Schlüssel bindet den Rahmen an App UND Stand: ohne ihn behielte
-      // React beim Wechsel dasselbe iframe-Element und lüde die neue Adresse
-      // in dessen Verlauf — ein „Zurück" im Browser landete dann in der
-      // vorigen App statt im vorigen Tab. Das THEME steht bewusst nicht darin
-      // (siehe Kopf).
-      key={`${appId}:${stand}:${vorgang ?? ''}`}
-      ref={rahmen}
-      src={appPfad(appId, stand) + (vorgang ? `?freigabe=${vorgang}` : '')}
-      title={name ?? appId}
-      // Jedes Dokument, das in diesem Rahmen ankommt, bekommt das Theme —
-      // auch das zweite, wenn die App in sich weiternavigiert. Ein Effekt
-      // allein reichte dafür nicht: er läuft, wenn sich das Theme ändert,
-      // und nicht, wenn der Rahmen etwas Neues lädt.
-      onLoad={themeReichen}
-      className="h-full w-full border-0 bg-background"
-      data-testid={`app-rahmen-${appId}`}
-    />
+    <div className="relative h-full w-full">
+      <iframe
+        // Der Schlüssel bindet den Rahmen an App UND Stand: ohne ihn behielte
+        // React beim Wechsel dasselbe iframe-Element und lüde die neue Adresse
+        // in dessen Verlauf — ein „Zurück" im Browser landete dann in der
+        // vorigen App statt im vorigen Tab. Das THEME steht bewusst nicht darin
+        // (siehe Kopf).
+        key={`${appId}:${stand}:${vorgang ?? ''}`}
+        ref={rahmen}
+        src={appPfad(appId, stand) + (vorgang ? `?freigabe=${vorgang}` : '')}
+        title={name ?? appId}
+        // Jedes Dokument, das in diesem Rahmen ankommt, bekommt das Theme —
+        // auch das zweite, wenn die App in sich weiternavigiert. Ein Effekt
+        // allein reichte dafür nicht: er läuft, wenn sich das Theme ändert,
+        // und nicht, wenn der Rahmen etwas Neues lädt.
+        onLoad={themeReichen}
+        className="h-full w-full border-0 bg-background"
+        data-testid={`app-rahmen-${appId}`}
+      />
+      <RueckmeldungKnopf appId={appId} stand={stand} rahmen={rahmen} />
+    </div>
   );
 }

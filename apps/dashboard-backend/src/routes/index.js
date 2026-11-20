@@ -50,6 +50,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/ausweise', group: 'core' },
   { prefix: '/firmenordner', group: 'core' },
   { prefix: '/terminal', group: 'core' },
+  { prefix: '/rueckmeldungen', group: 'core' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/v1/external', group: 'external' },
   { prefix: '/docs', group: 'core', description: 'Static API documentation' },
@@ -98,6 +99,9 @@ router.use('/firmenordner', require('./firmenordner'));
 // Das Terminal fuer Entwickler (Karte terminal-im-frontend, M5). Bei den
 // Kern-Wegen: es gehoert dem Angemeldeten, die Rolle Entwickler entscheidet.
 router.use('/terminal', require('./terminal'));
+// Die Rueckmeldung im Rahmen (J42, M7). Bei den Kern-Wegen: melden darf
+// jeder mit Zugang zur App, lesen nur das Kennzeichen Entwickler.
+router.use('/rueckmeldungen', require('./rueckmeldungen'));
 
 // --- System ---
 router.use('/system', require('./system/system'));

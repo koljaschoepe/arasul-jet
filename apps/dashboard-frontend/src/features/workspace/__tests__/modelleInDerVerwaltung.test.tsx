@@ -9,6 +9,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { AnsichtWeiche } from '../AnsichtInhalt';
 
+// Die Verwaltung liest das Kennzeichen Entwickler (J42, M7).
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 1, username: 'chef', role: 'admin', entwickler: false } }),
+}));
+
 vi.mock('@/features/modelle/ModelleAnsicht', () => ({
   default: () => <div data-testid="modelle-bereich">Kurzliste</div>,
 }));
