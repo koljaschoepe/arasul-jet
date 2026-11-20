@@ -820,6 +820,15 @@ Was drinsteht und warum, erklärt
 
 ---
 
+`MARKEN_LAUFZEIT_ZIEL` steht ebenfalls nicht als Tabellenzeile hier: es ist
+keine Stellschraube des Geräts, sondern eine Variable des Baus. Sie sagt
+`packages/marken/laufzeit.config.mjs`, wohin die Bibliothek zur Laufzeit
+gebaut wird; ungesetzt ist es `apps/dashboard-frontend/dist/marken/` wie
+bisher. Gesetzt wird sie nur von `apps/dashboard-frontend/demo/bauen.mjs`
+für die Demo ohne Gerät (J46, [features/DEMO.md](features/DEMO.md)).
+
+---
+
 ## Related Documentation
 
 - [Deployment](ops/DEPLOYMENT.md) - Setup & deployment guide

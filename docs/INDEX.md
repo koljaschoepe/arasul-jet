@@ -85,6 +85,7 @@ docs/
 | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
 | [`features/APPS.md`](features/APPS.md)                                               | Apps: Manifest `app.json`, die zwei Stände, Tester-Kreis, Auslieferung |
 | [`features/APP-PAKET.md`](features/APP-PAKET.md)                                     | Das App-Paket: was hineingehört, der Deploy-Schlüssel, der Kontrakt    |
+| [`features/DEMO.md`](features/DEMO.md)                                               | Demo ohne Gerät: echtes Frontend, gespielte Antworten, Auslieferung    |
 | [`features/FLOWS.md`](features/FLOWS.md)                                             | Flows: Definitionen, Argumente, Werkzeuge, Läufe, externer Trigger     |
 | [`features/LAST.md`](features/LAST.md)                                               | Last: zwölf Personen gleichzeitig, Wartezeiten am Orin, Einstellungen  |
 | [`features/FIRMENORDNER.md`](features/FIRMENORDNER.md)                               | Der Firmenordner: OpenCloud am Gerät, zwei Ebenen, die zweite Ablage   |
