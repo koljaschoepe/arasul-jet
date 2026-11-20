@@ -42,6 +42,7 @@ const appPaket = require('../../src/services/app/appPaket');
 const appStore = require('../../src/services/app/appStore');
 const appContainer = require('../../src/services/app/appContainer');
 const { AppManifest } = require('../../src/schemas/apps');
+const { stemple } = require('../helpers/nachweis');
 
 const WERKSTATT = fs.mkdtempSync(path.join(os.tmpdir(), 'arasul-paket-bau-'));
 
@@ -54,6 +55,9 @@ const MANIFEST = AppManifest.parse({
   id: 'probeapp',
   name: 'Probeapp',
   version: '1.0.0',
+  // Seit J45 Pflicht: die Bibliothek des Geraets (Hauptzahl 5) und der
+  // Nachweis des Kit-Ablaufs (`stemple` in `vollstaendig`).
+  marken: '5',
   frontend: { verzeichnis: 'frontend' },
   backend: { image: 'probeapp:1.0.0', bauen: { verzeichnis: 'backend' } },
   ports: { backend: 8080 },
@@ -77,6 +81,7 @@ function vollstaendig(ordner, manifest = MANIFEST) {
   fs.writeFileSync(path.join(ordner, 'frontend', 'index.html'), '<h1>hallo</h1>');
   fs.mkdirSync(path.join(ordner, 'backend'), { recursive: true });
   fs.writeFileSync(path.join(ordner, 'backend', 'Dockerfile'), 'FROM node:22-alpine\n');
+  stemple(ordner);
 }
 
 afterAll(() => {

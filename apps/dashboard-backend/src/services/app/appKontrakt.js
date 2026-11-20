@@ -25,7 +25,7 @@
 
 const { z } = require('zod');
 const { versionFuerAnzeige } = require('../../utils/version');
-const { AppManifest } = require('../../schemas/apps');
+const { AppManifest, MITGELIEFERTE_APPS } = require('../../schemas/apps');
 const { FlowDefinition } = require('../../schemas/flows');
 const {
   ExternalFlowRunBody,
@@ -43,6 +43,7 @@ const { STAENDE_MELDUNG } = require('../../schemas/rueckmeldungen');
 const { KOPF_BENUTZER, KOPF_ROLLE } = require('./appZugang');
 const appPaket = require('./appPaket');
 const appFlows = require('./appFlows');
+const appStandard = require('./appStandard');
 const originalDienst = require('../flows/original');
 
 /**
@@ -872,7 +873,25 @@ function kontrakt() {
         'Eine Version, die gerade live ist, wird nicht überschrieben: neue Fassung, neue Nummer.',
         'Mit `flows` im Manifest muss der Ordner da sein und wenigstens eine .md enthalten.',
         'Jede eingespielte App belegt einen Platz der Lizenz, Test- und Livestand zusammen. Ist das Kontingent voll, weist das Gerät das Paket einer NEUEN App ab (409), und zwar bevor es baut; eine neue Version einer App, die schon da ist, geht immer durch.',
+        'Der App-Standard ist Pflicht (seit 20.11.2026): das Paket steht auf der Bibliothek des Geräts (`marken` mit dessen Hauptzahl, sobald es ein Frontend hat), bringt Tests mit und trägt den Nachweis des Kit-Ablaufs (`nachweis.json` in der Wurzel). Sonst weist das Gerät es mit 400 ab, bevor es baut, mit einem Satz je Grund; die Codes stehen in `details.standard`. Einen Schalter daran vorbei gibt es nicht. Ein fremder Container (kein Frontend, fertiges Image) bringt keinen Nachweis mit und wird abgewiesen.',
       ],
+      // Der App-Standard (J45). Das Format des Nachweises gehoert dem Kit
+      // (Formatblatt `.ara/knowledge/nachweis.de.md`, Schema 1); hier steht,
+      // was dieses Geraet davon prueft, damit ein Kit es nicht raten muss.
+      //
+      // DIE KONTRAKTVERSION BLEIBT 14 (Entscheidung 20.11.2026): das Kit
+      // schreibt den Nachweis seit Kit-PR 119 von sich aus und prueft ihn vor
+      // jedem `--deploy` mit denselben Codes. Es verlaesst sich auf nichts,
+      // das neu waere. Eine 15 liesse dagegen jedes Kit, das nur bis 14
+      // zaehlt, mit "Geraet ist neuer" stehen, ohne dass ihm etwas fehlte.
+      nachweis: {
+        datei: appStandard.NACHWEIS_DATEI,
+        schema: 1,
+        pflicht: true,
+        ausgenommen: [...MITGELIEFERTE_APPS],
+        bibliothek: 'marken nennt die Hauptzahl des Geräts (oder eine Kopie derselben Hauptzahl)',
+        codes: appStandard.CODES,
+      },
     },
     apps: {
       basis: '/apps/<id>/',

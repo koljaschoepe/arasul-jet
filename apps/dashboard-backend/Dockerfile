@@ -33,6 +33,11 @@ COPY apps/dashboard-frontend/package.json apps/dashboard-frontend/
 # installing. This does not affect lockfile dependency integrity.
 RUN npm pkg delete scripts.prepare
 
+# Die Fassung der Bibliothek, die dieses Geraet traegt (J45): der App-Standard
+# weist beim Ausrollen eine fremde Hauptzahl ab und liest sie aus genau dieser
+# Datei (`services/app/appStandard.js`), statt eine zweite Zahl zu fuehren.
+COPY packages/marken/src/fassung.ts packages/marken/src/fassung.ts
+
 # ============================================================================
 # test: devDependencies + tests for local `npx jest` runs via
 # `docker compose -f compose.test.yaml run backend-test`.
