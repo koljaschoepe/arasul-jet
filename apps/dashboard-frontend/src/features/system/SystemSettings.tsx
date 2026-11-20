@@ -81,18 +81,19 @@ export function SystemSettings({ initial }: SystemSettingsProps = {}) {
 
   return (
     <div className="animate-in fade-in flex flex-col gap-6" data-testid="system-seite">
-      <Kopf titel="System" symbol={<Server />} />
-
-      <p
-        className={
-          lage?.status === 'CRITICAL' ? 'text-sm text-destructive' : 'text-sm text-foreground'
+      <Kopf
+        titel="System"
+        beschreibung={
+          <span
+            className={lage?.status === 'CRITICAL' ? 'text-destructive' : undefined}
+            data-testid="system-satz"
+            data-zustand={lage?.status ?? 'unbekannt'}
+            role="status"
+          >
+            {lage || isError ? lageSatz(lage, isError) : 'Wird geprüft …'}
+          </span>
         }
-        data-testid="system-satz"
-        data-zustand={lage?.status ?? 'unbekannt'}
-        role="status"
-      >
-        {lage || isError ? lageSatz(lage, isError) : 'Wird geprüft …'}
-      </p>
+      />
 
       <div data-testid="system-zahlen">
         <Kennzahlen className="lg:grid-cols-3">

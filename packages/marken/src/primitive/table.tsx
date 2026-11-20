@@ -81,12 +81,18 @@ function TableRow({ className, ...props }: React.ComponentProps<'tr'>) {
   );
 }
 
+/*
+ * Die Masse der kompakten Tabelle (5.9.0, `gestaltung.md`): Kopfzeile 32 px,
+ * Zeile 40 px, in Pixeln, weil die Shell mit 17 px Wurzelschrift rechnet.
+ * `height` an einer Zelle ist eine Mindesthoehe: eine Zelle mit zwei Zeilen
+ * waechst, eine mit einer bleibt bei 40 px.
+ */
 function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
   return (
     <th
       data-slot="table-head"
       className={cn(
-        'h-9 px-ui-2 text-left align-middle font-medium whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
+        'h-[32px] px-3 py-0 text-left align-middle text-ui-xs font-medium whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
         className
       )}
       {...props}
@@ -99,7 +105,7 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
     <td
       data-slot="table-cell"
       className={cn(
-        'p-ui-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
+        'h-[40px] px-3 py-1 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
         className
       )}
       {...props}

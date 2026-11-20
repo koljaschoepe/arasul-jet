@@ -17,7 +17,6 @@
  * Ansicht für ihn sichtbar ist oder nicht.
  */
 import { useEffect } from 'react';
-import { Cpu } from '@marken/symbole';
 import { Kopf } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -46,7 +45,6 @@ function ModelleAnsicht() {
     <div className="min-w-0 animate-in fade-in" data-testid="modelle-seite">
       <Kopf
         titel="Modelle"
-        symbol={<Cpu />}
         beschreibung="Die Modelle dieses Geräts und die Flows, die sie nutzen. Das Gerät lädt und entlädt sie selbst, je nach Nutzung."
       />
 

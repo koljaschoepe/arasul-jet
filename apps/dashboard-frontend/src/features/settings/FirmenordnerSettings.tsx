@@ -32,6 +32,7 @@ import {
   Formularseite,
   Kopf,
   Leerzustand,
+  Werkzeug,
 } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';
@@ -163,14 +164,15 @@ export function FirmenordnerSettings() {
     <div className="animate-in fade-in" data-testid="firmenordner-seite">
       <Kopf
         titel="Firmenordner"
-        symbol={<FolderTree />}
         beschreibung="Die Ordner der Firma auf dem Gerät, und wer darin liest oder schreibt."
-        aktionen={
+        werkzeuge={
           an && !isError ? (
-            <Button onClick={() => setAnlegenOffen(true)} data-testid="ordner-anlegen-oeffnen">
-              <FolderPlus className="size-4" aria-hidden="true" />
-              Ordner anlegen
-            </Button>
+            <Werkzeug
+              symbol={<FolderPlus />}
+              beschriftung="Ordner anlegen"
+              onClick={() => setAnlegenOffen(true)}
+              data-testid="ordner-anlegen-oeffnen"
+            />
           ) : null
         }
       />

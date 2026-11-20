@@ -1,11 +1,6 @@
-import type { AppStand } from '@/stores/workspaceStore';
-import type { LeistenApp } from '@/features/apps/meineApps';
-
 /**
- * Die Fassung, die ein Klick auf eine App in der Leiste öffnet: die, in der
- * man sie zuletzt offen hatte, sonst die erste (Live, wo es Live gibt). Jede
- * App steht genau einmal in der Leiste; umgeschaltet wird in der Kapsel.
+ * Die Fassung, die ein Klick auf eine App öffnet, steht seit J50 bei den
+ * eigenen Apps (`features/apps/meineApps.ts`): die Startseite braucht sie
+ * genauso wie die Leiste. Dieser Name bleibt für die Leiste.
  */
-export function standFuerKlick(app: LeistenApp, zuletzt: AppStand | undefined): AppStand {
-  return zuletzt && app.staende.includes(zuletzt) ? zuletzt : (app.staende[0] ?? 'live');
-}
+export { standFuerKlick } from '@/features/apps/meineApps';

@@ -21,6 +21,7 @@ import {
   RadioGroup,
   RadioGroupItem,
   Switch,
+  Werkzeug,
   type SeitenleistenGruppe,
 } from '@marken';
 import { Bereichsrahmen } from '@/components/Bereichsrahmen';
@@ -46,7 +47,10 @@ function Erscheinungsbild() {
   const { wahl, setTheme, transparenzReduziert, setTransparenzReduziert } = useTheme();
   return (
     <>
-      <Kopf titel="Erscheinungsbild" symbol={<Palette />} />
+      <Kopf
+        titel="Erscheinungsbild"
+        beschreibung="Hell oder dunkel, und wie viel Glas Sie sehen. Gilt für Sie auf jedem Rechner."
+      />
       <RadioGroup
         value={wahl}
         onValueChange={wert => {
@@ -141,19 +145,16 @@ function AngemeldeteRechner() {
     <>
       <Kopf
         titel="Angemeldete Rechner"
-        symbol={<Monitor />}
-        aktionen={
+        beschreibung="Wo Ihr Konto gerade angemeldet ist. Ein fremder Rechner lässt sich hier abmelden."
+        werkzeuge={
           liste.length > 0 ? (
-            <Button
-              variant="outline"
-              size="sm"
+            <Werkzeug
+              symbol={<LogOut />}
+              beschriftung="Überall abmelden"
               onClick={() => void ueberallAbmelden()}
               disabled={ueberall}
               data-testid="ueberall-abmelden"
-            >
-              <LogOut className="size-4" aria-hidden="true" />
-              Überall abmelden
-            </Button>
+            />
           ) : undefined
         }
       />
@@ -218,7 +219,10 @@ function Bereich({ id }: { id: BereichId }) {
     case 'passwort':
       return (
         <ComponentErrorBoundary componentName="Passwort">
-          <Kopf titel="Passwort" symbol={<Lock />} />
+          <Kopf
+            titel="Passwort"
+            beschreibung="Ein neues Passwort gilt sofort, andere Rechner melden sich danach neu an."
+          />
           <PasswordManagement />
         </ComponentErrorBoundary>
       );
@@ -237,7 +241,7 @@ function Bereich({ id }: { id: BereichId }) {
     default:
       return (
         <ComponentErrorBoundary componentName="Profil">
-          <Kopf titel="Profil" symbol={<User />} />
+          <Kopf titel="Profil" beschreibung="Ihr Name und Ihre Adresse auf diesem Gerät." />
           <ProfilFormular />
         </ComponentErrorBoundary>
       );

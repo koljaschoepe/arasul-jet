@@ -15,7 +15,6 @@
  * Abschnitt aus der Adresse rollt in Sicht.
  */
 import { useEffect, useRef } from 'react';
-import { HardDrive } from '@marken/symbole';
 import { Formularseite, Kopf } from '@marken';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Unternehmen } from './geraet/Unternehmen';
@@ -37,7 +36,10 @@ export function GeraetSettings({ abschnitt }: { abschnitt?: string }) {
 
   return (
     <div className="animate-in fade-in flex flex-col gap-8" data-testid="geraet-seite" ref={seite}>
-      <Kopf titel="Gerät" symbol={<HardDrive />} />
+      <Kopf
+        titel="Gerät"
+        beschreibung="Name des Unternehmens, Aktualisierung, Lizenz und Fernzugriff dieses Geräts."
+      />
       <Formularseite>
         <ComponentErrorBoundary componentName="Unternehmen">
           <Unternehmen />

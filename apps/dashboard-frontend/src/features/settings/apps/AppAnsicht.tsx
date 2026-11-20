@@ -257,7 +257,6 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
     <div className="flex flex-col gap-6" data-testid={`app-ansicht-${appId}`}>
       <Kopf
         titel={app.name}
-        symbol={<AppWindow />}
         beschreibung={app.beschreibung}
         aktionen={
           <div className="flex shrink-0 items-center gap-2">

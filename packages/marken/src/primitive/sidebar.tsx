@@ -259,8 +259,10 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
       variant="ghost"
-      size="icon-sm"
-      className={cn(className)}
+      // 28 px wie jedes Werkzeug im Seitenkopf, in dem er seit 5.9.0 sitzt.
+      size="icon"
+      className={cn('text-muted-foreground hover:text-foreground', className)}
+      title="Seitenleiste umschalten"
       onClick={ereignis => {
         onClick?.(ereignis);
         umschalten();

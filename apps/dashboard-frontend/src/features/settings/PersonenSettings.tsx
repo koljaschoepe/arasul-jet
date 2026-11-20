@@ -23,8 +23,8 @@
  * trägt `requireRole('admin')` und antwortet einem Mitarbeiter mit 403.
  */
 import { useState } from 'react';
-import { KeyRound, ShieldCheck, UserPlus, UserX, Users } from '@marken/symbole';
-import { Kopf, Button, Switch, Feldgruppe, Formularseite } from '@marken';
+import { KeyRound, ShieldCheck, UserPlus, UserX } from '@marken/symbole';
+import { Kopf, Button, Switch, Feldgruppe, Formularseite, Werkzeug } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -130,12 +130,14 @@ export function PersonenSettings() {
 
       <Kopf
         titel="Personen"
-        symbol={<Users />}
-        aktionen={
-          <Button onClick={() => setAnlegenOffen(true)} data-testid="person-anlegen-oeffnen">
-            <UserPlus className="size-4" aria-hidden="true" />
-            Person anlegen
-          </Button>
+        beschreibung="Wer sich an diesem Gerät anmeldet, mit welcher Rolle, und welche Apps er sieht."
+        werkzeuge={
+          <Werkzeug
+            symbol={<UserPlus />}
+            beschriftung="Person anlegen"
+            onClick={() => setAnlegenOffen(true)}
+            data-testid="person-anlegen-oeffnen"
+          />
         }
       />
 
