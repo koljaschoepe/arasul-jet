@@ -1,8 +1,8 @@
 /**
  * Tests: der Rahmen der Shell (M5) und der Abgleich von Adresse und Ansicht.
  *
- * 1. Es gibt keine Kopfleiste, keine Tab-Leiste, keine Spalten: nur
- *    Aktivitätsleiste, eine Ansicht und die Statusleiste.
+ * 1. Es gibt keine Kopfleiste, keine Tab-Leiste, keine Spalten und keine
+ *    Statuszeile: nur die Leiste und die Fläche der Ansicht auf dem Verlauf.
  * 2. `/workspace` landet auf der Startseite, eine Admin-Adresse für einen
  *    Mitarbeiter ebenfalls, ein unbekannter Pfad auch.
  * 3. Deep-Links öffnen ihre Ansicht, alte Lesezeichen (`/workspace/modelle`,
@@ -17,7 +17,6 @@ import { angemeldet } from '@/__tests__/helpers/authMock';
 
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
 vi.mock('../ActivityBar', () => ({ ActivityBar: () => <nav data-testid="mock-leiste" /> }));
-vi.mock('../StatusBar', () => ({ StatusBar: () => <footer data-testid="mock-statusleiste" /> }));
 vi.mock('../AnsichtInhalt', () => ({ AnsichtInhalt: () => <div data-testid="mock-ansicht" /> }));
 
 function LocationProbe() {
@@ -56,17 +55,19 @@ describe('WorkspaceShell', () => {
     angemeldet({ role: 'admin' });
   });
 
-  it('besteht nur aus Leiste, Ansicht und Statusleiste', async () => {
+  it('besteht nur aus Leiste und Ansicht, ohne Statuszeile', async () => {
     renderShell('/workspace');
     const shell = await screen.findByTestId('workspace-shell');
     expect(screen.getByTestId('mock-leiste')).toBeInTheDocument();
     expect(screen.getByTestId('mock-ansicht')).toBeInTheDocument();
-    expect(screen.getByTestId('mock-statusleiste')).toBeInTheDocument();
+    expect(shell.querySelector('footer')).toBeNull();
+    expect(screen.queryByTestId('statusbar')).not.toBeInTheDocument();
     expect(shell.querySelector('header')).toBeNull();
     expect(shell.querySelector('[data-panel]')).toBeNull();
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
-    // Eine Flächenfarbe (DESIGN.md): die Ansicht liegt auf bg-background.
-    expect(screen.getByTestId('workspace-ansicht')).toHaveClass('bg-background');
+    // Die Ansicht ist eine deckende, abgerundete Fläche auf dem Verlauf.
+    expect(screen.getByTestId('workspace-ansicht')).toHaveClass('bg-background', 'rounded-[14px]');
+    expect(shell.className).toContain('--verlauf-rahmen');
   });
 
   it('ohne Deep-Link landet der Workspace auf der Startseite', async () => {

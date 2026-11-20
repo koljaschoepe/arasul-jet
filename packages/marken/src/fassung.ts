@@ -203,4 +203,12 @@
  * Die Karten der `Datenliste` am Handy sind deckend (`bg-card`), wie jede
  * Karte. Kein Name, keine Eigenschaft aendert sich.
  */
-export const FASSUNG = '5.7.1';
+/*
+ * 5.8.0: der Grund des Rahmens. Neu sind `--verlauf-rahmen` (aus
+ * `--rahmen-stufe-1` bis `-3` und `--rahmen-schein`), ein sichtbarer Verlauf,
+ * auf dem kein Text steht, nur Glas, und dazu `.glas-grund` mit
+ * `--glas-anteil-grund`: dasselbe Glas, duenner gefuellt, fuer schwebende
+ * Leisten, unter denen nur dieser Verlauf liegt. Kein Name faellt weg, nichts
+ * aendert seine Bedeutung.
+ */
+export const FASSUNG = '5.8.0';

@@ -237,16 +237,30 @@ export interface WorkspaceState {
    * nur wenn sie gerade offen ist.
    */
   setzeAppTitel: (appId: string, stand: AppStand, title: string) => void;
+  /**
+   * Die Fassung, in der jemand eine App zuletzt offen hatte. Jede App steht
+   * genau einmal in der Leiste; ein Klick darauf führt dorthin zurück, wo man
+   * sie verlassen hat, Live oder Test. Nur im Speicher, wie alles hier.
+   */
+  zuletztStand: Record<string, AppStand>;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   ansicht: { type: 'dashboard' },
+  zuletztStand: {},
 
   oeffne: a => {
     const jetzt = get().ansicht;
     const title = a.title ?? (ansichtId(a) === ansichtId(jetzt) ? jetzt.title : undefined);
     const neu: Ansicht = { ...a, ...(title ? { title } : {}) };
-    if (!gleich(neu, jetzt)) set({ ansicht: neu });
+    if (gleich(neu, jetzt)) return;
+    const zuletzt = get().zuletztStand;
+    const stand = neu.stand ?? 'live';
+    set(
+      neu.type === 'app' && neu.appId && zuletzt[neu.appId] !== stand
+        ? { ansicht: neu, zuletztStand: { ...zuletzt, [neu.appId]: stand } }
+        : { ansicht: neu }
+    );
   },
 
   setzeAppTitel: (appId, stand, title) =>

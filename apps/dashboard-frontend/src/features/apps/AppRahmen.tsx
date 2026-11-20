@@ -62,6 +62,7 @@ import { appPfad, useWorkspaceStore, type AppStand } from '@/stores/workspaceSto
 import { useMeineApps } from './meineApps';
 import { Ladezustand, Leerzustand } from '@marken';
 import { RueckmeldungKnopf } from './rueckmeldung/RueckmeldungKnopf';
+import { Kapsel, TestRand } from './Kapsel';
 
 interface AppRahmenProps {
   appId: string;
@@ -111,7 +112,8 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
   // Der NAME der App, sobald die Liste ihn kennt (J35, 26.09.2026). Ein Tab,
   // der über eine Adresse kam (`/workspace/app/<id>`), hieß bis dahin „App",
   // und Rahmen und Meldungen nannten die Kennung — einen Pfad, kein Wort.
-  const name = apps?.find(a => a.id === appId)?.name ?? null;
+  const app = apps?.find(a => a.id === appId);
+  const name = app?.name ?? null;
   const setzeAppTitel = useWorkspaceStore(s => s.setzeAppTitel);
   useEffect(() => {
     if (name) setzeAppTitel(appId, stand, name);
@@ -132,7 +134,6 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
     // Liste, und fehlt er (die App ist dieser Person gar nicht freigegeben),
     // heißt sie „Diese App". Steht nur der Test bereit, fehlt keine Freigabe,
     // die App ist nur noch nicht live.
-    const app = apps?.find(a => a.id === appId);
     const appName = app?.name ?? 'Diese App';
     const nurTest = stand === 'live' && Boolean(app?.test);
     return (
@@ -156,10 +157,13 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
     );
   }
 
-  // Das Icon der Rückmeldung (J42, M7) schwebt oben rechts über dem Rahmen.
-  // Es gehört dem Rahmen, nicht der App: keine App bekommt dafür Code, und
-  // keine kann es abschalten. Die Hülle trägt nur die Lage, das iframe bleibt
-  // dasselbe Element (der Schlüssel unten tauscht es wie bisher).
+  // Oben rechts schwebt die Kapsel (Karte glas-rahmen-und-leiste) mit dem
+  // Umschalter Live und Test und dem Icon der Rückmeldung (J42). Sie gehört
+  // dem Rahmen, nicht der App: keine App bekommt dafür Code, und keine kann
+  // sie abschalten. Die Hülle trägt nur die Lage, das iframe bleibt dasselbe
+  // Element (der Schlüssel unten tauscht es wie bisher). Die Testfassung trägt
+  // den blauen Rand mit dem Wort Test.
+  const staende = (['live', 'test'] as const).filter(s => app?.[s]);
   return (
     <div className="relative h-full w-full">
       <iframe
@@ -180,7 +184,10 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
         className="h-full w-full border-0 bg-background"
         data-testid={`app-rahmen-${appId}`}
       />
-      <RueckmeldungKnopf appId={appId} stand={stand} rahmen={rahmen} />
+      {stand === 'test' && <TestRand />}
+      <Kapsel appId={appId} name={name} stand={stand} staende={staende}>
+        <RueckmeldungKnopf appId={appId} stand={stand} rahmen={rahmen} />
+      </Kapsel>
     </div>
   );
 }

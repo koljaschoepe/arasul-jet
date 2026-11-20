@@ -3,9 +3,10 @@
  *
  * DIE EINE AUSNAHME VON „KEINE KOPFLEISTE" (Beschluss 02.10.2026): ein kleines,
  * ruhiges Icon, das über der App schwebt, statt eine Leiste über sie zu legen.
- * Der Rahmen setzt es, nicht die App: keine App bekommt dafür eine Zeile
- * Code, und keine kann es abschalten. Am Handy steht es ebenfalls oben rechts,
- * weit weg von der Leiste unten.
+ * Seit der Karte glas-rahmen-und-leiste steht es in der Kapsel aus Glas oben
+ * rechts (`../Kapsel.tsx`), neben dem Umschalter Live und Test. Der Rahmen
+ * setzt es, nicht die App: keine App bekommt dafür eine Zeile Code, und keine
+ * kann es abschalten.
  *
  * Ablauf: ein Klick nimmt ZUERST das Bildschirmfoto auf (das Formular liegt
  * ja im Dokument der Shell, nicht in der App, und käme nie mit aufs Bild),
@@ -121,24 +122,23 @@ export function RueckmeldungKnopf({ appId, stand, rahmen }: Props) {
     <>
       <Tooltip>
         <TooltipTrigger asChild>
-          {/* Die Trefferfläche ist 44 px groß und durchsichtig (am Handy hebt das
-              Gerät jeden Knopf ohnehin auf 44 px, `index.css`); gezeichnet wird
-              darin nur der kleine Kreis von 28 px, 8 px vom Rand. */}
+          {/* Ein Icon-Knopf von 28 px in der Kapsel, ohne Rahmen; bei grobem
+              Zeiger hebt die Bibliothek die Trefferfläche auf 44 px. */}
           <Button
             type="button"
             variant="ghost"
+            size="icon"
             aria-label="Rückmeldung zu dieser Seite"
             onClick={oeffnen}
             disabled={nimmtAuf}
-            className="group absolute top-0 right-0 z-10 size-11 rounded-full p-0 hover:bg-transparent dark:hover:bg-transparent"
+            className="rounded-full text-muted-foreground hover:text-foreground"
+            data-treffer-selbst=""
             data-testid="rueckmeldung-knopf"
           >
-            <span className="flex size-7 items-center justify-center rounded-full border border-border bg-background/85 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors group-hover:text-foreground">
-              <MessageSquarePlus className="size-3.5" />
-            </span>
+            <MessageSquarePlus className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">Rückmeldung zu dieser Seite</TooltipContent>
+        <TooltipContent side="bottom">Rückmeldung zu dieser Seite</TooltipContent>
       </Tooltip>
 
       <Dialogform

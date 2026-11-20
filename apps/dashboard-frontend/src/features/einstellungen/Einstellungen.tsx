@@ -8,8 +8,8 @@
  * Alles Gerätebezogene steht in der Verwaltung (`features/settings/`), und
  * keine Funktion steht an beiden Orten.
  *
- * Am Handy ist die Leiste ein Blatt, und dort steht „Abmelden" als letzter
- * Eintrag: die Fußzeile mit dem Kontomenü gibt es unter 900 px nicht.
+ * „Abmelden" steht nicht hier, sondern im Konto unten in der Leiste, am Handy
+ * unter „Mehr" (Karte glas-rahmen-und-leiste): eine Stelle je Funktion.
  */
 import { Lock, LogOut, Monitor, Moon, Palette, Sun, User } from '@marken/symbole';
 import { useState } from 'react';
@@ -21,11 +21,9 @@ import {
   RadioGroup,
   RadioGroupItem,
   Switch,
-  useSchmalesFenster,
   type SeitenleistenGruppe,
 } from '@marken';
 import { Bereichsrahmen } from '@/components/Bereichsrahmen';
-import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useToast } from '@/contexts/ToastContext';
@@ -249,8 +247,6 @@ function Bereich({ id }: { id: BereichId }) {
 export default function Einstellungen() {
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const oeffne = useWorkspaceStore(s => s.oeffne);
-  const { logout } = useAuth();
-  const schmal = useSchmalesFenster();
   const bereich = bereichAus(ansicht.bereich);
 
   const gruppen: SeitenleistenGruppe[] = (['Konto', 'Darstellung'] as const).map(titel => ({
@@ -264,22 +260,6 @@ export default function Einstellungen() {
       aufKlick: () => oeffne({ type: 'settings', bereich: b.id }),
     })),
   }));
-  // Am Handy gibt es keine Fußzeile und damit kein Kontomenü: „Abmelden" ist
-  // dort der letzte Eintrag dieser Leiste (`frontend.md`, Rahmen).
-  if (schmal) {
-    gruppen.push({
-      eintraege: [
-        {
-          kennung: 'abmelden',
-          name: 'Abmelden',
-          symbol: <LogOut />,
-          kennzeichen: 'workspace-abmelden',
-          aufKlick: () => void logout(),
-        },
-      ],
-    });
-  }
-
   return (
     <div className="h-full min-h-0" data-testid="einstellungen">
       <Bereichsrahmen titel="Einstellungen" gruppen={gruppen} kennzeichen="einstellungen-bereiche">

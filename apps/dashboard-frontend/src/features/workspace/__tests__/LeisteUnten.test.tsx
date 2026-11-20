@@ -1,6 +1,7 @@
 /**
- * Die Leiste unten (M5, unter 900 px): Haus, die ersten vier Apps, „Mehr" mit
- * den übrigen Apps, Verwaltung, Einstellungen und Konto.
+ * Die Leiste unten (unter 900 px): Start, die ersten vier Apps, jede genau
+ * einmal, „Mehr" mit den übrigen Apps, Verwaltung, Einstellungen und
+ * „Abmelden". Ungewählt nur Symbole, der Name steht am gewählten Eintrag.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
@@ -21,8 +22,10 @@ const APPS = ['eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs'].map(id => ({
   name: `App ${id}`,
   beschreibung: null,
   live: { version: '1.0.0', pfad: `/apps/${id}/` },
-  test: null,
+  // Die erste App hat auch einen Teststand: sie steht trotzdem nur einmal da.
+  test: id === 'eins' ? { version: '1.1.0', pfad: `/apps/${id}/test/` } : null,
 }));
+const abmelden = vi.fn();
 
 function zeige() {
   get.mockImplementation(async (pfad: string) => {
@@ -32,7 +35,7 @@ function zeige() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ActivityBar />
+      <ActivityBar onLogout={abmelden} />
     </QueryClientProvider>
   );
 }
@@ -45,30 +48,48 @@ describe('Leiste unten', () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     })) as unknown as typeof window.matchMedia;
-    useWorkspaceStore.setState({ ansicht: { type: 'dashboard' } });
+    useWorkspaceStore.setState({ ansicht: { type: 'dashboard' }, zuletztStand: {} });
+    abmelden.mockReset();
     angemeldet({ role: 'admin', anzeigeName: 'Ada Admin' });
   });
 
-  it('zeigt Haus, vier Apps und Mehr; die übrigen Apps liegen unter Mehr', async () => {
+  it('zeigt Start, vier Apps und Mehr; die übrigen Apps liegen unter Mehr', async () => {
     zeige();
     expect(await screen.findByLabelText('App eins')).toBeInTheDocument();
     expect(screen.getByLabelText('App vier')).toBeInTheDocument();
     expect(screen.queryByLabelText('App fuenf')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Startseite')).toBeInTheDocument();
+    expect(screen.getAllByTestId('leiste-app-eins')).toHaveLength(1);
+    expect(screen.getByLabelText('Start')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Mehr'));
     const menue = await screen.findByTestId('leiste-mehr-menue');
-    expect(within(menue).getByTestId('leiste-app-fuenf-live')).toBeInTheDocument();
-    expect(within(menue).getByTestId('leiste-app-sechs-live')).toBeInTheDocument();
+    expect(within(menue).getByTestId('leiste-app-fuenf')).toBeInTheDocument();
+    expect(within(menue).getByTestId('leiste-app-sechs')).toBeInTheDocument();
     expect(within(menue).getByTestId('leiste-verwaltung')).toBeInTheDocument();
     expect(within(menue).getByTestId('leiste-einstellungen')).toBeInTheDocument();
-    // Kein Konto mehr unter „Mehr": Abmelden steht am Handy als letzter Eintrag
-    // der Einstellungen (07.10.2026).
-    expect(within(menue).queryByText('Ada Admin')).not.toBeInTheDocument();
-    expect(within(menue).queryByTestId('workspace-abmelden')).not.toBeInTheDocument();
 
-    fireEvent.click(within(menue).getByTestId('leiste-app-fuenf-live'));
+    fireEvent.click(within(menue).getByTestId('leiste-app-fuenf'));
     expect(useWorkspaceStore.getState().ansicht).toMatchObject({ type: 'app', appId: 'fuenf' });
+  });
+
+  it('nur der gewählte Eintrag trägt seinen Namen sichtbar', async () => {
+    zeige();
+    const eins = await screen.findByLabelText('App eins');
+    expect(eins).not.toHaveTextContent('App eins');
+    expect(screen.getByLabelText('Start')).toHaveTextContent('Start');
+    fireEvent.click(eins);
+    expect(screen.getByLabelText('App eins')).toHaveTextContent('App eins');
+    expect(screen.getByLabelText('Start')).not.toHaveTextContent('Start');
+  });
+
+  it('„Abmelden" steht unter „Mehr"', async () => {
+    zeige();
+    await screen.findByLabelText('App eins');
+    fireEvent.click(screen.getByLabelText('Mehr'));
+    const menue = await screen.findByTestId('leiste-mehr-menue');
+    expect(within(menue).getByText('Ada Admin')).toBeInTheDocument();
+    fireEvent.click(within(menue).getByTestId('workspace-abmelden'));
+    expect(abmelden).toHaveBeenCalledTimes(1);
   });
 
   it('dem Mitarbeiter fehlt die Verwaltung', async () => {

@@ -57,13 +57,20 @@ Das Theme wird unter **Einstellungen → Erscheinungsbild** gewählt und gehört
 angemeldeten Menschen: es gilt an jedem Rechner, an dem er sich anmeldet, und
 nicht nur in dem Browser, in dem er es umgestellt hat.
 
-- **Aktivitätsleiste (links):** ganz oben das **Haus** zur Startseite, mit der
-  Zahl der Freigaben, die bei Ihnen liegen. Darunter die
-  freigegebenen **Apps** als Symbol (ohne Symbol im Manifest ein neutrales
-  Fenster-Symbol), der Name erscheint beim Überfahren; ein
-  Teststand trägt einen Punkt und heißt „(Test)". Unten fest:
-  **Verwaltung** (nur Administratoren) und das **Zahnrad** (die persönlichen
-  Einstellungen).
+- **Aktivitätsleiste (links):** ein schwebendes Stück Glas in drei
+  Abschnitten. Oben das **Haus** zur Startseite, mit der Zahl der Freigaben,
+  die bei Ihnen liegen. In der Mitte die freigegebenen **Apps**, jede genau
+  einmal, als Symbol (ohne Symbol im Manifest ein neutrales Fenster-Symbol),
+  der Name erscheint beim Überfahren. Unten **Terminal** (nur Entwickler),
+  **Verwaltung** (nur Administratoren), das **Zahnrad** (die persönlichen
+  Einstellungen) und Ihr **Konto** als runde Fläche: ein Klick zeigt Name und
+  Rolle und **Abmelden**. Eine Statuszeile mit Datum und Uhrzeit gibt es nicht
+  mehr.
+- **Kapsel (oben rechts über einer App):** der Umschalter **Live** und
+  **Test**, wenn Sie Testperson dieser App sind, und das Icon der
+  Rückmeldung. Die Testfassung trägt einen blauen Rand und oben das Wort
+  **Test**. Ein Klick auf die App in der Leiste öffnet die Fassung, die Sie
+  zuletzt offen hatten.
 - **Ansicht:** immer genau eine: die Startseite, eine App, die Einstellungen
   oder die Verwaltung. Die **Startseite** beginnt mit einem blauen Band: der
   Gruß mit dem Vornamen (ohne Vornamen mit dem Anzeigenamen) und rechts daneben
@@ -91,12 +98,10 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   Jeder Bereich hat eine eigene Adresse, etwa `/workspace/verwaltung/geraet`;
   die alten Adressen (Allgemein, Sicherheit, Lizenz, Fernzugriff, Datenschutz,
   Sicherung, Werksreset) führen dorthin, wo die Funktion jetzt steht.
-- **Statusleiste (unten), für jeden gleich:** links Bild, Name und Rolle, ein
-  Klick darauf öffnet ein Menü mit nur **Abmelden**; rechts Datum und Uhrzeit
-  (minutengenau), sonst nichts: kein Modell, kein Speicher, keine Verbindung,
-  keine Fassung. Am Handy entfällt sie; dort steht **Abmelden** als letzter
-  Eintrag in der Leiste der Einstellungen. Modelle, Downloads und Systemzustand stehen in
-  der Verwaltung; die Zahl der Freigaben trägt das Haus.
+- **Am Handy** schwebt die Leiste unten: Start, bis zu vier Apps und
+  **Mehr** mit den übrigen Apps, der Verwaltung, den Einstellungen und
+  **Abmelden**. Der Name steht nur am gewählten Eintrag. Modelle, Downloads und
+  Systemzustand stehen in der Verwaltung; die Zahl der Freigaben trägt das Haus.
 
 **Was ein Mitarbeiter sieht.** Die Apps, die ein Administrator ihm freigegeben
 hat, seine Einstellungen und sein Konto. Die Freigaben, die bei ihm liegen,
@@ -770,7 +775,7 @@ alles, was die App tut und darf, und nirgends sonst in der Oberfläche:
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Zustand**        | Ein Satz („Läuft mit Fassung 1.0.0. Im Test wartet Fassung 1.1.0."), wie viele Personen Zugang haben und wie viele Flows aktiv sind. Rot nur, wenn die App deshalb nicht arbeiten kann: Fassung nicht lieferbar, Server-Teil steht, eingetragene Verbindung abgewiesen. Darunter ein Satz zum App-Standard: „Erfüllt den App-Standard." oder welche Fassung ihn nicht erfüllt. Seit 20.11.2026 nimmt das Gerät eine neue Fassung nur an, wenn sie ihn erfüllt; was schon läuft, läuft weiter. |
 | **Fassungen**      | Test- und Livefassung nebeneinander, mit dem Zustand und dem, was der Entwickler zur Fassung schrieb („Neu"). Je Fassung die Zeile **Standard**: „erfüllt den Standard" oder in Grau, was ihr fehlt (Bibliothek, Tests, Nachweis des Kit-Ablaufs). Darunter **Live schalten** und **Zurück**. Fassungsnummern, Weg und Bibliothek unter „Technische Angaben" (aufklappen).                                                                                                                    |
-| **Personen**       | Jeder Mensch am Gerät mit einem Schalter für den Zugang; wer Zugang hat, kann **Testperson** werden. Eine Testperson sieht die App in ihrer Leiste zusätzlich als „(Test) Name" und landet dort in der Testfassung.                                                                                                                                                                                                                                                                           |
+| **Personen**       | Jeder Mensch am Gerät mit einem Schalter für den Zugang; wer Zugang hat, kann **Testperson** werden. Eine Testperson sieht über der App den Umschalter Live und Test und landet mit „Test“ in der Testfassung.                                                                                                                                                                                                                                                                                |
 | **Freigabestufen** | Wer je Stufe zuerst gefragt wird (Standardperson).                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | **Flows**          | Je Flow ein Schalter **aktiv**, die **Art**, ein Satz, wann er startet und wie viele Schritte er hat, und bei einem Zeitplan der nächste Lauf mit dem Knopf „Zeitplan pausieren". Schritte, Freigaben, Modell („Modell ändern") und die Datei mit dem Auftrag an das Modell klappen auf. Ein Flow auf „aus" startet nicht, das Gerät weist ab.                                                                                                                                                |
 | **Verbindungen**   | Wohin die App ins Internet darf, lesbar benannt („OpenAI"), mit „x× genutzt"; die Adresse klappt auf. Abgewiesene Adressen, die die App nicht eingetragen hat, stehen grau und zugeklappt darunter. Rot ist nur eine eingetragene Verbindung, die abgewiesen wird.                                                                                                                                                                                                                            |

@@ -236,7 +236,7 @@ async function themeAmDokument(seite) {
   }));
 }
 
-/** Wartet, bis die Shell steht (die Statusleiste ist ihr letztes Stueck). */
+/** Wartet, bis die Shell steht. */
 async function shellAbwarten(seite, grenze = 30000) {
   try {
     await seite.waitForSelector('[data-testid="workspace-shell"], [data-testid="status-bar"]', {

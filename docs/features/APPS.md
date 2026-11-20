@@ -217,9 +217,11 @@ Der Rahmen legt oben rechts über jede App ein kleines Icon. Ein Mitarbeiter
 meldet dort in freiem Text, was fehlt, und markiert die Stelle auf einem
 Bildschirmfoto, das der Rahmen aus dem Dokument der App zeichnet (gleiche
 Herkunft, kein `sandbox`, wie beim Theme). **Die App tut dafür nichts und kann
-es nicht abschalten.** Was sie wissen sollte: oben rechts, etwa 28 mal 28 px mit
-8 px Abstand zum Rand, liegt das Icon über ihrem Inhalt; wer dort einen eigenen
-Knopf hat, rückt ihn etwas nach innen. Vertrag:
+es nicht abschalten.** Was sie wissen sollte: oben rechts, 8 px vom Rand, liegt
+die Kapsel aus Glas über ihrem Inhalt, 32 px hoch, etwa 40 px breit, mit dem
+Umschalter Live und Test etwa 130 px; wer dort einen eigenen Knopf hat, rückt
+ihn nach innen. Die Testfassung trägt einen 2 px breiten blauen Rand mit dem
+Wort Test oben in der Mitte. Vertrag:
 [`RUECKMELDUNG.md`](RUECKMELDUNG.md).
 
 ### Die App sagt, auf welcher Fassung sie steht (Phase H6)

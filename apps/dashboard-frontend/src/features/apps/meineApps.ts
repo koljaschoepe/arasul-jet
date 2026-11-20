@@ -99,27 +99,56 @@ export function useMeineApps() {
   });
 }
 
-/** Der Schlüssel eines Eintrags in der Reihenfolge: `<kennung>:<stand>`. */
-export function reihenfolgeSchluessel(e: Pick<AppEintrag, 'id' | 'stand'>): string {
-  return `${e.id}:${e.stand}`;
+/**
+ * Eine App in der Leiste: genau ein Eintrag je App, mit den Fassungen, die
+ * dieser Mensch sehen darf (`live` zuerst). Welche davon ein Klick öffnet,
+ * entscheidet die Shell (die zuletzt benutzte); umgeschaltet wird in der
+ * Kapsel über der App.
+ */
+export interface LeistenApp {
+  id: string;
+  name: string;
+  symbol: string | null;
+  staende: AppStand[];
+}
+
+/** Die Apps für die Leiste: eine je App, ohne Stand nichts. */
+export function zuLeiste(apps: MeineApp[]): LeistenApp[] {
+  return apps.flatMap(app => {
+    const staende = (['live', 'test'] as const).filter(stand => app[stand]);
+    return staende.length
+      ? [{ id: app.id, name: app.name, symbol: app.symbol ?? null, staende: [...staende] }]
+      : [];
+  });
 }
 
 /**
- * Die Einträge in der Reihenfolge dieses Menschen. Was nicht in der Liste
- * steht (neu freigegeben), kommt dahinter, in der Ordnung des Geräts; was darin
- * steht und nicht mehr da ist, wird übergangen.
+ * Der Schlüssel einer App in der gespeicherten Reihenfolge: `<kennung>:<stand>`
+ * mit ihrer ersten Fassung. Die Form stammt aus der Zeit, als jede Fassung
+ * einen eigenen Eintrag hatte; gespeicherte Listen bleiben so gültig.
  */
-export function ordneEintraege(eintraege: AppEintrag[], reihenfolge: string[]): AppEintrag[] {
-  const rang = new Map(reihenfolge.map((k, i) => [k, i]));
+export function reihenfolgeSchluessel(a: Pick<LeistenApp, 'id' | 'staende'>): string {
+  return `${a.id}:${a.staende[0] ?? 'live'}`;
+}
+
+/**
+ * Die Apps in der Reihenfolge dieses Menschen. Eine App zählt an der
+ * vordersten Stelle, an der eine ihrer Fassungen steht (eine alte Liste nennt
+ * Live und Test getrennt). Was nicht darin steht (neu freigegeben), kommt
+ * dahinter, in der Ordnung des Geräts; was darin steht und nicht mehr da ist,
+ * wird übergangen.
+ */
+export function ordneLeiste(apps: LeistenApp[], reihenfolge: string[]): LeistenApp[] {
+  const rang = new Map<string, number>();
+  reihenfolge.forEach((k, i) => {
+    const id = k.split(':')[0] ?? k;
+    if (!rang.has(id)) rang.set(id, i);
+  });
   const unbekannt = reihenfolge.length;
-  return eintraege
-    .map((e, i) => ({ e, i }))
-    .sort(
-      (a, b) =>
-        (rang.get(reihenfolgeSchluessel(a.e)) ?? unbekannt) -
-          (rang.get(reihenfolgeSchluessel(b.e)) ?? unbekannt) || a.i - b.i
-    )
-    .map(x => x.e);
+  return apps
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => (rang.get(x.a.id) ?? unbekannt) - (rang.get(y.a.id) ?? unbekannt) || x.i - y.i)
+    .map(x => x.a);
 }
 
 const REIHENFOLGE_KEY = ['apps', 'reihenfolge'] as const;

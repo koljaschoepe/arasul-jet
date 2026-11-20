@@ -3,10 +3,12 @@
  * 04.10.2026), am Orin im Browser bei 390 px Breite. Als probe-admin und als
  * ein Mitarbeiter-Probekonto:
  *
- *   leiste     Die Aktivitätsleiste steht unten (Unterkante auf dem Schirm,
- *              Breite = Fenster), links keine; Haus, höchstens vier Apps,
- *              „Mehr" mit den übrigen Apps, Verwaltung (nur Admin),
- *              Einstellungen, Abmelden. Die Statusleiste entfällt.
+ *   leiste     Die Aktivitätsleiste schwebt unten als Glas (8 px vom Rand,
+ *              Radius 16 px, `backdrop-filter`), links keine; Start,
+ *              höchstens vier Apps, jede genau einmal, „Mehr" mit den
+ *              übrigen Apps, Verwaltung (nur Admin), Einstellungen und
+ *              Abmelden. Kein Name in der Leiste ist abgeschnitten. Keine
+ *              Statusleiste (Karte glas-rahmen-und-leiste, 20.11.2026).
  *   breite     Auf keiner Ansicht waagerechtes Scrollen:
  *              scrollWidth <= clientWidth (Startseite, Einstellungen, jeder
  *              Bereich der Verwaltung, die Seite jeder App in der Verwaltung).
@@ -139,10 +141,37 @@ async function leiste(page, wer, istAdmin) {
   const nav = page.getByTestId('aktivitaetsleiste');
   const box = await nav.boundingBox();
   const vp = page.viewportSize();
+  const form = await nav.evaluate(el => {
+    const s = getComputedStyle(el);
+    return {
+      radius: parseFloat(s.borderTopLeftRadius) || 0,
+      filter: s.backdropFilter || 'none',
+      abgeschnitten: Array.from(el.querySelectorAll('span'))
+        .filter(x => x.textContent.trim() && x.getBoundingClientRect().width > 0)
+        .filter(x => x.scrollWidth > x.clientWidth + 0.5)
+        .map(x => x.textContent.trim()),
+    };
+  });
   pruefe(
-    `${wer}: Leiste steht unten und füllt die Breite`,
-    !!box && Math.abs(box.y + box.height - vp.height) <= 1 && Math.abs(box.width - vp.width) <= 1,
-    box ? `y=${Math.round(box.y)} h=${Math.round(box.height)} b=${Math.round(box.width)}` : 'fehlt'
+    `${wer}: Leiste schwebt unten mit Abstand zum Rand`,
+    !!box &&
+      box.y + box.height <= vp.height - 7.5 &&
+      box.y + box.height >= vp.height - 40 &&
+      Math.abs(box.x - 8) <= 1 &&
+      Math.abs(box.x + box.width - (vp.width - 8)) <= 1,
+    box
+      ? `x=${Math.round(box.x)} unten=${Math.round(vp.height - box.y - box.height)} b=${Math.round(box.width)}`
+      : 'fehlt'
+  );
+  pruefe(
+    `${wer}: Leiste ist Glas mit Radius 16 px`,
+    form.filter.includes('blur') && Math.abs(form.radius - 16) < 0.6,
+    `${form.filter}, ${form.radius} px`
+  );
+  pruefe(
+    `${wer}: kein abgeschnittener Name in der Leiste`,
+    form.abgeschnitten.length === 0,
+    form.abgeschnitten.join(', ') || 'keiner'
   );
   pruefe(`${wer}: keine Statusleiste`, (await page.getByTestId('statusbar').count()) === 0);
   if (PROBE_APPS.length) {
@@ -152,11 +181,14 @@ async function leiste(page, wer, istAdmin) {
       .waitFor({ timeout: 15000 })
       .catch(() => {});
   }
-  const apps = await page.locator('[data-testid^="leiste-app-"]').count();
+  const kennungen = await page
+    .locator('[data-testid^="leiste-app-"]')
+    .evaluateAll(els => els.map(e => e.getAttribute('data-testid')));
+  const apps = kennungen.length;
   pruefe(
-    `${wer}: ${PROBE_APPS.length ? 'genau' : 'höchstens'} vier Apps in der Leiste`,
-    PROBE_APPS.length ? apps === 4 : apps <= 4,
-    `${apps}`
+    `${wer}: ${PROBE_APPS.length ? 'genau' : 'höchstens'} vier Apps in der Leiste, jede einmal`,
+    (PROBE_APPS.length ? apps === 4 : apps <= 4) && new Set(kennungen).size === apps,
+    kennungen.join(', ')
   );
   pruefe(
     `${wer}: Haus und Mehr sind da`,
@@ -166,12 +198,12 @@ async function leiste(page, wer, istAdmin) {
   await page.getByTestId('leiste-mehr').click();
   const menue = page.getByTestId('leiste-mehr-menue');
   await menue.waitFor({ state: 'visible', timeout: 5000 });
-  // Abmelden steht seit dem 07.10.2026 nicht mehr unter Mehr, sondern als
-  // letzter Eintrag in der Leiste der Einstellungen (`einstellungenAbmelden`).
+  // Abmelden steht seit der Karte glas-rahmen-und-leiste wieder unter Mehr,
+  // nicht mehr in den Einstellungen (`einstellungenOhneAbmelden`).
   pruefe(
-    `${wer}: Mehr zeigt Einstellungen, aber kein Abmelden`,
+    `${wer}: Mehr zeigt Einstellungen und Abmelden`,
     (await menue.getByTestId('leiste-einstellungen').count()) === 1 &&
-      (await menue.getByTestId('workspace-abmelden').count()) === 0
+      (await menue.getByTestId('workspace-abmelden').count()) === 1
   );
   pruefe(
     `${wer}: Verwaltung unter Mehr ${istAdmin ? 'ja' : 'nein'}`,
@@ -193,7 +225,7 @@ async function leiste(page, wer, istAdmin) {
     );
     let sichtbar = 0;
     for (const id of PROBE_APPS) {
-      sichtbar += (await page.locator(`[data-testid="leiste-app-${id}-live"]`).count()) > 0 ? 1 : 0;
+      sichtbar += (await page.locator(`[data-testid="leiste-app-${id}"]`).count()) > 0 ? 1 : 0;
     }
     pruefe(
       `${wer}: alle ${PROBE_APPS.length} Probe-Apps erreichbar`,
@@ -206,14 +238,19 @@ async function leiste(page, wer, istAdmin) {
     await page.waitForTimeout(800);
     const f = await rahmen.boundingBox();
     const n = await page.getByTestId('aktivitaetsleiste').boundingBox();
+    // Die App liegt als Fläche mit 8 px Abstand über der Leiste.
     pruefe(
-      `${wer}: die App füllt den Schirm über der Leiste`,
+      `${wer}: die App füllt die Fläche über der Leiste`,
       !!f &&
         !!n &&
-        f.x === 0 &&
-        Math.abs(f.width - vp.width) <= 1 &&
-        Math.abs(f.y + f.height - n.y) <= 1,
-      f ? `Rahmen ${Math.round(f.width)}x${Math.round(f.height)}` : 'kein Rahmen'
+        f.x >= 8 &&
+        f.x <= 10 &&
+        Math.abs(f.width - (vp.width - 2 * f.x)) <= 1 &&
+        n.y - (f.y + f.height) >= 7 &&
+        n.y - (f.y + f.height) <= 11,
+      f
+        ? `Rahmen ${Math.round(f.width)}x${Math.round(f.height)} bei x=${Math.round(f.x)}`
+        : 'kein Rahmen'
     );
     await bild(page, `${wer}-app`);
     await page.getByTestId('leiste-startseite').click();
@@ -224,16 +261,15 @@ async function leiste(page, wer, istAdmin) {
   await bild(page, `${wer}-start`);
 }
 
-/** Am Handy ist „Abmelden" der letzte Eintrag der Leiste der Einstellungen. */
-async function einstellungenAbmelden(page, wer) {
+/** „Abmelden" steht unter „Mehr", nicht mehr in der Leiste der Einstellungen. */
+async function einstellungenOhneAbmelden(page, wer) {
   await geheZu(page, '/workspace/settings');
   await page.getByTestId('einstellungen-bereiche-oeffnen').click();
   const leiste = page.getByTestId('einstellungen-bereiche');
   await leiste.waitFor({ state: 'visible', timeout: 5000 });
-  const letzter = leiste.locator('[data-sidebar="menu-button"]').last();
   pruefe(
-    `${wer}: Abmelden ist der letzte Eintrag der Einstellungen`,
-    (await letzter.getAttribute('data-testid')) === 'workspace-abmelden'
+    `${wer}: in den Einstellungen steht kein Abmelden`,
+    (await leiste.getByTestId('workspace-abmelden').count()) === 0
   );
   await page.waitForTimeout(400);
   await bild(page, `${wer}-einstellungen-leiste`);
@@ -277,13 +313,13 @@ try {
   const r = await admin.request.get(`${URL}/api/notizen`);
   pruefe('GET /api/notizen antwortet 404', r.status() === 404, `HTTP ${r.status()}`);
   await leiste(admin.page, 'admin', true);
-  await einstellungenAbmelden(admin.page, 'admin');
+  await einstellungenOhneAbmelden(admin.page, 'admin');
   await breiten(admin.page, 'admin', true);
   await admin.ctx.close();
 
   const a = await sitzung(A, A_PASS);
   await leiste(a.page, 'mitarbeiter', false);
-  await einstellungenAbmelden(a.page, 'mitarbeiter');
+  await einstellungenOhneAbmelden(a.page, 'mitarbeiter');
   await breiten(a.page, 'mitarbeiter', false);
   await a.ctx.close();
 } finally {

@@ -7,7 +7,13 @@
  * die noch nicht live ist, genau der falsche.
  */
 import { describe, it, expect } from 'vitest';
-import { zuEintraegen, type MeineApp } from '../meineApps';
+import {
+  ordneLeiste,
+  reihenfolgeSchluessel,
+  zuEintraegen,
+  zuLeiste,
+  type MeineApp,
+} from '../meineApps';
 
 const urlaub: MeineApp = {
   id: 'urlaub',
@@ -42,16 +48,30 @@ describe('zuEintraegen', () => {
   });
 });
 
-describe('ordneEintraege', () => {
-  const e = (id: string, stand: 'live' | 'test' = 'live') =>
-    ({ id, stand, name: id, beschreibung: null, symbol: null, version: '1', pfad: '' }) as never;
+describe('zuLeiste', () => {
+  it('jede App steht genau einmal, mit ihren Fassungen, Live zuerst', () => {
+    expect(zuLeiste([urlaub])).toEqual([
+      { id: 'urlaub', name: 'Urlaubsantrag', symbol: null, staende: ['live', 'test'] },
+    ]);
+  });
 
-  it('folgt der gespeicherten Reihenfolge, Neues kommt dahinter, Altes wird übergangen', async () => {
-    const { ordneEintraege } = await import('../meineApps');
-    const r = ordneEintraege(
-      [e('a'), e('b'), e('c'), e('a', 'test')],
-      ['c:live', 'weg:live', 'a:live']
-    );
-    expect(r.map(x => `${x.id}:${x.stand}`)).toEqual(['c:live', 'a:live', 'b:live', 'a:test']);
+  it('ein Tester ohne Livestand bekommt nur den Test, ohne jeden Stand nichts', () => {
+    expect(zuLeiste([{ ...urlaub, live: null }])[0]?.staende).toEqual(['test']);
+    expect(zuLeiste([{ ...urlaub, live: null, test: null }])).toEqual([]);
+  });
+});
+
+describe('ordneLeiste', () => {
+  const a = (id: string) => ({ id, name: id, symbol: null, staende: ['live' as const] });
+
+  it('folgt der gespeicherten Reihenfolge, Neues kommt dahinter, Altes wird übergangen', () => {
+    const r = ordneLeiste([a('a'), a('b'), a('c')], ['c:live', 'weg:live', 'a:live']);
+    expect(r.map(x => x.id)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('eine alte Liste mit Live und Test getrennt zählt die vorderste Stelle', () => {
+    const r = ordneLeiste([a('a'), a('b')], ['b:test', 'a:live', 'b:live']);
+    expect(r.map(x => x.id)).toEqual(['b', 'a']);
+    expect(reihenfolgeSchluessel({ id: 'b', staende: ['test'] })).toBe('b:test');
   });
 });
