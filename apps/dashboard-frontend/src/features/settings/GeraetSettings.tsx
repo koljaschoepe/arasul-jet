@@ -15,7 +15,7 @@
  * Abschnitt aus der Adresse rollt in Sicht.
  */
 import { useEffect, useRef } from 'react';
-import { HardDrive } from 'lucide-react';
+import { HardDrive } from '@marken/symbole';
 import { Formularseite, Kopf } from '@marken';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Unternehmen } from './geraet/Unternehmen';

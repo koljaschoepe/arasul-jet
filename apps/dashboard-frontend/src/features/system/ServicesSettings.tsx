@@ -15,7 +15,7 @@ import {
   Wrench,
   Archive,
   type LucideIcon,
-} from 'lucide-react';
+} from '@marken/symbole';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { Kopf } from '@marken';

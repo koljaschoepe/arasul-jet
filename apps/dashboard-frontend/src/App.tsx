@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { X } from '@marken/symbole';
 import { queryClient } from './lib/queryClient';
 
 // PHASE 2: Code-Splitting - Synchronous imports for critical components

@@ -3,7 +3,7 @@
  * (`/workspace/verwaltung/laeufe/<nummer>`): so lässt er sich verlinken und
  * frisch laden. Der Weg zurück führt zur Liste mit derselben Auswahl.
  */
-import { ArrowLeft, ListOrdered } from 'lucide-react';
+import { ArrowLeft, ListOrdered } from '@marken/symbole';
 import { Button, Kopf } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { LaufDetail, LaufZustand } from '../apps/LaufAnsicht';

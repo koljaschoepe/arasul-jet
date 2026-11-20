@@ -55,8 +55,8 @@
  * `docs/features/RUECKMELDUNG.md`.
  */
 import { useCallback, useEffect, useRef } from 'react';
-import { AppWindow } from 'lucide-react';
-import { useTheme, themeAmDokument } from '@/hooks/useTheme';
+import { AppWindow } from '@marken/symbole';
+import { useTheme, themeAmDokument, transparenzAmDokument } from '@/hooks/useTheme';
 import { useAuth } from '@/contexts/AuthContext';
 import { appPfad, useWorkspaceStore, type AppStand } from '@/stores/workspaceStore';
 import { useMeineApps } from './meineApps';
@@ -76,7 +76,7 @@ interface AppRahmenProps {
 
 export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
   const { data: apps, isLoading, isError } = useMeineApps();
-  const { theme } = useTheme();
+  const { theme, transparenzReduziert } = useTheme();
   const istAdmin = useAuth().user?.role === 'admin';
   const rahmen = useRef<HTMLIFrameElement>(null);
 
@@ -94,12 +94,15 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
     if (!element) return;
     try {
       const dokument = element.contentDocument;
-      if (dokument?.documentElement) themeAmDokument(dokument, theme);
+      if (dokument?.documentElement) {
+        themeAmDokument(dokument, theme);
+        transparenzAmDokument(dokument, transparenzReduziert);
+      }
       element.contentWindow?.postMessage({ typ: 'arasul:theme', theme }, window.location.origin);
     } catch {
       /* fremde Herkunft — dann gilt in der App, was ihr Stylesheet sagt. */
     }
-  }, [theme]);
+  }, [theme, transparenzReduziert]);
 
   // Bei jedem Wechsel. Nicht bei jedem Rendern: `themeReichen` hängt am Theme
   // und sonst an nichts.

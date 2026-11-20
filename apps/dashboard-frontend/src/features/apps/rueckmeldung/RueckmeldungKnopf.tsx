@@ -16,7 +16,7 @@
  * nur, wer das Kennzeichen Entwickler trägt (schleife.md, Regel 2).
  */
 import { useRef, useState, type FormEvent, type RefObject } from 'react';
-import { MessageSquarePlus } from 'lucide-react';
+import { MessageSquarePlus } from '@marken/symbole';
 import {
   Button,
   Checkbox,

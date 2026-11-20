@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { House, Settings, SlidersHorizontal, SquareTerminal } from 'lucide-react';
+import { House, Settings, SlidersHorizontal, SquareTerminal } from '@marken/symbole';
 import { Tooltip, TooltipContent, TooltipTrigger, cn, useSchmalesFenster } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore, ansichtId } from '@/stores/workspaceStore';
@@ -171,7 +171,7 @@ function LeisteLinks() {
     <nav
       aria-label="Aktivitätsleiste"
       data-testid="aktivitaetsleiste"
-      className="flex h-full w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-background py-2"
+      className="flex h-full w-12 shrink-0 flex-col items-center gap-1 border-r border-border py-2"
     >
       <LogoDesHauses />
       <LeistenKnopf

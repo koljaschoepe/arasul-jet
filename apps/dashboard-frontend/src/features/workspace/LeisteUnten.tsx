@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ellipsis, House, Settings, SlidersHorizontal, SquareTerminal } from 'lucide-react';
+import { Ellipsis, House, Settings, SlidersHorizontal, SquareTerminal } from '@marken/symbole';
 import { Popover, PopoverContent, PopoverTrigger, cn } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore, ansichtId } from '@/stores/workspaceStore';
@@ -65,7 +65,7 @@ export function LeisteUnten() {
     <nav
       aria-label="Aktivitätsleiste"
       data-testid="aktivitaetsleiste"
-      className="flex h-14 w-full shrink-0 items-stretch border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"
+      className="flex h-14 w-full shrink-0 items-stretch border-t border-border bg-card pb-[env(safe-area-inset-bottom)]"
     >
       <button
         type="button"

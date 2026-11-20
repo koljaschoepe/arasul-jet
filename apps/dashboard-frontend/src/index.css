@@ -66,8 +66,14 @@
   html {
     font-size: 106.25%;
   }
+  /* Der Grund ist ein ruhiger Verlauf (`--verlauf-grund` in `theme.css`),
+     fest am Fenster, damit er beim Rollen nicht mitwandert. Rahmen, Leisten
+     und Inhalt sind durchsichtig und stehen darauf; Karten, Tabellen und
+     Felder sind deckend. */
   body {
     @apply bg-background text-foreground;
+    background-image: var(--verlauf-grund);
+    background-attachment: fixed;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ComponentType } from 'react';
-import { AppWindow } from 'lucide-react';
+import { AppWindow, symbolsatzLaden } from '@marken/symbole';
 
 /**
  * Das Bild einer App: in der Aktivitätsleiste, in der Leiste unten und auf
@@ -24,8 +24,7 @@ type Symbolsatz = Record<string, ComponentType<{ className?: string }>>;
 
 let satz: Promise<Symbolsatz> | null = null;
 function ladeSatz(): Promise<Symbolsatz> {
-  // @ts-expect-error — die Sammlung hat keine Typdatei
-  satz ??= import('lucide-react/dist/esm/icons/index.js').then(m => m as Symbolsatz);
+  satz ??= symbolsatzLaden().then(m => m as Symbolsatz);
   return satz;
 }
 

@@ -15,7 +15,7 @@
  * danach bringt ihn nur noch die Sicherung zurück.
  */
 import { useState } from 'react';
-import { FileText, Folder, RotateCcw, Trash2 } from 'lucide-react';
+import { FileText, Folder, RotateCcw, Trash2 } from '@marken/symbole';
 import { Alert, AlertDescription, Bestaetigung, Button, Dialogform, Leerzustand } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';

@@ -17,7 +17,7 @@
  * Ansicht für ihn sichtbar ist oder nicht.
  */
 import { useEffect } from 'react';
-import { Cpu } from 'lucide-react';
+import { Cpu } from '@marken/symbole';
 import { Kopf } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useDownloads } from '@/contexts/DownloadContext';

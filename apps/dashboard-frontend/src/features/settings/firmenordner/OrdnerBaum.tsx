@@ -20,7 +20,7 @@
  * DIE GRENZE (J33, 28.09.2026): je Hauptordner und Bereich belegt und Grenze,
  * ein Klick stellt sie ein. Bis dahin hatte jeder Bereich still 1 GB.
  */
-import { FolderLock, FolderTree, Gauge, History, Trash, Trash2 } from 'lucide-react';
+import { FolderLock, FolderTree, Gauge, History, Trash, Trash2 } from '@marken/symbole';
 import {
   Accordion,
   AccordionContent,

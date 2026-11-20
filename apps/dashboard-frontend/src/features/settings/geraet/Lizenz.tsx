@@ -19,7 +19,7 @@
  * trägt `requireRole('admin')`.
  */
 import { useState } from 'react';
-import { Check, ChevronDown, Copy, KeyRound } from 'lucide-react';
+import { Check, ChevronDown, Copy, KeyRound } from '@marken/symbole';
 import {
   Alert,
   AlertDescription,

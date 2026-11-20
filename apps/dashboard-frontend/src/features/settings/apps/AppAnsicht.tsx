@@ -31,7 +31,7 @@ import {
   ScrollText,
   Trash2,
   Users,
-} from 'lucide-react';
+} from '@marken/symbole';
 import { Button, cn, Kopf } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { useToast } from '@/contexts/ToastContext';

@@ -10,7 +10,7 @@
  * Passwort fragt der Befehl selbst und zeigt es nie. Er stellt dem Rechner
  * einen Ausweis aus, der danach in der Liste steht.
  */
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy } from '@marken/symbole';
 import { useState } from 'react';
 import { Button } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';

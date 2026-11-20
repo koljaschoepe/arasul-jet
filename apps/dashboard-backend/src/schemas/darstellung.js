@@ -16,10 +16,16 @@ const { z } = require('zod');
 // Oberflaeche loest es zu hell oder dunkel auf.
 const THEMES = ['light', 'dark', 'system'];
 
+// `transparenz_reduziert` (Migration 216): Glas wird deckend. Beide Felder
+// sind einzeln setzbar, eines muss dabei sein.
 const DarstellungBody = z
   .object({
-    theme: z.enum(THEMES),
+    theme: z.enum(THEMES).optional(),
+    transparenz_reduziert: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .refine(b => b.theme !== undefined || b.transparenz_reduziert !== undefined, {
+    message: 'Theme oder Transparenz angeben.',
+  });
 
 module.exports = { DarstellungBody, THEMES };

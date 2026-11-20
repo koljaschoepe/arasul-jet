@@ -11,7 +11,7 @@
  * nicht einmal beim Administrator: seine Hinweise stehen unter den Kacheln.
  */
 import { useEffect, useRef, type ReactNode } from 'react';
-import { AppWindow, ArrowDown, Check } from 'lucide-react';
+import { AppWindow, ArrowDown, Check } from '@marken/symbole';
 import { Button, Karte, Kopf, Leerzustand, cn } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { AppSymbol } from '@/components/AppSymbol';

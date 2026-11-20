@@ -134,7 +134,7 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
 
   return (
     <div
-      className="flex h-dvh w-screen flex-col overflow-hidden bg-background text-foreground"
+      className="flex h-dvh w-screen flex-col overflow-hidden text-foreground"
       data-testid="workspace-shell"
     >
       <div className={cn('flex min-h-0 flex-1 overflow-hidden', schmal && 'flex-col-reverse')}>

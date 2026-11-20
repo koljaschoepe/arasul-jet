@@ -3,7 +3,7 @@
  * Link daneben öffnet genau diesen einen Lauf unter seiner eigenen Adresse.
  */
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Link2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Link2 } from '@marken/symbole';
 import { cn } from '@marken';
 import { formatDate } from '@/utils/formatting';
 import { LaufZustand, ausloeserText } from '../apps/LaufAnsicht';

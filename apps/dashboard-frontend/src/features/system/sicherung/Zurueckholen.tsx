@@ -21,7 +21,7 @@
  * zwischendurch wegsah, soll danach lesen können, was geschah und was nicht.
  */
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { CheckCircle2, HardDrive, Loader2, RotateCcw, XCircle } from 'lucide-react';
+import { CheckCircle2, HardDrive, Loader2, RotateCcw, XCircle } from '@marken/symbole';
 import {
   Alert,
   AlertDescription,

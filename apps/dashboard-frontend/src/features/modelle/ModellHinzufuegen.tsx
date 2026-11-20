@@ -12,7 +12,7 @@
  * Kennzeichnung, sobald es am Gerät liegt.
  */
 import { useState, type FormEvent } from 'react';
-import { Download } from 'lucide-react';
+import { Download } from '@marken/symbole';
 import { Button, Input, Label } from '@marken';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { formatBytes } from '@/utils/formatting';

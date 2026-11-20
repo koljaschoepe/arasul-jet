@@ -13,7 +13,7 @@
  * „was ist im Test, und was ist gerade live", und die beantwortet man nicht,
  * indem man hin- und herklickt.
  */
-import { Activity, ArrowLeftRight, Rocket, TriangleAlert } from 'lucide-react';
+import { Activity, ArrowLeftRight, Rocket, TriangleAlert } from '@marken/symbole';
 import { Button, cn } from '@marken';
 import { formatDate } from '@/utils/formatting';
 import { TechnischeAngaben } from '@/features/system/TechnischeAngaben';

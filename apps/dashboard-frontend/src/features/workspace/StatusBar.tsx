@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut } from '@marken/symbole';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { PersonAvatar } from '@/components/PersonAvatar';
@@ -62,7 +62,7 @@ export function StatusBar({ onLogout }: { onLogout: () => Promise<void> | void }
 
   return (
     <footer
-      className="flex h-7 shrink-0 items-center gap-3 border-t border-border bg-background px-1.5 text-xs text-muted-foreground"
+      className="flex h-7 shrink-0 items-center gap-3 border-t border-border px-1.5 text-xs text-muted-foreground"
       data-testid="statusbar"
     >
       <DropdownMenu>

@@ -69,7 +69,7 @@ describe('PUT /api/darstellung', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({ theme: 'dark' });
     // Geschrieben wird auf die Nummer aus der SITZUNG, nicht aus der Anfrage.
-    expect(db.query.mock.calls[0][1]).toEqual(['7', 'dark']);
+    expect(db.query.mock.calls[0][1]).toEqual(['7', 'dark', null]);
   });
 
   /**
@@ -134,12 +134,29 @@ describe('PUT /api/darstellung', () => {
    * Administrator UND Mitarbeiter: wie jemand seinen Bildschirm sieht, ist
    * keine Verwaltungsfrage.
    */
+  it('setzt „Transparenz reduzieren“ allein, das Theme bleibt (Migration 216)', async () => {
+    db.query.mockResolvedValue({ rows: [{ theme: 'system', transparenz_reduziert: true }] });
+    const res = await request(app())
+      .put('/api/darstellung')
+      .send({ transparenz_reduziert: true });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ theme: 'system', transparenz_reduziert: true });
+    expect(db.query.mock.calls[0][1]).toEqual(['7', null, true]);
+    expect(mockCacheGeraeumt).toHaveBeenCalledWith('7');
+  });
+
+  it('weist eine Transparenz, die kein Wahrheitswert ist, mit 400 ab', async () => {
+    const res = await request(app()).put('/api/darstellung').send({ transparenz_reduziert: 'ja' });
+    expect(res.status).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it('gilt auch fuer einen Administrator', async () => {
     auth.__setUser(ADMIN);
     db.query.mockResolvedValue({ rows: [{ theme: 'dark' }] });
     const res = await request(app()).put('/api/darstellung').send({ theme: 'dark' });
     expect(res.status).toBe(200);
-    expect(db.query.mock.calls[0][1]).toEqual(['1', 'dark']);
+    expect(db.query.mock.calls[0][1]).toEqual(['1', 'dark', null]);
   });
 });
 

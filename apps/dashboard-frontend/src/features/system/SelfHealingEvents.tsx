@@ -14,7 +14,7 @@ import {
   Power,
   ChevronDown,
   ChevronRight,
-} from 'lucide-react';
+} from '@marken/symbole';
 import { formatRelativeDate } from '../../utils/formatting';
 import { Kopf } from '@marken';
 import { Button, cn } from '@marken';

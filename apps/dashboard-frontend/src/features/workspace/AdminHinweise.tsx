@@ -1,4 +1,4 @@
-import { TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from '@marken/symbole';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useAdminHinweise } from './useAdminHinweise';
 

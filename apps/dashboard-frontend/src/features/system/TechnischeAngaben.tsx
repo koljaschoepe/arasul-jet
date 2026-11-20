@@ -9,7 +9,7 @@
  * zugeklappt und einen Klick entfernt.
  */
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from '@marken/symbole';
 import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, cn } from '@marken';
 
 export interface TechnischeAngabe {

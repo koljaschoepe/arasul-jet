@@ -17,7 +17,7 @@
  * für ihn sichtbar ist oder nicht.
  */
 import { useState } from 'react';
-import { AppWindow, ChevronRight } from 'lucide-react';
+import { AppWindow, ChevronRight } from '@marken/symbole';
 import { Kopf, Leerzustand } from '@marken';
 import { SkeletonText } from '@/components/ui/Skeleton';
 import { AppAnsicht } from './apps/AppAnsicht';

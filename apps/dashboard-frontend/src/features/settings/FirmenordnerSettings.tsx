@@ -18,7 +18,7 @@
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Check, FolderPlus, FolderTree, ListOrdered, RefreshCw } from 'lucide-react';
+import { Check, FolderPlus, FolderTree, ListOrdered, RefreshCw } from '@marken/symbole';
 import {
   Accordion,
   AccordionContent,

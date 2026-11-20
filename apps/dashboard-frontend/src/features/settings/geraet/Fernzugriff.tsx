@@ -21,7 +21,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronDown, Copy, Download, ExternalLink, Globe, Loader2 } from 'lucide-react';
+import { Check, ChevronDown, Copy, Download, ExternalLink, Globe, Loader2 } from '@marken/symbole';
 import {
   Alert,
   AlertDescription,

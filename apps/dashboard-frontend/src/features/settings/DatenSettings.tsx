@@ -11,7 +11,7 @@
  * Rot ist im Ruhezustand NUR der abgesetzte Teil; eine Warnung der Sicherung
  * erscheint nur, wenn etwas nicht stimmt.
  */
-import { Database, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Database, RotateCcw, ShieldAlert } from '@marken/symbole';
 import { Feldgruppe, Formularseite, Kopf } from '@marken';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Sicherung } from '../system/sicherung/Sicherung';

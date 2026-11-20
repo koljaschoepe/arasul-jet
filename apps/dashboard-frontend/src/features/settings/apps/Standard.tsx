@@ -14,7 +14,7 @@
  * greift nicht rückwirkend. Rot bleibt „ein Mensch klickt auf die Kachel und
  * bekommt nichts" (`lieferbar: false`).
  */
-import { CircleCheck, TriangleAlert } from 'lucide-react';
+import { CircleCheck, TriangleAlert } from '@marken/symbole';
 import type { AppStandDetail, StandardUrteil } from './useAppVerwaltung';
 
 /** Kein Urteil (ein älteres Backend), erfüllt, ausgenommen oder mit Funden. */

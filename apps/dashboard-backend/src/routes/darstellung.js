@@ -2,7 +2,8 @@
  * Die Darstellung der Oberflaeche, je Mensch (Phase H1 des Umbaus vom
  * 26.08.2026).
  *
- *   PUT /api/darstellung       meine Darstellung setzen (`{"theme": "dark"}`)
+ *   PUT /api/darstellung       meine Darstellung setzen (`{"theme": "dark"}`,
+ *                              `{"transparenz_reduziert": true}` oder beides)
  *   GET /api/darstellung/logo  das Logo des Hauses (seit 04.10.2026, siehe unten)
  *
  * FUER DAS THEME NUR EIN WEG, UND ZWAR DER SCHREIBENDE. Gelesen wird die Darstellung nicht
@@ -52,9 +53,14 @@ router.put(
   requireRole('admin', 'mitarbeiter'),
   validateBody(DarstellungBody),
   asyncHandler(async (req, res) => {
+    // Was nicht mitkommt, bleibt: `COALESCE` mit dem alten Wert.
     const result = await db.query(
-      'UPDATE admin_users SET theme = $2 WHERE id = $1 RETURNING theme',
-      [req.user.id, req.body.theme]
+      `UPDATE admin_users
+          SET theme = COALESCE($2, theme),
+              transparenz_reduziert = COALESCE($3, transparenz_reduziert)
+        WHERE id = $1
+        RETURNING theme, transparenz_reduziert`,
+      [req.user.id, req.body.theme ?? null, req.body.transparenz_reduziert ?? null]
     );
     invalidateUserCache(req.user.id);
     res.json({ data: result.rows[0], timestamp: new Date().toISOString() });

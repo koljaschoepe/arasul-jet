@@ -29,7 +29,7 @@
  * ist ein Posteingang, kein Archiv.
  */
 import { useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronRight, ClipboardCheck, Send, UserRound } from 'lucide-react';
+import { ChevronDown, ChevronRight, ClipboardCheck, Send, UserRound } from '@marken/symbole';
 import {
   Button,
   Freigabe,
