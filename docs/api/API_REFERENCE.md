@@ -782,6 +782,15 @@ der Liste, als Warnung und nicht als Verbot, und nur für Stände mit Frontend
 Bibliothek läuft, sie sieht nur nicht mehr aus wie das Gerät um sie herum.
 `GET /api/apps` trägt `marken` und `dateien` je Stand ebenso.
 
+`standard` (J45, 20.11.2026) sagt, ob dieser Stand den **App-Standard** erfüllt:
+`{ "erfuellt": true, "ausgenommen": false, "funde": [] }`, oder mit Funden je
+`{ "code", "text" }` (Codes wie beim Ausrollen, unten). `ausgenommen` ist nur
+die mitgelieferte App (`entwickler-cockpit`). Kein Mangel: die Prüfung greift
+beim Ausrollen, ein Stand, der vorher kam, läuft weiter. Seit J45 ersetzt
+`standard` in der Verwaltung die Warnung zur Bibliothek; eine fremde
+Hauptzahl oder eine fehlende Fassung ist einer seiner Funde. `GET /api/apps`
+trägt `standard` je Stand ebenso.
+
 `modelle` sagt, was das Manifest **verlangt** und was davon am Gerät ist.
 Nachinstalliert wird nichts: ein Deploy, der nebenbei sieben Gigabyte lädt,
 ist keine Installation mehr, sondern ein Abend.
@@ -3491,6 +3500,24 @@ entsteht, steht auf einer eigenen Seite:
 | GET    | `/api/v1/external/apps/:id/protokoll` | API Key | `app:deploy` | Letzte Zeilen des Containers, Umgebungswerte geschwärzt |
 | POST   | `/api/v1/external/apps/:id/schalten`  | API Key | `app:deploy` | Livestand setzen: `live` oder `zurueck`                 |
 | DELETE | `/api/v1/external/apps/:id`           | API Key | `app:deploy` | App weg — beide Container samt Volumes, nach Rückfrage  |
+
+**Der App-Standard ist Pflicht** (J45, 20.11.2026). `POST /api/v1/external/apps`
+nimmt nur ein Paket an, das auf der Bibliothek des Geräts steht, Tests
+mitbringt und den Nachweis des Kit-Ablaufs trägt (`nachweis.json`). Sonst
+`400 VALIDATION_ERROR`, bevor gebaut wird, mit einem Satz je Grund in
+`message` und den Codes in `details.standard`:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "urlaub 0.2.0 erfüllt den App-Standard nicht, das Gerät nimmt das Paket nicht an:\n- Der letzte Testlauf war nicht grün.",
+    "details": { "standard": ["tests-rot"], "hilfe": "Mit dem Kit bauen: …" }
+  }
+}
+```
+
+Die Codes und was sie heißen: [APP-PAKET.md](../features/APP-PAKET.md#der-app-standard-ist-pflicht-j45-20112026).
 
 `app:deploy` steht **nicht** in den Vorgabe-Bereichen
 (`src/config/apiBereiche.js`). Der Schlüssel, den das Gerät jeder App beim
