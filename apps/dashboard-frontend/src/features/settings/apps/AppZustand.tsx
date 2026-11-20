@@ -10,7 +10,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { freigabeVon, useFreigaben } from '../personen/useAppFreigaben';
 import { useBenutzer } from '../personen/usePersonen';
-import { bibliothekWarnt } from './Bibliothek';
+import { standardSatz } from './Standard';
 import type { AppDetail, AppStandDetail } from './useAppVerwaltung';
 import { lesbarerName, useAppVerbindungen } from './useVerbindungen';
 
@@ -54,9 +54,9 @@ export function AppZustand({ app }: { app: AppDetail }) {
   );
   const flows = (live ?? test)?.flows ?? [];
   const aktiv = flows.filter(f => f.aktiv !== false).length;
-  const bibliothek = [live, test].some(
-    s => s && bibliothekWarnt(s.marken, s.dateien.frontend !== null)
-  );
+  // Der App-Standard (J45): grau, nicht rot, weil ein Stand von vor J45
+  // weiterläuft. Ersetzt den Hinweis auf die Bibliothek (H6).
+  const standard = standardSatz(app.staende);
 
   return (
     <div className="flex flex-col gap-1.5" data-testid="app-zustand">
@@ -83,8 +83,23 @@ export function AppZustand({ app }: { app: AppDetail }) {
           `, davon ${testpersonen.length === 1 ? '1 Testperson' : `${testpersonen.length} Testpersonen`}`}
         {flows.length > 0 &&
           ` · ${aktiv} von ${flows.length} ${flows.length === 1 ? 'Flow' : 'Flows'} aktiv`}
-        {bibliothek && ' · die Bibliothek einer Fassung warnt, siehe Fassungen'}
       </p>
+      {standard && (
+        <p
+          className={
+            standard.gut
+              ? 'text-xs text-muted-foreground'
+              : 'flex items-start gap-1.5 text-xs text-muted-foreground'
+          }
+          data-testid="app-zustand-standard"
+          data-gut={standard.gut ? 'true' : 'false'}
+        >
+          {!standard.gut && (
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          )}
+          {standard.satz}
+        </p>
+      )}
     </div>
   );
 }

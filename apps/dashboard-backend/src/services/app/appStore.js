@@ -27,6 +27,7 @@ const appDatenbank = require('./appDatenbank');
 const appFlows = require('./appFlows');
 const appAbschluss = require('./appAbschluss');
 const mitgeliefert = require('./mitgeliefert');
+const appStandard = require('./appStandard');
 
 /** Die Staende einer App, als `{ test, live }` mit `null`, wo keiner ist. */
 async function staendeVon(appId) {
@@ -105,6 +106,13 @@ async function standZustand(appId, stand, manifest) {
     // aus wie das Geraet um sie herum. Wer das mit "nicht lieferbar" in einen
     // Topf wuerfe, haette einen roten Punkt, der zweierlei heisst.
     marken: manifest.marken ?? null,
+    // Erfuellt dieser Stand den App-Standard (J45)? Ebenfalls NICHT Teil von
+    // `mangel`: die Pruefung greift beim Ausrollen, ein Stand, der vorher kam,
+    // laeuft weiter. Die Verwaltung sagt, was ihm fehlt.
+    standard: await appStandard.befund(
+      appManifest.verzeichnisFuer(manifest.id, manifest.version),
+      manifest
+    ),
   };
 }
 

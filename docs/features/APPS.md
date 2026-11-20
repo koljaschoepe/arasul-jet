@@ -401,8 +401,9 @@ mehrerer hundert, Hooks liefen, kein CSP-Verstoß.
   (`apps/dashboard-frontend/nginx.conf`).
 
 **Was mit Apps mit Kopie geschieht: nichts.** Eine App mit `"marken": "5.2.1"`
-und beigelegtem `marken.js` oder gespiegelter Quelle läuft unverändert, und die
-Verwaltung meldet sie wie bisher, sobald sie älter ist als das Gerät. Ein
+und beigelegtem `marken.js` oder gespiegelter Quelle läuft unverändert. Seit J45
+(20.11.2026) zählt dabei nur die Hauptzahl: eine fremde weist das Gerät beim
+Ausrollen ab ([App-Standard](APP-PAKET.md#der-app-standard-ist-pflicht-j45-20112026)). Ein
 Wechsel auf die Laufzeit ist ein neues Paket mit `"marken": "5"`, den zwei
 Zeilen oben und ohne die Kopie.
 

@@ -53,6 +53,7 @@ const appManifest = require('./appManifest');
 const appContainer = require('./appContainer');
 const appStore = require('./appStore');
 const appFlows = require('./appFlows');
+const appStandard = require('./appStandard');
 
 /**
  * Der Eingang: hierhin laedt multer das Archiv, hierhin wird ausgepackt.
@@ -291,6 +292,11 @@ async function nimmAn({ archivPfad, durch, aenderungstext = null }) {
   try {
     const mass = await entpacke(archivPfad, ordner);
     const manifest = await leseManifestAusPaket(ordner);
+    // Der App-Standard (J45): Bibliothek, Tests, Nachweis des Kit-Ablaufs.
+    // VOR allem anderen am Inhalt, weil er am Paket selbst gemessen wird, wie
+    // es ankam, und weil ein Paket ohne Nachweis keine Minute Bau verdient.
+    // Einen Schalter daran vorbei gibt es nicht.
+    await appStandard.verlange(ordner, manifest);
     await pruefePaketInhalt(manifest, ordner);
 
     // Die Lizenzgrenze, BEVOR gebaut wird (30.08.2026). Sie steht auch in
@@ -338,6 +344,7 @@ async function nimmAn({ archivPfad, durch, aenderungstext = null }) {
     // beim Entwickeln.
     await fs.rm(ziel, { recursive: true, force: true });
     await fs.rename(ordner, ziel);
+    appStandard.vergiss(ziel);
 
     logger.info(
       `App-Paket angenommen: ${manifest.id} ${manifest.version} ` +

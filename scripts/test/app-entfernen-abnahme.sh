@@ -137,6 +137,7 @@ m["backend"]["umgebung"]["PROBE_VERSION"] = version
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
   local paket="$ARBEIT/$kennung-$version.tgz"
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$paket" -C "$ordner" . || return 1
   echo "$paket"
 }

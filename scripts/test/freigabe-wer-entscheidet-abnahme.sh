@@ -140,6 +140,7 @@ baue_paket() {
   (cd "$WURZEL" && PROBE_AUSGABE="$ordner/frontend" npx vite build \
     --config "$QUELLE/quelle/vite.config.mjs" >"$ARBEIT/bau.log" 2>&1) \
     || { cat "$ARBEIT/bau.log" >&2; return 1; }
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/paket.tgz"
 }

@@ -184,6 +184,7 @@ json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
   # COPYFILE_DISABLE: BSD-tar auf macOS legt sonst zu jeder Datei einen
   # `._`-Begleiter mit erweiterten Attributen ins Archiv.
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket-$version.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/paket-$version.tgz"
 }
@@ -271,6 +272,7 @@ ordner: ['/arasul/config']
 ---
 Lies alles, was du findest.
 BOESE
+node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ARBEIT/boese"  # J45: der App-Standard
 COPYFILE_DISABLE=1 tar czf "$ARBEIT/boese.tgz" -C "$ARBEIT/boese" . 2>/dev/null
 paket_ruf /api/v1/external/apps "$ARBEIT/boese.tgz"
 pruefe 'Ein Flow mit `ordner` wird abgewiesen' "$(ja_wenn "$CODE" 400)" "HTTP $CODE"
@@ -280,6 +282,7 @@ pruefe 'Ein Flow mit `ordner` wird abgewiesen' "$(ja_wenn "$CODE" 400)" "HTTP $C
 rm -f "$ARBEIT/boese/flows/leck.md"
 sed 's/^name: wochenbericht$/name: heisstanders/' "$ARBEIT/paket-$V1/flows/$FLOW.md" \
   > "$ARBEIT/boese/flows/$FLOW.md"
+node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ARBEIT/boese"  # J45: der App-Standard
 COPYFILE_DISABLE=1 tar czf "$ARBEIT/boese2.tgz" -C "$ARBEIT/boese" . 2>/dev/null
 paket_ruf /api/v1/external/apps "$ARBEIT/boese2.tgz"
 pruefe 'Ein Flow mit zwei Namen ebenso' "$(ja_wenn "$CODE" 400)" "HTTP $CODE"

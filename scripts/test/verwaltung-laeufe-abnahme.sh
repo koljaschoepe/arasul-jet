@@ -190,6 +190,7 @@ m["backend"]["image"] = "arasul-%s:%s" % (kennung, version)
 m["backend"]["umgebung"]["PROBE_APP"] = kennung
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/$kennung.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/$kennung.tgz"
 }

@@ -36,6 +36,7 @@ meineapp/
   flows/
     bericht.md          Ein Flow der App (C6): YAML-Kopf, darunter der Auftrag.
     …
+  nachweis.json         Der Nachweis des Kit-Ablaufs. PFLICHT seit J45 (unten).
 ```
 
 `frontend`, `backend` und `flows` heißen so, weil das Manifest es sagt
@@ -138,6 +139,77 @@ App, die ihre eigene Freigabe erteilen könnte, wäre keine.
 
 Der Flow nennt dabei **keine Person und keine Rolle**. Wer entscheiden darf,
 ist eine Sache des Kunden (`app_members`), nicht des Partners.
+
+## Der App-Standard ist Pflicht (J45, 20.11.2026)
+
+Bis zum 19.11.2026 warnte das Gerät nur. Seit J45 nimmt
+`POST /api/v1/external/apps` nur ein Paket an, das
+
+1. **auf der Bibliothek steht:** eine App mit Frontend nennt in `app.json`
+   unter `marken` die Hauptzahl des Geräts (`"5"`) oder eine Kopie derselben
+   Hauptzahl (`"5.2.0"`);
+2. **Tests mitbringt**, die gegen diesen Stand grün liefen, und
+3. **den Nachweis des Kit-Ablaufs trägt:** `nachweis.json` in der Wurzel,
+   geschrieben vom Kit beim `--build` (seit Kit-PR 119).
+
+Sonst weist das Gerät das Paket mit `400` ab, **bevor es baut**, mit einem
+Satz je Grund. Das Kit zeigt diese Sätze dem, der baut; die Codes stehen in
+`details.standard`. **Einen Schalter daran vorbei gibt es nicht.**
+
+Das Format des Nachweises gehört dem Kit: Formatblatt
+`.ara/knowledge/nachweis.de.md` im Ara-Kit, Schema 1. Das Gerät prüft genau
+nach diesem Blatt, in dessen Reihenfolge und mit dessen Codes
+(`apps/dashboard-backend/src/services/app/appStandard.js`), so wie das Kit
+vor jedem `--deploy` (`verify` mit `ort: "paket"`). Ein Paket, das am
+Rechner besteht, besteht am Gerät.
+
+| Code                 | Das Gerät weist ab, wenn                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| `fremder-container`  | Kein Frontend und ein fertiges Image statt eines eigenen Baus (trägt laut Blatt keinen Nachweis) |
+| `bibliothek-fehlt`   | Die App hat ein Frontend und nennt unter `marken` keine Fassung                                  |
+| `bibliothek-alt`     | `marken` nennt eine andere Hauptzahl als die des Geräts                                          |
+| `unlesbar`           | `nachweis.json` ist kein JSON-Objekt                                                             |
+| `fehlt`              | Es gibt keine `nachweis.json`: nicht über den Ablauf gebaut                                      |
+| `schema`             | `schema` ist nicht 1                                                                             |
+| `siegel`             | Das Siegel passt nicht zur Datei: von Hand geändert                                              |
+| `kennung`, `version` | `app` oder `version` ist nicht die des Manifests: andere App oder früherer Bau                   |
+| `paket-fehlt`        | `inhalt.paket` fehlt                                                                             |
+| `paket-geaendert`    | Die Prüfsumme des Pakets, wie es ankam, ist nicht `inhalt.paket`: nach dem Bau geändert          |
+| `schritt-fehlt`      | Einer von `interview`, `bau`, `test` fehlt (etwa eine Vorführung ohne Plan)                      |
+| `reihenfolge`        | Die Zeiten der drei Schritte fallen                                                              |
+| `tests-fehlen`       | Keine Testdatei oder kein Fall gezählt                                                           |
+| `tests-rot`          | Der letzte Testlauf war nicht grün                                                               |
+| `tests-veraltet`     | Die Tests liefen gegen einen anderen Stand des Quelltexts                                        |
+| `bau-veraltet`       | Der Schritt `bau` steht auf einem anderen Quelltext als der Nachweis                             |
+| `bibliothek`         | `bibliothek.marken` im Nachweis ist nicht `marken` im Manifest                                   |
+
+**Was der Mensch tut**, steht im Blatt des Kits: fast immer `--build` noch
+einmal (lässt die Tests laufen und schreibt den Nachweis neu), bei `fehlt` und
+`schritt-fehlt` vorher einen Plan aktiv setzen. Wo eine App steht, sagt
+`node .ara/tools/app.mjs --app <name> --nachweis`.
+
+**Ausgenommen ist genau eine App:** das Entwickler-Cockpit. Es kommt mit dem
+Gerät und nicht über das Kit, und seine Kennung ist für Pakete ohnehin
+vergeben. **Fremde Container** weist das Gerät ab, bis entschieden ist, wie
+fremde Projekte als App kommen.
+
+**Der Nachweis ist kein Schutz gegen Fälschung** (Entscheidung 20.11.2026):
+wer das Blatt kennt, kann die Prüfsummen selbst bilden. Er fängt Versehen ab,
+eine nach dem Bau geänderte Datei, eine kopierte App, vergessene Tests.
+Darum steckt am Gerät kein Schlüssel und keine Signatur.
+
+**Nicht rückwirkend.** Die Prüfung greift beim Ausrollen. Stände, die vorher
+kamen, laufen weiter; die Seite der App in der Verwaltung zeigt je Fassung
+„erfüllt den Standard" oder was fehlt (`standard` in `GET /api/apps/:id`).
+
+**Im Kontrakt** steht die Pflicht als Satz in `paket.regeln` und als Block
+`paket.nachweis` (Datei, Schema, Ausnahmen, Codes). Die Kontraktversion bleibt
+14: das Kit schreibt und prüft den Nachweis schon, eine 15 hielte nur jedes
+Kit an, das bis 14 zählt.
+
+**Abnahmen dieses Repos** bauen ihre Wegwerf-Pakete von Hand und stempeln sie
+vor dem Packen mit `scripts/test/nachweis-stempeln.mjs`. Das ist kein Weg
+vorbei am Gerät, sondern das Blatt ein zweites Mal gerechnet.
 
 ## Der Weg einer Version
 
@@ -751,7 +823,7 @@ Ausgangs-Proxy des Geräts lässt für die App genau diese Namen durch
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `401`   | Kein oder kein gültiger Schlüssel                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `403`   | Der Schlüssel hat `app:deploy` nicht                                                                                                                                                                                                                                                                                                                                                                                               |
-| `400`   | Das Paket geht nicht durch: kein `app.json` im Wurzelverzeichnis, ein Symlink darin, ein Feld, das es nicht gibt, ein fehlender Bauplan — oder der Bau am Gerät ist gescheitert (die letzten Zeilen der Bauausgabe stehen in `details`)                                                                                                                                                                                            |
+| `400`   | Das Paket geht nicht durch: kein `app.json` im Wurzelverzeichnis, ein Symlink darin, ein Feld, das es nicht gibt, der App-Standard ist nicht erfüllt (`details.standard`), ein fehlender Bauplan — oder der Bau am Gerät ist gescheitert (die letzten Zeilen der Bauausgabe stehen in `details`)                                                                                                                                   |
 | `409`   | Diese Version ist gerade live; oder: es gibt keinen Teststand zum Schalten, keine vorige Version zum Zurückschalten, oder das **Lizenzkontingent ist voll** (seit dem 30.08.2026 zählen Test- und Livestand zusammen: jede eingespielte App belegt einen Platz, eine neue Version einer bekannten App geht immer durch). Die Meldung nennt die Zahl und die Apps, `details` trägt sie als `grenze`, `belegt`, `apps`, `abgewiesen` |
 | `413`   | Das Archiv ist größer als 200 MB                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `429`   | Zu viele Uploads in kurzer Zeit                                                                                                                                                                                                                                                                                                                                                                                                    |

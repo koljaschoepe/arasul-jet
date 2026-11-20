@@ -414,7 +414,14 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // nicht kennt, spielt ein wie bisher, und der Befehl, der sie braucht
     // (K29), fragt nach den Eintraegen, nicht nach der Nummer. Die Zahl bleibt
     // bei 14.
-    expect(abdruck).toBe('72a1f5ad6dea0850bb22a5644bb4d3f9a8f85fd6c76407a505b0b4e237bc1d92');
+    //
+    // 20.11.2026 (M7, J45, Auftrag standard-pflicht-beim-ausrollen): der
+    // App-Standard ist Pflicht, eine Regel in `paket.regeln` und der Block
+    // `paket.nachweis`. Das wird enger, aber nicht fuer das Kit: es schreibt
+    // den Nachweis seit Kit-PR 119 und prueft ihn vor jedem `--deploy` mit
+    // denselben Codes. Eine 15 hielte jedes Kit an, das nur bis 14 zaehlt,
+    // ohne dass ihm etwas fehlte. Die Zahl bleibt bei 14.
+    expect(abdruck).toBe('45c2c62fa48dfa500aee49399c9242962cd6cdc0e1ca18d17c13e9984fc1d1c0');
   });
 
   /**

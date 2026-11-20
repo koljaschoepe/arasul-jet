@@ -131,6 +131,7 @@ json.dump({"schema": 1, "id": kennung, "name": "Abnahme J35 (%s)" % kennung,
            "version": "1.0.0", "frontend": {"verzeichnis": "frontend"}},
           open(ziel, "w"), indent=2)
 PY
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/$kennung.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/$kennung.tgz"
 }

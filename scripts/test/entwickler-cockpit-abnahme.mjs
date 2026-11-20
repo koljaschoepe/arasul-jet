@@ -193,6 +193,8 @@ async function ausrollen(version, struktur, text) {
   m.backend.umgebung = { PROBE_VERSION: version, PROBE_STRUKTUR: struktur };
   fs.writeFileSync(path.join(ordner, 'app.json'), JSON.stringify(m, null, 2));
   const tgz = path.join(arbeit, `paket-${version}.tgz`);
+  // J45: der App-Standard, das Gerät nimmt nur Pakete mit Nachweis an.
+  execFileSync('node', [path.join(WURZEL, 'scripts/test/nachweis-stempeln.mjs'), ordner]);
   execFileSync('tar', ['czf', tgz, '-C', ordner, '.'], {
     env: { ...process.env, COPYFILE_DISABLE: '1' },
   });

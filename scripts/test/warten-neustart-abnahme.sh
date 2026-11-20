@@ -221,6 +221,7 @@ json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
   # COPYFILE_DISABLE: BSD-tar auf macOS legt sonst zu jeder Datei einen
   # `._`-Begleiter mit erweiterten Attributen ins Archiv.
+  node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ordner"  # J45: der App-Standard
   COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket.tgz" -C "$ordner" . || return 1
   echo "$ARBEIT/paket.tgz"
 }

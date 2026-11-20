@@ -224,6 +224,7 @@ m = json.load(open(quelle)); m["id"] = kennung; m["name"] = "Probe Zurückholen"
 m["backend"]["image"] = "arasul-%s:%s" % (kennung, m["version"])
 json.dump(m, open(ziel, "w"), indent=2, ensure_ascii=False)
 PY
+node "$WURZEL/scripts/test/nachweis-stempeln.mjs" "$ARBEIT/paket"  # J45: der App-Standard
 COPYFILE_DISABLE=1 tar czf "$ARBEIT/paket.tgz" -C "$ARBEIT/paket" .
 CODE=$(curl -sk -o "$RUMPF" -w '%{http_code}' --max-time "$GEDULD" -H "x-api-key: $SCHLUESSEL" -F "paket=@$ARBEIT/paket.tgz" "$BASIS/api/v1/external/apps")
 pruefe "$APP eingespielt" "$([ "$CODE" = 201 ] || [ "$CODE" = 200 ] && echo ja || echo nein)" "HTTP $CODE"

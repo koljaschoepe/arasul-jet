@@ -106,6 +106,17 @@ export interface ExternesModell {
   endet_auf: string | null;
 }
 
+/**
+ * Das Urteil des App-Standards über einen Stand (J45): erfüllt, ausgenommen
+ * (die mitgelieferte App) oder die Funde, je mit dem Code aus dem Formatblatt
+ * des Kits und einem Satz.
+ */
+export interface StandardUrteil {
+  erfuellt: boolean;
+  ausgenommen: boolean;
+  funde: Array<{ code: string; text: string }>;
+}
+
 /** Ein Stand einer App, wie ihn `GET /api/apps/:id` liefert. */
 export interface AppStandDetail {
   version: string;
@@ -127,6 +138,8 @@ export interface AppStandDetail {
    * mitübersetzt (`FASSUNG` aus `@marken`).
    */
   marken: string | null;
+  /** Erfüllt dieser Stand den App-Standard (J45)? Fehlt bei einem älteren Backend. */
+  standard?: StandardUrteil | null;
   modelle: Array<{ name: string; vorhanden: boolean }>;
   flows: AppFlow[];
   /** Was der Entwickler beim Ausrollen über diese Fassung schrieb (Kontrakt 8), oder null. */
