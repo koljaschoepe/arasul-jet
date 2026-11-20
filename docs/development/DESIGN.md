@@ -194,7 +194,7 @@ bleiben deckend. Höchstens drei Glasflächen je Ansicht.
   nicht den Inhalt der App.
 - **Glas auf dem Grund** (`.glas.glas-grund`, 5.8.0): die Leiste links und die
   Leiste unten am Handy liegen nur auf `--verlauf-rahmen`, nie über Text oder
-  einem Knopf. Sie sind dünner gefüllt (`--glas-anteil-grund`, 72 %), damit der
+  einem Knopf. Sie sind dünner gefüllt (`--glas-anteil-grund`, 66 %), damit der
   Verlauf durchscheint; `marken.py` (Punkt 9) misst Text und Blau auf diesem
   Glas über jeder Stufe des Verlaufs. Die Kapsel über einer App liegt über dem
   Inhalt und bleibt beim vollen `--glas-anteil`.
@@ -401,7 +401,8 @@ Glas, 32 px hoch, darin der Umschalter Live und Test (nur, wenn dieser Mensch
 beide Fassungen sehen darf) und das Rückmelde-Icon. Ein Klick auf eine App in
 der Leiste öffnet die Fassung, in der man sie zuletzt offen hatte
 (`zuletztStand` im Store). Die Testfassung trägt einen blauen Rand um die
-Fläche und oben in der Mitte das Wort Test.
+Fläche und das Wort Test auf der Oberkante, in der Mitte; die App erfährt den
+Platz der Kapsel als `--ara-kapsel-platz`.
 
 Verwaltung und Einstellungen sind gebaut wie eine App (Karte
 jet-rahmen-einheitlich, 07.10.2026): links das Muster `Seitenleiste`,

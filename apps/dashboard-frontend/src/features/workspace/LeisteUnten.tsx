@@ -46,15 +46,17 @@ function Feld({
       data-testid={kennzeichen}
       onClick={onClick}
       className={cn(
-        'flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
+        'flex h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
         aktiv
-          ? 'max-w-[calc(100%-232px)] min-w-0 shrink-0 bg-primary/14 px-3 text-primary'
+          ? 'max-w-[calc(100%-236px)] min-w-0 shrink-0 bg-primary/14 px-3 text-primary dark:bg-primary/24'
           : 'flex-1 text-muted-foreground hover:text-foreground'
       )}
     >
       <span className="relative flex size-5 shrink-0 items-center justify-center">{symbol}</span>
       {aktiv && (
-        <span className="min-w-0 text-left text-xs leading-tight font-medium break-words">
+        // Der Name in Tinte, nicht in Blau: Blau auf der getönten Fläche über
+        // dem Glas fiele am blauen Ende des Verlaufs unter 4,5:1.
+        <span className="min-w-0 text-left text-xs leading-tight font-medium break-words text-foreground">
           {name}
         </span>
       )}
@@ -153,9 +155,9 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
           data-testid="leiste-mehr"
           aria-current={mehrAktiv ? 'page' : undefined}
           className={cn(
-            'flex h-11 min-w-11 flex-1 items-center justify-center rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
+            'flex h-[44px] min-w-[44px] flex-1 items-center justify-center rounded-xl transition-colors duration-120 ease-out motion-reduce:transition-none',
             mehrAktiv || offen
-              ? 'bg-primary/14 text-primary'
+              ? 'bg-primary/14 text-primary dark:bg-primary/24'
               : 'text-muted-foreground hover:text-foreground'
           )}
         >
@@ -182,7 +184,10 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
                   title: e.name,
                 })
               }
-              className={cn(ZEILE, offeneApp === e.id && 'bg-primary/14 text-primary')}
+              className={cn(
+                ZEILE,
+                offeneApp === e.id && 'bg-primary/14 text-primary dark:bg-primary/24'
+              )}
             >
               <span className="flex size-5 shrink-0 items-center justify-center">
                 <AppSymbol symbol={e.symbol} />
@@ -197,7 +202,10 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
               data-testid="leiste-terminal"
               aria-current={aktivId === 'terminal' ? 'page' : undefined}
               onClick={() => (aktivId === 'terminal' ? setOffen(false) : geh({ type: 'terminal' }))}
-              className={cn(ZEILE, aktivId === 'terminal' && 'bg-primary/14 text-primary')}
+              className={cn(
+                ZEILE,
+                aktivId === 'terminal' && 'bg-primary/14 text-primary dark:bg-primary/24'
+              )}
             >
               <SquareTerminal className="size-[18px] shrink-0" aria-hidden="true" />
               Terminal
@@ -211,7 +219,10 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
               onClick={() =>
                 aktivId === 'verwaltung' ? setOffen(false) : geh({ type: 'verwaltung' })
               }
-              className={cn(ZEILE, aktivId === 'verwaltung' && 'bg-primary/14 text-primary')}
+              className={cn(
+                ZEILE,
+                aktivId === 'verwaltung' && 'bg-primary/14 text-primary dark:bg-primary/24'
+              )}
             >
               <SlidersHorizontal className="size-[18px] shrink-0" aria-hidden="true" />
               Verwaltung
@@ -222,7 +233,10 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
             data-testid="leiste-einstellungen"
             aria-current={aktivId === 'settings' ? 'page' : undefined}
             onClick={() => (aktivId === 'settings' ? setOffen(false) : geh({ type: 'settings' }))}
-            className={cn(ZEILE, aktivId === 'settings' && 'bg-primary/14 text-primary')}
+            className={cn(
+              ZEILE,
+              aktivId === 'settings' && 'bg-primary/14 text-primary dark:bg-primary/24'
+            )}
           >
             <Settings className="size-[18px] shrink-0" aria-hidden="true" />
             Einstellungen

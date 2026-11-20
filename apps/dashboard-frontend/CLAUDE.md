@@ -342,8 +342,10 @@ src/
                      `AppRahmen`) — Glas oben rechts über jeder App, 32 px:
                      Umschalter Live und Test (nur wenn `/apps/meine` beide
                      nennt; die EINE Stelle dafür, NAVIGATION_AUSNAHMEN) und
-                     das Rückmelde-Icon. Die Testfassung trägt `TestRand`:
-                     2 px Blau um die Fläche, oben das Wort Test.
+                     das Rückmelde-Icon; der App nennt `AppRahmen` den Platz
+                     als `--ara-kapsel-platz`. Die Testfassung trägt (in
+                     `WorkspaceShell`) 2 px Blau um die Fläche und das Wort
+                     Test auf der Oberkante.
                    • **Unter 900 px** schwebt statt der Aktivitätsleiste die
                      Leiste unten als Glas (`LeisteUnten.tsx`): Start, vier
                      Apps, „Mehr“ mit den übrigen Apps, Terminal,

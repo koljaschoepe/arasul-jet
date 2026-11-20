@@ -220,8 +220,11 @@ Herkunft, kein `sandbox`, wie beim Theme). **Die App tut dafür nichts und kann
 es nicht abschalten.** Was sie wissen sollte: oben rechts, 8 px vom Rand, liegt
 die Kapsel aus Glas über ihrem Inhalt, 32 px hoch, etwa 40 px breit, mit dem
 Umschalter Live und Test etwa 130 px; wer dort einen eigenen Knopf hat, rückt
-ihn nach innen. Die Testfassung trägt einen 2 px breiten blauen Rand mit dem
-Wort Test oben in der Mitte. Vertrag:
+ihn nach innen. Den Platz nennt der Rahmen der App als CSS-Variable
+`--ara-kapsel-platz` am `<html>` ihres Dokuments (vom rechten Rand gemessen,
+heute 144 px mit Umschalter, sonst 52 px); ein Seitenkopf hält ihn frei. Die
+Testfassung trägt einen 2 px breiten blauen Rand mit dem Wort Test auf der
+Oberkante, in der Mitte. Vertrag:
 [`RUECKMELDUNG.md`](RUECKMELDUNG.md).
 
 ### Die App sagt, auf welcher Fassung sie steht (Phase H6)

@@ -70,6 +70,20 @@ describe('WorkspaceShell', () => {
     expect(shell.className).toContain('--verlauf-rahmen');
   });
 
+  it('die Testfassung einer App trägt den blauen Rand und das Wort Test', async () => {
+    renderShell('/workspace/app/urlaub/test');
+    await landetAuf('/workspace/app/urlaub/test');
+    expect(screen.getByTestId('workspace-ansicht')).toHaveClass('border-primary');
+    expect(screen.getByTestId('ansicht-test-wort')).toHaveTextContent('Test');
+  });
+
+  it('die Livefassung trägt keinen Testrand', async () => {
+    renderShell('/workspace/app/urlaub');
+    await landetAuf('/workspace/app/urlaub');
+    expect(screen.getByTestId('workspace-ansicht')).not.toHaveClass('border-primary');
+    expect(screen.queryByTestId('ansicht-test-wort')).not.toBeInTheDocument();
+  });
+
   it('ohne Deep-Link landet der Workspace auf der Startseite', async () => {
     renderShell('/workspace');
     await landetAuf('/workspace/dashboard');

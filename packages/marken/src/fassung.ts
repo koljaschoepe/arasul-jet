@@ -211,4 +211,10 @@
  * Leisten, unter denen nur dieser Verlauf liegt. Kein Name faellt weg, nichts
  * aendert seine Bedeutung.
  */
-export const FASSUNG = '5.8.0';
+/*
+ * 5.8.1: die Kante des Glases traegt mehr: eine Haarlinie aussen und ein
+ * Lichtsaum oben innen in `--glas-schatten`, `--glas-anteil-grund` 66 %, der
+ * Verlauf des Rahmens hell kraeftiger und dunkel ruhiger. Kein Name, keine
+ * Eigenschaft aendert sich.
+ */
+export const FASSUNG = '5.8.1';

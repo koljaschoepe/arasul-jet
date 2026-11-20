@@ -75,25 +75,3 @@ export function Kapsel({ appId, name, stand, staende, children }: KapselProps) {
     </div>
   );
 }
-
-/**
- * Der Rand der Testfassung: die Fläche der App trägt einen blauen Rand und
- * oben in der Mitte das Wort Test, damit niemand die Fassung, die noch nicht
- * gilt, mit der Livefassung verwechselt, auch wer keinen Umschalter hat.
- */
-export function TestRand() {
-  return (
-    <div
-      className="pointer-events-none absolute inset-0 z-10 rounded-[13px] border-2 border-primary"
-      data-testid="ansicht-test-rand"
-      aria-hidden="true"
-    >
-      <span
-        className="absolute top-0 left-1/2 -translate-x-1/2 rounded-b-md bg-primary px-2 pb-0.5 text-xs leading-4 font-medium text-primary-foreground"
-        data-testid="ansicht-test-wort"
-      >
-        Test
-      </span>
-    </div>
-  );
-}
