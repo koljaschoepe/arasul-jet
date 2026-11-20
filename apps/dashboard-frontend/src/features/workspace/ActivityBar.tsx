@@ -73,7 +73,7 @@ function knopfKlasse(aktiv: boolean | undefined): string {
   return cn(
     KNOPF,
     aktiv
-      ? 'bg-primary/14 text-primary dark:bg-primary/24'
+      ? 'bg-primary/14 text-primary dark:bg-primary/28 dark:text-foreground'
       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
   );
 }
