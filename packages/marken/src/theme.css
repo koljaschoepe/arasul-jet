@@ -214,18 +214,21 @@
   color-scheme: light;
   /* Die Farben der Marke. Creme ist der Grund, Panel hell die Karte, Panel
      die Stufe darunter, Tinte der Text, Tinte weich der Nebentext, Linie die
-     Kante. Das Blau ist eine Stufe dunkler als das Blau der Website
-     (`--primary-hover`): jenes haelt als Flaeche mit weisser Schrift 4,8:1, als Text auf
-     Creme aber nur 4,4:1. `--primary` ist beides, Flaeche und Text, und
-     braucht deshalb die Stufe, die auf Creme, Karte, Panel und dem eigenen
-     Wisch 4,5:1 haelt (gemessen von `scripts/test/marken.py`, Punkt 9). */
+     Kante. Das Blau ist zwei Stufen dunkler als das Blau der Website
+     (`--primary-hover`): jenes haelt als Flaeche mit weisser Schrift 4,8:1,
+     als Text auf Creme aber nur 4,4:1. `--primary` ist beides, Flaeche und
+     Text, und steht in einer App oft als Abzeichen mit eigenem Wisch direkt
+     auf dem Verlauf des Grundes; es braucht deshalb die Stufe, die auf Creme,
+     Karte, Panel und jeder Stufe des Verlaufs, jeweils mit Wisch, 4,5:1 haelt
+     (gemessen von `scripts/test/marken.py`, Punkt 9; am Orin fiel die erste Stufe
+     am 20.11.2026 auf dem Ende des Verlaufs auf 4,2:1). */
   --background: #f6f3ed;
   --foreground: #1e1b16;
   --card: #fbf8f2;
   --card-foreground: #1e1b16;
   --popover: #fbf8f2;
   --popover-foreground: #1e1b16;
-  --primary: #2862c2;
+  --primary: #2559b1;
   --primary-foreground: #ffffff;
   --secondary: #efe9df;
   --secondary-foreground: #1e1b16;
@@ -237,7 +240,7 @@
   --destructive-foreground: #ffffff;
   --border: #dfd6c4;
   --input: #c9bda3;
-  --ring: #2862c2;
+  --ring: #2559b1;
 
   /* Schriftgroessen-Skala. Sie ist keine Tailwind-Skala (die steht als
      `--text-ui-*` im `@theme` darueber), sondern die Reihe fuer handgeschrie-
@@ -267,7 +270,7 @@
      nach einem Hauch Blau (Creme zu 94 %, das Blau der Website zu 6 %). Kein
      Bild, keine Koernung. `--background` bleibt die Farbe darunter: wer eine
      Flaeche deckend braucht, nimmt sie. */
-  --verlauf-grund: linear-gradient(160deg, #f6f3ed 0%, #f1efeb 45%, #eaebec 100%);
+  --verlauf-grund: linear-gradient(160deg, #f6f3ed 0%, #f4f3f0 45%, #f2f3f5 100%);
 }
 
 /* -----------------------------------------------------------------------------
@@ -457,7 +460,7 @@ svg.lucide * {
    ----------------------------------------------------------------------------- */
 :root {
   --primary-hover: #2e6fd6;
-  --primary-active: #2559ab;
+  --primary-active: #1f4d98;
   --primary-light: #2e6fd6;
   --primary-muted: color-mix(in srgb, var(--primary) 12%, transparent);
   --danger-hover: #a81b1b;

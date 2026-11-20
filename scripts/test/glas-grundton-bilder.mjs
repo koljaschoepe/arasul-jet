@@ -302,7 +302,9 @@ try {
         );
         const mitText = knoepfe.filter(k => k.text && k.groesse === 'default');
         const icons = knoepfe.filter(k => !k.text && k.groesse === 'icon');
-        const f = 16 / (knoepfe[0]?.wurzel || 16);
+        // Die Höhen stehen in Pixeln (`button.tsx`), nicht in rem: gemessen
+        // wird roh, unabhängig von der Wurzelschrift der Shell.
+        const f = 1;
         if (!ansicht.mobil) {
           pruefe(
             `${theme} ${ansicht.name}: Knopf mit Text 32 px`,

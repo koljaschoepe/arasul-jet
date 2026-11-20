@@ -127,20 +127,22 @@ durch.
 | `--muted-foreground` | `#6B6250` (Tinte weich) | `#A3ABB8`                |
 | `--border`           | `#DFD6C4` (Linie)       | `rgba(246,243,237,0.10)` |
 | `--accent` (Hover)   | `rgba(30,27,22,0.05)`   | `rgba(246,243,237,0.07)` |
-| `--primary`          | `#2862C2` (Blau)        | `#6A9AE6`, Schrift Navy  |
+| `--primary`          | `#2559B1` (Blau)        | `#6A9AE6`, Schrift Navy  |
 | `--ring`             | = `--primary`           | = `--primary`            |
 
-Das Blau ist hell **eine Stufe dunkler** als das Blau der Website (`#2E6FD6`,
-hier `--primary-hover`): jenes hält als Fläche mit weißer Schrift 4,8:1, als
-Text auf Creme aber nur 4,4:1, und `--primary` ist beides. Dunkel ist es eine
-helle Stufe mit Navy als Schrift auf dem vollen Knopf; ein Blau, das weiße
-Schrift trägt, kann als Text auf Navy nicht 4,5:1 halten.
+Das Blau ist hell **zwei Stufen dunkler** als das Blau der Website
+(`#2E6FD6`, hier `--primary-hover`): jenes hält als Fläche mit weißer Schrift
+4,8:1, als Text auf Creme aber nur 4,4:1, und `--primary` ist beides. Ein
+Abzeichen steht in einer App oft mit seinem Wisch direkt auf dem Verlauf; die
+erste Stufe `#2862C2` fiel dort am Orin auf 4,2:1. Dunkel ist es eine helle
+Stufe mit Navy als Schrift auf dem vollen Knopf; ein Blau, das weiße Schrift
+trägt, kann als Text auf Navy nicht 4,5:1 halten.
 
 **Text hält 4,5:1, in beiden Themen und auf Glas** (seit 26.09.2026 hell, seit
 5.7.0 auch dunkel und auf Glas): Blau, Rot und das Textgrau auf Seite, Karte,
 `--secondary` und ihrem eigenen 10-%-Wisch, die Schrift auf dem vollen Blau
-und dem vollen Rot, und Text auf Glas über Seite, Karte, Panel und dem
-Hauptknopf. Icons stehen in derselben Farbe wie Text und halten damit
+und dem vollen Rot, jede Stufe des Verlaufs als eigener Grund, und Text auf
+Glas über Seite, Karte, Panel und dem Hauptknopf. Icons stehen in derselben Farbe wie Text und halten damit
 mindestens 3:1. `scripts/test/marken.py` rechnet es nach (Punkt 9).
 
 Eine Linienfarbe mit niedriger Alpha, keine zweite „dicke" Kante. Hover ist
