@@ -77,7 +77,7 @@ if ziehen; then ok "Lauf gelungen (Code 0)"; else rot "Lauf fehlgeschlagen: $(ta
 grep -q "restic check ohne Fehler" "$T/mac/lauf.txt" && ok "restic check auf der Kopie ohne Fehler" || rot "kein restic check im Protokoll"
 [ "$(feld "$DATEN/STAENDE.json" repos.0.appDatenbanken.0.db)" = arasul_app_belege_live ] && ok "STAENDE.json nennt arasul_app_belege_live" || rot "STAENDE.json ohne App-Datenbank"
 [ ! -f "$DATEN/AUSFALL.txt" ] && ok "AUSFALL.txt ist weg" || rot "AUSFALL.txt steht noch"
-restic -r "$DATEN/staende/staende-$ABDRUCK" --no-lock snapshots --json | grep -q '"short_id"' && ok "der Schlüssel öffnet die Kopie" || rot "Kopie lässt sich nicht öffnen"
+grep -q '"short_id"' <<<"$(restic -r "$DATEN/staende/staende-$ABDRUCK" --no-lock snapshots --json)" && ok "der Schlüssel öffnet die Kopie" || rot "Kopie lässt sich nicht öffnen"
 
 echo "2. Eine Nacht mit forget und prune am Gerät"
 nacht "$(date -u -d '-1 hours' '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -u -v-1H '+%Y-%m-%d %H:%M:%S')" zwei
