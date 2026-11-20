@@ -50,6 +50,18 @@ const VORGABE_ENDPUNKTE = Object.freeze([
  * Schluessel dafuer legt ein Administrator fuer den Anlass an und widerruft ihn
  * danach (`scripts/util/kit-schluessel.sh anlegen <Name> system:update`).
  */
-const ALLE_ENDPUNKTE = Object.freeze([...VORGABE_ENDPUNKTE, 'app:deploy', 'system:update']);
+/*
+ * `feedback:agent` (J43, 20.11.2026) ist der dritte: er erlaubt, die
+ * Rueckmeldungen einer App zu lesen und ihren Stand zu setzen
+ * (`/api/v1/external/apps/:id/rueckmeldungen`). Ein eigener Bereich, damit ein
+ * Schluessel, der nur ausrollen darf, keine Meldungen liest -- darin stehen
+ * Namen von Mitarbeitern und, wenn der Admin es je App erlaubt, Bildschirmfotos.
+ */
+const ALLE_ENDPUNKTE = Object.freeze([
+  ...VORGABE_ENDPUNKTE,
+  'app:deploy',
+  'system:update',
+  'feedback:agent',
+]);
 
 module.exports = { VORGABE_ENDPUNKTE, ALLE_ENDPUNKTE };

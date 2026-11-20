@@ -873,15 +873,21 @@ Backend wurde neu gestartet, der Lauf wurde abgebrochen). Bewusst getrennt von
 
 > Die Apps am Gerät. Was eine App IST, steht in ihrem Manifest app.json; was von ihr läuft, in app_staende. Ersetzt app_installations (013); seit 169
 
-| Column         | Type                     | Nullable | Default |
-| -------------- | ------------------------ | -------- | ------- |
-| `id`           | text                     | ⛔       |         |
-| `name`         | text                     | ⛔       |         |
-| `beschreibung` | text                     | ✅       |         |
-| `angelegt_am`  | timestamp with time zone | ⛔       | `now()` |
-| `geaendert_am` | timestamp with time zone | ⛔       | `now()` |
+| Column              | Type                     | Nullable | Default |
+| ------------------- | ------------------------ | -------- | ------- |
+| `id`                | text                     | ⛔       |         |
+| `name`              | text                     | ⛔       |         |
+| `beschreibung`      | text                     | ✅       |         |
+| `angelegt_am`       | timestamp with time zone | ⛔       | `now()` |
+| `geaendert_am`      | timestamp with time zone | ⛔       | `now()` |
+| `bilder_an_agenten` | boolean                  | ⛔       | `false` |
 
 **Primary key:** `id`
+
+`bilder_an_agenten` (Migration 215, J43): der Schalter „Bildschirmfotos an den
+Agenten“ unter Einstellungen › Apps. Aus heißt: die Rückmeldungen dieser App
+gehen über `/api/v1/external/apps/:id/rueckmeldungen` ohne Bild, Markierung
+und Verweis an das Kit (`docs/features/RUECKMELDUNG.md`).
 
 Die Kennung kommt aus dem Manifest und ist zugleich Pfad (`/apps/<id>/`),
 Containername (`arasul-app-<id>-live`) und Traefik-Router. Eine zweite,
@@ -1933,27 +1939,35 @@ Normalfall.
 > `<APPS_DIR>/.rueckmeldungen/<bild>` am Gerät; `bild` nennt nur den Namen.
 > `app_id` ohne Fremdschlüssel: eine Meldung überlebt die App. `person_id` mit
 > `ON DELETE SET NULL`: wird die Person gelöscht, bleibt die Meldung ohne Namen.
-> `stand_meldung` kennt `neu`, `angenommen`, `umgesetzt`, `abgelehnt`; gesetzt
-> wird bis J43 nur `neu`. Vertrag: `docs/features/RUECKMELDUNG.md`.
+> `stand_meldung` kennt `neu`, `angenommen`, `umgesetzt`, `abgelehnt`; seit
+> Migration 215 (J43) setzt das Kit den Stand über
+> `PATCH /api/v1/external/apps/:id/rueckmeldungen/:nr`, mit `grund` (Pflicht
+> bei `abgelehnt`), `stand_geaendert_am` und `stand_geaendert_durch`
+> (`schluessel:<präfix>` oder `person:<id>`). Vertrag: `docs/features/RUECKMELDUNG.md`.
 
-| Column          | Type                     | Nullable | Default                                    |
-| --------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`            | bigint                   | ⛔       | `nextval('rueckmeldungen_id_seq'::regc...` |
-| `app_id`        | text                     | ⛔       |                                            |
-| `stand`         | text                     | ⛔       |                                            |
-| `seite`         | text                     | ⛔       |                                            |
-| `text`          | text                     | ⛔       |                                            |
-| `bild`          | text                     | ✅       |                                            |
-| `markierung`    | jsonb                    | ✅       |                                            |
-| `person_id`     | bigint                   | ✅       |                                            |
-| `stand_meldung` | text                     | ⛔       | `'neu'::text`                              |
-| `erstellt_am`   | timestamp with time zone | ⛔       | `now()`                                    |
+| Column                  | Type                     | Nullable | Default                                    |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                    | bigint                   | ⛔       | `nextval('rueckmeldungen_id_seq'::regc...` |
+| `app_id`                | text                     | ⛔       |                                            |
+| `stand`                 | text                     | ⛔       |                                            |
+| `seite`                 | text                     | ⛔       |                                            |
+| `text`                  | text                     | ⛔       |                                            |
+| `bild`                  | text                     | ✅       |                                            |
+| `markierung`            | jsonb                    | ✅       |                                            |
+| `person_id`             | bigint                   | ✅       |                                            |
+| `stand_meldung`         | text                     | ⛔       | `'neu'::text`                              |
+| `erstellt_am`           | timestamp with time zone | ⛔       | `now()`                                    |
+| `grund`                 | text                     | ✅       |                                            |
+| `stand_geaendert_am`    | timestamp with time zone | ✅       |                                            |
+| `stand_geaendert_durch` | text                     | ✅       |                                            |
 
 **Primary key:** `id`
 
 **Checks:** `stand IN ('test','live')`; `stand_meldung` aus den vier Ständen;
 `text` 1 bis 5000 Zeichen; `seite` 1 bis 2000 Zeichen; `bild` NULL oder
-`<uuid>.png`.
+`<uuid>.png`; `grund` NULL oder 1 bis 2000 Zeichen
+(`rueckmeldungen_grund_laenge`); `abgelehnt` nur mit `grund`
+(`rueckmeldungen_grund_bei_ablehnung`, beide seit 215).
 
 **Foreign Keys:**
 
@@ -1961,6 +1975,7 @@ Normalfall.
 
 **Indexes:**
 
+- `idx_rueckmeldungen_app_stand` — `CREATE INDEX idx_rueckmeldungen_app_stand ON public.rueckmeldungen USING btree (app_id, stand_meldung)` (215)
 - `idx_rueckmeldungen_app_zeit` — `CREATE INDEX idx_rueckmeldungen_app_zeit ON public.rueckmeldungen USING btree (app_id, erstellt_am DESC)`
 - `rueckmeldungen_pkey` — `CREATE UNIQUE INDEX rueckmeldungen_pkey ON public.rueckmeldungen USING btree (id)`
 

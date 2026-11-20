@@ -143,6 +143,8 @@ router.use('/apps', require('./store/apps'));
 // eine App benutzt. Sie in eine Datei zu legen hiesse, zwei Zielgruppen in
 // einer Datei zu haben, deren Rechte sich gerade NICHT decken.
 router.use('/v1/external', require('./external/deploy'));
+// Die Rueckmeldungen einer App fuer das Kit (J43, Bereich `feedback:agent`).
+router.use('/v1/external', require('./external/rueckmeldungen'));
 router.use('/v1/external', require('./external/externalApi'));
 
 module.exports = router;

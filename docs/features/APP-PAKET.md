@@ -239,6 +239,17 @@ oder eine App bisher tat, sich ändert. Den Schlüssel dafür legt ein Administr
 für den Anlass an (`scripts/util/kit-schluessel.sh anlegen <Name> system:update`)
 und widerruft ihn danach.
 
+**`feedback:agent`** (J43, 20.11.2026) ist der dritte: er liest die
+Rückmeldungen einer App und setzt ihren Stand
+(`GET /api/v1/external/apps/:id/rueckmeldungen`, `GET …/:nr/bild`,
+`PATCH …/:nr`). Ein eigener Schlüssel, damit einer, der nur ausrollen darf,
+keine Meldungen mit Namen von Mitarbeitern liest. Der Kontrakt nennt die Wege
+unter `endpunkte` und die Regeln im Abschnitt `rueckmeldungen`; die
+Kontraktversion bleibt bei 14, weil sich nichts ändert, worauf sich ein Kit
+bisher verlassen hat. Bilder gehen nur mit, wenn der Admin es je App erlaubt.
+Beispiele und Fehlerfälle:
+[RUECKMELDUNG.md](RUECKMELDUNG.md#schnittstelle-für-das-kit).
+
 ## Korrekturfelder: Kontrakt 10 (M5, 04.10.2026)
 
 Zwei freiwillige Felder im Flow-Kopf, beide für eine Freigabe aus der

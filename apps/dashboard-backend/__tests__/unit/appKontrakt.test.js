@@ -91,7 +91,9 @@ describe('Der Kontrakt sagt, was das Kit wissen muss', () => {
   it('nennt zu jedem Endpunkt den Bereich, den er verlangt', () => {
     const bekannt = new Set(ALLE_ENDPUNKTE);
     for (const e of k.endpunkte) {
-      expect(e.verb).toMatch(/^(GET|POST|DELETE)$/);
+      // PATCH seit J43 (Stand einer Rueckmeldung); das Kit kennt alle fuenf
+      // Verben (`.ara/tools/lib/docroutes.mjs`).
+      expect(e.verb).toMatch(/^(GET|POST|PATCH|DELETE)$/);
       expect(e.pfad.startsWith('/api/v1/external')).toBe(true);
       if (e.bereich !== null) {
         expect(bekannt.has(e.bereich)).toBe(true);
@@ -201,6 +203,24 @@ describe('Die Bibliothek zur Laufzeit im Kontrakt (Kontrakt 9)', () => {
     // Die Form im Manifest steht auch im JSON-Schema: die Hauptzahl allein.
     expect(new RegExp(manifest.schema.properties.marken.pattern).test('5')).toBe(true);
     expect(new RegExp(manifest.schema.properties.marken.pattern).test('5.2.1')).toBe(true);
+  });
+});
+
+describe('Die Rueckmeldungen im Kontrakt (J43)', () => {
+  it('nennt Bereich, Wege, Staende und dass das Bild nur mit Erlaubnis kommt', () => {
+    const { rueckmeldungen } = appKontrakt.kontrakt();
+    expect(rueckmeldungen.bereich).toBe('feedback:agent');
+    expect(rueckmeldungen.staende).toEqual(['neu', 'angenommen', 'umgesetzt', 'abgelehnt']);
+    expect(rueckmeldungen.bild_nur_mit_erlaubnis).toEqual(['bild']);
+    expect(rueckmeldungen.felder).not.toContain('bild');
+    expect(rueckmeldungen.regeln.join(' ')).toMatch(/fehlt das Feld `bild`/);
+    // Jeder Weg steht auch unter `endpunkte`, mit demselben Bereich, und
+    // `app:deploy` oeffnet keinen davon.
+    for (const weg of Object.values(rueckmeldungen.wege)) {
+      const e = appKontrakt.ENDPUNKTE.find(x => x.pfad.split('?')[0] === weg);
+      expect(e).toBeDefined();
+      expect(e.bereich).toBe('feedback:agent');
+    }
   });
 });
 
@@ -387,7 +407,14 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // zweiten Laufs am Orin (`gemessen`, Wartezeiten) und die Saetze nennen
     // beide Laeufe. Keine neue Faehigkeit, kein Name, nichts wird enger: die
     // Zahl bleibt bei 14.
-    expect(abdruck).toBe('518e41d8c722d3ec6b1546046e0780245ffaf818aa9a1f693e88e8d4a37d1a2b');
+    //
+    // 20.11.2026 (M7, J43, Auftrag rueckmeldung-schnittstelle): drei Wege mit
+    // dem neuen Bereich `feedback:agent` und der Abschnitt `rueckmeldungen`.
+    // Nichts wird enger, kein Feld aendert seine Bedeutung: ein Kit, das sie
+    // nicht kennt, spielt ein wie bisher, und der Befehl, der sie braucht
+    // (K29), fragt nach den Eintraegen, nicht nach der Nummer. Die Zahl bleibt
+    // bei 14.
+    expect(abdruck).toBe('72a1f5ad6dea0850bb22a5644bb4d3f9a8f85fd6c76407a505b0b4e237bc1d92');
   });
 
   /**

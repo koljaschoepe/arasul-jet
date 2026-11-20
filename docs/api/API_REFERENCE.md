@@ -667,6 +667,7 @@ benannten Tester. Sie haben getrennte Pfade und getrennte Container.
 | PUT    | `/api/apps/:id/flows/:name/art`                      | Die Art eines Flows schalten `{ art }`, `null` = Vorgabe des Pakets (M5)                                      |
 | PUT    | `/api/apps/:id/flows/:name/aktiv`                    | Einen Flow aus- und einschalten `{ aktiv }`; ein inaktiver startet nicht (M5)                                 |
 | PUT    | `/api/apps/:id/flows/:name/zeitplan`                 | Den Zeitplan eines Flows pausieren `{ pausiert }`; nur der Zeitplan, nicht `aktiv` (M5)                       |
+| PUT    | `/api/apps/:id/bilder-an-agenten`                    | Schalter „Bildschirmfotos an den Agenten“ `{ erlaubt }`, Vorgabe aus; siehe Rückmeldungen für das Kit (J43)      |
 | GET    | `/api/apps/:id/schritt-modelle`                      | Je Flow die Schritte mit Modell: Original, was gilt, Fähigkeiten, wählbare Modelle (M5)                       |
 | PUT    | `/api/apps/:id/flows/:name/schritte/:schritt/modell` | Einen Schritt auf ein installiertes Modell umstellen `{ modell }`, `null` = Original (M5)                     |
 | GET    | `/api/apps/modell-hinweise`                          | Schritte, deren Modell fehlt oder deren Wahl nicht mehr passt, über alle Apps (M5)                            |
@@ -2864,6 +2865,29 @@ aus der Datenbank, auch beim Administrator). Vertrag:
 
 Der Melder bekommt nach dem Absenden nur Nummer und Zeit zurück; einen Weg,
 die eigenen Meldungen wieder zu lesen, gibt es nicht (`schleife.md`, Regel 2).
+
+#### Für das Kit (J43, M7, 20.11.2026)
+
+Mit einem API-Schlüssel im Bereich **`feedback:agent`** (eigener Schlüssel,
+`scripts/util/kit-schluessel.sh anlegen <Name> feedback:agent`). Ein Schlüssel
+mit nur `app:deploy` bekommt `403`. Ob Bilder mitgehen, entscheidet der
+Schalter je App (`apps.bilder_an_agenten`, Vorgabe aus). Jede Abfrage, jedes
+abgeholte Bild und jeder gesetzte Stand steht in `audit_logs`
+(`rueckmeldungen_abgefragt`, `rueckmeldung_bild_abgeholt`,
+`rueckmeldung_stand_gesetzt`: Schlüssel, App, mit oder ohne Bilder).
+Beispiele mit und ohne Bild, alle Fehlerfälle:
+[`RUECKMELDUNG.md`, Schnittstelle für das Kit](../features/RUECKMELDUNG.md#schnittstelle-für-das-kit).
+
+| Method | Endpoint                                              | Auth                   | Description                                                                                                                                                                                                                       |
+| ------ | ----------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/v1/external/apps/:id/rueckmeldungen`            | API Key `feedback:agent` | Älteste zuerst. `?stand_meldung=neu,angenommen` (Komma-Liste), `?stand=test\|live`, `?grenze=1..500` (Vorgabe 200). `{ data: { app_id, app_name, bilder_an_agenten, anzahl, meldungen[] } }`; je Meldung `id, app_id, stand, seite, text, person, erstellt_am, stand_meldung, grund, stand_geaendert_am`, und NUR mit Erlaubnis `bild` (`null` oder `{ weg, format, markierung }`). 404 ohne App |
+| GET    | `/api/v1/external/apps/:id/rueckmeldungen/:nr/bild`   | API Key `feedback:agent` | Das PNG mit eingezeichneter Stelle. 403, wenn der Schalter der App aus ist; 404 ohne Meldung dieser App oder ohne Bild                                                                                                             |
+| PATCH  | `/api/v1/external/apps/:id/rueckmeldungen/:nr`        | API Key `feedback:agent` | Body `{ stand_meldung, grund? }`, `grund` Pflicht bei `abgelehnt` (400 sonst). Antwort die Meldung wie oben plus `vorher`. 404 ohne Meldung dieser App                                                                            |
+
+Den Schalter setzt der Administrator: `PUT /api/apps/:id/bilder-an-agenten`
+(Sitzung, Rolle admin), Body `{ "erlaubt": true }`, Antwort
+`{ data: { app_id, bilder_an_agenten } }`; im Sicherheitsprotokoll als
+`app_bilder_an_agenten_an` oder `_aus` mit vorher und nachher.
 
 ### Darstellung (Phase H1)
 
