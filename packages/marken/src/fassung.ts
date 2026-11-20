@@ -252,4 +252,12 @@
  * Rest in einer Zeile; `Kennzahl` mit groesserer Zahl, `Kennzahlen` am Handy
  * zwei Spalten. Kein Name, keine Eigenschaft aendert sich.
  */
-export const FASSUNG = '5.9.1';
+/*
+ * 5.9.2: Befunde der zweiten unbeteiligten Durchsicht. Eine App zur Laufzeit
+ * steht deckend auf `--background` ohne eigenen Verlauf (der liegt draussen
+ * im Rahmen). Der `Kopf` haelt fuer die Kapsel nur so viel frei, wie er in
+ * sie hineinreicht. `Spalte` kennt `kartenText` und `inKarteOben` fuer die
+ * Karte am Handy; die Tabelle setzt Ziffern gleicher Breite. Kein Name
+ * faellt weg; eine App auf 5.9.1 laeuft unveraendert.
+ */
+export const FASSUNG = '5.9.2';

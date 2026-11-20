@@ -59,7 +59,8 @@ Drei Regeln, die ein Wächter hält:
    **Die einzigen Verläufe sind die Gründe.** `--verlauf-grund` (5.7.0) liegt
    ruhig unter `body`, hell von Creme nach einem Hauch Blau, dunkel von Navy
    nach Anthrazit; Text darf direkt darauf stehen (`marken.py` misst jede
-   Stufe). `--verlauf-rahmen` (5.8.0) liegt hinter Leiste und Ansicht der
+   Stufe). Eine App zur Laufzeit trägt ihn seit 5.9.2 nicht mehr: im Rahmen
+   steht sie deckend auf `--background` wie Verwaltung und Einstellungen. `--verlauf-rahmen` (5.8.0) liegt hinter Leiste und Ansicht der
    Shell und ist kräftiger, damit man ihn sieht: hell Creme oben links, Blau
    mit einem weichen Schein unten rechts, dunkel Tiefblau mit Schein oben links
    nach Anthrazit (`--rahmen-stufe-1` bis `-3`, `--rahmen-schein`). Auf ihm

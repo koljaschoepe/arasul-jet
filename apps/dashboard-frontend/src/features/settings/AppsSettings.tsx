@@ -61,7 +61,6 @@ const SPALTEN: ReadonlyArray<Spalte<AppZeile>> = [
     schluessel: 'beschreibung',
     titel: 'Was sie tut',
     kuerzen: true,
-    inKarte: false,
     wert: app => app.beschreibung || app.id,
     zelle: app => <span className="text-muted-foreground">{app.beschreibung || app.id}</span>,
   },
@@ -70,6 +69,11 @@ const SPALTEN: ReadonlyArray<Spalte<AppZeile>> = [
     titel: 'Stand',
     ausrichtung: 'rechts',
     wert: app => zustand(app).satz,
+    // In der Karte ohne Pfeil: die ganze Karte ist der Knopf.
+    kartenText: app => {
+      const { mangel, satz } = zustand(app);
+      return mangel ? <span className="text-destructive">nicht lieferbar</span> : satz;
+    },
     zelle: app => {
       const { mangel, wartet, satz } = zustand(app);
       return (

@@ -85,7 +85,7 @@ export function TestNachLive({
   };
 
   return (
-    <div style={spalte(4)} data-testid="cockpit-live">
+    <div style={spalte(2)} data-testid="cockpit-live">
       <Kopf
         titel="Test nach Live"
         werkzeuge={werkzeuge}

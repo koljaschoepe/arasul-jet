@@ -65,11 +65,13 @@
       font-size: 103.125%;
     }
   }
+  /* Deckend, ohne Verlauf (5.9.2): eine App steht im Rahmen auf derselben
+     deckenden Flaeche wie Verwaltung und Einstellungen; der Verlauf liegt
+     draussen, hinter der Flaeche (Entwurf, Rahmen). Bis 5.9.1 trug eine App
+     ihren eigenen Verlauf und hatte einen anderen Ton als die Shell daneben. */
   body {
     min-height: 100dvh;
     background-color: var(--background);
-    background-image: var(--verlauf-grund);
-    background-attachment: fixed;
     color: var(--foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;

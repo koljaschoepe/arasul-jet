@@ -28,7 +28,9 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
     <div data-slot="table-container" className="relative w-full overflow-x-auto">
       <table
         data-slot="table"
-        className={cn('w-full caption-bottom text-ui-sm', className)}
+        // Ziffern gleicher Breite (5.9.2): Fassungen und Daten untereinander
+        // fluchten, ohne eine zweite Schrift.
+        className={cn('w-full caption-bottom text-ui-sm tabular-nums', className)}
         {...props}
       />
     </div>
