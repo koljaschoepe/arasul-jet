@@ -39,6 +39,48 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
   );
 }
 
+/** Kleinbuchstaben ohne Akzente: „Ü“ und „u“ finden einander. */
+function grundform(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+/**
+ * Die scharfe Suche der Befehlspalette (5.11.0).
+ *
+ * `cmdk` sucht von sich aus unscharf: jeder Buchstabe der Eingabe irgendwo
+ * im Eintrag, in der richtigen Reihenfolge. Fuer eine Liste aus Namen ist
+ * das zu weit, „Ab“ fand auch Eintraege ohne ein Wort, das mit „Ab“
+ * beginnt. Hier gilt:
+ *
+ * - Jedes Wort der Eingabe muss der ANFANG eines Wortes im Eintrag sein
+ *   (Wert und `keywords`). „Ab“ findet „Abschluss“, nicht „Belege“.
+ * - Ab drei Zeichen genuegt auch ein Stueck mitten im Wort („kosten“ findet
+ *   „Reisekosten“), mit niedrigerem Rang.
+ * - Beginnt der Eintrag mit der ganzen Eingabe, steht er oben.
+ *
+ * Gross- und Kleinschreibung und Akzente zaehlen nicht.
+ */
+function wortanfangFilter(value: string, search: string, keywords?: string[]): number {
+  const suche = grundform(search).trim();
+  if (!suche) return 1;
+  const text = grundform([value, ...(keywords ?? [])].join(' '));
+  const woerter = text.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const teile = suche.split(/\s+/);
+  let rang = text.startsWith(suche) ? 1 : 0.8;
+  for (const teil of teile) {
+    if (woerter.some(w => w.startsWith(teil))) continue;
+    if (teil.length >= 3 && woerter.some(w => w.includes(teil))) {
+      rang = Math.min(rang, 0.3);
+      continue;
+    }
+    return 0;
+  }
+  return rang;
+}
+
 /**
  * Die Befehlspalette (5.10.0, `gestaltung.md`: „Eine Tastenkombination oeffnet
  * ein Feld, das zu jeder App ... springt"). Sie schwebt, also ist sie Glas wie
@@ -53,12 +95,15 @@ function CommandDialog({
   beschreibung = 'Tippen, um zu suchen. Pfeile wählen, Enter nimmt.',
   children,
   inhaltKennzeichen,
+  filter = wortanfangFilter,
   ...props
 }: React.ComponentProps<typeof Dialog> & {
   titel?: string;
   beschreibung?: string;
   /** `data-testid` der schwebenden Flaeche. */
   inhaltKennzeichen?: string;
+  /** Die Suche; Vorgabe ist die scharfe `wortanfangFilter` (5.11.0). */
+  filter?: React.ComponentProps<typeof CommandPrimitive>['filter'];
 }) {
   return (
     <Dialog {...props}>
@@ -76,7 +121,10 @@ function CommandDialog({
           <DialogTitle>{titel}</DialogTitle>
           <DialogDescription>{beschreibung}</DialogDescription>
         </DialogHeader>
-        <Command className="bg-transparent [&_[data-slot=command-group]]:px-1.5 [&_[data-slot=command-input-wrapper]]:h-11 [&_[data-slot=command-item]]:min-h-9 [&_[data-slot=command-item]]:rounded-md [&_[data-slot=command-item]]:px-2 [&_[data-slot=command-item][data-selected=true]]:bg-primary/14 [&_[data-slot=command-item][data-selected=true]]:text-foreground [&_[data-slot=command-list]]:max-h-[min(360px,60dvh)]">
+        <Command
+          filter={filter}
+          className="bg-transparent [&_[data-slot=command-group]]:px-1.5 [&_[data-slot=command-input-wrapper]]:h-11 [&_[data-slot=command-item]]:min-h-9 [&_[data-slot=command-item]]:rounded-md [&_[data-slot=command-item]]:px-2 [&_[data-slot=command-item][data-selected=true]]:bg-primary/14 [&_[data-slot=command-item][data-selected=true]]:text-foreground [&_[data-slot=command-list]]:max-h-[min(360px,60dvh)]"
+        >
           {children}
         </Command>
       </DialogContent>
@@ -198,4 +246,5 @@ export {
   CommandItem,
   CommandShortcut,
   CommandSeparator,
+  wortanfangFilter,
 };

@@ -280,7 +280,11 @@
  * werden dort 44 px hoch (ein `<input>` hat kein `::before`), `Checkbox`,
  * `RadioGroupItem` und `Switch` behalten ihre Groesse und bekommen die
  * unsichtbare Flaeche darueber (`TREFFER`, jetzt in `primitive/treffer.ts`).
- * Am Rechner mit Maus aendert sich nichts. Kein Name faellt weg; eine App
- * auf 5.10.0 laeuft unveraendert.
+ * Am Rechner mit Maus aendert sich nichts. Dazu sucht die Befehlspalette
+ * scharf: `CommandDialog` nimmt `filter`, Vorgabe ist das neue
+ * `wortanfangFilter` (jedes Wort der Eingabe beginnt ein Wort des Eintrags,
+ * ab drei Zeichen auch mitten im Wort); `Command` allein und damit die
+ * `Suchauswahl` suchen wie bisher. Kein Name faellt weg; eine App auf 5.10.0
+ * laeuft unveraendert.
  */
 export const FASSUNG = '5.11.0';

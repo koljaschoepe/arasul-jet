@@ -27,6 +27,20 @@ const APPS = [
     test: { version: '1.1.0', pfad: '/apps/belege/test/' },
   },
   {
+    id: 'abschluss',
+    name: 'Abschluss',
+    beschreibung: null,
+    live: { version: '1.0.0', pfad: '/apps/abschluss/' },
+    test: null,
+  },
+  {
+    id: 'reisekosten',
+    name: 'Reisekosten',
+    beschreibung: null,
+    live: { version: '1.0.0', pfad: '/apps/reisekosten/' },
+    test: null,
+  },
+  {
     id: 'urlaub',
     name: 'Urlaub',
     beschreibung: null,
@@ -101,5 +115,28 @@ describe('Befehlspalette', () => {
     fireEvent.keyDown(feld, { key: 'Enter' });
     expect(useWorkspaceStore.getState().ansicht).toMatchObject({ type: 'app', appId: 'urlaub' });
     expect(useWorkspaceStore.getState().paletteOffen).toBe(false);
+  });
+
+  it('sucht scharf: „Ab“ findet Abschluss, nicht Belege', async () => {
+    useWorkspaceStore.setState({ paletteOffen: true });
+    zeige();
+    await screen.findByTestId('palette-app-belege');
+    const feld = screen.getByTestId('befehlspalette-feld');
+    fireEvent.change(feld, { target: { value: 'Ab' } });
+    expect(screen.getByTestId('palette-app-abschluss')).toBeInTheDocument();
+    expect(screen.queryByTestId('palette-app-belege')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('palette-app-belege-test')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('palette-app-urlaub')).not.toBeInTheDocument();
+  });
+
+  it('ab drei Zeichen findet die Suche auch mitten im Wort', async () => {
+    useWorkspaceStore.setState({ paletteOffen: true });
+    zeige();
+    await screen.findByTestId('palette-app-reisekosten');
+    const feld = screen.getByTestId('befehlspalette-feld');
+    fireEvent.change(feld, { target: { value: 'kosten' } });
+    expect(screen.getByTestId('palette-app-reisekosten')).toBeInTheDocument();
+    fireEvent.change(feld, { target: { value: 'ko' } });
+    expect(screen.queryByTestId('palette-app-reisekosten')).not.toBeInTheDocument();
   });
 });

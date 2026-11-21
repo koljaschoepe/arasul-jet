@@ -475,6 +475,10 @@ der Verwaltung (nur Administrator) und der Einstellungen springt; tippen engt
 ein, Pfeile wählen, Enter springt, Esc schließt. Sie schwebt im oberen Drittel
 als Glas (`CommandDialog`, Radius 12 px), der Schleier darunter ist schlicht
 ohne Unschärfe: mit Leiste und Kapsel ist sie die dritte Glasfläche.
+Sie sucht **scharf** (seit 5.11.0, `wortanfangFilter`): jedes Wort der Eingabe
+beginnt ein Wort des Eintrags, ab drei Zeichen genügt ein Stück mitten im
+Wort, Groß- und Kleinschreibung und Akzente zählen nicht. Vorher suchte `cmdk`
+unscharf, und „Ab“ fand auch Belege.
 
 **Jede App trägt ein Symbol** (J51): der Standard weist ein Paket ohne
 `symbol` in `app.json` beim Ausrollen ab. Für Apps, die schon laufen und
