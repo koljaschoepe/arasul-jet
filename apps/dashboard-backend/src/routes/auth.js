@@ -41,7 +41,7 @@ const isSecure =
   process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true';
 
 // Rate limiter for password changes
-const passwordChangeLimiter = createUserRateLimiter(3, 15 * 60 * 1000); // 3 per 15 minutes
+const passwordChangeLimiter = createUserRateLimiter(3, 15 * 60 * 1000, 'passwort'); // 3 per 15 minutes
 
 // POST /api/auth/login
 router.post(

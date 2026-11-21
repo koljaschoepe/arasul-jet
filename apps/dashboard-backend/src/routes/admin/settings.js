@@ -19,7 +19,7 @@ const { logoAusDatenAdresse } = require('../../utils/logoBild');
 const systemSettings = require('../../services/system-settings/systemSettingsService');
 
 // Rate limiter for password changes (3 attempts per 15 minutes)
-const passwordChangeLimiter = createUserRateLimiter(3, 15 * 60 * 1000);
+const passwordChangeLimiter = createUserRateLimiter(3, 15 * 60 * 1000, 'passwort');
 
 /**
  * POST /api/settings/password/dashboard

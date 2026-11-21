@@ -12,10 +12,12 @@
  * eigenen Meldungen wieder zu lesen (schleife.md, Regel 2). Vertrag:
  * docs/features/RUECKMELDUNG.md.
  *
- * KEINE DROSSEL JE PERSON, mit Absicht: `createUserRateLimiter` teilt sich
- * einen Speicher je Person mit der Drossel des Passwortwechsels, und drei
- * Meldungen sperrten danach 15 Minuten lang den Passwortwechsel. Gegen eine
- * volle Platte steht die Grenze von 6 MB je Bild im Dienst.
+ * DROSSEL JE PERSON, eigene fuer das Melden (21.11.2026): 20 Meldungen je
+ * Viertelstunde. Bis dahin gab es hier keine, weil `createUserRateLimiter`
+ * alle Zwecke in einem Speicher je Person zaehlte und drei Meldungen danach
+ * den Passwortwechsel sperrten. Seitdem zaehlt jeder Zweck fuer sich
+ * (`middleware/rateLimit.js`). Zwanzig genuegen jedem, der ernsthaft meldet,
+ * und halten eine Schleife auf, die mit je 6 MB Bild die Platte fuellt.
  */
 
 const express = require('express');
@@ -30,7 +32,11 @@ const {
   StandSetzenBody,
 } = require('../schemas/rueckmeldungen');
 const { logSecurityEvent } = require('../utils/auditLog');
+const { createUserRateLimiter } = require('../middleware/rateLimit');
 const rueckmeldungen = require('../services/rueckmeldung/rueckmeldungen');
+
+/** Melden: 20 je Viertelstunde und Person, eigener Zaehler (Zweck `rueckmeldung`). */
+const meldeDrossel = createUserRateLimiter(20, 15 * 60 * 1000, 'rueckmeldung');
 
 /** Vor jedem lesenden Weg: das Kennzeichen, frisch aus der Datenbank. */
 const nurEntwickler = asyncHandler(async (req, res, next) => {
@@ -42,6 +48,7 @@ router.post(
   '/',
   requireAuth,
   requireRole('admin', 'mitarbeiter'),
+  meldeDrossel,
   validateBody(RueckmeldungBody),
   asyncHandler(async (req, res) => {
     const { id, erstellt_am } = await rueckmeldungen.melde({
