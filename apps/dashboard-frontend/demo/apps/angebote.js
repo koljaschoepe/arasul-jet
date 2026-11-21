@@ -1,22 +1,25 @@
 /**
- * Beispiel-App „Angebote" der Demo (J46, M7). Ab Fassung 1.5.0 (in Test)
+ * Beispiel-App „Angebote" der Demo (J46, J51, M7). Ab Fassung 1.5.0 (in Test)
  * kennt ein Angebot einen Rabatt: das ist die Änderung, die der Besucher im
- * Entwickler-Cockpit live schaltet.
+ * Entwickler-Cockpit live schaltet. Seitenkopf, Kennzahlen, kompakte Tabelle
+ * wie jede App im neuen Aussehen.
  */
 import {
   h,
   rendern,
   useState,
+  Badge,
+  Datenliste,
   Feld,
   Formular,
   Karte,
+  Kennzahl,
+  Kennzahlen,
   Knopf,
   Kopf,
-  Liste,
-  ListenEintrag,
   Meldung,
 } from '/marken/5/marken.js';
-import { t, euro, datum, tag, mindestens, useFassung } from './gemeinsam.js';
+import { t, euro, datum, tag, mindestens, useFassung, SEITE, MONO, unterzeile } from './gemeinsam.js';
 
 const STAND = {
   offen: () => t('offen', 'open'),
@@ -42,6 +45,15 @@ const ANFANG = [
     rabatt: 3,
     stand: 'offen',
     am: tag(-4),
+  },
+  {
+    nr: 'A-2026-116',
+    kunde: 'Stadtwerke Beispielstadt',
+    betreff: t('Klimagerät Serverraum tauschen', 'Replace server room AC'),
+    betrag: 7380,
+    rabatt: 0,
+    stand: 'offen',
+    am: tag(-6),
   },
   {
     nr: 'A-2026-115',
@@ -78,14 +90,15 @@ function App() {
   const fassung = useFassung();
   const mitRabatt = fassung ? mindestens(fassung.version, '1.5.0') : false;
   const [angebote, setAngebote] = useState(ANFANG);
-  const [kunde, setKunde] = useState('');
   const [neu, setNeu] = useState({ kunde: '', betreff: '', betrag: '', rabatt: '' });
   const [hinweis, setHinweis] = useState(null);
 
-  const kunden = [...new Set(angebote.map(a => a.kunde))].sort();
-  const sichtbar = angebote.filter(a => !kunde || a.kunde === kunde);
-  const offen = sichtbar.filter(a => a.stand === 'offen');
-  const summe = offen.reduce((s, a) => s + (mitRabatt ? nachRabatt(a) : a.betrag), 0);
+  const wert = a => (mitRabatt ? nachRabatt(a) : a.betrag);
+  const offen = angebote.filter(a => a.stand === 'offen');
+  const summe = offen.reduce((s, a) => s + wert(a), 0);
+  const entschieden = angebote.filter(a => a.stand !== 'offen');
+  const angenommen = entschieden.filter(a => a.stand === 'angenommen');
+  const quote = entschieden.length ? Math.round((angenommen.length / entschieden.length) * 100) : 0;
 
   const anlegen = () => {
     const betrag = Number(String(neu.betrag).replace(',', '.'));
@@ -125,63 +138,71 @@ function App() {
       onChange: e => setNeu({ ...neu, [feld]: e.target.value }),
     });
 
+  const spalten = [
+    { schluessel: 'nr', titel: t('Nummer', 'Number'), breite: '8.5rem', zelle: a => h('span', { style: MONO }, a.nr), inKarteOben: true },
+    { schluessel: 'kunde', titel: t('Kunde', 'Customer'), wert: a => a.kunde, zelle: a => a.kunde },
+    { schluessel: 'betreff', titel: t('Betreff', 'Subject'), kuerzen: true, wert: a => a.betreff, zelle: a => a.betreff },
+    { schluessel: 'am', titel: t('Datum', 'Date'), breite: '7rem', wert: a => a.am.getTime(), zelle: a => h('span', { style: MONO }, datum(a.am)) },
+    {
+      schluessel: 'betrag',
+      titel: mitRabatt ? t('Betrag nach Rabatt', 'Amount after discount') : t('Betrag', 'Amount'),
+      ausrichtung: 'rechts',
+      breite: '10rem',
+      wert: wert,
+      zelle: a =>
+        h(
+          'span',
+          { style: MONO },
+          mitRabatt && a.rabatt ? `${euro(nachRabatt(a))} (−${a.rabatt} %)` : euro(a.betrag)
+        ),
+    },
+    {
+      schluessel: 'stand',
+      titel: t('Stand', 'Status'),
+      breite: '7rem',
+      wert: a => a.stand,
+      zelle: a =>
+        h(Badge, { variant: a.stand === 'offen' ? 'outline' : a.stand === 'angenommen' ? 'success' : 'default' }, STAND[a.stand]()),
+    },
+  ];
+
   return h(
     'div',
-    {
-      style: {
-        maxWidth: '56rem',
-        margin: '0 auto',
-        padding: 'var(--ara-abstand-4, 1rem)',
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr)',
-        gap: 'var(--ara-abstand-4, 1rem)',
-      },
-    },
+    { style: SEITE },
     h(Kopf, {
       titel: t('Angebote', 'Quotes'),
-      beschreibung: fassung
-        ? t(
-            `Fassung ${fassung.version}${fassung.stand === 'test' ? ' · Test' : ''}`,
-            `Version ${fassung.version}${fassung.stand === 'test' ? ' · test' : ''}`
-          )
-        : null,
+      beschreibung: unterzeile(
+        t('Angebote der Beispielwerk GmbH, Kälte- und Klimatechnik.', 'Quotes of Beispielwerk GmbH, refrigeration and air conditioning.'),
+        fassung
+      ),
     }),
     h(
-      Karte,
-      {
-        titel: t('Offen', 'Open'),
-        hinweis: mitRabatt ? t('nach Rabatt', 'after discount') : null,
-      },
-      h('p', { style: { margin: 0, fontSize: '1.25rem' } }, euro(summe)),
-      h(
-        'p',
-        { style: { margin: 0, opacity: 0.7 } },
-        t(`${offen.length} offene Angebote`, `${offen.length} open quotes`)
-      )
+      Kennzahlen,
+      null,
+      h(Kennzahl, {
+        beschriftung: t('Offen', 'Open'),
+        wert: euro(summe),
+        fussnote: mitRabatt
+          ? t(`${offen.length} Angebote, nach Rabatt`, `${offen.length} quotes, after discount`)
+          : t(`${offen.length} Angebote`, `${offen.length} quotes`),
+        verlauf: [14200, 16800, 15100, 19900, 18400, 21870],
+      }),
+      h(Kennzahl, {
+        beschriftung: t('Angenommen', 'Accepted'),
+        wert: String(quote),
+        einheit: '%',
+        fussnote: t(`${angenommen.length} von ${entschieden.length} entschieden`, `${angenommen.length} of ${entschieden.length} decided`),
+      })
     ),
-    h(
-      Feld,
-      { kennung: 'filter-kunde', beschriftung: t('Kunde', 'Customer') },
-      h(
-        'select',
-        { id: 'filter-kunde', value: kunde, onChange: e => setKunde(e.target.value) },
-        h('option', { value: '' }, t('Alle Kunden', 'All customers')),
-        ...kunden.map(k => h('option', { key: k, value: k }, k))
-      )
-    ),
-    h(
-      Liste,
-      { beschriftung: t('Angebote', 'Quotes') },
-      ...sichtbar.map(a =>
-        h(ListenEintrag, {
-          key: a.nr,
-          titel: `${a.kunde} · ${a.betreff}`,
-          unterzeile: `${a.nr} · ${datum(a.am)} · ${STAND[a.stand]()}`,
-          hinweis:
-            mitRabatt && a.rabatt ? `${euro(nachRabatt(a))} (−${a.rabatt} %)` : euro(a.betrag),
-        })
-      )
-    ),
+    h(Datenliste, {
+      daten: angebote,
+      spalten,
+      kennung: a => a.nr,
+      beschriftung: t('Alle Angebote, neueste zuerst', 'All quotes, newest first'),
+      filter: true,
+      filterPlatzhalter: t('Kunde oder Betreff suchen', 'Search customer or subject'),
+      leerGefiltert: t('Kein Angebot passt.', 'No quote matches.'),
+    }),
     h(
       Karte,
       { titel: t('Neues Angebot', 'New quote') },
@@ -193,11 +214,7 @@ function App() {
           aktionen: h(Knopf, { art: 'haupt', typ: 'absenden' }, t('Anlegen', 'Create')),
         },
         h(Feld, { kennung: 'neu-kunde', beschriftung: t('Kunde', 'Customer') }, eingabe('kunde')),
-        h(
-          Feld,
-          { kennung: 'neu-betreff', beschriftung: t('Betreff', 'Subject') },
-          eingabe('betreff')
-        ),
+        h(Feld, { kennung: 'neu-betreff', beschriftung: t('Betreff', 'Subject') }, eingabe('betreff')),
         h(
           Feld,
           { kennung: 'neu-betrag', beschriftung: t('Betrag in Euro', 'Amount in euros') },

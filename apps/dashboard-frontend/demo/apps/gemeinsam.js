@@ -62,3 +62,27 @@ export function useFassung() {
   }, []);
   return fassung;
 }
+
+/**
+ * Die Form jeder Seite der drei Apps (J51): Seitenkopf, eine Reihe
+ * Kennzahlen, eine kompakte Tabelle, darunter was die App sonst braucht.
+ * Die Breite ist die einer Arbeitsseite, nicht die eines Lesetexts.
+ */
+export const SEITE = {
+  maxWidth: '72rem',
+  margin: '0 auto',
+  padding: 'var(--ara-abstand-4, 1rem)',
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
+  gap: 'var(--ara-abstand-4, 1rem)',
+};
+
+/** Zahlen und Nummern in Tabellen in Mono, wie im Produkt. */
+export const MONO = { fontFamily: 'var(--font-mono)', fontSize: '0.92em' };
+
+/** Der Satz unter dem Titel: was die App tut, dazu die Fassung. */
+export function unterzeile(satz, fassung) {
+  if (!fassung) return satz;
+  const f = t(`Fassung ${fassung.version}`, `Version ${fassung.version}`);
+  return `${satz} ${f}${fassung.stand === 'test' ? ' · Test' : ''}.`;
+}
