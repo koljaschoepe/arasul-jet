@@ -541,7 +541,8 @@ was `company/gestaltung.md` des Überordners im Abschnitt „Produkt“ vorgibt:
   Zutun.
 - **Knöpfe** kompakt: 32 px mit Text, 28 px als Icon-Knopf ohne Rahmen,
   Felder 32 px, in Pixeln (die Wurzelschrift ist 17 px). Bei grobem Zeiger
-  wächst nur die Trefferfläche auf 44 px. Hauptknopf blau ohne Verlauf, Rot
+  wächst beim Knopf, bei Checkbox, Radio und Schalter nur die Trefferfläche
+  auf 44 px, Eingabe und Auswahl werden 44 px hoch (Bibliothek 5.11.0). Hauptknopf blau ohne Verlauf, Rot
   nur für Löschen.
 - **Schrift** Inter aus der Bibliothek, Farben der Marke hell und dunkel
   (Tabelle in `docs/development/DESIGN.md`).

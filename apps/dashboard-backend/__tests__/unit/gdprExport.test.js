@@ -207,3 +207,99 @@ describe('GET /api/gdpr/categories', () => {
     expect(namen).not.toContain('Wissensräume');
   });
 });
+
+/**
+ * Rückmeldungen in der Auskunft (21.11.2026, J42, M7): Text, Seite,
+ * Markierung und das Bildschirmfoto selbst als data-URL. Bis dahin ließ die
+ * Auskunft sie aus.
+ */
+describe('GET /api/gdpr/export mit Rückmeldungen', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  const MIT_BILD = '11111111-2222-3333-4444-555555555555.png';
+  const OHNE_DATEI = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.png';
+  let appsDir;
+  let vorher;
+
+  const zeile = (id, bild) => ({
+    id: String(id),
+    app_id: 'belege',
+    stand: 'live',
+    seite: '/apps/belege/',
+    text: `Meldung ${id}`,
+    bild,
+    markierung: bild ? { x: 0.1, y: 0.2, breite: 0.3, hoehe: 0.1 } : null,
+    stand_meldung: 'neu',
+    grund: null,
+    stand_geaendert_am: null,
+    erstellt_am: '2026-11-20T10:00:00.000Z',
+  });
+
+  beforeEach(() => {
+    vorher = process.env.APPS_DIR;
+    appsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'auskunft-'));
+    process.env.APPS_DIR = appsDir;
+    fs.mkdirSync(path.join(appsDir, '.rueckmeldungen'));
+    fs.writeFileSync(path.join(appsDir, '.rueckmeldungen', MIT_BILD), PNG);
+    db.query.mockReset();
+    db.query.mockImplementation(async (sql, params) => {
+      if (sql.includes('FROM public.rueckmeldungen')) {
+        expect(params).toEqual([42]);
+        return { rows: [zeile(3, MIT_BILD), zeile(2, OHNE_DATEI), zeile(1, null)] };
+      }
+      return { rows: [] };
+    });
+  });
+
+  afterEach(() => {
+    process.env.APPS_DIR = vorher;
+    fs.rmSync(appsDir, { recursive: true, force: true });
+  });
+
+  test('enthält die eigenen Meldungen samt Bild als data-URL', async () => {
+    const res = await request(buildApp()).get('/api/gdpr/export');
+
+    expect(res.status).toBe(200);
+    const r = res.body.rueckmeldungen;
+    expect(r.count).toBe(3);
+    expect(r.unvollstaendig).toBeUndefined();
+    const [mit, fehlt, ohne] = r.data;
+    expect(mit.text).toBe('Meldung 3');
+    expect(mit.markierung).toEqual({ x: 0.1, y: 0.2, breite: 0.3, hoehe: 0.1 });
+    expect(mit.bild.daten).toBe(`data:image/png;base64,${PNG.toString('base64')}`);
+    expect(mit.bild.bytes).toBe(PNG.length);
+    expect(fehlt.bild.fehlt).toMatch(/nicht mehr vorhanden/);
+    expect(ohne.bild).toBeNull();
+    // Der Dateiname am Gerät steht nirgends in der Auskunft.
+    expect(JSON.stringify(res.body)).not.toContain(MIT_BILD);
+    expect(res.body._meta.unvollstaendig).toEqual([]);
+  });
+
+  test('ein Bild, das sich nicht lesen lässt, macht die Kategorie unvollständig', async () => {
+    // Ein Ordner statt einer Datei: readFile scheitert mit EISDIR, nicht ENOENT.
+    fs.mkdirSync(path.join(appsDir, '.rueckmeldungen', OHNE_DATEI));
+
+    const res = await request(buildApp()).get('/api/gdpr/export');
+
+    expect(res.status).toBe(200);
+    expect(res.body.rueckmeldungen.data[1].bild.fehlt).toMatch(/nicht gelesen/);
+    expect(res.body.rueckmeldungen.unvollstaendig).toMatch(/1 Bild/);
+    expect(res.body._meta.unvollstaendig).toEqual([
+      { kategorie: 'rueckmeldungen', grund: expect.stringMatching(/1 Bild/) },
+    ]);
+  });
+
+  test('die Übersicht nennt die Rückmeldungen mit Zahl', async () => {
+    db.query.mockReset();
+    db.query.mockImplementation(async sql =>
+      sql.includes('public.rueckmeldungen')
+        ? { rows: [{ count: '3' }] }
+        : { rows: [{ count: '0' }] }
+    );
+    const res = await request(buildApp()).get('/api/gdpr/categories');
+    const k = res.body.categories.find(c => c.name === 'Rückmeldungen');
+    expect(k.count).toBe(3);
+  });
+});

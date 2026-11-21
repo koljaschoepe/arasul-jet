@@ -26,11 +26,11 @@ const { WerksresetBody, WerksresetVorschauQuery } = require('../../schemas/werks
 // getipptem Gerätenamen: die Bremse steht vor der Prüfung. Deshalb fünf und
 // nicht zwei, sonst sperrt sich aus, wer sich zweimal vertippt, ohne dass je
 // etwas gelöscht wurde.
-const werksresetLimiter = createUserRateLimiter(5, 60 * 60 * 1000);
+const werksresetLimiter = createUserRateLimiter(5, 60 * 60 * 1000, 'werksreset');
 
 // Die Vorschau ändert nichts, zählt aber achtzig Tabellen ab. Zwanzig Aufrufe
 // in fünf Minuten sind für einen Menschen reichlich und für eine Schleife wenig.
-const vorschauLimiter = createUserRateLimiter(20, 5 * 60 * 1000);
+const vorschauLimiter = createUserRateLimiter(20, 5 * 60 * 1000, 'werksreset-vorschau');
 
 // GET /api/werksreset/vorschau?stufe=auslieferung&modelle=true
 router.get(

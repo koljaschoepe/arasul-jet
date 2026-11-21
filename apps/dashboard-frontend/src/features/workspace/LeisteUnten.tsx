@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Ellipsis,
   House,
@@ -20,11 +20,55 @@ import { standFuerKlick } from './standFuerKlick';
 const APPS_IN_DER_LEISTE = 4;
 
 /**
+ * Der Name am gewählten Eintrag, in GENAU EINER Zeile oder gar nicht.
+ *
+ * Der Entwurf sagt: kein abgeschnittener Name, der Name steht nur am
+ * gewählten Eintrag. Bis zum 21.11.2026 brach ein langer App-Name dafür in
+ * eine zweite Zeile um, und die Leiste sah an dieser Stelle aus wie ein
+ * Absatz. Jetzt wird gemessen: passt der Name nicht in eine Zeile, bleibt nur
+ * das Symbol auf der getönten Fläche stehen; der Name steht weiter im
+ * `aria-label` des Knopfs. Gemessen wird vor dem Malen (`useLayoutEffect`),
+ * also ohne Flackern, und nach jeder Änderung der Fensterbreite neu.
+ */
+export function NameInEinerZeile({ name, testid }: { name: string; testid?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [passt, setPasst] = useState(true);
+  const [runde, setRunde] = useState(0);
+
+  // Neuer Name oder neue Breite: erst wieder zeigen, dann messen.
+  useLayoutEffect(() => setPasst(true), [name]);
+  useEffect(() => {
+    const neu = () => {
+      setPasst(true);
+      setRunde(r => r + 1);
+    };
+    window.addEventListener('resize', neu);
+    return () => window.removeEventListener('resize', neu);
+  }, []);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (passt && el && el.scrollWidth > el.clientWidth + 1) setPasst(false);
+  }, [passt, name, runde]);
+
+  if (!passt) return null;
+  return (
+    // Der Name in Tinte, nicht in Blau: Blau auf der getönten Fläche über
+    // dem Glas fiele am blauen Ende des Verlaufs unter 4,5:1.
+    <span
+      ref={ref}
+      data-testid={testid}
+      className="min-w-0 overflow-hidden text-left text-xs leading-tight font-medium whitespace-nowrap text-foreground"
+    >
+      {name}
+    </span>
+  );
+}
+
+/**
  * Ein Feld der Leiste. Ungewählt nur das Symbol (der Name steht im
- * `aria-label`), gewählt eine blau getönte Fläche mit Symbol UND Namen. So
- * wird kein Name abgeschnitten: der eine, der steht, bekommt den Platz, den
- * die übrigen als Symbol nicht brauchen, und bricht notfalls in eine zweite
- * Zeile um, statt mit Auslassungspunkten zu enden.
+ * `aria-label`), gewählt eine blau getönte Fläche mit Symbol und, wenn er in
+ * eine Zeile passt, Namen (`NameInEinerZeile`). Kein Name wird abgeschnitten
+ * und keiner bricht um.
  */
 function Feld({
   name,
@@ -56,14 +100,7 @@ function Feld({
       )}
     >
       <span className="relative flex size-5 shrink-0 items-center justify-center">{symbol}</span>
-      {aktiv && (
-        // Der Name in Tinte, nicht in Blau: Blau auf der getönten Fläche über
-        // dem Glas fiele am blauen Ende des Verlaufs unter 4,5:1.
-        // Reicht es doch nicht, trennt der Browser nach Silben.
-        <span className="min-w-0 text-left text-xs leading-tight font-medium break-words hyphens-auto text-foreground">
-          {name}
-        </span>
-      )}
+      {aktiv && <NameInEinerZeile name={name} testid={`${kennzeichen}-name`} />}
     </button>
   );
 }
@@ -177,14 +214,7 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
           )}
         >
           <Ellipsis className="size-5 shrink-0" aria-hidden="true" />
-          {mehrAktiv && (
-            <span
-              className="min-w-0 text-left text-xs leading-tight font-medium break-words text-foreground"
-              data-testid="leiste-mehr-name"
-            >
-              {ansichtTitel(ansicht)}
-            </span>
-          )}
+          {mehrAktiv && <NameInEinerZeile name={ansichtTitel(ansicht)} testid="leiste-mehr-name" />}
         </PopoverTrigger>
         <PopoverContent
           side="top"

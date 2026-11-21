@@ -17,6 +17,7 @@ const db = require('../../database');
 const logger = require('../../utils/logger');
 const { loescheBenutzer, holeBenutzer } = require('../../services/auth/benutzerService');
 const { kategorieHoler } = require('../../services/auth/datenauskunft');
+const rueckmeldungen = require('../../services/rueckmeldung/rueckmeldungen');
 
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
 
@@ -110,6 +111,7 @@ router.get(
       securityAuditResult,
       freigabenResult,
       kiAufrufeResult,
+      rueckmeldungenResult,
     ] = await nacheinander([
       // 1. User profile
       () =>
@@ -198,6 +200,21 @@ router.get(
             ORDER BY begonnen_am DESC LIMIT 1000`,
           [userId]
         ),
+
+      // 13. Rueckmeldungen aus dem Rahmen (J42, M7, seit 21.11.2026): Text,
+      //     Seite, Markierung und das Bildschirmfoto selbst, als data-URL.
+      //     Ohne Grenze: es sind wenige, und eine Auskunft, die Bilder
+      //     abschneidet, waere wieder unvollstaendig. Ein Bild, das sich nicht
+      //     lesen laesst, macht die Kategorie `unvollstaendig`.
+      async () => {
+        const roh = await hole('rueckmeldungen', rueckmeldungen.AUSKUNFT_SQL, [userId]);
+        if (roh.fehler) {return roh;}
+        const { rows, nichtLesbar } = await rueckmeldungen.fuerAuskunft(roh.rows);
+        if (nichtLesbar === 0) {return { rows };}
+        const grund = `${nichtLesbar} Bild(er) dieser Kategorie konnten nicht gelesen werden.`;
+        unvollstaendig.push({ kategorie: 'rueckmeldungen', grund });
+        return { rows, fehler: grund };
+      },
     ]);
 
     const exportData = {
@@ -246,6 +263,7 @@ router.get(
             ? 'Export limited to 1,000 most recent entries'
             : undefined,
       }),
+      rueckmeldungen: block('rueckmeldungen', rueckmeldungenResult),
     };
 
     const filename = `arasul-gdpr-export-${person.username}-${new Date().toISOString().split('T')[0]}.json`;
@@ -324,10 +342,11 @@ router.get(
 
     // Dieselben Bedingungen wie im Export — sonst nennt die Übersicht andere
     // Zahlen als die Auskunft.
-    const [laeufeCount, auditCount, freigabenCount] = await Promise.all([
+    const [laeufeCount, auditCount, freigabenCount, rueckmeldungenCount] = await Promise.all([
       db.query('SELECT count(*) FROM flow_runs WHERE user_id = $1', [userId]),
       db.query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId]),
       db.query('SELECT count(*) FROM public.app_members WHERE user_id = $1', [userId]),
+      db.query('SELECT count(*) FROM public.rueckmeldungen WHERE person_id = $1', [userId]),
     ]);
 
     res.json({
@@ -352,6 +371,11 @@ router.get(
           name: 'Freigaben',
           description: 'Apps, die ein Administrator freigegeben hat',
           count: parseInt(freigabenCount.rows[0].count),
+        },
+        {
+          name: 'Rückmeldungen',
+          description: 'Rückmeldungen zu Apps mit Text, Seite und Bildschirmfoto',
+          count: parseInt(rueckmeldungenCount.rows[0].count),
         },
       ],
       timestamp: new Date().toISOString(),

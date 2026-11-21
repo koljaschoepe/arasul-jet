@@ -97,20 +97,26 @@ get typed, trimmed, defaulted data.
 
 `middleware/rateLimit.js` exports ready-made limiters; use them, don't roll your own:
 
-| Limiter                          | Use for                              | Window / max |
-| -------------------------------- | ------------------------------------ | ------------ |
-| `loginLimiter`                   | `/auth/login` (failures only)        | 15 min / 30  |
-| `probeLimiter`                   | `/auth/session`, `/auth/needs-setup` | 1 min / 120  |
-| `generalAuthLimiter`             | `/auth/logout`                       | 1 min / 30   |
-| `uploadLimiter`                  | multipart uploads                    | 1 min / 20   |
-| `tailscaleLimiter`               | tailscale orchestration              | (per-domain) |
-| `createUserRateLimiter(max, ms)` | user-scoped (after auth)             | factory      |
+| Limiter                                 | Use for                                         | Window / max |
+| --------------------------------------- | ----------------------------------------------- | ------------ |
+| `loginLimiter`                          | `/auth/login` (failures only)                   | 15 min / 30  |
+| `probeLimiter`                          | `/auth/session`, `/auth/needs-setup`            | 1 min / 120  |
+| `generalAuthLimiter`                    | `/auth/logout`                                  | 1 min / 30   |
+| `uploadLimiter`                         | multipart uploads                               | 1 min / 20   |
+| `tailscaleLimiter`                      | tailscale orchestration                         | (per-domain) |
+| `createUserRateLimiter(max, ms, zweck)` | user-scoped (after auth), one counter per Zweck | factory      |
 
 `loginLimiter` carries `skipSuccessfulRequests`: a login that succeeds costs
 nothing. The sharp lock is per account — five failed attempts lock it for
 15 minutes (`record_login_attempt`, `002_auth_schema.sql`). Behind Traefik
 every request shares one IP, so a per-IP counter that also counted successes
 locked out an office, not an attacker.
+
+`createUserRateLimiter` needs a `zweck` (`'passwort'`, `'rueckmeldung'`, …):
+each Zweck counts in its own store per person. Until 21.11.2026 all of them
+shared one store, and three Rückmeldungen locked the password change for 15
+minutes (`__tests__/unit/drosselJeZweck.test.js`). Two routes with the same
+purpose share one Zweck on purpose (`passwort` under `/auth` and `/settings`).
 
 Disable in tests via `RATE_LIMIT_ENABLED=false`.
 

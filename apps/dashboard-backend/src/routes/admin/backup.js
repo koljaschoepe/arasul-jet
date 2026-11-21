@@ -64,7 +64,7 @@ const { ValidationError } = require('../../utils/errors');
  * Zurueckholen dauert Minuten; wer zehnmal in 15 Minuten ansetzt, raet ein
  * Passwort und holt nichts zurueck.
  */
-const zurueckholenDrossel = createUserRateLimiter(10, 15 * 60 * 1000);
+const zurueckholenDrossel = createUserRateLimiter(10, 15 * 60 * 1000, 'zurueckholen');
 
 /**
  * Das Passwort pruefen und einen Fehlversuch ins Sicherheitsprotokoll

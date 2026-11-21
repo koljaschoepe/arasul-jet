@@ -268,6 +268,12 @@ mit 17 px Wurzelschrift (Root-Hebel unten), 2 rem wären dort 34 px. Bei
 grobem Zeiger und am Handy ist jede **Trefferfläche** mindestens 44 px, der
 sichtbare Knopf bleibt kompakt: `Button` legt ein leeres `::before` von 44 px
 darüber, und die allgemeine 44-px-Regel in `index.css` lässt ihn deshalb aus.
+Seit 5.11.0 (21.11.2026) gilt das auch für die Felder: `Input` und der
+Auslöser von `Select` sind bei grobem Zeiger 44 px hoch (ein `<input>` hat
+kein `::before`), `Checkbox`, `RadioGroupItem` und `Switch` behalten ihre
+Größe und tragen dieselbe unsichtbare Fläche (`TREFFER` in
+`packages/marken/src/primitive/treffer.ts`). Bis dahin blieben die Felder am
+Handy 32 px.
 Nichts ist kleiner als 24 px. Rot nur für Löschen.
 
 - **Radien** `--radius-xs/sm/md/lg/2xl/xl` = 4/6/8/12/14/16 px.
@@ -469,6 +475,10 @@ der Verwaltung (nur Administrator) und der Einstellungen springt; tippen engt
 ein, Pfeile wählen, Enter springt, Esc schließt. Sie schwebt im oberen Drittel
 als Glas (`CommandDialog`, Radius 12 px), der Schleier darunter ist schlicht
 ohne Unschärfe: mit Leiste und Kapsel ist sie die dritte Glasfläche.
+Sie sucht **scharf** (seit 5.11.0, `wortanfangFilter`): jedes Wort der Eingabe
+beginnt ein Wort des Eintrags, ab drei Zeichen genügt ein Stück mitten im
+Wort, Groß- und Kleinschreibung und Akzente zählen nicht. Vorher suchte `cmdk`
+unscharf, und „Ab“ fand auch Belege.
 
 **Jede App trägt ein Symbol** (J51): der Standard weist ein Paket ohne
 `symbol` in `app.json` beim Ausrollen ab. Für Apps, die schon laufen und

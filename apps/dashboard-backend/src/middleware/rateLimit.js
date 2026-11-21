@@ -75,17 +75,34 @@ const loginLimiter = createLimiter(
 );
 
 /**
- * BUG-003 FIX: Global store for user rate limiters with automatic cleanup
+ * Speicher der Drosseln je Person, ein Eintrag je ZWECK UND PERSON.
+ *
+ * Bis zum 21.11.2026 war der Schluessel nur die Person: alle Drosseln, die
+ * `createUserRateLimiter` baute, schrieben in DENSELBEN Eintrag. Wer dreimal
+ * etwas Gedrosseltes tat (drei Rueckmeldungen, drei Vorschauen des
+ * Werksresets), sah danach 15 Minuten lang beim Passwortwechsel ein 429, weil
+ * dessen Drossel bei drei Eintraegen zumacht. Gefunden von den Workern am
+ * 20.11.2026 (Jet-PR 942). Jetzt zaehlt jeder Zweck fuer sich; zwei Routen
+ * mit demselben Zweck (der Passwortwechsel steht unter /auth und unter
+ * /settings) teilen sich mit Absicht einen Zaehler.
  */
 const userRateLimitStore = new Map();
 const USER_TIMEOUT = 60 * 60 * 1000; // 1 hour - remove user data if no activity
 
 /**
- * Custom rate limiter based on user account
- * Used for authenticated endpoints
- * BUG-003 FIX: Implemented proper cleanup to prevent memory leak
+ * Drossel je angemeldeter Person.
+ *
+ * @param {number} maxRequests - so viele Aufrufe je Fenster
+ * @param {number} windowMs - Fenster in Millisekunden
+ * @param {string} zweck - wofuer gezaehlt wird, etwa 'passwort'; Pflicht.
+ *   Jeder Zweck hat seinen eigenen Zaehler je Person.
  */
-function createUserRateLimiter(maxRequests, windowMs) {
+function createUserRateLimiter(maxRequests, windowMs, zweck) {
+  if (typeof zweck !== 'string' || zweck.trim() === '') {
+    // Beim Laden des Moduls, nicht in einer Anfrage: ohne Zweck fiele die
+    // Drossel wieder in einen gemeinsamen Topf, und genau das war der Fehler.
+    throw new TypeError('createUserRateLimiter braucht einen Zweck (dritter Wert).');
+  }
   return async (req, res, next) => {
     // Skip if rate limiting is disabled (for testing)
     if (isRateLimitDisabled()) {
@@ -96,16 +113,15 @@ function createUserRateLimiter(maxRequests, windowMs) {
       return next();
     }
 
-    const userId = req.user.id;
+    const schluessel = `${zweck}:${req.user.id}`;
     const now = Date.now();
     const windowStart = now - windowMs;
 
-    // Get or create user's request log with last activity timestamp
-    if (!userRateLimitStore.has(userId)) {
-      userRateLimitStore.set(userId, { requests: [], lastUsed: now });
+    if (!userRateLimitStore.has(schluessel)) {
+      userRateLimitStore.set(schluessel, { requests: [], lastUsed: now });
     }
 
-    const userData = userRateLimitStore.get(userId);
+    const userData = userRateLimitStore.get(schluessel);
     userData.lastUsed = now;
 
     // Remove old requests outside window
@@ -114,7 +130,7 @@ function createUserRateLimiter(maxRequests, windowMs) {
 
     // Check if limit exceeded
     if (recentRequests.length >= maxRequests) {
-      logger.warn(`User rate limit exceeded for user: ${req.user.username}`);
+      logger.warn(`User rate limit (${zweck}) exceeded for user: ${req.user.username}`);
       return res.status(429).json({
         error: { code: 'RATE_LIMITED', message: 'Zu viele Anfragen, bitte später noch einmal.' },
         timestamp: new Date().toISOString(),
@@ -137,9 +153,9 @@ const rateLimitCleanupInterval = setInterval(
 
     // BH7 FIX: Collect keys first, then delete — avoids Map iteration race
     const keysToDelete = [];
-    for (const [userId, userData] of userRateLimitStore.entries()) {
+    for (const [schluessel, userData] of userRateLimitStore.entries()) {
       if (now - userData.lastUsed > USER_TIMEOUT) {
-        keysToDelete.push(userId);
+        keysToDelete.push(schluessel);
       }
     }
     keysToDelete.forEach(key => userRateLimitStore.delete(key));
@@ -147,7 +163,7 @@ const rateLimitCleanupInterval = setInterval(
     if (keysToDelete.length > 0) {
       logger.info(`Rate limit cleanup: removed ${keysToDelete.length} inactive user entries`);
     }
-    logger.debug(`Rate limit store size: ${userRateLimitStore.size} users`);
+    logger.debug(`Rate limit store size: ${userRateLimitStore.size} Einträge (Zweck und Person)`);
   },
   60 * 60 * 1000
 ); // Every hour
