@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ActivityBar } from '../ActivityBar';
+import { NameInEinerZeile } from '../LeisteUnten';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { angemeldet } from '@/__tests__/helpers/authMock';
 
@@ -80,6 +81,39 @@ describe('Leiste unten', () => {
     fireEvent.click(eins);
     expect(screen.getByLabelText('App eins')).toHaveTextContent('App eins');
     expect(screen.getByLabelText('Start')).not.toHaveTextContent('Start');
+  });
+
+  it('der Name steht in einer Zeile und bricht nie um', async () => {
+    zeige();
+    fireEvent.click(await screen.findByLabelText('App eins'));
+    const name = screen.getByTestId('leiste-app-eins-name');
+    expect(name.className).toContain('whitespace-nowrap');
+    expect(name.className).not.toContain('break-words');
+    expect(name.className).not.toContain('hyphens');
+  });
+
+  it('passt ein langer Name nicht in eine Zeile, bleibt nur das Symbol', () => {
+    // jsdom misst nichts: 7 px je Zeichen, 96 px Platz, wie bei 390 px die
+    // Fläche des gewählten Eintrags. „Einstellungen“ passt, ein langer
+    // App-Name nicht.
+    const scroll = vi
+      .spyOn(HTMLElement.prototype, 'scrollWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return (this.textContent?.length ?? 0) * 7;
+      });
+    const client = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(96);
+    try {
+      const { rerender } = render(<NameInEinerZeile name="Einstellungen" testid="n" />);
+      expect(screen.getByTestId('n')).toHaveTextContent('Einstellungen');
+      rerender(<NameInEinerZeile name="Reisekostenabrechnung" testid="n" />);
+      expect(screen.queryByTestId('n')).not.toBeInTheDocument();
+      // Ein kurzer Name danach steht wieder da.
+      rerender(<NameInEinerZeile name="Belege" testid="n" />);
+      expect(screen.getByTestId('n')).toHaveTextContent('Belege');
+    } finally {
+      scroll.mockRestore();
+      client.mockRestore();
+    }
   });
 
   it('ist unter „Mehr" etwas offen, trägt „Mehr" seinen Namen', async () => {
