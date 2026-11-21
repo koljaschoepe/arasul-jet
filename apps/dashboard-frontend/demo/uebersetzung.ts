@@ -17,19 +17,21 @@ import { MUSTER, WOERTER } from './woerterbuch';
 
 const ATTRIBUTE = ['aria-label', 'title', 'placeholder', 'alt'] as const;
 const AUSGENOMMEN = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'CODE', 'PRE']);
+const DATUM = /\b(\d{2})\.(\d{2})\.(\d{4})\b/g;
 
 export function uebersetzeText(roh: string): string | null {
   const original = roh.trim();
   if (!original) return null;
   // Zahl und Wort hängen im Produkt oft mit einem geschützten Leerzeichen
   // zusammen (`anzahl()`); verglichen wird mit einem gewöhnlichen.
-  const kern = original.replace(/\u00a0/g, ' ');
+  // Ein Datum steht englisch als 21/11/2026, wie in den Beispiel-Apps (en-GB).
+  const kern = original.replace(/\u00a0/g, ' ').replace(DATUM, '$1/$2/$3');
   const direkt = WOERTER[kern];
   if (direkt !== undefined) return roh.replace(original, direkt);
   for (const [muster, ersatz] of MUSTER) {
     if (muster.test(kern)) return roh.replace(original, kern.replace(muster, ersatz));
   }
-  return null;
+  return kern !== original.replace(/\u00a0/g, ' ') ? roh.replace(original, kern) : null;
 }
 
 function ausgenommen(knoten: Node | null): boolean {

@@ -141,7 +141,7 @@ function App() {
   const spalten = [
     { schluessel: 'nr', titel: t('Nummer', 'Number'), breite: '8.5rem', zelle: a => h('span', { style: MONO }, a.nr), inKarteOben: true },
     { schluessel: 'kunde', titel: t('Kunde', 'Customer'), wert: a => a.kunde, zelle: a => a.kunde },
-    { schluessel: 'betreff', titel: t('Betreff', 'Subject'), kuerzen: true, wert: a => a.betreff, zelle: a => a.betreff },
+    { schluessel: 'betreff', titel: t('Betreff', 'Subject'), wert: a => a.betreff, zelle: a => a.betreff },
     { schluessel: 'am', titel: t('Datum', 'Date'), breite: '7rem', wert: a => a.am.getTime(), zelle: a => h('span', { style: MONO }, datum(a.am)) },
     {
       schluessel: 'betrag',

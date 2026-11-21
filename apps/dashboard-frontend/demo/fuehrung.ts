@@ -55,11 +55,13 @@ interface Schritt {
   /** Was „Weiter" tut, bevor der nächste Schritt kommt. */
   weiter?: 'angebote' | 'entwickler' | 'live';
   /**
-   * Wo der Hinweis steht: `stelle` an der Stelle (darunter, sonst darüber,
-   * sonst daneben), `ecke` unten rechts, wenn er an der Stelle Inhalt
-   * verdeckte, um den es geht (die Kennzahlen unter der Kapsel).
+   * Wo der Hinweis steht: `ecke` unten rechts (Vorgabe seit der zweiten
+   * Durchsicht: an der Stelle verdeckte er, was daneben erklärt wird; unten
+   * rechts ist in jeder Ansicht der Demo Leere), `stelle` an der Stelle.
    */
   lage?: 'stelle' | 'ecke';
+  /** Die Aufschrift von „Weiter", wenn der Knopf etwas tut. */
+  knopf?: string;
 }
 
 const TEXTE: Record<
@@ -92,10 +94,11 @@ const TEXTE: Record<
         text: 'Sie sind Mitarbeiter der Beispielwerk GmbH. Jede Kachel ist eine App, die der Betrieb selbst gebaut hat. Öffnen Sie „Angebote“.',
         ziele: ['[data-testid="uebersicht-app-angebote"]', '[data-testid="leiste-app-angebote"]'],
         weiter: 'angebote',
+        knopf: 'Angebote öffnen',
       },
       {
         titel: 'Sagen, was fehlt',
-        text: 'Über jeder App steht dieses Symbol. Markieren Sie eine Stelle und schreiben Sie einen Satz, etwa „Hier fehlt ein Rabatt“.',
+        text: 'Über jeder App steht dieses Symbol. Tippen Sie darauf, markieren Sie eine Stelle und schreiben Sie einen Satz, etwa „Hier fehlt ein Rabatt“. Oder gehen Sie ohne Meldung weiter.',
         ziele: ['[data-testid="rueckmeldung-knopf"]'],
         lage: 'ecke',
       },
@@ -104,6 +107,7 @@ const TEXTE: Record<
         text: 'Die Meldung geht an die Person, die bei Ihnen die Apps betreut. Wechseln Sie in ihre Rolle.',
         ziele: ['.demo-band-wahl button[data-rolle="entwickler"]'],
         weiter: 'entwickler',
+        knopf: 'Zum Entwickler',
       },
       {
         titel: 'Der Eingang im Cockpit',
@@ -117,7 +121,8 @@ const TEXTE: Record<
       },
       {
         titel: 'Von Test nach Live',
-        text: 'Klicken Sie auf „Live schalten“ und bestätigen Sie. Danach rechnet Angebote für alle mit Rabatt.',
+        text: 'Schalten Sie die neue Fassung live und bestätigen Sie. Danach rechnet die App Angebote für alle mit Rabatt.',
+        knopf: 'Live schalten',
         ziele: [
           'iframe >> [data-testid="cockpit-live-schalten-angebote"]',
           'iframe >> [data-testid="cockpit-eingang"]',
@@ -143,10 +148,11 @@ const TEXTE: Record<
         text: 'You work at Beispielwerk GmbH. Each tile is an app the company built for itself. Open “Quotes”.',
         ziele: ['[data-testid="uebersicht-app-angebote"]', '[data-testid="leiste-app-angebote"]'],
         weiter: 'angebote',
+        knopf: 'Open Quotes',
       },
       {
         titel: 'Say what is missing',
-        text: 'Every app carries this icon. Mark a spot and write one sentence, such as “A discount is missing here”.',
+        text: 'Every app carries this icon. Tap it, mark a spot and write one sentence, such as “A discount is missing here”. Or continue without feedback.',
         ziele: ['[data-testid="rueckmeldung-knopf"]'],
         lage: 'ecke',
       },
@@ -155,6 +161,7 @@ const TEXTE: Record<
         text: 'The feedback goes to the person who looks after your apps. Switch to their role.',
         ziele: ['.demo-band-wahl button[data-rolle="entwickler"]'],
         weiter: 'entwickler',
+        knopf: 'To developer',
       },
       {
         titel: 'The cockpit inbox',
@@ -168,7 +175,8 @@ const TEXTE: Record<
       },
       {
         titel: 'From test to live',
-        text: 'Click “Switch live” and confirm. Afterwards Quotes calculates discounts for everyone.',
+        text: 'Switch the new version live and confirm. Afterwards the Quotes app calculates discounts for everyone.',
+        knopf: 'Switch live',
         ziele: [
           'iframe >> [data-testid="cockpit-live-schalten-angebote"]',
           'iframe >> [data-testid="cockpit-eingang"]',
@@ -316,7 +324,7 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
       zaehler.textContent = t.von(schritt);
       titel.textContent = fertig ? t.geschafft.titel : s.titel;
       text.textContent = fertig ? t.geschafft.text : s.text;
-      weiter.textContent = fertig ? t.geschafft.ansehen : t.weiter;
+      weiter.textContent = fertig ? t.geschafft.ansehen : (s.knopf ?? t.weiter);
       ueberspringen.textContent = fertig ? t.geschafft.schliessen : t.ueberspringen;
       punkte.querySelectorAll('span').forEach((p, i) => {
         p.dataset.an = String(i < schritt);
@@ -338,7 +346,7 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
       if (ort) break;
     }
     ring.hidden = !ort || dialog || fertig;
-    platzieren(ort, fertig ? 'stelle' : (s.lage ?? 'stelle'));
+    platzieren(ort, s.lage ?? 'ecke');
   }
 
   function platzieren(ort: DOMRect | null, lage: 'stelle' | 'ecke') {

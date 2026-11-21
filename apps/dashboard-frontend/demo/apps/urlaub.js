@@ -129,12 +129,7 @@ function App() {
       ausrichtung: 'rechts',
       breite: '8rem',
       wert: z => z.tage,
-      zelle: z =>
-        h(
-          'span',
-          { style: MONO },
-          z.tage === 1 ? t('1 Tag', '1 day') : t(`${z.tage} Tage`, `${z.tage} days`)
-        ),
+      zelle: z => (z.tage === 1 ? t('1 Tag', '1 day') : t(`${z.tage} Tage`, `${z.tage} days`)),
     },
     {
       schluessel: 'art',

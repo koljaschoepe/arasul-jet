@@ -55,4 +55,9 @@ describe('Wörterbuch', () => {
     ];
     for (const satz of gemessen) expect(uebersetzeText(satz), satz).not.toBeNull();
   });
+
+  it('schreibt ein Datum englisch, auch mitten im Satz', () => {
+    expect(uebersetzeText('21.11.2026, 01:27')).toBe('21/11/2026, 01:27');
+    expect(uebersetzeText('Brückentage 03.12.2026')).toBe('Brückentage 03/12/2026');
+  });
 });
