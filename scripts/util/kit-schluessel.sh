@@ -39,6 +39,12 @@
 # und setzt ihren Stand (`/api/v1/external/apps/:id/rueckmeldungen`). Ebenfalls
 # ein eigener Schluessel: wer ausrollen darf, liest damit keine Meldungen.
 #
+# EINE LISTE DER BEREICHE (21.11.2026): `liste` und `widerrufen` kannten bis
+# dahin nur `app:deploy` und `system:update`. Ein Schluessel mit
+# `feedback:agent` liess sich anlegen, aber weder sehen noch widerrufen (Fund
+# aus Kit-PR 120). Seitdem lesen Pruefung, Liste und Widerruf dieselbe Zeile
+# `KIT_BEREICHE`; ein vierter Bereich wird dort eingetragen und sonst nirgends.
+#
 # Rueckgabe 0 bei Erfolg.
 # =============================================================================
 set -uo pipefail
@@ -48,10 +54,13 @@ BEFEHL="${1:-hilfe}"
 NAME="${2:-Ara-Kit}"
 BEREICH="${3:-app:deploy}"
 
-case "$BEREICH" in
-  app:deploy | system:update | feedback:agent) ;;
+# Die Bereiche, die dieses Skript anlegt, zeigt und widerruft. Nur hier.
+KIT_BEREICHE="app:deploy system:update feedback:agent"
+
+case " $KIT_BEREICHE " in
+  *" $BEREICH "*) ;;
   *)
-    echo "Unbekannter Bereich: $BEREICH (erlaubt: app:deploy, system:update, feedback:agent)"
+    echo "Unbekannter Bereich: $BEREICH (erlaubt: ${KIT_BEREICHE// /, })"
     exit 2
     ;;
 esac
@@ -67,13 +76,17 @@ fi
 # nicht als eine Zeile mit Semikolons.
 lauf() {
   docker exec -i -e ARASUL_KIT_BEFEHL="$1" -e ARASUL_KIT_NAME="$2" -e ARASUL_KIT_ZIEL="${3:-}" \
-    -e ARASUL_KIT_BEREICH="$BEREICH" \
+    -e ARASUL_KIT_BEREICH="$BEREICH" -e ARASUL_KIT_BEREICHE="$KIT_BEREICHE" \
     "$CONTAINER" node -e "$PROGRAMM"
 }
 
 read -r -d '' PROGRAMM <<'NODE'
-const db = require('/app/apps/dashboard-backend/src/database');
-const { generateApiKey } = require('/app/apps/dashboard-backend/src/middleware/apiKeyAuth');
+// Der Quelltext liegt im Container unter /app; ARASUL_KIT_QUELLE gibt es nur
+// fuer den Test (`__tests__/unit/kitSchluesselSkript.test.js`).
+const quelle = process.env.ARASUL_KIT_QUELLE || '/app/apps/dashboard-backend/src';
+const db = require(quelle + '/database');
+const { generateApiKey } = require(quelle + '/middleware/apiKeyAuth');
+const bereiche = (process.env.ARASUL_KIT_BEREICHE || 'app:deploy').split(' ').filter(Boolean);
 
 const befehl = process.env.ARASUL_KIT_BEFEHL;
 const name = process.env.ARASUL_KIT_NAME;
@@ -128,8 +141,9 @@ async function main() {
     const { rows } = await db.query(
       `SELECT id, key_prefix, name, created_at, last_used_at, is_active, allowed_endpoints
          FROM public.api_keys
-        WHERE allowed_endpoints && ARRAY['app:deploy','system:update']
-        ORDER BY created_at DESC`
+        WHERE allowed_endpoints && $1::text[]
+        ORDER BY created_at DESC`,
+      [bereiche]
     );
     if (rows.length === 0) {
       console.log('Kein Kit-Schluessel am Geraet.');
@@ -141,7 +155,7 @@ async function main() {
           z.is_active ? 'gueltig  ' : 'widerrufen',
           String(z.id).padStart(4),
           z.key_prefix,
-          (z.allowed_endpoints || []).filter(e => e === 'system:update').length ? 'system:update' : 'app:deploy   ',
+          (z.allowed_endpoints || []).filter(e => bereiche.includes(e)).join(',').padEnd(14),
           (z.name || '').slice(0, 40).padEnd(40),
           'angelegt ' + wann(z.created_at),
           z.last_used_at ? 'zuletzt ' + wann(z.last_used_at) : 'nie benutzt',
@@ -156,10 +170,10 @@ async function main() {
     const { rows } = await db.query(
       `UPDATE public.api_keys
           SET is_active = false
-        WHERE allowed_endpoints && ARRAY['app:deploy','system:update']
+        WHERE allowed_endpoints && $2::text[]
           AND (key_prefix = $1 OR id::text = $1)
       RETURNING id, key_prefix, name`,
-      [ziel]
+      [ziel, bereiche]
     );
     if (rows.length === 0) {
       throw new Error('Kein Kit-Schluessel mit "' + ziel + '". Erst: kit-schluessel.sh liste');
@@ -200,8 +214,9 @@ case "$BEFEHL" in
 Aufruf:
   kit-schluessel.sh anlegen [Name] [Bereich]
                                           einen Schluessel erzeugen (erscheint einmal);
-                                          Bereich app:deploy (Vorgabe) oder system:update
-  kit-schluessel.sh liste                 alle Kit-Schluessel am Geraet
+                                          Bereich app:deploy (Vorgabe), system:update
+                                          oder feedback:agent
+  kit-schluessel.sh liste                 alle Kit-Schluessel am Geraet, jeder Bereich
   kit-schluessel.sh widerrufen <praefix>  einen Schluessel entwerten
 
 Der Schluessel geht in das Ara-Kit; damit rollt ein Partner eine App auf dieses
