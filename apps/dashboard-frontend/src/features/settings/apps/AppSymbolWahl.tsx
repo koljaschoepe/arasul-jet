@@ -17,7 +17,7 @@ import { fehlertext } from '@/utils/fehlertext';
 import { useSymbolErsatz } from './useAppVerwaltung';
 
 /** Die Auswahl: Dinge, mit denen ein Betrieb arbeitet. Lucide-Namen. */
-export const SYMBOL_AUSWAHL: ReadonlyArray<{ name: string; bedeutung: string }> = [
+const SYMBOL_AUSWAHL: ReadonlyArray<{ name: string; bedeutung: string }> = [
   { name: 'receipt', bedeutung: 'Beleg' },
   { name: 'file-text', bedeutung: 'Dokument' },
   { name: 'folder-check', bedeutung: 'Abschluss' },

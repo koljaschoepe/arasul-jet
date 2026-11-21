@@ -17,12 +17,6 @@ import { BEREICHE } from '@/features/einstellungen/bereiche';
 import { AppSymbol } from '@/components/AppSymbol';
 import { standFuerKlick } from './standFuerKlick';
 
-/** Zeigt die Tastenkombination so, wie die Tastatur sie beschriftet. */
-export function palettenTaste(): string {
-  const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
-  return mac ? '⌘K' : 'Strg+K';
-}
-
 /**
  * Die Befehlspalette (Karte palette-symbol-und-demo, J51, `gestaltung.md`,
  * „Neue Bausteine der Bibliothek"): eine Tastenkombination (⌘K, Strg+K)

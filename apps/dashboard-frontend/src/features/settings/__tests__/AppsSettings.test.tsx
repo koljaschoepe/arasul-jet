@@ -830,6 +830,7 @@ describe('Die Seite einer App (M5)', () => {
       .map(h => h.textContent?.trim());
     expect(titel).toEqual([
       'Zustand',
+      'Symbol',
       'Fassungen',
       'Personen',
       'Freigabestufen',
