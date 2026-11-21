@@ -271,6 +271,7 @@
  * Drittel (Fuellung, Rand und Schatten aus `--glas-*`), mit schlichtem
  * Schleier, und nimmt `inhaltKennzeichen`; `DialogContent` nimmt `schleier`
  * (`glas` wie bisher oder `schlicht`). Kein Name faellt weg, nichts aendert
- * seine Bedeutung; eine App auf 5.9.3 laeuft unveraendert.
+ * seine Bedeutung; eine App auf 5.9.3 laeuft unveraendert. Die Kennzahl legt
+ * ihre Verlaufslinie in einer schmalen Kachel unter die Zahl statt ueber sie.
  */
 export const FASSUNG = '5.10.0';
