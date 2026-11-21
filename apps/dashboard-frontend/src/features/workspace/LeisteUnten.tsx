@@ -3,6 +3,7 @@ import {
   Ellipsis,
   House,
   LogOut,
+  Search,
   Settings,
   SlidersHorizontal,
   SquareTerminal,
@@ -75,7 +76,8 @@ const ZEILE =
  * links, als Glas, das unten mit Abstand zum Rand schwebt (Karte
  * glas-rahmen-und-leiste, `gestaltung.md`, Rahmen). Start, die ersten vier Apps
  * in der eigenen Reihenfolge, jede genau einmal, und „Mehr“ mit den übrigen
- * Apps, Terminal, Verwaltung, Einstellungen und „Abmelden“. Ziehen gibt es
+ * Apps, Terminal, Verwaltung, Einstellungen und „Abmelden“, obenan „Springen
+ * zu …“, das die Befehlspalette öffnet (J51). Ziehen gibt es
  * hier nicht; sortiert wird am großen Bildschirm.
  */
 export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void }) {
@@ -95,6 +97,7 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
   const vorn = eintraege.slice(0, APPS_IN_DER_LEISTE);
   const rest = eintraege.slice(APPS_IN_DER_LEISTE);
   const [offen, setOffen] = useState(false);
+  const setzePalette = useWorkspaceStore(s => s.setzePalette);
   const name = user?.anzeigeName || user?.username || '';
 
   const mehrAktiv =
@@ -190,6 +193,20 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
           className="max-h-[70dvh] w-64 overflow-y-auto p-1"
           data-testid="leiste-mehr-menue"
         >
+          {/* Die Befehlspalette (J51): am Handy gibt es keine Tastenkombination. */}
+          <button
+            type="button"
+            data-testid="leiste-palette"
+            onClick={() => {
+              setOffen(false);
+              setzePalette(true);
+            }}
+            className={ZEILE}
+          >
+            <Search className="size-[18px] shrink-0" aria-hidden="true" />
+            Springen zu …
+          </button>
+          <div className="my-1 h-px bg-border" aria-hidden="true" />
           {rest.map(e => (
             <button
               key={e.id}

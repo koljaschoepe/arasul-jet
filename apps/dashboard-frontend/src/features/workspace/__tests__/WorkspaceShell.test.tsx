@@ -18,6 +18,7 @@ import { angemeldet } from '@/__tests__/helpers/authMock';
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
 vi.mock('../ActivityBar', () => ({ ActivityBar: () => <nav data-testid="mock-leiste" /> }));
 vi.mock('../AnsichtInhalt', () => ({ AnsichtInhalt: () => <div data-testid="mock-ansicht" /> }));
+vi.mock('../Befehlspalette', () => ({ Befehlspalette: () => null }));
 
 function LocationProbe() {
   const location = useLocation();

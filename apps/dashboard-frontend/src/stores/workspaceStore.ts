@@ -221,6 +221,16 @@ export function nurFuerEntwickler(typ: AnsichtTyp): boolean {
   return typ === 'terminal';
 }
 
+/**
+ * Die Tastenkombination der Befehlspalette (J51): ⌘K am Mac, Strg+K sonst.
+ * Eine Stelle, weil die Shell und der Rahmen einer App sie beide abfragen.
+ */
+export function istPalettenTaste(
+  ev: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>
+): boolean {
+  return (ev.metaKey || ev.ctrlKey) && !ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === 'k';
+}
+
 function gleich(a: Ansicht, b: Ansicht): boolean {
   return ansichtZuPfad(a) === ansichtZuPfad(b) && a.title === b.title;
 }
@@ -243,11 +253,20 @@ export interface WorkspaceState {
    * sie verlassen hat, Live oder Test. Nur im Speicher, wie alles hier.
    */
   zuletztStand: Record<string, AppStand>;
+  /**
+   * Die Befehlspalette (J51): offen oder nicht. Steht hier und nicht in der
+   * Shell, weil drei Stellen sie öffnen: die Tastenkombination, die auch aus
+   * einer App im Rahmen kommt (`AppRahmen`), und „Mehr“ am Handy.
+   */
+  paletteOffen: boolean;
+  setzePalette: (offen: boolean) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   ansicht: { type: 'dashboard' },
   zuletztStand: {},
+  paletteOffen: false,
+  setzePalette: offen => set({ paletteOffen: offen }),
 
   oeffne: a => {
     const jetzt = get().ansicht;

@@ -11,7 +11,7 @@
  * „Abmelden" steht nicht hier, sondern im Konto unten in der Leiste, am Handy
  * unter „Mehr" (Karte glas-rahmen-und-leiste): eine Stelle je Funktion.
  */
-import { Lock, LogOut, Monitor, Moon, Palette, Sun, User } from '@marken/symbole';
+import { LogOut, Monitor, Moon, Sun } from '@marken/symbole';
 import { useState } from 'react';
 import {
   Button,
@@ -36,6 +36,7 @@ import PasswordManagement from './PasswordManagement';
 import { ProfilFormular } from './ProfilFormular';
 import { RechnerVerbinden } from './RechnerVerbinden';
 import { useAusweise, useAusweisWiderrufen } from './useAusweise';
+import { BEREICHE, type BereichId } from './bereiche';
 
 const THEME_WAHLEN: ReadonlyArray<{ wert: ThemeWahl; label: string; icon: typeof Sun }> = [
   { wert: 'system', label: 'System', icon: Monitor },
@@ -199,16 +200,6 @@ function AngemeldeteRechner() {
     </>
   );
 }
-
-/** Die Bereiche der Einstellungen, in dieser Reihenfolge (`frontend.md`). */
-const BEREICHE = [
-  { id: 'profil', name: 'Profil', symbol: <User />, gruppe: 'Konto' },
-  { id: 'passwort', name: 'Passwort', symbol: <Lock />, gruppe: 'Konto' },
-  { id: 'rechner', name: 'Angemeldete Rechner', symbol: <Monitor />, gruppe: 'Konto' },
-  { id: 'erscheinungsbild', name: 'Erscheinungsbild', symbol: <Palette />, gruppe: 'Darstellung' },
-] as const;
-
-type BereichId = (typeof BEREICHE)[number]['id'];
 
 function bereichAus(wert: string | undefined): BereichId {
   return BEREICHE.find(b => b.id === wert)?.id ?? 'profil';

@@ -14,6 +14,7 @@ import { bereichAusAdresse } from '@/features/settings/sections';
 import { AnsichtInhalt } from './AnsichtInhalt';
 import { cn, useSchmalesFenster } from '@marken';
 import { ActivityBar } from './ActivityBar';
+import { Befehlspalette } from './Befehlspalette';
 
 /** Was die Shell von außen braucht: das Abmelden, und sonst nichts. */
 export interface ShellHandgriffe {
@@ -173,6 +174,7 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
           </span>
         )}
       </div>
+      <Befehlspalette />
     </div>
   );
 }
