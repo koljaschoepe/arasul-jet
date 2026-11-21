@@ -164,6 +164,7 @@ const BELEGT = [
   '4-weg-entwickler',
   '5-weg-eingang',
   '6-weg-live',
+  '6-weg-geschafft',
   '7-rabatt',
   '8-wartungsplan',
   '8-urlaub',
@@ -304,8 +305,9 @@ async function weg(browser, basis, sprache, breite) {
   if (SAMMELN) await sammeln(seite);
   await frage.getByRole('button').last().click();
   await cockpit.getByTestId('cockpit-schalt-ausgang').waitFor({ timeout: 15_000 });
-  await seite.getByTestId('demo-weg-weiter').click();
-  await seite.locator('[data-testid="demo-weg"][hidden]').waitFor({ state: 'attached' });
+  await seite.locator('[data-testid="demo-weg"][data-geschafft="true"]').waitFor();
+  await warte(400);
+  await bild(seite, name('6-weg-geschafft'));
 
   // Apps-Ansicht des Cockpits
   if (!(await cockpit.getByTestId('cockpit-leiste-apps').isVisible())) {
@@ -314,6 +316,11 @@ async function weg(browser, basis, sprache, breite) {
   await cockpit.getByTestId('cockpit-leiste-apps').click();
   await warte(400);
   if (SAMMELN) await sammeln(seite);
+
+  // „Angebote ansehen" beendet den Weg und öffnet die App
+  await seite.getByTestId('demo-weg-weiter').click();
+  await seite.waitForURL(/\/workspace\/app\/angebote/);
+  await seite.locator('[data-testid="demo-weg"][hidden]').waitFor({ state: 'attached' });
 
   // 6. Angebote live rechnet jetzt mit Rabatt
   await seite.goto(basis + '/workspace/app/angebote');

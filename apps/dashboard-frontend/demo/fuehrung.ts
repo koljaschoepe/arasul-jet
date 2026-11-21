@@ -54,6 +54,12 @@ interface Schritt {
   ziele: string[];
   /** Was „Weiter" tut, bevor der nächste Schritt kommt. */
   weiter?: 'angebote' | 'entwickler' | 'live';
+  /**
+   * Wo der Hinweis steht: `stelle` an der Stelle (darunter, sonst darüber,
+   * sonst daneben), `ecke` unten rechts, wenn er an der Stelle Inhalt
+   * verdeckte, um den es geht (die Kennzahlen unter der Kapsel).
+   */
+  lage?: 'stelle' | 'ecke';
 }
 
 const TEXTE: Record<
@@ -65,6 +71,7 @@ const TEXTE: Record<
     fertig: string;
     ueberspringen: string;
     beschriftung: string;
+    geschafft: { titel: string; text: string; ansehen: string; schliessen: string };
   }
 > = {
   de: {
@@ -73,6 +80,12 @@ const TEXTE: Record<
     weiter: 'Weiter',
     fertig: 'Fertig',
     ueberspringen: 'Überspringen',
+    geschafft: {
+      titel: 'Geschafft',
+      text: 'Angebote 1.5.0 ist live. Ab jetzt rechnet die App für alle mit Rabatt, ohne dass jemand etwas installiert.',
+      ansehen: 'Angebote ansehen',
+      schliessen: 'Schließen',
+    },
     schritte: [
       {
         titel: 'Eine App öffnen',
@@ -84,6 +97,7 @@ const TEXTE: Record<
         titel: 'Sagen, was fehlt',
         text: 'Über jeder App steht dieses Symbol. Markieren Sie eine Stelle und schreiben Sie einen Satz, etwa „Hier fehlt ein Rabatt“.',
         ziele: ['[data-testid="rueckmeldung-knopf"]'],
+        lage: 'ecke',
       },
       {
         titel: 'Zum Entwickler wechseln',
@@ -93,13 +107,17 @@ const TEXTE: Record<
       },
       {
         titel: 'Der Eingang im Cockpit',
-        text: 'Hier kommt jede Rückmeldung an, mit Foto und markierter Stelle. Ein KI-Assistent setzt sie in einer neuen Fassung um.',
-        ziele: ['iframe >> [data-testid="cockpit-eingang"]'],
+        text: 'Hier steht Ihre Meldung, mit Foto und markierter Stelle. Ein KI-Assistent setzt Meldungen in einer neuen Fassung um: eine frühere zum Rabatt liegt schon als Angebote 1.5.0 im Test.',
+        ziele: [
+          'iframe >> [data-testid="cockpit-eingang"] tbody tr',
+          'iframe >> [data-testid="cockpit-eingang"] li',
+          'iframe >> [data-testid="cockpit-eingang"]',
+        ],
         weiter: 'live',
       },
       {
         titel: 'Von Test nach Live',
-        text: 'Angebote 1.5.0 rechnet mit Rabatt und liegt im Test. Ein Klick schaltet die Fassung für alle live.',
+        text: 'Klicken Sie auf „Live schalten“ und bestätigen Sie. Danach rechnet Angebote für alle mit Rabatt.',
         ziele: [
           'iframe >> [data-testid="cockpit-live-schalten-angebote"]',
           'iframe >> [data-testid="cockpit-eingang"]',
@@ -113,6 +131,12 @@ const TEXTE: Record<
     weiter: 'Next',
     fertig: 'Done',
     ueberspringen: 'Skip',
+    geschafft: {
+      titel: 'Done',
+      text: 'Quotes 1.5.0 is live. From now on the app calculates discounts for everyone, with nothing to install.',
+      ansehen: 'View Quotes',
+      schliessen: 'Close',
+    },
     schritte: [
       {
         titel: 'Open an app',
@@ -124,6 +148,7 @@ const TEXTE: Record<
         titel: 'Say what is missing',
         text: 'Every app carries this icon. Mark a spot and write one sentence, such as “A discount is missing here”.',
         ziele: ['[data-testid="rueckmeldung-knopf"]'],
+        lage: 'ecke',
       },
       {
         titel: 'Switch to developer',
@@ -133,13 +158,17 @@ const TEXTE: Record<
       },
       {
         titel: 'The cockpit inbox',
-        text: 'Every piece of feedback arrives here, with a screenshot and the marked spot. An AI assistant turns it into a new version.',
-        ziele: ['iframe >> [data-testid="cockpit-eingang"]'],
+        text: 'Your feedback is here, with a screenshot and the marked spot. An AI assistant turns feedback into a new version: an earlier request for a discount is already in test as Quotes 1.5.0.',
+        ziele: [
+          'iframe >> [data-testid="cockpit-eingang"] tbody tr',
+          'iframe >> [data-testid="cockpit-eingang"] li',
+          'iframe >> [data-testid="cockpit-eingang"]',
+        ],
         weiter: 'live',
       },
       {
         titel: 'From test to live',
-        text: 'Quotes 1.5.0 calculates discounts and is in test. One click switches the version live for everyone.',
+        text: 'Click “Switch live” and confirm. Afterwards Quotes calculates discounts for everyone.',
         ziele: [
           'iframe >> [data-testid="cockpit-live-schalten-angebote"]',
           'iframe >> [data-testid="cockpit-eingang"]',
@@ -247,7 +276,31 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
   document.body.append(ring, karte);
 
   let schritt = schrittLesen();
-  let gezeigt = -1;
+  let gezeigt = '';
+
+  /** Schritt 5 ist geschafft, wenn das Cockpit den Ausgang des Schaltens zeigt. */
+  let warGeschafft = false;
+  const geschafft = () => {
+    if (schritt !== 5) return false;
+    if (!warGeschafft && stelle('iframe >> [data-testid="cockpit-schalt-ausgang"]')) {
+      warGeschafft = true;
+    }
+    return warGeschafft;
+  };
+
+  /** Ein Dialog, auch im Rahmen einer App, hat Vorrang vor dem Hinweis. */
+  function dialogOffen(): boolean {
+    const wahl = '[role="dialog"], [role="alertdialog"]';
+    if (document.querySelector(wahl)) return true;
+    for (const rahmen of Array.from(document.querySelectorAll('iframe'))) {
+      try {
+        if (rahmen.contentDocument?.querySelector(wahl)) return true;
+      } catch {
+        /* fremde Herkunft gibt es in der Demo nicht */
+      }
+    }
+    return false;
+  }
 
   function zeigen() {
     if (schritt < 1) {
@@ -256,71 +309,80 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
       return;
     }
     const s = t.schritte[schritt - 1]!;
-    if (gezeigt !== schritt) {
-      gezeigt = schritt;
+    const fertig = geschafft();
+    const kennung = `${schritt}${fertig ? '-fertig' : ''}`;
+    if (gezeigt !== kennung) {
+      gezeigt = kennung;
       zaehler.textContent = t.von(schritt);
-      titel.textContent = s.titel;
-      text.textContent = s.text;
-      weiter.textContent = schritt === 5 ? t.fertig : t.weiter;
+      titel.textContent = fertig ? t.geschafft.titel : s.titel;
+      text.textContent = fertig ? t.geschafft.text : s.text;
+      weiter.textContent = fertig ? t.geschafft.ansehen : t.weiter;
+      ueberspringen.textContent = fertig ? t.geschafft.schliessen : t.ueberspringen;
       punkte.querySelectorAll('span').forEach((p, i) => {
         p.dataset.an = String(i < schritt);
       });
       karte.dataset.schritt = String(schritt);
+      karte.dataset.geschafft = String(fertig);
     }
-    // Ein offener Dialog (die Rückmeldung) hat Vorrang: der Hinweis tritt zurück.
-    const dialog = document.querySelector('[role="dialog"], [role="alertdialog"]');
-    karte.hidden = !!dialog;
+    const dialog = dialogOffen();
+    karte.hidden = dialog;
     let ort: DOMRect | null = null;
-    for (const z of s.ziele) {
+    const ziele = fertig
+      ? [
+          'iframe >> [data-testid="cockpit-schalt-ausgang"]',
+          'iframe >> [data-testid="cockpit-eingang"]',
+        ]
+      : s.ziele;
+    for (const z of ziele) {
       ort = stelle(z);
       if (ort) break;
     }
-    ring.hidden = !ort || !!dialog;
-    platzieren(ort);
+    ring.hidden = !ort || dialog || fertig;
+    platzieren(ort, fertig ? 'stelle' : (s.lage ?? 'stelle'));
   }
 
-  function platzieren(ort: DOMRect | null) {
+  function platzieren(ort: DOMRect | null, lage: 'stelle' | 'ecke') {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const rand = 12;
+    const abstand = 14;
     const breite = Math.min(340, vw - 2 * rand);
     karte.style.width = `${breite}px`;
     const hoehe = karte.offsetHeight || 180;
+    const untenFrei = vw < 900 ? 92 : rand + 4;
     if (ort) {
-      ring.style.left = `${ort.left - 4}px`;
-      ring.style.top = `${ort.top - 4}px`;
-      ring.style.width = `${ort.width + 8}px`;
-      ring.style.height = `${ort.height + 8}px`;
+      // Luft zwischen Ring und Inhalt; bei großen Stellen liegt er innen,
+      // damit er nicht über den Rand der Fläche ragt.
+      const luft = ort.height > 120 ? -2 : 5;
+      ring.style.left = `${ort.left - luft}px`;
+      ring.style.top = `${ort.top - luft}px`;
+      ring.style.width = `${ort.width + 2 * luft}px`;
+      ring.style.height = `${ort.height + 2 * luft}px`;
     }
-    // Am Handy steht der Hinweis immer über der Leiste unten; die Stelle
-    // zeigt der Ring.
-    if (!ort || vw < 640) {
-      const untenFrei = vw < 900 ? 92 : rand;
+    const setze = (x: number, y: number) => {
+      karte.style.left = `${Math.min(Math.max(rand, x), vw - rand - breite)}px`;
+      karte.style.top = `${Math.min(Math.max(rand + 40, y), vh - untenFrei - hoehe)}px`;
+    };
+    // Am Handy steht der Hinweis über der Leiste unten, in der Ecke unten
+    // rechts am Rechner; die Stelle zeigt der Ring.
+    if (!ort || vw < 640 || lage === 'ecke') {
       let oben = vh - untenFrei - hoehe;
       // Liegt die Stelle unter dem Hinweis, rückt er nach oben.
       if (ort && ort.bottom > oben - 8 && ort.top > hoehe + 2 * rand) oben = rand + 48;
-      karte.style.left = `${(vw - breite) / 2}px`;
+      const links = vw < 640 ? (vw - breite) / 2 : vw - rand - 8 - breite;
+      karte.style.left = `${links}px`;
       karte.style.top = `${Math.max(rand, oben)}px`;
       return;
     }
-    // Daneben: rechts, sonst links, sonst darunter, sonst darüber.
-    let x: number;
-    let y: number;
-    if (ort.right + 16 + breite <= vw - rand) {
-      x = ort.right + 16;
-      y = ort.top + ort.height / 2 - hoehe / 2;
-    } else if (ort.left - 16 - breite >= rand) {
-      x = ort.left - 16 - breite;
-      y = ort.top + ort.height / 2 - hoehe / 2;
-    } else if (ort.bottom + 16 + hoehe <= vh - rand) {
-      x = ort.left + ort.width / 2 - breite / 2;
-      y = ort.bottom + 16;
-    } else {
-      x = ort.left + ort.width / 2 - breite / 2;
-      y = ort.top - 16 - hoehe;
-    }
-    karte.style.left = `${Math.min(Math.max(rand, x), vw - rand - breite)}px`;
-    karte.style.top = `${Math.min(Math.max(rand + 40, y), vh - rand - hoehe)}px`;
+    // Unter der Stelle, sonst darüber, sonst rechts, sonst links: so bleibt
+    // der Inhalt daneben (die Kachel nebenan, die Kennzahl) frei.
+    const mitte = ort.left + ort.width / 2 - breite / 2;
+    const links = Math.max(ort.left, Math.min(mitte, ort.right - breite));
+    if (ort.bottom + abstand + hoehe <= vh - untenFrei) setze(links, ort.bottom + abstand);
+    else if (ort.top - abstand - hoehe >= rand + 40) setze(links, ort.top - abstand - hoehe);
+    else if (ort.right + abstand + breite <= vw - rand)
+      setze(ort.right + abstand, ort.top + ort.height / 2 - hoehe / 2);
+    else setze(ort.left - abstand - breite, ort.top + ort.height / 2 - hoehe / 2);
   }
 
   function gehe(n: number) {
@@ -334,7 +396,12 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
     const s = t.schritte[schritt - 1];
     if (!s) return;
     if (schritt === 5) {
-      gehe(0);
+      if (geschafft()) {
+        gehe(0);
+        window.location.assign(ANGEBOTE);
+      } else {
+        imCockpit('cockpit-live-schalten-angebote');
+      }
       return;
     }
     if (s.weiter === 'angebote' && !window.location.pathname.startsWith(ANGEBOTE)) {
@@ -372,8 +439,7 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
     if (schritt === 1 && window.location.pathname.startsWith(ANGEBOTE)) gehe(2);
     else if (schritt === 2 && document.querySelector('[data-testid="rueckmeldung-bestaetigung"]'))
       gehe(3);
-    else if (schritt <= 3 && schritt > 0 && window.location.pathname.startsWith(COCKPIT))
-      gehe(4);
+    else if (schritt <= 3 && schritt > 0 && window.location.pathname.startsWith(COCKPIT)) gehe(4);
     else if (schritt === 4 && stelle('iframe >> [data-testid="cockpit-live-schalten-angebote"]'))
       gehe(5);
   }

@@ -7,10 +7,10 @@ import {
   rendern,
   useState,
   Badge,
+  Button,
   Datenliste,
   Kennzahl,
   Kennzahlen,
-  Knopf,
   Kopf,
 } from '/marken/5/marken.js';
 import { t, datum, tag, useFassung, SEITE, MONO, unterzeile } from './gemeinsam.js';
@@ -59,8 +59,10 @@ const ANFANG = [
 ];
 
 function lage(abstand) {
+  if (abstand === -1) return t('seit gestern fällig', 'overdue since yesterday');
   if (abstand < 0) return t(`seit ${-abstand} Tagen fällig`, `overdue by ${-abstand} days`);
   if (abstand === 0) return t('heute fällig', 'due today');
+  if (abstand === 1) return t('morgen', 'tomorrow');
   if (abstand <= 7) return t(`in ${abstand} Tagen`, `in ${abstand} days`);
   return datum(tag(abstand));
 }
@@ -105,7 +107,13 @@ function App() {
       titel: t('Aktion', 'Action'),
       breite: '7.5rem',
       zelle: a =>
-        a.faellig <= 7 ? h(Knopf, { onKlick: () => erledigt(a.id) }, t('Erledigt', 'Done')) : null,
+        a.faellig <= 7
+          ? h(
+              Button,
+              { size: 'sm', variant: 'outline', onClick: () => erledigt(a.id) },
+              t('Erledigt', 'Done')
+            )
+          : null,
     },
   ];
 

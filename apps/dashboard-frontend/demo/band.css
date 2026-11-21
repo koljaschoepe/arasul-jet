@@ -237,3 +237,18 @@ body[data-demo] #root .h-dvh {
     margin-left: auto;
   }
 }
+
+/* Am Handy trägt der Punkt allein das Wort „Demo“: sonst ragt die Sprache
+   über den Rand. Das Wort steht weiter für den Screenreader da. */
+@media (max-width: 420px) {
+  .demo-band-kurz {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .demo-band {
+    gap: 5px;
+  }
+}

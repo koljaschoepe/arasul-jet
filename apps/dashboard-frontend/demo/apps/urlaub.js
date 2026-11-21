@@ -104,23 +104,45 @@ function App() {
   const genommen = 30 - rest;
 
   const spalten = [
-    { schluessel: 'wer', titel: t('Wer', 'Who'), wert: z => z.wer, zelle: z => z.wer, inKarteOben: true },
-    { schluessel: 'von', titel: t('Von', 'From'), breite: '7rem', wert: z => z.von.getTime(), zelle: z => h('span', { style: MONO }, datum(z.von)) },
-    { schluessel: 'bis', titel: t('Bis', 'To'), breite: '7rem', wert: z => z.bis.getTime(), zelle: z => h('span', { style: MONO }, datum(z.bis)) },
+    {
+      schluessel: 'wer',
+      titel: t('Wer', 'Who'),
+      wert: z => z.wer,
+      zelle: z => z.wer,
+      inKarteOben: true,
+    },
+    {
+      schluessel: 'zeitraum',
+      titel: t('Zeitraum', 'Period'),
+      breite: '15rem',
+      wert: z => z.von.getTime(),
+      zelle: z =>
+        h(
+          'span',
+          { style: MONO },
+          z.tage === 1 ? datum(z.von) : `${datum(z.von)} – ${datum(z.bis)}`
+        ),
+    },
     {
       schluessel: 'tage',
       titel: t('Arbeitstage', 'Working days'),
       ausrichtung: 'rechts',
       breite: '8rem',
       wert: z => z.tage,
-      zelle: z => h('span', { style: MONO }, String(z.tage)),
+      zelle: z =>
+        h(
+          'span',
+          { style: MONO },
+          z.tage === 1 ? t('1 Tag', '1 day') : t(`${z.tage} Tage`, `${z.tage} days`)
+        ),
     },
     {
       schluessel: 'art',
       titel: t('Art', 'Type'),
       breite: '10rem',
       wert: z => z.art,
-      zelle: z => h(Badge, { variant: z.art === 'antrag' ? 'outline' : 'default' }, ART[z.art]()),
+      zelle: z =>
+        h(Badge, { variant: z.art === 'antrag' ? 'outline' : 'default' }, ART[z.art]()),
     },
   ];
 
@@ -138,7 +160,7 @@ function App() {
       Kennzahlen,
       null,
       h(Kennzahl, {
-        beschriftung: t('Resturlaub', 'Remaining leave'),
+        beschriftung: t('Ihr Resturlaub', 'Your remaining leave'),
         wert: String(rest),
         einheit: t('Tage', 'days'),
         fussnote: t(`${genommen} von 30 genommen oder beantragt`, `${genommen} of 30 taken or requested`),
