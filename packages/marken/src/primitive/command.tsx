@@ -97,7 +97,10 @@ function CommandInput({
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(
-          'flex h-10 w-full rounded-md bg-transparent py-3 text-ui outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
+          // Kein eigener Fokusrahmen (5.10.0): das Feld IST die Zeile, und
+          // der Rahmen samt Schatten der Shell (`input:focus`) zeichnete am
+          // Orin einen zweiten Kasten in die Palette.
+          'flex h-10 w-full rounded-md border-0 bg-transparent py-3 text-ui shadow-none outline-none placeholder:text-muted-foreground focus:shadow-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
           className
         )}
         {...props}
