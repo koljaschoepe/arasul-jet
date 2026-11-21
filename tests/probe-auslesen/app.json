@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-auslesen",
   "name": "Probe: Auslesen und Flows im Protokoll",
+  "symbol": "scan-text",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/auslesen-und-flows-abnahme.sh: liest Belege gleichzeitig aus, holt ab, was nach der Wartezeit noch rechnet, und startet einen Flow, der nach einer Freigabe einen Satz mit dem Modell schreibt.",
   "backend": {

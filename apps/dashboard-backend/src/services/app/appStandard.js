@@ -30,6 +30,14 @@
  * fertiges Image) traegt laut Blatt keinen Nachweis; das Geraet weist ihn ab,
  * bis eine eigene Entscheidung zu fremden Projekten faellt.
  *
+ * DAS SYMBOL IST PFLICHT (J51, M7, 21.11.2026, `gestaltung.md`: „jede App
+ * setzt `symbol` in `app.json`, das ist Teil des Standards"). Ohne Symbol
+ * zeichnete die Leiste fast jede App mit demselben Fenster, und niemand fand
+ * seine App. Geprueft wird es NUR beim Ausrollen (`verlange`), nicht im
+ * `befund` fuer laufende Staende: eine App, die schon laeuft, bleibt
+ * unberuehrt, und der Administrator kann ihr in der Verwaltung ein Symbol
+ * geben, das gilt, bis sie eines mitbringt (`apps.symbol_ersatz`).
+ *
  * NICHT RUECKWIRKEND. Die Pruefung greift beim Ausrollen. Fuer Staende, die
  * schon laufen, rechnet `befund` dasselbe Urteil fuer die Verwaltung aus
  * (Einstellungen > Apps), ohne dass ein Stand deshalb stehen bleibt.
@@ -54,6 +62,7 @@ const SCHRITTE = Object.freeze(['interview', 'bau', 'test']);
  */
 const CODES = Object.freeze([
   'fremder-container',
+  'symbol-fehlt',
   'bibliothek-fehlt',
   'bibliothek-alt',
   'unlesbar',
@@ -325,7 +334,29 @@ async function pruefeNachweis(ordner, manifest) {
  *
  * @returns {Promise<{erfuellt: boolean, ausgenommen: boolean, funde: {code: string, text: string}[]}>}
  */
-async function pruefe(ordner, manifest) {
+/**
+ * Das Symbol der Leiste. Die Form prueft schon das Manifest (`AppSymbol`),
+ * hier geht es nur darum, ob es da ist. Ein Satz, der sagt, was fehlt und
+ * wie es aussieht.
+ */
+function pruefeSymbol(manifest) {
+  if (typeof manifest.symbol === 'string' && manifest.symbol.trim()) {
+    return [];
+  }
+  return [
+    {
+      code: 'symbol-fehlt',
+      text: 'Die App nennt in app.json kein `symbol`, das Bild in der Leiste: einen Lucide-Namen wie `file-text` oder ein Kürzel wie `BE`.',
+    },
+  ];
+}
+
+/**
+ * @param {object} [optionen]
+ * @param {boolean} [optionen.ausrollen] auch pruefen, was erst beim Ausrollen
+ *   Pflicht ist und laufende Staende nicht trifft (das Symbol).
+ */
+async function pruefe(ordner, manifest, { ausrollen = false } = {}) {
   if (MITGELIEFERTE_APPS.includes(manifest.id)) {
     return { erfuellt: true, ausgenommen: true, funde: [] };
   }
@@ -341,7 +372,11 @@ async function pruefe(ordner, manifest) {
       ],
     };
   }
-  const funde = [...pruefeBibliothek(manifest), ...(await pruefeNachweis(ordner, manifest))];
+  const funde = [
+    ...(ausrollen ? pruefeSymbol(manifest) : []),
+    ...pruefeBibliothek(manifest),
+    ...(await pruefeNachweis(ordner, manifest)),
+  ];
   return { erfuellt: funde.length === 0, ausgenommen: false, funde };
 }
 
@@ -351,7 +386,7 @@ async function pruefe(ordner, manifest) {
  * daneben in `details.standard`, damit ein Programm nicht Saetze lesen muss.
  */
 async function verlange(ordner, manifest) {
-  const urteil = await pruefe(ordner, manifest);
+  const urteil = await pruefe(ordner, manifest, { ausrollen: true });
   if (urteil.erfuellt) {
     return urteil;
   }

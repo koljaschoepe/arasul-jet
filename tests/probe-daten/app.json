@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-daten",
   "name": "Probe: Daten und vier Augen",
+  "symbol": "database",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/daten-vier-augen-abnahme.sh: schreibt in ihre Datenbank, legt eine Datei in den Container und startet Flows mit Einreicher.",
   "backend": {

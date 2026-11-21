@@ -70,23 +70,23 @@ Dienst.
 }
 ```
 
-| Feld           | Pflicht     | Bedeutung                                                                                                                                   |
-| -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema`       | ja          | Muss `1` sein. Eine andere Zahl wird abgewiesen, nicht ignoriert.                                                                           |
-| `id`           | ja          | Kleinbuchstaben, Ziffern, Bindestrich. Steht im Pfad, im Containernamen, im Router.                                                         |
-| `name`         | ja          | Der Anzeigename, wie ein Mensch ihn liest.                                                                                                  |
-| `version`      | ja          | Drei Zahlen mit Punkten, optional ein Zusatz: `1.2.0`, `1.2.0-rc1`.                                                                         |
-| `beschreibung` | nein        | Ein Satz, höchstens 500 Zeichen.                                                                                                            |
-| `frontend`     | nein\*      | `{ "verzeichnis": "frontend" }` — wo im Paket die fertigen Dateien liegen.                                                                  |
-| `backend`      | nein\*      | `{ "image", "bauen"?, "gesundheit"?, "umgebung"? }`                                                                                         |
-| `ports`        | mit Backend | `{ "backend": 8080 }` — der Port IM Container.                                                                                              |
-| `ressourcen`   | nein        | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                                                                              |
-| `modelle`      | nein        | Welche Sprachmodelle die App braucht (eine **Forderung**).                                                                                  |
-| `flows`        | nein        | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**).                                                   |
-| `marken`       | nein        | Das Designsystem: `"5.3.0"` heißt Kopie dieser Fassung (H6), `"5"` heißt zur Laufzeit vom Gerät (M5, Kontrakt 9). Siehe unten.              |
-| `agent`        | nein        | Die Routen, die die App einem Agenten anbietet (Brücke, 21.09.2026). Siehe unten.                                                           |
-| `verbindungen` | nein        | Hostnamen, zu denen die App ins Internet will (J38, Kontrakt 7). Der Ausgangs-Proxy lässt genau diese durch. Siehe „Das Netz der Apps“.     |
-| `symbol`       | nein        | Das Bild der App in der Aktivitätsleiste (M5, Kontrakt 8): ein Lucide-Name (`file-text`) oder ein Kürzel aus 1 bis 3 Großbuchstaben (`BE`). |
+| Feld           | Pflicht        | Bedeutung                                                                                                                                                                |
+| -------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `schema`       | ja             | Muss `1` sein. Eine andere Zahl wird abgewiesen, nicht ignoriert.                                                                                                        |
+| `id`           | ja             | Kleinbuchstaben, Ziffern, Bindestrich. Steht im Pfad, im Containernamen, im Router.                                                                                      |
+| `name`         | ja             | Der Anzeigename, wie ein Mensch ihn liest.                                                                                                                               |
+| `version`      | ja             | Drei Zahlen mit Punkten, optional ein Zusatz: `1.2.0`, `1.2.0-rc1`.                                                                                                      |
+| `beschreibung` | nein           | Ein Satz, höchstens 500 Zeichen.                                                                                                                                         |
+| `frontend`     | nein\*         | `{ "verzeichnis": "frontend" }` — wo im Paket die fertigen Dateien liegen.                                                                                               |
+| `backend`      | nein\*         | `{ "image", "bauen"?, "gesundheit"?, "umgebung"? }`                                                                                                                      |
+| `ports`        | mit Backend    | `{ "backend": 8080 }` — der Port IM Container.                                                                                                                           |
+| `ressourcen`   | nein           | `{ "speicher": "512m", "cpus": 1 }`, das ist auch die Vorgabe.                                                                                                           |
+| `modelle`      | nein           | Welche Sprachmodelle die App braucht (eine **Forderung**).                                                                                                               |
+| `flows`        | nein           | `{ "verzeichnis": "flows" }` — wo im Paket ihre Flow-Dateien liegen (eine **Lieferung**).                                                                                |
+| `marken`       | nein           | Das Designsystem: `"5.3.0"` heißt Kopie dieser Fassung (H6), `"5"` heißt zur Laufzeit vom Gerät (M5, Kontrakt 9). Siehe unten.                                           |
+| `agent`        | nein           | Die Routen, die die App einem Agenten anbietet (Brücke, 21.09.2026). Siehe unten.                                                                                        |
+| `verbindungen` | nein           | Hostnamen, zu denen die App ins Internet will (J38, Kontrakt 7). Der Ausgangs-Proxy lässt genau diese durch. Siehe „Das Netz der Apps“.                                  |
+| `symbol`       | beim Ausrollen | Das Bild der App in der Aktivitätsleiste (M5, Kontrakt 8): ein Lucide-Name (`file-text`) oder ein Kürzel aus 1 bis 3 Großbuchstaben (`BE`). Seit J51 Teil des Standards. |
 
 \* Mindestens eines von `frontend` und `backend`.
 
@@ -96,10 +96,17 @@ dem Lucide-Satz ist klein mit Bindestrichen (`file-text`), ein Kürzel ist groß
 ein bis drei Buchstaben oder Ziffern (`BE`). Das Gerät prüft die **Form**, nicht
 den Satz: der wächst mit der Bibliothek der Shell, und ein Backend, das ihn
 nachbaut, wiese morgen ein Symbol ab, das die Shell zeichnen kann. Kennt die
-Shell den Namen nicht oder fehlt `symbol`, zeigt sie das Kürzel aus dem Namen
-der App — ein Tippfehler kostet ein Bild, nie eine App. Abgewiesen wird mit
+Shell den Namen nicht oder fehlt `symbol`, zeigt sie ein neutrales Fenster
+— ein Tippfehler kostet ein Bild, nie eine App. Abgewiesen wird mit
 Grund, etwa `symbol: ein Lucide-Name in Kleinbuchstaben mit Bindestrichen …`.
-Die Shell liest das Feld noch nicht; sie folgt mit einer späteren Karte.
+
+**Seit dem 21.11.2026 (J51) ist `symbol` Pflicht beim Ausrollen** (App-Standard,
+Code `symbol-fehlt`, siehe [APP-PAKET.md](APP-PAKET.md)): ohne Symbol zeichnete
+die Leiste fast jede App mit demselben Fenster. Apps, die schon laufen, bleiben
+unberührt. Für sie wählt der Administrator unter Verwaltung › Apps › (App) ›
+Symbol eines (`PUT /api/apps/:id/symbol`, Spalte `apps.symbol_ersatz`). Es gilt,
+bis die App selbst eines mitbringt: `GET /api/apps/meine` nimmt das Symbol des
+Livestands, dann das des Teststands, dann das des Administrators.
 
 `backend.bauen` (Phase C5) sagt, WORAUS das Gerät das Image baut:
 `{ "verzeichnis": "backend", "dockerfile": "Dockerfile" }`, beides relativ zum

@@ -60,12 +60,18 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
 - **Aktivitätsleiste (links):** ein schwebendes Stück Glas in drei
   Abschnitten. Oben das **Haus** zur Startseite, mit der Zahl der Freigaben,
   die bei Ihnen liegen. In der Mitte die freigegebenen **Apps**, jede genau
-  einmal, als Symbol (ohne Symbol im Manifest ein neutrales Fenster-Symbol),
-  der Name erscheint beim Überfahren. Unten **Terminal** (nur Entwickler),
+  einmal, als Symbol, der Name erscheint beim Überfahren. Eine neue App muss
+  ihr Symbol in `app.json` mitbringen, sonst weist das Gerät sie beim
+  Ausrollen ab. Nennt eine ältere App keines, wählen Sie es unter
+  **Verwaltung → Apps → (die App) → Symbol**; es gilt, bis die App selbst
+  eines mitbringt. Unten **Terminal** (nur Entwickler),
   **Verwaltung** (nur Administratoren), das **Zahnrad** (die persönlichen
   Einstellungen) und Ihr **Konto** als runde Fläche: ein Klick zeigt Name und
   Rolle und **Abmelden**. Eine Statuszeile mit Datum und Uhrzeit gibt es nicht
   mehr.
+- **Springen zu …:** ⌘K (Mac) oder Strg+K öffnet ein Suchfeld, das zu jeder
+  Ihrer Apps, jeder Seite der Verwaltung und der Einstellungen springt. Am
+  Handy steht es unter **Mehr** ganz oben.
 - **Kapsel (oben rechts über einer App):** der Umschalter **Live** und
   **Test**, wenn Sie Testperson dieser App sind, und das Icon der
   Rückmeldung. Die Testfassung trägt einen blauen Rand und oben das Wort

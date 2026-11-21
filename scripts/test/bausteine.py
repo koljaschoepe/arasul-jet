@@ -539,6 +539,8 @@ NAVIGATION_AUSNAHMEN = {
     'features/workspace/ActivityBar.tsx': 'die Leiste, breit',
     'features/workspace/LeisteUnten.tsx': 'dieselbe Leiste unter 900 px',
     'features/workspace/WorkspaceShell.tsx': 'spiegelt Adresse und Store ineinander',
+    # Die Befehlspalette (J51) ist die Leiste als Feld: dieselben Ziele, getippt.
+    'features/workspace/Befehlspalette.tsx': 'die Leiste als Feld, mit der Tastatur',
     'features/settings/Settings.tsx': 'die Bereichswahl INNERHALB der Verwaltung',
     'features/einstellungen/Einstellungen.tsx': 'die Bereichswahl INNERHALB der Einstellungen',
     # Jede App steht einmal in der Leiste; Live und Test schaltet nur die Kapsel.

@@ -13,7 +13,7 @@ describe('Wörterbuch', () => {
   });
 
   it('übersetzt Sätze mit Zahlen und Namen', () => {
-    expect(uebersetzeText('Guten Tag, Beispiel-Mitarbeiter')).toBe('Good day, Sample employee');
+    expect(uebersetzeText('Guten Tag, Beispiel-Mitarbeiter')).toBe('Hello, Sample employee');
     expect(uebersetzeText('Freitag, 20. November 2026')).toBe('Friday, 20 November 2026');
     expect(uebersetzeText('1\u00a0Meldung umgesetzt')).toBe('1 feedback item done');
     expect(uebersetzeText('Angebote live schalten?')).toBe('Switch Quotes live?');
@@ -54,5 +54,10 @@ describe('Wörterbuch', () => {
       'Erscheinungsbild',
     ];
     for (const satz of gemessen) expect(uebersetzeText(satz), satz).not.toBeNull();
+  });
+
+  it('schreibt ein Datum englisch, auch mitten im Satz', () => {
+    expect(uebersetzeText('21.11.2026, 01:27')).toBe('21/11/2026, 01:27');
+    expect(uebersetzeText('Brückentage 03.12.2026')).toBe('Brückentage 03/12/2026');
   });
 });

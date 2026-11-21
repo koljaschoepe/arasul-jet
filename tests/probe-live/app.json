@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-live",
   "name": "Probe: Live schalten mit Sicherung",
+  "symbol": "rocket",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/live-schalten-abnahme.sh: fuehrt beim Start eine Strukturaenderung aus, die je nach Fassung gelingt oder mittendrin scheitert.",
   "backend": {

@@ -58,7 +58,12 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AppWindow } from '@marken/symbole';
 import { useTheme, themeAmDokument, transparenzAmDokument } from '@/hooks/useTheme';
 import { useAuth } from '@/contexts/AuthContext';
-import { appPfad, useWorkspaceStore, type AppStand } from '@/stores/workspaceStore';
+import {
+  appPfad,
+  istPalettenTaste,
+  useWorkspaceStore,
+  type AppStand,
+} from '@/stores/workspaceStore';
 import { useMeineApps } from './meineApps';
 import { Ladezustand, Leerzustand } from '@marken';
 import { RueckmeldungKnopf } from './rueckmeldung/RueckmeldungKnopf';
@@ -112,6 +117,25 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
       /* fremde Herkunft — dann gilt in der App, was ihr Stylesheet sagt. */
     }
   }, [theme, transparenzReduziert, kapselPlatz]);
+
+  /**
+   * Die Tastenkombination der Befehlspalette auch IN der App (J51): ein
+   * Tastendruck im iframe erreicht die Shell nicht. Dieselbe Herkunft erlaubt,
+   * am Dokument der App zuzuhören; jedes `load` bringt ein neues Dokument.
+   */
+  const paletteReichen = useCallback(() => {
+    try {
+      const dokument = rahmen.current?.contentDocument;
+      dokument?.addEventListener('keydown', ev => {
+        if (istPalettenTaste(ev)) {
+          ev.preventDefault();
+          useWorkspaceStore.getState().setzePalette(true);
+        }
+      });
+    } catch {
+      /* fremde Herkunft — dann öffnet die Palette nur außerhalb der App. */
+    }
+  }, []);
 
   // Bei jedem Wechsel. Nicht bei jedem Rendern: `themeReichen` hängt am Theme
   // und sonst an nichts.
@@ -192,7 +216,10 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
         // auch das zweite, wenn die App in sich weiternavigiert. Ein Effekt
         // allein reichte dafür nicht: er läuft, wenn sich das Theme ändert,
         // und nicht, wenn der Rahmen etwas Neues lädt.
-        onLoad={themeReichen}
+        onLoad={() => {
+          themeReichen();
+          paletteReichen();
+        }}
         className="h-full w-full border-0 bg-background"
         data-testid={`app-rahmen-${appId}`}
       />

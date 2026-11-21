@@ -383,7 +383,7 @@ const MANIFEST_REGELN = Object.freeze([
   'Innerhalb von `agent` steht keine Route zweimal (`method` und `path` zusammen) und kein Parametername zweimal je Route.',
   'AUSGELIEFERT wird das Feld von der APP, unter `GET agent` an ihrer Schnittstelle, samt `id`, `name` und Version. Das Gerät hält keine zweite Kopie bereit: es nimmt das Feld an und gibt es nicht aus.',
   '`verbindungen` ist die Liste der Hostnamen, zu denen die App von sich aus ins Internet will (seit Kontrakt 7, freiwillig). Nur Namen, kleingeschrieben, ohne Schema, Port, Pfad, Platzhalter oder IP-Adresse; höchstens 20, keiner doppelt. Das Feld ist die FREIGABE: der Ausgangs-Proxy des Geräts lässt für diese App genau diese Namen durch und weist jeden anderen ab; der Administrator sieht je App, was eingetragen ist, was genutzt und was abgewiesen wurde -- siehe `netz`.',
-  '`symbol` ist das Bild der App in der Aktivitätsleiste (seit Kontrakt 8, freiwillig): ein Name aus dem Lucide-Satz (klein, mit Bindestrichen, z. B. `file-text`) ODER ein Kürzel aus 1 bis 3 Großbuchstaben oder Ziffern (z. B. `BE`). Das Gerät prüft die Form, nicht den Satz: kennt die Shell den Namen nicht, zeigt sie das Kürzel aus dem Namen der App. Ohne `symbol` gilt dasselbe Kürzel.',
+  '`symbol` ist das Bild der App in der Aktivitätsleiste (seit Kontrakt 8): ein Name aus dem Lucide-Satz (klein, mit Bindestrichen, z. B. `file-text`) ODER ein Kürzel aus 1 bis 3 Großbuchstaben oder Ziffern (z. B. `BE`). Seit dem 21.11.2026 gehört es zum App-Standard: beim Ausrollen weist das Gerät ein Paket ohne `symbol` ab (Code `symbol-fehlt`). Laufende Apps bleiben unberührt; für sie wählt der Administrator in der Verwaltung ein Symbol, das gilt, bis die App eines mitbringt. Das Gerät prüft die Form, nicht den Satz: kennt die Shell den Namen nicht, zeigt sie ein neutrales Fenster.',
   '`zeigt_freigaben` erklärt, dass die App ihre Freigaben selbst zeigt (seit Kontrakt 12, freiwillig): sie liest `?freigabe=<nummer>` aus ihrer Adresse und zeigt die Ansicht der Freigabe. Dann öffnet ein Klick in „Für Sie" die App beim Vorgang (Tieflink). Ohne das Feld, oder mit `false`, gilt „zeigt nicht selbst": das Gerät öffnet die Freigabe in Arasul, mit demselben Baustein und denselben Regeln. Wo sie gezeigt wird, ändert nicht, wer entscheiden darf: siehe `freigaben`.',
   'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Gerät legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an. Was bleibt und was nicht, steht unter `daten`.',
 ]);
@@ -873,7 +873,7 @@ function kontrakt() {
         'Eine Version, die gerade live ist, wird nicht überschrieben: neue Fassung, neue Nummer.',
         'Mit `flows` im Manifest muss der Ordner da sein und wenigstens eine .md enthalten.',
         'Jede eingespielte App belegt einen Platz der Lizenz, Test- und Livestand zusammen. Ist das Kontingent voll, weist das Gerät das Paket einer NEUEN App ab (409), und zwar bevor es baut; eine neue Version einer App, die schon da ist, geht immer durch.',
-        'Der App-Standard ist Pflicht (seit 20.11.2026): das Paket steht auf der Bibliothek des Geräts (`marken` mit dessen Hauptzahl, sobald es ein Frontend hat), bringt Tests mit und trägt den Nachweis des Kit-Ablaufs (`nachweis.json` in der Wurzel). Sonst weist das Gerät es mit 400 ab, bevor es baut, mit einem Satz je Grund; die Codes stehen in `details.standard`. Einen Schalter daran vorbei gibt es nicht. Ein fremder Container (kein Frontend, fertiges Image) bringt keinen Nachweis mit und wird abgewiesen.',
+        'Der App-Standard ist Pflicht (seit 20.11.2026): das Paket nennt `symbol` in app.json (seit 21.11.2026), steht auf der Bibliothek des Geräts (`marken` mit dessen Hauptzahl, sobald es ein Frontend hat), bringt Tests mit und trägt den Nachweis des Kit-Ablaufs (`nachweis.json` in der Wurzel). Sonst weist das Gerät es mit 400 ab, bevor es baut, mit einem Satz je Grund; die Codes stehen in `details.standard`. Einen Schalter daran vorbei gibt es nicht. Ein fremder Container (kein Frontend, fertiges Image) bringt keinen Nachweis mit und wird abgewiesen.',
       ],
       // Der App-Standard (J45). Das Format des Nachweises gehoert dem Kit
       // (Formatblatt `.ara/knowledge/nachweis.de.md`, Schema 1); hier steht,
@@ -890,6 +890,7 @@ function kontrakt() {
         pflicht: true,
         ausgenommen: [...MITGELIEFERTE_APPS],
         bibliothek: 'marken nennt die Hauptzahl des Geräts (oder eine Kopie derselben Hauptzahl)',
+        symbol: 'app.json nennt symbol (Lucide-Name oder Kürzel); nur beim Ausrollen geprüft',
         codes: appStandard.CODES,
       },
     },

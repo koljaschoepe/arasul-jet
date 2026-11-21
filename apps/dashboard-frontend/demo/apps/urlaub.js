@@ -6,23 +6,33 @@ import {
   h,
   rendern,
   useState,
+  Badge,
+  Datenliste,
   Feld,
   Formular,
   Karte,
+  Kennzahl,
+  Kennzahlen,
   Knopf,
   Kopf,
-  Liste,
-  ListenEintrag,
   Meldung,
 } from '/marken/5/marken.js';
-import { t, datum, tag, useFassung } from './gemeinsam.js';
+import { t, datum, tag, useFassung, SEITE, MONO, unterzeile } from './gemeinsam.js';
 
 const ABWESEND = [
-  { wer: t('Werkstatt', 'Workshop'), von: 2, bis: 6 },
-  { wer: t('Vertrieb Innendienst', 'Inside sales'), von: 9, bis: 13 },
-  { wer: t('Buchhaltung', 'Accounting'), von: 16, bis: 16 },
-  { wer: t('Kundendienst Außendienst', 'Field service'), von: 23, bis: 34 },
+  { wer: t('Werkstatt', 'Workshop'), von: 2, bis: 6, art: 'urlaub' },
+  { wer: t('Vertrieb Innendienst', 'Inside sales'), von: 9, bis: 13, art: 'urlaub' },
+  { wer: t('Buchhaltung', 'Accounting'), von: 16, bis: 16, art: 'gleittag' },
+  { wer: t('Kundendienst Außendienst', 'Field service'), von: 23, bis: 34, art: 'urlaub' },
+  { wer: t('Lager', 'Warehouse'), von: 30, bis: 31, art: 'schulung' },
 ];
+
+const ART = {
+  urlaub: () => t('Urlaub', 'Leave'),
+  gleittag: () => t('Gleittag', 'Flexi day'),
+  schulung: () => t('Schulung', 'Training'),
+  antrag: () => t('wartet auf Freigabe', 'awaiting approval'),
+};
 
 const iso = d => d.toISOString().slice(0, 10);
 
@@ -73,27 +83,95 @@ function App() {
     });
   };
 
+  const zeilen = [
+    ...antraege.map((a, i) => ({
+      kennung: `antrag-${i}`,
+      wer: t('Sie', 'You'),
+      von: a.von,
+      bis: a.bis,
+      tage: a.tage,
+      art: 'antrag',
+    })),
+    ...ABWESEND.map(a => ({
+      kennung: a.wer,
+      wer: a.wer,
+      von: tag(a.von),
+      bis: tag(a.bis),
+      tage: arbeitstage(tag(a.von), tag(a.bis)),
+      art: a.art,
+    })),
+  ];
+  const genommen = 30 - rest;
+
+  const spalten = [
+    {
+      schluessel: 'wer',
+      titel: t('Wer', 'Who'),
+      wert: z => z.wer,
+      zelle: z => z.wer,
+      inKarteOben: true,
+    },
+    {
+      schluessel: 'zeitraum',
+      titel: t('Zeitraum', 'Period'),
+      breite: '15rem',
+      wert: z => z.von.getTime(),
+      zelle: z =>
+        h(
+          'span',
+          { style: MONO },
+          z.tage === 1 ? datum(z.von) : `${datum(z.von)} – ${datum(z.bis)}`
+        ),
+    },
+    {
+      schluessel: 'tage',
+      titel: t('Arbeitstage', 'Working days'),
+      ausrichtung: 'rechts',
+      breite: '8rem',
+      wert: z => z.tage,
+      zelle: z => (z.tage === 1 ? t('1 Tag', '1 day') : t(`${z.tage} Tage`, `${z.tage} days`)),
+    },
+    {
+      schluessel: 'art',
+      titel: t('Art', 'Type'),
+      breite: '10rem',
+      wert: z => z.art,
+      zelle: z =>
+        h(Badge, { variant: z.art === 'antrag' ? 'outline' : 'default' }, ART[z.art]()),
+    },
+  ];
+
   return h(
     'div',
-    {
-      style: {
-        maxWidth: '56rem',
-        margin: '0 auto',
-        padding: 'var(--ara-abstand-4, 1rem)',
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr)',
-        gap: 'var(--ara-abstand-4, 1rem)',
-      },
-    },
+    { style: SEITE },
     h(Kopf, {
       titel: t('Urlaubsanträge', 'Leave requests'),
-      beschreibung: fassung ? t(`Fassung ${fassung.version}`, `Version ${fassung.version}`) : null,
+      beschreibung: unterzeile(
+        t('Urlaub beantragen und sehen, wer wann fehlt.', 'Request leave and see who is away when.'),
+        fassung
+      ),
     }),
     h(
-      Karte,
-      { titel: t('Resturlaub', 'Remaining leave') },
-      h('p', { style: { margin: 0, fontSize: '1.25rem' } }, t(`${rest} Tage`, `${rest} days`))
+      Kennzahlen,
+      null,
+      h(Kennzahl, {
+        beschriftung: t('Ihr Resturlaub', 'Your remaining leave'),
+        wert: String(rest),
+        einheit: t('Tage', 'days'),
+        fussnote: t(`${genommen} von 30 genommen oder beantragt`, `${genommen} of 30 taken or requested`),
+      }),
+      h(Kennzahl, {
+        beschriftung: t('Abwesend in 4 Wochen', 'Away in 4 weeks'),
+        wert: String(ABWESEND.length),
+        einheit: t('Abteilungen', 'teams'),
+      })
     ),
+    h(Datenliste, {
+      daten: zeilen,
+      spalten,
+      kennung: z => z.kennung,
+      beschriftung: t('Wer fehlt in den nächsten Wochen', 'Who is away in the coming weeks'),
+    }),
     h(
       Karte,
       { titel: t('Urlaub beantragen', 'Request leave') },
@@ -114,31 +192,6 @@ function App() {
           { kennung: 'bis', beschriftung: t('Bis', 'To') },
           h('input', { id: 'bis', type: 'date', value: bis, onChange: e => setBis(e.target.value) })
         )
-      )
-    ),
-    antraege.length > 0 &&
-      h(
-        Liste,
-        { beschriftung: t('Meine Anträge', 'My requests') },
-        ...antraege.map((a, i) =>
-          h(ListenEintrag, {
-            key: i,
-            titel: `${datum(a.von)} – ${datum(a.bis)}`,
-            unterzeile: t(`${a.tage} Arbeitstage`, `${a.tage} working days`),
-            hinweis: t('wartet auf Freigabe', 'awaiting approval'),
-          })
-        )
-      ),
-    h(
-      Liste,
-      { beschriftung: t('Wer fehlt in den nächsten Wochen', 'Who is away in the coming weeks') },
-      ...ABWESEND.map(a =>
-        h(ListenEintrag, {
-          key: a.wer,
-          titel: a.wer,
-          hinweis:
-            a.von === a.bis ? datum(tag(a.von)) : `${datum(tag(a.von))} – ${datum(tag(a.bis))}`,
-        })
       )
     )
   );

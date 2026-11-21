@@ -266,4 +266,12 @@
  * Bindestrich), und die Karte der `Datenliste` am Handy zeigt lange Texte in
  * einer eigenen Zeile, auf zwei Zeilen begrenzt. Kein Name aendert sich.
  */
-export const FASSUNG = '5.9.3';
+/*
+ * 5.10.0: die Befehlspalette. `CommandDialog` schwebt als Glas im oberen
+ * Drittel (Fuellung, Rand und Schatten aus `--glas-*`), mit schlichtem
+ * Schleier, und nimmt `inhaltKennzeichen`; `DialogContent` nimmt `schleier`
+ * (`glas` wie bisher oder `schlicht`). Kein Name faellt weg, nichts aendert
+ * seine Bedeutung; eine App auf 5.9.3 laeuft unveraendert. Die Kennzahl legt
+ * ihre Verlaufslinie in einer schmalen Kachel unter die Zahl statt ueber sie.
+ */
+export const FASSUNG = '5.10.0';

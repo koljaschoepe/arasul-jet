@@ -39,15 +39,35 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
   );
 }
 
+/**
+ * Die Befehlspalette (5.10.0, `gestaltung.md`: „Eine Tastenkombination oeffnet
+ * ein Feld, das zu jeder App ... springt"). Sie schwebt, also ist sie Glas wie
+ * ein Menue: Fuellung, heller Rand und Schatten aus `--glas-*`, im oberen
+ * Drittel statt in der Mitte, damit die Liste nach unten Platz hat. Der
+ * Schleier darunter ist schlicht, ohne Unschaerfe: die Palette ist die eine
+ * Glasflaeche, die dazukommt. Die Liste selbst ist durchsichtig und liegt auf
+ * dem Glas; die Zeilen tragen die Auswahl als getoente Flaeche.
+ */
 function CommandDialog({
   titel = 'Suchen',
   beschreibung = 'Tippen, um zu suchen. Pfeile wählen, Enter nimmt.',
   children,
+  inhaltKennzeichen,
   ...props
-}: React.ComponentProps<typeof Dialog> & { titel?: string; beschreibung?: string }) {
+}: React.ComponentProps<typeof Dialog> & {
+  titel?: string;
+  beschreibung?: string;
+  /** `data-testid` der schwebenden Flaeche. */
+  inhaltKennzeichen?: string;
+}) {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0" showCloseButton={false}>
+      <DialogContent
+        schleier="schlicht"
+        data-testid={inhaltKennzeichen}
+        className="glas top-[max(12px,14dvh)] max-w-[min(560px,calc(100%-16px))] translate-y-0 gap-0 overflow-hidden rounded-[12px] border-glas-kante bg-glas p-0 shadow-[var(--glas-schatten)] sm:max-w-[560px]"
+        showCloseButton={false}
+      >
         {/* Titel und Beschreibung stehen nur fuer den Screenreader da, und
             INNERHALB des Inhalts, nicht daneben: Radix sucht den Titel im
             Dialog und warnt in der Konsole, wenn er ihn dort nicht findet.
@@ -56,7 +76,7 @@ function CommandDialog({
           <DialogTitle>{titel}</DialogTitle>
           <DialogDescription>{beschreibung}</DialogDescription>
         </DialogHeader>
-        <Command className="[&_[data-slot=command-input-wrapper]]:h-12 [&_[data-slot=command-group]]:px-2 [&_[data-slot=command-item]]:px-2 [&_[data-slot=command-item]]:py-3">
+        <Command className="bg-transparent [&_[data-slot=command-group]]:px-1.5 [&_[data-slot=command-input-wrapper]]:h-11 [&_[data-slot=command-item]]:min-h-9 [&_[data-slot=command-item]]:rounded-md [&_[data-slot=command-item]]:px-2 [&_[data-slot=command-item][data-selected=true]]:bg-primary/14 [&_[data-slot=command-item][data-selected=true]]:text-foreground [&_[data-slot=command-list]]:max-h-[min(360px,60dvh)]">
           {children}
         </Command>
       </DialogContent>

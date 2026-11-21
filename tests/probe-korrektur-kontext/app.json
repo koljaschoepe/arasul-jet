@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-korrektur-kontext",
   "name": "Probe: Korrektur",
+  "symbol": "pen-line",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/korrektur-kontext-abnahme.sh: ein erkennender Flow, dessen naechster Schritt mit dem echten Modell einen Satz ueber die Buchung schreibt; die Korrektur des Menschen muss darin stehen (M5).",
   "frontend": {

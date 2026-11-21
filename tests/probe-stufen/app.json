@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-stufen",
   "name": "Probe: Stufen",
+  "symbol": "list-ordered",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/stufen-standardperson-abnahme.sh: reicht einen Vorgang ein, dessen Flow nacheinander eine Freigabe der Stufe Pruefung und eine der Stufe Leitung anfordert (M5).",
   "frontend": {

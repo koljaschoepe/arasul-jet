@@ -11,10 +11,11 @@
  * „Abmelden" steht nicht hier, sondern im Konto unten in der Leiste, am Handy
  * unter „Mehr" (Karte glas-rahmen-und-leiste): eine Stelle je Funktion.
  */
-import { Lock, LogOut, Monitor, Moon, Palette, Sun, User } from '@marken/symbole';
+import { Layers, LogOut, Monitor, Moon, Palette, Sun } from '@marken/symbole';
 import { useState } from 'react';
 import {
   Button,
+  Feldgruppe,
   Kopf,
   Label,
   Leerzustand,
@@ -36,13 +37,24 @@ import PasswordManagement from './PasswordManagement';
 import { ProfilFormular } from './ProfilFormular';
 import { RechnerVerbinden } from './RechnerVerbinden';
 import { useAusweise, useAusweisWiderrufen } from './useAusweise';
+import { BEREICHE, type BereichId } from './bereiche';
 
-const THEME_WAHLEN: ReadonlyArray<{ wert: ThemeWahl; label: string; icon: typeof Sun }> = [
-  { wert: 'system', label: 'System', icon: Monitor },
-  { wert: 'light', label: 'Hell', icon: Sun },
-  { wert: 'dark', label: 'Dunkel', icon: Moon },
+const THEME_WAHLEN: ReadonlyArray<{
+  wert: ThemeWahl;
+  label: string;
+  satz: string;
+  icon: typeof Sun;
+}> = [
+  { wert: 'system', label: 'System', satz: 'Folgt Ihrem Rechner', icon: Monitor },
+  { wert: 'light', label: 'Hell', satz: 'Helle Flächen, dunkle Schrift', icon: Sun },
+  { wert: 'dark', label: 'Dunkel', satz: 'Dunkle Flächen, ruhig am Abend', icon: Moon },
 ];
 
+/**
+ * Erscheinungsbild (J51, Rest der dritten Karte: die Seite wirkte karg). Zwei
+ * Gruppen wie in der Verwaltung: das Farbschema als drei Karten zum Antippen,
+ * darunter das Glas mit einem Satz, was der Schalter tut.
+ */
 function Erscheinungsbild() {
   const { wahl, setTheme, transparenzReduziert, setTransparenzReduziert } = useTheme();
   return (
@@ -51,46 +63,66 @@ function Erscheinungsbild() {
         titel="Erscheinungsbild"
         beschreibung="Hell oder dunkel, und wie viel Glas Sie sehen. Gilt für Sie auf jedem Rechner."
       />
-      <RadioGroup
-        value={wahl}
-        onValueChange={wert => {
-          // `setTheme` meldet einen Fehler über `useApi` selbst.
-          void setTheme(wert as ThemeWahl).catch(() => {});
-        }}
-        aria-label="Erscheinungsbild"
-        className="items-start justify-items-start"
-        data-testid="erscheinungsbild"
-      >
-        {THEME_WAHLEN.map(({ wert, label, icon: Icon }) => (
-          <div key={wert} className="flex items-center gap-3">
-            <RadioGroupItem value={wert} id={`theme-${wert}`} />
+      <div className="flex flex-col gap-6">
+        <Feldgruppe
+          titel="Farbschema"
+          symbol={<Palette />}
+          beschreibung="Die Apps im Rahmen folgen Ihrer Wahl."
+        >
+          <RadioGroup
+            value={wahl}
+            onValueChange={wert => {
+              // `setTheme` meldet einen Fehler über `useApi` selbst.
+              void setTheme(wert as ThemeWahl).catch(() => {});
+            }}
+            aria-label="Farbschema"
+            className="grid grid-cols-1 gap-2 sm:max-w-[600px] sm:grid-cols-3"
+            data-testid="erscheinungsbild"
+          >
+            {THEME_WAHLEN.map(({ wert, label, satz, icon: Icon }) => (
+              <Label
+                key={wert}
+                htmlFor={`theme-${wert}`}
+                data-gewaehlt={wahl === wert}
+                className="flex cursor-pointer items-start gap-3 rounded-[12px] border border-border bg-card p-3 transition-colors duration-120 ease-out hover:bg-accent data-[gewaehlt=true]:border-primary data-[gewaehlt=true]:bg-primary/14 motion-reduce:transition-none dark:data-[gewaehlt=true]:bg-primary/28"
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/14 text-primary dark:bg-primary/28 dark:text-foreground">
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-medium text-foreground">{label}</span>
+                  <span className="text-xs font-normal text-muted-foreground">{satz}</span>
+                </span>
+                <RadioGroupItem value={wert} id={`theme-${wert}`} className="mt-0.5" />
+              </Label>
+            ))}
+          </RadioGroup>
+        </Feldgruppe>
+        {/* Glas auf Menüs und Meldungen wird deckend. Was das System wünscht
+            (weniger Transparenz, mehr Kontrast), gilt ohnehin. */}
+        <Feldgruppe
+          titel="Glas"
+          symbol={<Layers />}
+          beschreibung="Leiste, Menüs und Meldungen sind leicht durchscheinend. Reduziert werden sie deckend und ruhiger."
+          className="border-b-0"
+        >
+          <div className="flex items-center gap-3">
+            <Switch
+              id="transparenz-reduzieren"
+              checked={transparenzReduziert}
+              onCheckedChange={wert => {
+                void setTransparenzReduziert(wert === true).catch(() => {});
+              }}
+              data-testid="transparenz-reduzieren"
+            />
             <Label
-              htmlFor={`theme-${wert}`}
-              className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-foreground"
+              htmlFor="transparenz-reduzieren"
+              className="cursor-pointer text-sm font-medium text-foreground"
             >
-              <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
-              {label}
+              Transparenz reduzieren
             </Label>
           </div>
-        ))}
-      </RadioGroup>
-      {/* Glas auf Menüs und Meldungen wird deckend. Was das System wünscht
-          (weniger Transparenz, mehr Kontrast), gilt ohnehin. */}
-      <div className="mt-6 flex items-center gap-3">
-        <Switch
-          id="transparenz-reduzieren"
-          checked={transparenzReduziert}
-          onCheckedChange={wert => {
-            void setTransparenzReduziert(wert === true).catch(() => {});
-          }}
-          data-testid="transparenz-reduzieren"
-        />
-        <Label
-          htmlFor="transparenz-reduzieren"
-          className="cursor-pointer text-sm font-medium text-foreground"
-        >
-          Transparenz reduzieren
-        </Label>
+        </Feldgruppe>
       </div>
     </>
   );
@@ -199,16 +231,6 @@ function AngemeldeteRechner() {
     </>
   );
 }
-
-/** Die Bereiche der Einstellungen, in dieser Reihenfolge (`frontend.md`). */
-const BEREICHE = [
-  { id: 'profil', name: 'Profil', symbol: <User />, gruppe: 'Konto' },
-  { id: 'passwort', name: 'Passwort', symbol: <Lock />, gruppe: 'Konto' },
-  { id: 'rechner', name: 'Angemeldete Rechner', symbol: <Monitor />, gruppe: 'Konto' },
-  { id: 'erscheinungsbild', name: 'Erscheinungsbild', symbol: <Palette />, gruppe: 'Darstellung' },
-] as const;
-
-type BereichId = (typeof BEREICHE)[number]['id'];
 
 function bereichAus(wert: string | undefined): BereichId {
   return BEREICHE.find(b => b.id === wert)?.id ?? 'profil';

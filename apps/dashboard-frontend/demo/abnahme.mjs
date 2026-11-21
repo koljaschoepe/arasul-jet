@@ -158,12 +158,16 @@ async function sammeln(seite) {
 
 // Belege für den PR: die Schritte, die die Website erklärt.
 const BELEGT = [
-  '1-start',
-  '2-hilfe',
-  '4-rueckmeldung',
-  '6-eingang',
-  '8-test-nach-live',
-  '10-rabatt',
+  '1-weg-app',
+  '2-weg-rueckmeldung',
+  '3-markierung',
+  '4-weg-entwickler',
+  '5-weg-eingang',
+  '6-weg-live',
+  '6-weg-geschafft',
+  '7-rabatt',
+  '8-wartungsplan',
+  '8-urlaub',
 ];
 async function bild(seite, name) {
   if (BILDER && BELEGT.some(s => name.endsWith(`-${s}`))) {
@@ -190,7 +194,6 @@ async function weg(browser, basis, sprache, breite) {
   await kontext.addInitScript(s => {
     try {
       localStorage.setItem('arasul-demo-sprache', s);
-      sessionStorage.setItem('arasul-demo-gesehen', 'ja');
     } catch {}
   }, sprache);
   const seite = await kontext.newPage();
@@ -208,34 +211,36 @@ async function weg(browser, basis, sprache, breite) {
     }
   });
 
-  // 1. Startseite als Mitarbeiter
+  /** Der Hinweis des geführten Wegs steht bei Schritt `n` (J51). */
+  const hinweis = async n => {
+    await seite.locator(`[data-testid="demo-weg"][data-schritt="${n}"]:not([hidden])`).waitFor({
+      timeout: 15_000,
+    });
+    await warte(400);
+  };
+
+  // 1. Startseite als Mitarbeiter, der Weg beginnt von selbst
   await seite.goto(basis + '/');
   await seite.getByTestId('uebersicht-seite').waitFor({ timeout: 20_000 });
   await seite.locator('.demo-band').waitFor();
-  await warte(600);
+  await hinweis(1);
   await ueberlauf(seite, `${wo} Startseite`);
-  await bild(seite, name('1-start'));
+  await bild(seite, name('1-weg-app'));
   if (SAMMELN) await sammeln(seite);
   const hatCockpit = await seite.getByTestId('uebersicht-app-entwickler-cockpit').count();
   if (hatCockpit) rot(`${wo}: der Mitarbeiter sieht das Cockpit`);
 
-  // Die Hilfe im Band
-  await seite.locator('.demo-band-hilfe').click();
-  await seite.locator('#demo-hilfe').waitFor();
-  await bild(seite, name('2-hilfe'));
-  await ueberlauf(seite, `${wo} Hilfe`);
-  await seite.locator('.demo-band-hilfe').click();
-
-  // 2. App Angebote (live, ohne Rabatt)
-  await seite.getByTestId('uebersicht-app-angebote').click();
+  // 2. „Weiter" öffnet Angebote (live, ohne Rabatt)
+  await seite.getByTestId('demo-weg-weiter').click();
   const app = seite
     .frameLocator('[data-testid="app-rahmen-angebote"] iframe, iframe[src="/apps/angebote/"]')
     .first();
   await app.locator('.ara-kopf').waitFor({ timeout: 15_000 });
-  await app.getByText(/1\.4\.0/).waitFor();
-  await warte(400);
+  await app.getByText(/1\.4\.0/).first().waitFor();
+  await app.locator('[data-slot="kennzahl"]').first().waitFor();
+  await hinweis(2);
   await ueberlauf(seite, `${wo} Angebote`);
-  await bild(seite, name('3-angebote'));
+  await bild(seite, name('2-weg-rueckmeldung'));
 
   // 3. Rückmeldung mit Foto und Markierung
   await seite.getByTestId('rueckmeldung-knopf').click();
@@ -260,44 +265,39 @@ async function weg(browser, basis, sprache, breite) {
     rot(`${wo}: kein Bildschirmfoto im Formular`);
   }
   if (SAMMELN) await sammeln(seite);
-  await bild(seite, name('4-rueckmeldung'));
+  await bild(seite, name('3-markierung'));
   await seite.getByTestId('rueckmeldung-absenden').click();
   await seite.getByTestId('rueckmeldung-bestaetigung').waitFor();
   if (SAMMELN) await sammeln(seite);
-  await bild(seite, name('5-danke'));
   await seite.getByTestId('rueckmeldung-fertig').click();
 
-  // 4. Auf Entwickler umschalten: das Cockpit öffnet sich
-  await seite.locator('.demo-band-wahl button').nth(1).click();
+  // 4. Der Weg zeigt auf den Schalter im Band; „Weiter" wechselt zum Entwickler
+  await hinweis(3);
+  await bild(seite, name('4-weg-entwickler'));
+  await seite.getByTestId('demo-weg-weiter').click();
   await seite.waitForURL(/entwickler-cockpit/);
   const cockpit = seite.frameLocator('iframe[src="/apps/entwickler-cockpit/"]');
   await cockpit.getByTestId('cockpit-eingang').waitFor({ timeout: 20_000 });
   const meldungText = sprache === 'en' ? 'A discount per quote' : 'Ein Rabatt je Angebot';
   await cockpit.getByText(meldungText).first().waitFor();
-  await warte(500);
+  await hinweis(4);
   await ueberlauf(seite, `${wo} Cockpit Eingang`);
-  await bild(seite, name('6-eingang'));
+  await bild(seite, name('5-weg-eingang'));
   if (SAMMELN) await sammeln(seite);
   await cockpit.getByText(meldungText).first().click();
   await warte(500);
   const hatBild = await cockpit.getByTestId('cockpit-bild').count();
   if (!hatBild) rot(`${wo}: die Meldung zeigt kein Bildschirmfoto im Cockpit`);
-  await bild(seite, name('7-meldung'));
   if (SAMMELN) await sammeln(seite);
-
   await seite.keyboard.press('Escape');
   await warte(300);
 
-  // 5. Test nach Live
-  const zuLive = cockpit.getByTestId('cockpit-leiste-live');
-  if (!(await zuLive.isVisible())) {
-    await cockpit.getByTestId('cockpit-leiste-umschalten').click();
-  }
-  await zuLive.click();
-  await cockpit.getByTestId('cockpit-live-schalten-angebote').waitFor();
-  await warte(300);
+  // 5. „Weiter" führt zu Test nach Live
+  await seite.getByTestId('demo-weg-weiter').click();
+  await cockpit.getByTestId('cockpit-live-schalten-angebote').waitFor({ timeout: 10_000 });
+  await hinweis(5);
   await ueberlauf(seite, `${wo} Test nach Live`);
-  await bild(seite, name('8-test-nach-live'));
+  await bild(seite, name('6-weg-live'));
   if (SAMMELN) await sammeln(seite);
   await cockpit.getByTestId('cockpit-live-schalten-angebote').click();
   const frage = cockpit.getByRole('alertdialog');
@@ -305,9 +305,9 @@ async function weg(browser, basis, sprache, breite) {
   if (SAMMELN) await sammeln(seite);
   await frage.getByRole('button').last().click();
   await cockpit.getByTestId('cockpit-schalt-ausgang').waitFor({ timeout: 15_000 });
-  await warte(300);
-  await bild(seite, name('9-live'));
-  if (SAMMELN) await sammeln(seite);
+  await seite.locator('[data-testid="demo-weg"][data-geschafft="true"]').waitFor();
+  await warte(400);
+  await bild(seite, name('6-weg-geschafft'));
 
   // Apps-Ansicht des Cockpits
   if (!(await cockpit.getByTestId('cockpit-leiste-apps').isVisible())) {
@@ -317,6 +317,11 @@ async function weg(browser, basis, sprache, breite) {
   await warte(400);
   if (SAMMELN) await sammeln(seite);
 
+  // „Angebote ansehen" beendet den Weg und öffnet die App
+  await seite.getByTestId('demo-weg-weiter').click();
+  await seite.waitForURL(/\/workspace\/app\/angebote/);
+  await seite.locator('[data-testid="demo-weg"][hidden]').waitFor({ state: 'attached' });
+
   // 6. Angebote live rechnet jetzt mit Rabatt
   await seite.goto(basis + '/workspace/app/angebote');
   const live = seite.frameLocator('iframe[src="/apps/angebote/"]');
@@ -324,33 +329,38 @@ async function weg(browser, basis, sprache, breite) {
     .getByText(/1\.5\.0/)
     .first()
     .waitFor({ timeout: 15_000 });
-  await live.getByText(sprache === 'en' ? 'after discount' : 'nach Rabatt').waitFor();
+  await live
+    .getByText(sprache === 'en' ? 'after discount' : 'nach Rabatt')
+    .first()
+    .waitFor();
   await warte(300);
   await ueberlauf(seite, `${wo} Angebote mit Rabatt`);
-  await bild(seite, name('10-rabatt'));
+  await bild(seite, name('7-rabatt'));
 
-  // Die beiden anderen Beispiel-Apps
+  // Die beiden anderen Beispiel-Apps: Seitenkopf, Kennzahl, Tabelle
   for (const id of ['wartungsplan', 'urlaub']) {
     await seite.goto(`${basis}/workspace/app/${id}`);
-    await seite
-      .frameLocator(`iframe[src="/apps/${id}/"]`)
-      .locator('.ara-kopf')
-      .waitFor({ timeout: 15_000 });
+    const rahmen = seite.frameLocator(`iframe[src="/apps/${id}/"]`);
+    await rahmen.locator('.ara-kopf').waitFor({ timeout: 15_000 });
+    await rahmen.locator('[data-slot="kennzahl"]').first().waitFor();
     await warte(400);
     await ueberlauf(seite, `${wo} ${id}`);
-    await bild(seite, name(`11-${id}`));
+    await bild(seite, name(`8-${id}`));
+    if (SAMMELN) await sammeln(seite);
   }
 
-  // Einstellungen (für alle gleich) — nur sammeln und auf Überlauf prüfen
+  // Einstellungen (für alle gleich): nur sammeln und auf Überlauf prüfen
   await seite.goto(basis + '/workspace/settings/erscheinungsbild');
   await warte(1200);
   await ueberlauf(seite, `${wo} Einstellungen`);
   if (SAMMELN) await sammeln(seite);
 
-  // Zurück zum Mitarbeiter, frisch
+  // „So geht’s" beginnt den Weg neu, als Mitarbeiter; „Überspringen" beendet ihn
   await seite.locator('.demo-band-hilfe').click();
-  await seite.locator('.demo-hilfe-unten button').first().click();
   await seite.getByTestId('uebersicht-seite').waitFor();
+  await hinweis(1);
+  await seite.getByTestId('demo-weg-ueberspringen').click();
+  await seite.locator('[data-testid="demo-weg"][hidden]').waitFor({ state: 'attached' });
 
   gruen(`${wo}: Weg vollständig`);
   await kontext.close();

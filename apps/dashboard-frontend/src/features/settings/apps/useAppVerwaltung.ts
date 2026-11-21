@@ -120,6 +120,8 @@ export interface StandardUrteil {
 /** Ein Stand einer App, wie ihn `GET /api/apps/:id` liefert. */
 export interface AppStandDetail {
   version: string;
+  /** Das Manifest dieses Standes; hier gelesen wird nur `symbol` (J51). */
+  manifest?: { symbol?: string | null } | null;
   vorige_version: string | null;
   eingespielt_am: string;
   pfad: string | null;
@@ -187,6 +189,8 @@ export interface AppDetail {
   letzte_schaltung?: AppSchaltung | null;
   /** Gehen Bildschirmfotos der Rückmeldungen an den Agenten (J43)? Vorgabe aus. */
   bilder_an_agenten?: boolean;
+  /** Das Symbol, das der Administrator gewählt hat (J51), oder null. */
+  symbol_ersatz?: string | null;
 }
 
 /** Die Flow-Datei selbst (`GET /api/apps/:id/flows/:name`). */
@@ -580,6 +584,24 @@ export function useBilderAnAgenten(appId: string) {
       api.put(`/apps/${appId}/bilder-an-agenten`, { erlaubt }, { showError: false }),
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: appKey(appId) });
+    },
+  });
+}
+
+/**
+ * Das Symbol, das der Administrator einer App gibt (J51,
+ * `PUT /api/apps/:id/symbol`). `null` nimmt es zurück. Die Leiste liest es
+ * über `/api/apps/meine`, deshalb wird auch diese Liste neu geholt.
+ */
+export function useSymbolErsatz(appId: string) {
+  const api = useApi();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (symbol: string | null) =>
+      api.put(`/apps/${appId}/symbol`, { symbol }, { showError: false }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: appKey(appId) });
+      void qc.invalidateQueries({ queryKey: ['apps', 'meine'] });
     },
   });
 }

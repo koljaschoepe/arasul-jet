@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-zeitplan",
   "name": "Probe: Zeitplan",
+  "symbol": "calendar-clock",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/zeitplaner-abnahme.sh: Flows mit Zeitplan, ohne Modell gemessen (M5).",
   "frontend": {

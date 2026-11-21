@@ -1,6 +1,6 @@
 # Demo ohne Gerät
 
-> Stand: 20.11.2026, J46 (M7). Das echte Frontend dieses Repos als statischer
+> Stand: 21.11.2026, J46 und J51 (M7). Das echte Frontend dieses Repos als statischer
 > Bau mit gespielten Antworten statt Backend, kostenlos gehostet. Einstieg für
 > Fremde ohne Gerät, verlinkt von der Website.
 > Adresse: <https://arasul-demo.vercel.app> (Vercel-Projekt `arasul-demo`,
@@ -10,17 +10,35 @@
 ## Was der Besucher sieht
 
 Er ist ohne Anmeldung **Beispiel-Mitarbeiter** der erfundenen Beispielwerk GmbH
-und hat drei kleine Apps: Angebote, Wartungsplan, Urlaubsanträge. Über jeder
-App steht das Icon der Rückmeldung (`docs/features/RUECKMELDUNG.md`); eine
-Meldung mit Bildschirmfoto und markierter Stelle bleibt in seinem Browser.
-Das Band oben schaltet auf **Beispiel-Entwickler** um: dann öffnet sich das
-Entwickler-Cockpit mit der Meldung im Eingang, und unter „Test nach Live"
-liegt Angebote 1.5.0 bereit. Live geschaltet, rechnet die App mit Rabatt. Das
-ist der Weg, den die Website erklärt; „So geht's" im Band nennt ihn in vier
-Schritten.
+(Kälte- und Klimatechnik) und hat drei kleine Apps, jede mit eigenem Symbol,
+Seitenkopf, Kennzahlen und einer kompakten Tabelle (`Datenliste`): Angebote
+(`file-text`), Wartungsplan (`wrench`), Urlaubsanträge (`calendar-days`).
 
-Das Band sagt „Demo mit Beispieldaten", schaltet Deutsch und Englisch, setzt
-die Demo zurück und führt auf <https://www.arasul.de>.
+**Der geführte Weg** (`fuehrung.ts`, seit J51) beginnt beim ersten Besuch von
+selbst. Fünf Schritte, jeder mit einem Hinweis aus Glas an der Stelle, um die
+es geht, einem Ring um diese Stelle, „Weiter" und „Überspringen":
+
+| Schritt | Stelle                                 | „Weiter" tut                            |
+| ------- | -------------------------------------- | --------------------------------------- |
+| 1       | Kachel „Angebote" (sonst die Leiste)   | öffnet Angebote                         |
+| 2       | das Icon der Rückmeldung in der Kapsel | geht weiter (schreiben muss man selbst) |
+| 3       | „Entwickler" im Band                   | wechselt die Rolle, das Cockpit öffnet  |
+| 4       | der Eingang im Cockpit                 | öffnet „Test nach Live"                 |
+| 5       | „Live schalten" bei Angebote 1.5.0     | beendet den Weg                         |
+
+Wer selbst klickt, kommt ohne „Weiter" voran (App geöffnet, Rückmeldung
+gesendet, Cockpit offen). Ein offener Dialog hat Vorrang, der Hinweis tritt
+dann zurück. Am Handy steht der Hinweis über der Leiste unten. Esc und
+„Überspringen" beenden den Weg, „So geht's" im Band beginnt ihn neu, als
+Mitarbeiter. Der Stand liegt in `sessionStorage`.
+
+Live geschaltet, rechnet Angebote mit Rabatt; das ist der Weg, den die
+Website erklärt.
+
+Das Band liegt seit J51 hell auf hell (dunkel auf dunkel), in der Fläche des
+Produkts mit feiner Linie darunter: „Demo mit Beispieldaten", Mitarbeiter
+oder Entwickler, „So geht's", „Zurücksetzen", Deutsch oder Englisch, „Zur
+Website". Unter 760 px fallen „Zurücksetzen" und „Zur Website" weg.
 
 Nicht in der Demo: die Verwaltung (gehört dem Administrator), das Terminal
 (meldet „nicht eingeschaltet"), Freigaben, Flows. Jeder Weg, den die Demo
@@ -64,11 +82,20 @@ waagrechtem Überlauf, einer fremden Herkunft im Netzwerk, einer Anfrage an
 Passt der Chromium nicht zur Playwright-Fassung: `ARASUL_CHROMIUM=<Pfad>`.
 
 Die CI baut die Demo im Job „Frontend" mit (`Demo bauen (J46)`); die Tests
-unter `demo/` laufen mit Vitest. Ausgeliefert wird nicht aus der CI.
+unter `demo/` laufen mit Vitest.
 
 ## Ausliefern
 
-Von Hand, nach einem Merge, der das Frontend oder die Demo ändert:
+**Aus der CI** (seit J51): `.github/workflows/demo.yml` baut nach jedem Merge
+auf `main`, der Frontend, Cockpit oder Bibliothek ändert (oder von Hand mit
+`workflow_dispatch`), und legt `dist-demo/` als Produktion auf
+`arasul-demo`. Danach fragt er die Adresse einmal ab. Dafür braucht das Repo
+das Geheimnis `VERCEL_TOKEN` (ein Token des Teams `arasuls-projects`, unter
+vercel.com › Account Settings › Tokens, im Repo unter Settings › Secrets ›
+Actions). Fehlt es, baut der Lauf, meldet „ohne Token nicht ausgeliefert"
+und bleibt grün.
+
+**Von Hand**, solange das Geheimnis fehlt:
 
 ```bash
 cd apps/dashboard-frontend

@@ -26,8 +26,10 @@ export const WOERTER: Record<string, string> = {
   Abmelden: 'Sign out',
   Administrator: 'Administrator',
   Mitarbeiter: 'Employee',
-  'Guten Tag': 'Good day',
+  'Guten Tag': 'Hello',
   'Alles erledigt': 'All done',
+  'Alles erledigt, keine Freigabe wartet auf Sie.': 'All done, no approval is waiting for you.',
+  'Ihre Apps': 'Your apps',
   'Für Sie': 'For you',
   'Keine Freigabe liegt bei Ihnen.': 'No approval is waiting for you.',
   'Keine offene Freigabe': 'No open approval',
@@ -237,7 +239,7 @@ const name = (s: string) => WOERTER[s] ?? s;
 
 /** Sätze mit Zahlen oder Namen darin. Reihenfolge zählt: das erste Muster gewinnt. */
 export const MUSTER: Array<[RegExp, (...teile: string[]) => string]> = [
-  [/^Guten Tag, (.+)$/, (_, n = '') => `Good day, ${name(n)}`],
+  [/^Guten Tag, (.+)$/, (_, n = '') => `Hello, ${name(n)}`],
   [/^Bereiche: (.+)$/, (_, n = '') => `Sections: ${name(n)}`],
   [/^Konto: (.+)$/, (_, n = '') => `Account: ${name(n)}`],
   [/^\(Test\) (.+)$/, (_, n = '') => `(Test) ${name(n)}`],

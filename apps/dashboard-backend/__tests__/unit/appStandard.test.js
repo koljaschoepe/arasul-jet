@@ -46,6 +46,7 @@ const MANIFEST = {
   name: 'Probe',
   version: '1.0.0',
   marken: '5',
+  symbol: 'file-text',
   frontend: { verzeichnis: 'frontend' },
 };
 
@@ -253,7 +254,8 @@ describe('(b) und (c) der Nachweis, in der Reihenfolge des Blatts', () => {
     const ziel = paket({
       manifest: { ...MANIFEST, id: 'andere' },
       ohneNachweis: true,
-      nachher: o => fs.copyFileSync(path.join(quelle, 'nachweis.json'), path.join(o, 'nachweis.json')),
+      nachher: o =>
+        fs.copyFileSync(path.join(quelle, 'nachweis.json'), path.join(o, 'nachweis.json')),
     });
     const gefunden = await codes(ziel, { ...MANIFEST, id: 'andere' });
     expect(gefunden).toEqual(expect.arrayContaining(['kennung', 'paket-geaendert']));
@@ -327,6 +329,18 @@ describe('beim Ausrollen (nimmAn)', () => {
     expect(fs.readdirSync(appPaket.eingangsOrdner())).toEqual([]);
   });
 
+  it('symbol-fehlt: weist eine App ohne Symbol ab, mit einem Satz, was fehlt (J51)', async () => {
+    const { symbol: _weg, ...manifest } = MANIFEST;
+    const fehler = await appPaket
+      .nimmAn({ archivPfad: archiv(paket({ manifest })), durch: null })
+      .catch(err => err);
+
+    expect(fehler).toBeInstanceOf(ValidationError);
+    expect(fehler.message).toMatch(/- Die App nennt in app.json kein `symbol`/);
+    expect(fehler.details.standard).toEqual(['symbol-fehlt']);
+    expect(appStore.spieleEin).not.toHaveBeenCalled();
+  });
+
   it('nimmt ein Paket mit gültigem Nachweis an', async () => {
     const stand = await appPaket.nimmAn({ archivPfad: archiv(paket()), durch: 1 });
     expect(stand.stand).toBe('test');
@@ -335,6 +349,13 @@ describe('beim Ausrollen (nimmAn)', () => {
 });
 
 describe('befund: für Stände, die schon am Gerät liegen', () => {
+  it('lässt eine laufende App ohne Symbol unberührt (J51)', async () => {
+    const { symbol: _weg, ...manifest } = MANIFEST;
+    const urteil = await appStandard.befund(paket({ manifest }), manifest);
+    expect(urteil.funde.map(f => f.code)).not.toContain('symbol-fehlt');
+    expect(urteil.erfuellt).toBe(true);
+  });
+
   it('weist nichts ab, sagt aber, was fehlt', async () => {
     const urteil = await appStandard.befund(paket({ ohneNachweis: true }), MANIFEST);
     expect(urteil.erfuellt).toBe(false);

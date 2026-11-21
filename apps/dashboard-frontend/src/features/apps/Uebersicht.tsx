@@ -144,7 +144,7 @@ export function Uebersicht({
     // Dieselben Ränder wie jede Seite (Bereichsrahmen, Cockpit): linksbündig,
     // oben 10 px, seitlich 16 bis 24 px, höchstens 64rem breit.
     <div
-      className="max-w-[64rem] px-[clamp(16px,4vw,24px)] pt-[10px] pb-6"
+      className="max-w-[100rem] px-[clamp(16px,4vw,24px)] pt-[10px] pb-6"
       data-testid="uebersicht-seite"
     >
       <StartKopf name={name} offen={offen} />
@@ -171,7 +171,9 @@ export function Uebersicht({
           <h2 id="start-apps" className="mb-2 text-sm font-medium text-foreground">
             Ihre Apps
           </h2>
-          <div className="grid grid-cols-1 gap-ui-2 min-[900px]:grid-cols-2 min-[1400px]:grid-cols-3">
+          {/* Die Kacheln füllen die Breite (J51): bei 1440 px blieb rechts ein
+              Drittel leer. So viele Spalten, wie 280 px breit Platz finden. */}
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-ui-2">
             {eintraege.map(app => {
               const stand = standFuerKlick(app, zuletztStand[app.id]);
               const zahl = app.staende.reduce(

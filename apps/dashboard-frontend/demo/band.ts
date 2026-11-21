@@ -1,13 +1,15 @@
 /**
- * Das Band der Demo (J46, M7): sagt, dass hier Beispieldaten stehen, schaltet
- * zwischen Mitarbeiter und Entwickler, zwischen Deutsch und Englisch, setzt
- * zurück und führt zurück auf arasul.de. Reines DOM ohne React: es gehört
+ * Das Band der Demo (J46, J51, M7): sagt, dass hier Beispieldaten stehen,
+ * schaltet zwischen Mitarbeiter und Entwickler, zwischen Deutsch und
+ * Englisch, beginnt den geführten Weg neu, setzt zurück und führt zurück auf
+ * arasul.de. Reines DOM ohne React: es gehört
  * nicht zum Produkt und soll neben ihm stehen, nicht in ihm.
  *
  * Farben nur aus den Tokens (`theme.css`), Gestalt in `band.css`.
  */
 import './band.css';
 import type { Rolle, Sprache } from './daten';
+import { schrittSetzen, wegSetzen } from './fuehrung';
 
 const SPRACHE_SCHLUESSEL = 'arasul-demo-sprache';
 const COCKPIT = '/workspace/app/entwickler-cockpit';
@@ -48,18 +50,12 @@ const TEXTE = {
     mitarbeiter: 'Mitarbeiter',
     entwickler: 'Entwickler',
     hilfe: 'So geht’s',
+    hilfeTitel: 'Den geführten Weg von vorn beginnen',
     sprache: 'Sprache',
     zurueck: 'Zur Website',
-    zuruecksetzen: 'Demo zurücksetzen',
-    hinweis:
-      'Alles hier ist erfunden: die Firma, die Apps, die Meldungen. Was Sie eingeben, bleibt in Ihrem Browser und geht an keinen Server.',
-    schritte: [
-      'Öffnen Sie eine App, zum Beispiel „Angebote“.',
-      'Tippen Sie oben rechts in der App auf das Symbol für Rückmeldungen, markieren Sie eine Stelle und schreiben Sie, was fehlt.',
-      'Schalten Sie oben auf „Entwickler“. Das Entwickler-Cockpit öffnet sich, Ihre Meldung steht im Eingang.',
-      'Unter „Test nach Live“ schalten Sie die neue Fassung der Angebote live. Danach rechnet die App mit Rabatt.',
-    ],
-    schliessen: 'Schließen',
+    zuruecksetzen: 'Zurücksetzen',
+    zuruecksetzenTitel:
+      'Alles hier ist erfunden. Was Sie eingeben, bleibt in Ihrem Browser; Zurücksetzen löscht es.',
   },
   en: {
     band: 'Demo with sample data',
@@ -68,24 +64,21 @@ const TEXTE = {
     mitarbeiter: 'Employee',
     entwickler: 'Developer',
     hilfe: 'How it works',
+    hilfeTitel: 'Start the guided tour again',
     sprache: 'Language',
     zurueck: 'To the website',
-    zuruecksetzen: 'Reset demo',
-    hinweis:
-      'Everything here is made up: the company, the apps, the feedback. What you enter stays in your browser and is sent to no server.',
-    schritte: [
-      'Open an app, for example “Quotes”.',
-      'Tap the feedback icon at the top right of the app, mark a spot and write what is missing.',
-      'Switch to “Developer” at the top. The developer cockpit opens and your feedback is in the inbox.',
-      'Under “Test to live”, switch the new version of Quotes live. Afterwards the app calculates with a discount.',
-    ],
-    schliessen: 'Close',
+    zuruecksetzen: 'Reset',
+    zuruecksetzenTitel:
+      'Everything here is made up. What you enter stays in your browser; reset deletes it.',
   },
 } as const;
 
 function knopf(text: string, beiKlick: () => void, gedrueckt?: boolean): HTMLButtonElement {
   const k = document.createElement('button');
   k.type = 'button';
+  // Die Trefferfläche legt `band.css` selbst; die 44 px der Shell sprengten
+  // die Höhe des Bands und schnitten die Knöpfe oben ab.
+  k.dataset.trefferSelbst = '';
   k.textContent = text;
   k.addEventListener('click', beiKlick);
   if (gedrueckt !== undefined) k.setAttribute('aria-pressed', String(gedrueckt));
@@ -101,6 +94,12 @@ function gruppe(beschriftung: string, ...knoepfe: HTMLElement[]): HTMLElement {
   return g;
 }
 
+/**
+ * Das Band liegt seit J51 hell auf hell (dunkel auf dunkel): eine Zeile in
+ * der Fläche des Produkts mit feiner Linie darunter, kein schwarzer Balken.
+ * Darunter setzt es den geführten Weg (`fuehrung.ts`); „So geht’s" fängt ihn
+ * von vorn an.
+ */
 export function bandSetzen(sprache: Sprache): void {
   const t = TEXTE[sprache];
   document.body.dataset.demo = 'an';
@@ -113,11 +112,13 @@ export function bandSetzen(sprache: Sprache): void {
 
   const titel = document.createElement('span');
   titel.className = 'demo-band-titel';
-  titel.innerHTML = `<span class="demo-band-lang">${t.band}</span><span class="demo-band-kurz">${t.kurz}</span>`;
+  titel.innerHTML = `<span class="demo-band-punkt" aria-hidden="true"></span><span class="demo-band-lang">${t.band}</span><span class="demo-band-kurz">${t.kurz}</span>`;
 
   let rolle: Rolle = 'mitarbeiter';
   const mitarbeiter = knopf(t.mitarbeiter, () => void rolleSetzen('mitarbeiter'), true);
+  mitarbeiter.dataset.rolle = 'mitarbeiter';
   const entwickler = knopf(t.entwickler, () => void rolleSetzen('entwickler'), false);
+  entwickler.dataset.rolle = 'entwickler';
   const rollen = gruppe(t.rolle, mitarbeiter, entwickler);
   async function rolleSetzen(neu: Rolle) {
     if (neu === rolle) return;
@@ -141,59 +142,37 @@ export function bandSetzen(sprache: Sprache): void {
   }
 
   const hilfeKnopf = knopf(t.hilfe, () => {
-    const offen = !hilfe.hidden;
-    hilfe.hidden = offen;
-    hilfeKnopf.setAttribute('aria-expanded', String(!offen));
+    schrittSetzen(1);
+    void anDienst({ typ: 'rolle', rolle: 'mitarbeiter' }).then(() =>
+      window.location.assign('/workspace')
+    );
   });
-  hilfeKnopf.className = 'demo-band-hilfe';
-  hilfeKnopf.setAttribute('aria-expanded', 'false');
-  hilfeKnopf.setAttribute('aria-controls', 'demo-hilfe');
+  hilfeKnopf.className = 'demo-band-knopf demo-band-hilfe';
+  hilfeKnopf.title = t.hilfeTitel;
+
+  const zuruecksetzen = knopf(t.zuruecksetzen, () => {
+    schrittSetzen(1);
+    void anDienst({ typ: 'zuruecksetzen' }).then(() => window.location.assign('/workspace'));
+  });
+  zuruecksetzen.className = 'demo-band-knopf demo-band-zuruecksetzen';
+  zuruecksetzen.title = t.zuruecksetzenTitel;
 
   const website = document.createElement('a');
   website.href = 'https://www.arasul.de';
   website.textContent = t.zurueck;
   website.className = 'demo-band-link';
+  website.dataset.trefferSelbst = '';
 
-  band.append(titel, rollen, hilfeKnopf, sprachen, website);
+  band.append(titel, rollen, hilfeKnopf, zuruecksetzen, sprachen, website);
+  document.body.prepend(band);
 
-  // Die Erklärung des Wegs: zugeklappt, beim ersten Besuch offen.
-  const hilfe = document.createElement('div');
-  hilfe.id = 'demo-hilfe';
-  hilfe.className = 'demo-hilfe';
-  hilfe.dataset.demoNichtUebersetzen = '';
-  const liste = document.createElement('ol');
-  for (const s of t.schritte) {
-    const li = document.createElement('li');
-    li.textContent = s;
-    liste.append(li);
-  }
-  const hinweis = document.createElement('p');
-  hinweis.textContent = t.hinweis;
-  const unten = document.createElement('div');
-  unten.className = 'demo-hilfe-unten';
-  const zuruecksetzen = knopf(t.zuruecksetzen, () => {
-    void anDienst({ typ: 'zuruecksetzen' }).then(() => window.location.assign('/workspace'));
+  wegSetzen(sprache, {
+    zumEntwickler: () => rolleSetzen('entwickler'),
+    zuruecksetzen: () => {
+      schrittSetzen(1);
+      void anDienst({ typ: 'zuruecksetzen' }).then(() => window.location.assign('/workspace'));
+    },
   });
-  const link = website.cloneNode(true) as HTMLAnchorElement;
-  link.className = '';
-  const schliessen = knopf(t.schliessen, () => {
-    hilfe.hidden = true;
-    hilfeKnopf.setAttribute('aria-expanded', 'false');
-  });
-  unten.append(zuruecksetzen, link, schliessen);
-  hilfe.append(liste, hinweis, unten);
-  hilfe.hidden = true;
-  try {
-    if (!window.sessionStorage.getItem('arasul-demo-gesehen')) {
-      hilfe.hidden = false;
-      hilfeKnopf.setAttribute('aria-expanded', 'true');
-      window.sessionStorage.setItem('arasul-demo-gesehen', 'ja');
-    }
-  } catch {
-    /* ohne Speicher bleibt sie zu */
-  }
-
-  document.body.prepend(band, hilfe);
 
   void anDienst({ typ: 'abfrage' }).then(stand => {
     rolle = stand.rolle;

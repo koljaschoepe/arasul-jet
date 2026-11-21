@@ -6,6 +6,7 @@
  * Reihenfolge und nirgends sonst in der Oberfläche:
  *
  *   Zustand          ein Satz, rot nur, wenn sie deshalb nicht arbeiten kann
+ *   Symbol           das Bild in der Leiste, wenn die App keines mitbringt (J51)
  *   Fassungen        Test und Live mit dem Änderungstext, Live schalten, zurück
  *   Personen         wer Zugang hat und wer davon Testperson ist
  *   Freigabestufen   wer je Stufe zuerst gefragt wird
@@ -29,6 +30,7 @@ import {
   ListOrdered,
   MessageSquarePlus,
   ScrollText,
+  Shapes,
   Trash2,
   Users,
 } from '@marken/symbole';
@@ -38,6 +40,7 @@ import { useToast } from '@/contexts/ToastContext';
 import type { ApiError } from '@/hooks/useApi';
 import type { Stand } from '../personen/useAppFreigaben';
 import { AppBilderAnAgenten } from './AppBilderAnAgenten';
+import { AppSymbolWahl } from './AppSymbolWahl';
 import { AppEntfernenDialog } from './AppEntfernenDialog';
 import { AppFlows } from './AppFlows';
 import { AppSchrittModelle } from './AppSchrittModelle';
@@ -282,6 +285,21 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
       <Formularseite>
         <Feldgruppe titel="Zustand" symbol={<Activity />}>
           <AppZustand app={app} />
+        </Feldgruppe>
+
+        <Feldgruppe
+          titel="Symbol"
+          symbol={<Shapes />}
+          beschreibung="Das Bild der App in der Leiste. Bringt die App keines mit, wählen Sie es hier."
+        >
+          <AppSymbolWahl
+            appId={appId}
+            name={app.name}
+            mitgebracht={
+              app.staende.live?.manifest?.symbol ?? app.staende.test?.manifest?.symbol ?? null
+            }
+            ersatz={app.symbol_ersatz ?? null}
+          />
         </Feldgruppe>
 
         <Feldgruppe

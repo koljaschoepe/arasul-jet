@@ -210,7 +210,7 @@ jobs:
 
       # Die Demo ohne Geraet (J46, M7): dasselbe Frontend als statischer Bau
       # mit gespielten Antworten. Gebaut wird nach `dist-demo/`, nie nach
-      # `dist/`; ausgeliefert wird von Hand (docs/features/DEMO.md).
+      # `dist/`; ausgeliefert wird nach dem Merge von `demo.yml`.
       - name: Demo bauen (J46)
         working-directory: apps/dashboard-frontend
         run: npm run demo:bauen
