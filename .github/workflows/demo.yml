@@ -1,0 +1,72 @@
+# Die Demo ohne Gerät (J46, J51, M7) aus der CI ausliefern.
+#
+# Nach jedem Merge, der das Frontend, die Bibliothek oder das Cockpit ändert,
+# baut dieser Lauf `dist-demo/` und legt es als Produktion auf das
+# Vercel-Projekt `arasul-demo` (Team `arasuls-projects`, Hobby-Tarif). Danach
+# fragt er die Adresse einmal ab: steht dort nicht die Demo, ist er rot.
+#
+# Was nur von Hand geht (docs/features/DEMO.md, „Ausliefern"): das Geheimnis
+# `VERCEL_TOKEN` im Repo. Fehlt es, baut der Lauf trotzdem, meldet „ohne
+# Token nicht ausgeliefert" und bleibt grün: die Demo ist dann so alt wie die
+# letzte Auslieferung von Hand. Das Gerät berührt dieser Lauf nie.
+name: Demo ausliefern
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/dashboard-frontend/**'
+      - 'apps/entwickler-cockpit/**'
+      - 'packages/marken/**'
+      - '.github/workflows/demo.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: demo-vercel
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    name: Demo → Vercel
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      DEMO_ADRESSE: https://arasul-demo.vercel.app
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Demo bauen
+        working-directory: apps/dashboard-frontend
+        run: npm run demo:bauen
+
+      - name: Ausliefern
+        if: env.VERCEL_TOKEN != ''
+        working-directory: apps/dashboard-frontend/dist-demo
+        run: |
+          npx --yes vercel@54 link --yes --project arasul-demo --scope arasuls-projects --token "$VERCEL_TOKEN"
+          npx --yes vercel@54 deploy --prod --yes --scope arasuls-projects --token "$VERCEL_TOKEN"
+
+      - name: Ohne Token nicht ausgeliefert
+        if: env.VERCEL_TOKEN == ''
+        run: echo "::notice title=Demo::Ohne das Geheimnis VERCEL_TOKEN nicht ausgeliefert (docs/features/DEMO.md)."
+
+      # Einmal, nicht im Takt: Vercel weist wiederholte Abfragen ohne Browser ab.
+      - name: Steht die Demo?
+        if: env.VERCEL_TOKEN != ''
+        run: |
+          sleep 20
+          seite=$(curl -fsS --max-time 30 "$DEMO_ADRESSE/")
+          echo "$seite" | grep -q 'demo' || { echo "Unter $DEMO_ADRESSE steht nicht die Demo."; exit 1; }
+          curl -fsS --max-time 30 -o /dev/null "$DEMO_ADRESSE/demo-dienst.js"

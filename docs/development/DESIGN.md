@@ -284,6 +284,9 @@ Nichts ist kleiner als 24 px. Rot nur für Löschen.
 - Übergänge aus `--transition-fast/base/slow` (0,15/0,2/0,3 s), keine eigenen
   Zeiten; Knöpfe 120 ms.
 
+Der **Schalter** (`Switch`) zeigt „aus“ seit 5.10.0 als Grau mit mindestens
+3:1 zur Fläche (`bg-muted-foreground/75`), „an“ als Blau.
+
 ## Das Designsystem für alle Apps (`packages/marken/`)
 
 Seit **Phase D7** (28.08.2026) liegen Schrift, Farben, Abstände und sechs
@@ -457,6 +460,20 @@ Verwaltung, Einstellungen und „Abmelden“. Ungewählt stehen nur Symbole, der
 gewählte Eintrag trägt seinen Namen auf einer blau getönten Fläche, auch
 „Mehr“, wenn dort etwas offen ist; so wird kein Name abgeschnitten. Verwaltung und Einstellungen öffnen ihre Leiste dort
 als Blatt über einen Knopf oben.
+
+**Die Befehlspalette** (J51, Bibliothek 5.10.0, `features/workspace/Befehlspalette.tsx`):
+⌘K am Mac, Strg+K sonst, auch mit dem Fokus in einer App (der Rahmen hört am
+Dokument im iframe mit), am Handy „Mehr“ › „Springen zu …“. Ein Feld, das zu
+jeder freigegebenen App (und ihrer Testfassung, wo es sie gibt), jeder Seite
+der Verwaltung (nur Administrator) und der Einstellungen springt; tippen engt
+ein, Pfeile wählen, Enter springt, Esc schließt. Sie schwebt im oberen Drittel
+als Glas (`CommandDialog`, Radius 12 px), der Schleier darunter ist schlicht
+ohne Unschärfe: mit Leiste und Kapsel ist sie die dritte Glasfläche.
+
+**Jede App trägt ein Symbol** (J51): der Standard weist ein Paket ohne
+`symbol` in `app.json` beim Ausrollen ab. Für Apps, die schon laufen und
+keines nennen, wählt der Administrator unter Verwaltung › Apps › Symbol eines
+aus achtzehn (`AppSymbolWahl.tsx`); es gilt, bis die App eines mitbringt.
 
 **Die Rolle blendet aus, das Backend entscheidet.** Ein Mitarbeiter sieht die
 Startseite, seine Apps, seine Einstellungen und sein Konto; die Verwaltung

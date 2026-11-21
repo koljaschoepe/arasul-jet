@@ -349,6 +349,12 @@ src/
                      als `--ara-kapsel-platz`. Die Testfassung trägt (in
                      `WorkspaceShell`) 2 px Blau um die Fläche und das Wort
                      Test oben innen.
+                   • **Befehlspalette** (`Befehlspalette.tsx`, J51) — ⌘K/
+                     Strg+K (`istPalettenTaste` im Store, auch aus dem iframe
+                     über `AppRahmen`), am Handy „Mehr“ › „Springen zu …“;
+                     `paletteOffen` im Store. Springt zu Apps (Testfassung
+                     als eigener Eintrag), Verwaltung [admin], Einstellungen
+                     (`einstellungen/bereiche.tsx`). Glas über `CommandDialog`.
                    • **Unter 900 px** schwebt statt der Aktivitätsleiste die
                      Leiste unten als Glas (`LeisteUnten.tsx`): Start, vier
                      Apps, „Mehr“ mit den übrigen Apps, Terminal,
