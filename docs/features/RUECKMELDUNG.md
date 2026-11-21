@@ -90,6 +90,14 @@ PNG gezeichnet (Farbe aus dem Token `--primary`) und zusätzlich als
   Zeile und Datei; scheitert beim Melden die Zeile, wird die Datei gleich
   wieder entfernt. In älteren Ständen der Sicherung bleibt beides, bis diese
   ablaufen.
+- **In der DSGVO-Auskunft** (`GET /api/gdpr/export`, seit 21.11.2026)
+  stehen alle Meldungen der Person mit Text, Seite, Markierung, Stand und dem
+  Bildschirmfoto selbst als `data:image/png;base64,…`. Die Auskunft ist damit
+  ohne das Gerät lesbar; den Dateinamen am Gerät nennt sie nicht.
+- **Gedrosselt:** höchstens 20 Meldungen je Person und Viertelstunde, mit
+  eigenem Zähler (Zweck `rueckmeldung`). Er teilt sich nichts mehr mit dem
+  Passwortwechsel; vor dem 21.11.2026 zählten alle Drosseln je Person in
+  einen Topf (`__tests__/unit/drosselJeZweck.test.js`).
 - **Eine gelöschte Person** lässt ihre Meldungen ohne Namen zurück
   (`ON DELETE SET NULL`, in der Zusammenfassung der Löschung als
   `anon_rueckmeldungen`).
@@ -408,6 +416,5 @@ Schalter an, Stand, Protokoll) und gegen echtes Postgres in
 
 ## Was nicht gebaut ist
 
-Der Kit-Befehl, der diese Schnittstelle nutzt (K29); DSGVO-Auskunft mit Rückmeldungen und eine
-gemeinsame Drossel je Person (eigene Karte). Kein Chat, kein Agent im Browser,
+Der Kit-Befehl, der diese Schnittstelle nutzt (K29). Kein Chat, kein Agent im Browser,
 keine Abstimmung, keine Sicht für andere Mitarbeiter.

@@ -1593,7 +1593,7 @@ Datei ist das kein Fehler (`entfernt: false`). Protokolliert als
 
 **GET /api/gdpr/export:**
 
-Returns a JSON file download (`Content-Disposition: attachment`) containing all personal data: profile, flow runs (arguments and result), login history, active sessions, activity log, security events. Limited to the 1,000 most recent audit entries. Aufträge an das Sprachmodell (`llm_jobs`) leben eine Stunde und sind keine Auskunftskategorie.
+Returns a JSON file download (`Content-Disposition: attachment`) containing all personal data: profile, flow runs (arguments and result), login history, active sessions, activity log, security events, Freigaben, Modellaufrufe und seit 21.11.2026 die **Rückmeldungen** der Person (J42, M7) samt Bildschirmfoto als `data:image/png;base64,…` in `bild.daten`. Fehlt die Datei eines Bildes am Gerät, steht an der Meldung `bild.fehlt`; lässt sie sich nicht lesen, ist die Kategorie `unvollstaendig`. Den Dateinamen am Gerät nennt die Auskunft nicht. Limited to the 1,000 most recent audit entries. Aufträge an das Sprachmodell (`llm_jobs`) leben eine Stunde und sind keine Auskunftskategorie.
 
 Scheitert eine Kategorie, steht der Grund in ihrem Block als `unvollstaendig`
 (Zeichenkette) und zusätzlich in `_meta.unvollstaendig` (Liste aus
@@ -1612,13 +1612,31 @@ vorher verschluckte ein `.catch` jeden Fehler).
     "unvollstaendig": []
   },
   "profile": { "id": 1, "username": "admin", "email": "...", "created_at": "..." },
-  "conversations": { "count": 42, "data": [...] },
-  "messages": { "count": 1500, "data": [...] },
-  "attachments": { "count": 5, "note": "Dieser Export enthaelt nur die Metadaten der Anhaenge.", "data": [...] },
+  "flowRuns": { "count": 12, "data": [...] },
   "loginHistory": { "count": 100, "data": [...] },
   "activeSessions": { "count": 2, "data": [...] },
   "activityLog": { "count": 1000, "data": [...] },
-  "securityEvents": { "count": 15, "data": [...] }
+  "securityEvents": { "count": 15, "data": [...] },
+  "freigaben": { "count": 2, "data": [...] },
+  "kiAufrufe": { "count": 40, "data": [...] },
+  "rueckmeldungen": {
+    "count": 1,
+    "data": [
+      {
+        "id": 7,
+        "app_id": "belege",
+        "stand": "live",
+        "seite": "/apps/belege/?ansicht=offen",
+        "text": "Hier fehlt ein Filter nach Monat.",
+        "markierung": { "x": 0.1, "y": 0.2, "breite": 0.3, "hoehe": 0.1 },
+        "stand_meldung": "neu",
+        "grund": null,
+        "stand_geaendert_am": null,
+        "erstellt_am": "2026-11-20T10:00:00.000Z",
+        "bild": { "format": "png", "bytes": 48213, "daten": "data:image/png;base64,iVBORw0..." }
+      }
+    ]
+  }
 }
 ```
 
@@ -1628,12 +1646,26 @@ vorher verschluckte ein `.catch` jeden Fehler).
 {
   "categories": [
     { "name": "Profil", "description": "Benutzername, E-Mail, Erstelldatum", "count": 1 },
-    { "name": "Chat-Konversationen", "description": "Alle Gespräche mit der KI", "count": 42 },
+    {
+      "name": "Flow-Läufe",
+      "description": "Selbst gestartete Flows mit Argumenten und Ergebnis",
+      "count": 12
+    },
     { "name": "Aktivitätsprotokoll", "description": "API-Zugriffe und Aktionen", "count": 1000 },
     { "name": "Anmeldehistorie", "description": "Login-Versuche und Sessions" },
     {
       "name": "Sicherheitsereignisse",
       "description": "Passwortänderungen, Konfigurationsänderungen"
+    },
+    {
+      "name": "Freigaben",
+      "description": "Apps, die ein Administrator freigegeben hat",
+      "count": 2
+    },
+    {
+      "name": "Rückmeldungen",
+      "description": "Rückmeldungen zu Apps mit Text, Seite und Bildschirmfoto",
+      "count": 1
     }
   ],
   "timestamp": "2026-01-15T10:00:00.000Z"
@@ -2871,13 +2903,13 @@ Kennzeichen Entwickler trägt (`admin_users.entwickler`, bei jedem Aufruf frisch
 aus der Datenbank, auch beim Administrator). Vertrag:
 [`docs/features/RUECKMELDUNG.md`](../features/RUECKMELDUNG.md).
 
-| Method | Endpoint                       | Auth                   | Description                                                                                                                                                                                                                                                                                                                                                     |
-| ------ | ------------------------------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/api/rueckmeldungen`          | admin, mitarb.         | Body `{ app_id, stand, seite, text, bild?, markierung? }`. `seite` liegt unter `/apps/<app_id>/`, `text` 1 bis 5000 Zeichen, `bild` ein `data:image/png;base64,…` bis 6 MB, `markierung` `{ x, y, breite, hoehe }` in Anteilen 0 bis 1. 201 `{ data: { id, erstellt_am } }`; 403 ohne Zugang zur App, 400 bei Seite außerhalb der App oder anderem Bild als PNG |
-| GET    | `/api/rueckmeldungen`          | Kennzeichen Entwickler | Neueste zuerst, höchstens 500 (seit J44, vorher 200), `?app_id=` filtert. Je Meldung `id, app_id, app_name, stand, seite, text, hat_bild, markierung, person { id, anzeigeName } \| null, stand_meldung, grund, stand_geaendert_am, erstellt_am`. 403 ohne Kennzeichen                                                                                          |
-| PATCH  | `/api/rueckmeldungen/:id`      | Kennzeichen Entwickler | Stand setzen im Entwickler-Cockpit (J44). Body `{ stand_meldung, grund? }` wie beim Kit, `grund` Pflicht bei `abgelehnt` (400), ein neuer Stand ohne Grund löscht den alten. Antwort die Meldung wie bei GET plus `vorher`; am Gerät `stand_geaendert_durch = "person:<id>"`, im Protokoll `rueckmeldung_stand_gesetzt`. 404 ohne Meldung                       |
-| GET    | `/api/rueckmeldungen/:id/bild` | Kennzeichen Entwickler | Das Bildschirmfoto als `image/png` mit der markierten Stelle. 404 ohne Bild oder wenn die Datei am Gerät fehlt                                                                                                                                                                                                                                                  |
-| DELETE | `/api/rueckmeldungen/:id`      | Kennzeichen Entwickler | Entfernt Meldung und Bilddatei. 404, wenn es sie nicht gibt                                                                                                                                                                                                                                                                                                     |
+| Method | Endpoint                       | Auth                   | Description                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------ | ------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/rueckmeldungen`          | admin, mitarb.         | Body `{ app_id, stand, seite, text, bild?, markierung? }`. `seite` liegt unter `/apps/<app_id>/`, `text` 1 bis 5000 Zeichen, `bild` ein `data:image/png;base64,…` bis 6 MB, `markierung` `{ x, y, breite, hoehe }` in Anteilen 0 bis 1. 201 `{ data: { id, erstellt_am } }`; 403 ohne Zugang zur App, 400 bei Seite außerhalb der App oder anderem Bild als PNG, 429 nach 20 Meldungen je Person und Viertelstunde (eigener Zähler) |
+| GET    | `/api/rueckmeldungen`          | Kennzeichen Entwickler | Neueste zuerst, höchstens 500 (seit J44, vorher 200), `?app_id=` filtert. Je Meldung `id, app_id, app_name, stand, seite, text, hat_bild, markierung, person { id, anzeigeName } \| null, stand_meldung, grund, stand_geaendert_am, erstellt_am`. 403 ohne Kennzeichen                                                                                                                                                              |
+| PATCH  | `/api/rueckmeldungen/:id`      | Kennzeichen Entwickler | Stand setzen im Entwickler-Cockpit (J44). Body `{ stand_meldung, grund? }` wie beim Kit, `grund` Pflicht bei `abgelehnt` (400), ein neuer Stand ohne Grund löscht den alten. Antwort die Meldung wie bei GET plus `vorher`; am Gerät `stand_geaendert_durch = "person:<id>"`, im Protokoll `rueckmeldung_stand_gesetzt`. 404 ohne Meldung                                                                                           |
+| GET    | `/api/rueckmeldungen/:id/bild` | Kennzeichen Entwickler | Das Bildschirmfoto als `image/png` mit der markierten Stelle. 404 ohne Bild oder wenn die Datei am Gerät fehlt                                                                                                                                                                                                                                                                                                                      |
+| DELETE | `/api/rueckmeldungen/:id`      | Kennzeichen Entwickler | Entfernt Meldung und Bilddatei. 404, wenn es sie nicht gibt                                                                                                                                                                                                                                                                                                                                                                         |
 
 Der Melder bekommt nach dem Absenden nur Nummer und Zeit zurück; einen Weg,
 die eigenen Meldungen wieder zu lesen, gibt es nicht (`schleife.md`, Regel 2).

@@ -449,7 +449,75 @@ async function setzeBilderAnAgenten(appId, erlaubt) {
   };
 }
 
+/**
+ * Die Meldungen einer Person fuer die DSGVO-Auskunft (Art. 15), samt Bildern
+ * (21.11.2026, J42, M7). Bis dahin liess die Auskunft sie aus, obwohl Text,
+ * Seite und Bildschirmfoto personenbezogen sind.
+ *
+ * Das Bild geht als `data:image/png;base64,...` mit, damit die Auskunft eine
+ * Datei bleibt, die man ohne das Geraet lesen kann (auch auf einer
+ * angesteckten Platte, `?ziel=`). Den Dateinamen am Geraet nennt sie nicht.
+ *
+ * Fehlt die Datei am Geraet, steht das an der Meldung (`bild.fehlt`). Laesst
+ * sie sich aus einem anderen Grund nicht lesen, steht es ebenso dort, und
+ * `nichtLesbar` zaehlt mit: die Route fuehrt die Kategorie dann als
+ * `unvollstaendig`, statt still ohne Bild zu antworten.
+ *
+ * @param {Array<object>} zeilen aus `public.rueckmeldungen` (mit `bild`)
+ * @returns {Promise<{rows: Array<object>, nichtLesbar: number}>}
+ */
+async function fuerAuskunft(zeilen) {
+  const ergebnis = [];
+  let nichtLesbar = 0;
+  for (const z of zeilen) {
+    let bildFeld = null;
+    if (z.bild) {
+      try {
+        const bytes = await fsp.readFile(bildPfad(z.bild));
+        bildFeld = {
+          format: 'png',
+          bytes: bytes.length,
+          daten: `data:image/png;base64,${bytes.toString('base64')}`,
+        };
+      } catch (err) {
+        if (err.code === 'ENOENT') {
+          bildFeld = {
+            format: 'png',
+            fehlt: 'Die Datei des Bildes ist am Gerät nicht mehr vorhanden.',
+          };
+        } else {
+          logger.error(`Auskunft: Bild der Rückmeldung ${z.id} nicht lesbar: ${err.message}`);
+          nichtLesbar += 1;
+          bildFeld = { format: 'png', fehlt: 'Das Bild konnte nicht gelesen werden.' };
+        }
+      }
+    }
+    ergebnis.push({
+      id: Number(z.id),
+      app_id: z.app_id,
+      stand: z.stand,
+      seite: z.seite,
+      text: z.text,
+      markierung: z.markierung ?? null,
+      stand_meldung: z.stand_meldung,
+      grund: z.grund ?? null,
+      stand_geaendert_am: z.stand_geaendert_am ?? null,
+      erstellt_am: z.erstellt_am,
+      bild: bildFeld,
+    });
+  }
+  return { rows: ergebnis, nichtLesbar };
+}
+
+/** SQL der Auskunft: alle Meldungen einer Person, neueste zuerst. */
+const AUSKUNFT_SQL = `SELECT id, app_id, stand, seite, text, bild, markierung, stand_meldung,
+         grund, stand_geaendert_am, erstellt_am
+    FROM public.rueckmeldungen WHERE person_id = $1
+   ORDER BY erstellt_am DESC`;
+
 module.exports = {
+  fuerAuskunft,
+  AUSKUNFT_SQL,
   fuerAgenten,
   bildFuerAgenten,
   setzeStand,

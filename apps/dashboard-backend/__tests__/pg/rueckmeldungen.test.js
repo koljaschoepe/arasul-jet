@@ -155,6 +155,20 @@ beschreibe('Rückmeldungen gegen echtes Postgres', () => {
     await expect(dienst.bild(id)).rejects.toMatchObject({ statusCode: 404 });
   });
 
+  it('die DSGVO-Auskunft liest die eigenen Meldungen samt Bild (21.11.2026)', async () => {
+    const { id } = await dienst.melde(meldung({ bild: PIXEL, text: 'für die Auskunft' }));
+    const { rows } = await db.query(dienst.AUSKUNFT_SQL, [mia]);
+    expect(rows.some(z => Number(z.id) === id)).toBe(true);
+    const { rows: aus, nichtLesbar } = await dienst.fuerAuskunft(rows);
+    const eintrag = aus.find(m => m.id === id);
+    expect(nichtLesbar).toBe(0);
+    expect(eintrag).toMatchObject({ app_id: 'jrm-belege', text: 'für die Auskunft' });
+    expect(eintrag.bild.daten).toBe(PIXEL);
+    // Die Meldungen anderer stehen nicht in Mias Auskunft.
+    const { rows: chefs } = await db.query(dienst.AUSKUNFT_SQL, [chef]);
+    expect(chefs.some(z => Number(z.id) === id)).toBe(false);
+  });
+
   it('wird die Person gelöscht, bleibt die Meldung ohne Namen', async () => {
     const weg = await person('jrm-weg', false);
     await db.query(
