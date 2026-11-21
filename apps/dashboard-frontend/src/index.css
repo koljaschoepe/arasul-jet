@@ -348,7 +348,8 @@
        ist die Zeile mit dem Label daneben.
        Der `Button` der Bibliothek auch nicht (5.7.0): er bleibt sichtbar
        kompakt und legt selbst eine Trefferflaeche von 44 px darueber
-       (`TREFFER` in `button.tsx`). Ebenso ein Knopf, der seine
+       (`TREFFER` in `primitive/treffer.ts`; seit 5.11.0 auch an Checkbox,
+       Radio und Schalter, das `Input` waechst selbst auf 44 px). Ebenso ein Knopf, der seine
        Trefferflaeche selbst legt (`data-treffer-selbst`, die Kapsel). */
     button:not([role='checkbox']):not([role='radio']):not([role='switch']):not(
         [data-slot='button']

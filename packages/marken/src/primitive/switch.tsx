@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Switch as SwitchPrimitive } from 'radix-ui';
 
 import { cn } from '../cn';
+import { TREFFER } from './treffer';
 
 /**
  * Ein Schalter: an oder aus, und die Wirkung tritt sofort ein.
@@ -20,6 +21,7 @@ function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimi
     <SwitchPrimitive.Root
       data-slot="switch"
       className={cn(
+        TREFFER,
         'peer inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-transparent outline-none transition-colors',
         'bg-muted-foreground/75 data-[state=checked]:bg-primary',
         'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',

@@ -274,4 +274,13 @@
  * seine Bedeutung; eine App auf 5.9.3 laeuft unveraendert. Die Kennzahl legt
  * ihre Verlaufslinie in einer schmalen Kachel unter die Zahl statt ueber sie.
  */
-export const FASSUNG = '5.10.0';
+/*
+ * 5.11.0: die Felder bekommen bei grobem Zeiger die Trefferflaeche von
+ * 44 px, die der Knopf schon hatte. `Input` und der Ausloeser von `Select`
+ * werden dort 44 px hoch (ein `<input>` hat kein `::before`), `Checkbox`,
+ * `RadioGroupItem` und `Switch` behalten ihre Groesse und bekommen die
+ * unsichtbare Flaeche darueber (`TREFFER`, jetzt in `primitive/treffer.ts`).
+ * Am Rechner mit Maus aendert sich nichts. Kein Name faellt weg; eine App
+ * auf 5.10.0 laeuft unveraendert.
+ */
+export const FASSUNG = '5.11.0';
