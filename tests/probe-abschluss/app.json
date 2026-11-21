@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-abschluss",
   "name": "Probe: Abschluss",
+  "symbol": "folder-check",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/abschluss-abnahme.sh: drei Flows, zwei mit Abschluss-Route der App, einer ohne (M5).",
   "frontend": {

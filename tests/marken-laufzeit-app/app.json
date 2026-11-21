@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "marken-laufzeit",
   "name": "Marken zur Laufzeit",
+  "symbol": "palette",
   "version": "1.0.0",
   "beschreibung": "Die Probe für die Bibliothek zur Laufzeit: Seitenleiste, Tabelle und Freigabe kommen vom Gerät unter /marken/5/, das Paket trägt keine Kopie.",
   "frontend": {

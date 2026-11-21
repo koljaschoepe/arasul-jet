@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-freigabe",
   "name": "Probe: Wer entscheidet",
+  "symbol": "shield-check",
   "version": "1.1.0",
   "beschreibung": "Messgeraet fuer scripts/test/freigabe-wer-entscheidet-abnahme.sh: reicht einen Vorgang mit Vier-Augen-Regel ein, zeigt, was das Geraet zum Lauf sagt -- wer entscheidet und wo --, und entscheidet die Freigaben der App mit dem Baustein `Freigabe` der Bibliothek (J36).",
   "frontend": {

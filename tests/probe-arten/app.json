@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-arten",
   "name": "Probe: Arten",
+  "symbol": "shapes",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/arten-abnahme.sh: drei Flows, ein erzeugender, ein erkennender und einer, der nur autonom kann (M5).",
   "frontend": {

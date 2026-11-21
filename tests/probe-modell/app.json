@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-modell",
   "name": "Probe: Modell je Schritt",
+  "symbol": "cpu",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/modell-je-schritt-abnahme.sh: ein Flow, dessen Schritte Modell und Faehigkeiten nennen (M5).",
   "frontend": {

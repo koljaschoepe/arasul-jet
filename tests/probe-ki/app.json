@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-ki",
   "name": "Probe: KI-Aufrufe im Protokoll",
+  "symbol": "sparkles",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/ki-aufrufe-abnahme.sh: liest einen Beleg ueber document/extract-structured aus, ohne Flow, und reicht X-Arasul-User weiter.",
   "backend": {

@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-laeufe",
   "name": "Probe: Läufe",
+  "symbol": "list-checks",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/verwaltung-laeufe-abnahme.sh: Laeufe von Hand, nach Zeitplan und auf ein Ereignis, ohne Modell gemessen (M5).",
   "frontend": {

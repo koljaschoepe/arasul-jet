@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-original",
   "name": "Probe: Original",
+  "symbol": "flask-conical",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/original-abnahme.sh: ein erkennender Flow, dessen Modell das Original liest, als PNG und als PDF, aus dem Backend und aus dem Frontend der App (M5, Kontrakt 14).",
   "frontend": {

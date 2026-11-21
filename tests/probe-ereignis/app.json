@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "probe-ereignis",
   "name": "Probe: Ereignis und Routen",
+  "symbol": "zap",
   "version": "1.0.0",
   "beschreibung": "Messgeraet fuer scripts/test/ereignis-und-routen-abnahme.sh: Ereignisse der App und Routen als Werkzeug, ohne Modell gemessen (M5).",
   "frontend": {
