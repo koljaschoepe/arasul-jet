@@ -76,6 +76,9 @@ const TEXTE = {
 function knopf(text: string, beiKlick: () => void, gedrueckt?: boolean): HTMLButtonElement {
   const k = document.createElement('button');
   k.type = 'button';
+  // Die Trefferfläche legt `band.css` selbst; die 44 px der Shell sprengten
+  // die Höhe des Bands und schnitten die Knöpfe oben ab.
+  k.dataset.trefferSelbst = '';
   k.textContent = text;
   k.addEventListener('click', beiKlick);
   if (gedrueckt !== undefined) k.setAttribute('aria-pressed', String(gedrueckt));
@@ -158,12 +161,17 @@ export function bandSetzen(sprache: Sprache): void {
   website.href = 'https://www.arasul.de';
   website.textContent = t.zurueck;
   website.className = 'demo-band-link';
+  website.dataset.trefferSelbst = '';
 
   band.append(titel, rollen, hilfeKnopf, zuruecksetzen, sprachen, website);
   document.body.prepend(band);
 
   wegSetzen(sprache, {
     zumEntwickler: () => rolleSetzen('entwickler'),
+    zuruecksetzen: () => {
+      schrittSetzen(1);
+      void anDienst({ typ: 'zuruecksetzen' }).then(() => window.location.assign('/workspace'));
+    },
   });
 
   void anDienst({ typ: 'abfrage' }).then(stand => {

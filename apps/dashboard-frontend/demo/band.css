@@ -43,6 +43,19 @@ body[data-demo] #root .h-dvh {
   border-radius: var(--radius-md);
 }
 
+/* Die Trefferfläche am Handy: unsichtbar über die volle Höhe des Bands,
+   der Knopf selbst bleibt kompakt. */
+.demo-band button,
+.demo-band a {
+  position: relative;
+}
+.demo-band button::after,
+.demo-band a::after {
+  content: '';
+  position: absolute;
+  inset: -7px -2px;
+}
+
 .demo-band-titel {
   display: inline-flex;
   align-items: center;
@@ -153,6 +166,23 @@ body[data-demo] #root .h-dvh {
 }
 .demo-weg-text {
   margin: 0 0 12px;
+}
+.demo-weg-mehr {
+  display: flex;
+  gap: 16px;
+  margin: -4px 0 12px;
+}
+.demo-weg-mehr[hidden] {
+  display: none;
+}
+.demo-weg-mehr a,
+.demo-weg-mehr button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .demo-weg-unten {
   display: flex;

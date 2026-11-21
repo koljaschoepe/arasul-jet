@@ -73,7 +73,14 @@ const TEXTE: Record<
     fertig: string;
     ueberspringen: string;
     beschriftung: string;
-    geschafft: { titel: string; text: string; ansehen: string; schliessen: string };
+    geschafft: {
+      titel: string;
+      text: string;
+      ansehen: string;
+      schliessen: string;
+      zuruecksetzen: string;
+      website: string;
+    };
   }
 > = {
   de: {
@@ -87,6 +94,8 @@ const TEXTE: Record<
       text: 'Angebote 1.5.0 ist live. Ab jetzt rechnet die App für alle mit Rabatt, ohne dass jemand etwas installiert.',
       ansehen: 'Angebote ansehen',
       schliessen: 'Schließen',
+      zuruecksetzen: 'Von vorn',
+      website: 'Zur Website',
     },
     schritte: [
       {
@@ -141,6 +150,8 @@ const TEXTE: Record<
       text: 'Quotes 1.5.0 is live. From now on the app calculates discounts for everyone, with nothing to install.',
       ansehen: 'View Quotes',
       schliessen: 'Close',
+      zuruecksetzen: 'Start over',
+      website: 'To the website',
     },
     schritte: [
       {
@@ -237,6 +248,8 @@ function imCockpit(kennung: string): boolean {
 export interface WegHandgriffe {
   /** Die Rolle wechseln, wie der Schalter im Band. */
   zumEntwickler: () => Promise<void>;
+  /** Die Demo zurücksetzen, wie im Band (das es am Handy dort nicht gibt). */
+  zuruecksetzen: () => void;
 }
 
 export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
@@ -274,7 +287,22 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
   const unten = document.createElement('div');
   unten.className = 'demo-weg-unten';
   unten.append(punkte, ueberspringen, weiter);
-  karte.append(zaehler, titel, text, unten);
+  // Im Abschluss: von vorn und zur Website, die am Handy im Band fehlen.
+  const mehr = document.createElement('p');
+  mehr.className = 'demo-weg-mehr';
+  const vonVorn = document.createElement('button');
+  vonVorn.type = 'button';
+  vonVorn.textContent = t.geschafft.zuruecksetzen;
+  vonVorn.addEventListener('click', () => griffe.zuruecksetzen());
+  const website = document.createElement('a');
+  website.href = 'https://www.arasul.de';
+  website.textContent = t.geschafft.website;
+  vonVorn.dataset.trefferSelbst = '';
+  website.dataset.trefferSelbst = '';
+  mehr.append(vonVorn, website);
+  mehr.hidden = true;
+
+  karte.append(zaehler, titel, text, mehr, unten);
 
   // Der Ring um die Stelle, auf die der Hinweis zeigt.
   const ring = document.createElement('div');
@@ -331,6 +359,7 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
       });
       karte.dataset.schritt = String(schritt);
       karte.dataset.geschafft = String(fertig);
+      mehr.hidden = !fertig;
     }
     const dialog = dialogOffen();
     karte.hidden = dialog;
@@ -346,10 +375,10 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
       if (ort) break;
     }
     ring.hidden = !ort || dialog || fertig;
-    platzieren(ort, s.lage ?? 'ecke');
+    platzieren(ort, s.lage ?? 'ecke', fertig);
   }
 
-  function platzieren(ort: DOMRect | null, lage: 'stelle' | 'ecke') {
+  function platzieren(ort: DOMRect | null, lage: 'stelle' | 'ecke', oben = false) {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const rand = 12;
@@ -374,12 +403,18 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
     // Am Handy steht der Hinweis über der Leiste unten, in der Ecke unten
     // rechts am Rechner; die Stelle zeigt der Ring.
     if (!ort || vw < 640 || lage === 'ecke') {
-      let oben = vh - untenFrei - hoehe;
-      // Liegt die Stelle unter dem Hinweis, rückt er nach oben.
-      if (ort && ort.bottom > oben - 8 && ort.top > hoehe + 2 * rand) oben = rand + 48;
+      let y = vh - untenFrei - hoehe;
+      // Liegt die Stelle unter dem Hinweis, rückt er nach oben. Der Abschluss
+      // am Handy steht direkt unter der Meldung des Cockpits, sonst verdeckt
+      // er dort „Zurück“.
+      if (oben && vw < 640 && ort && ort.bottom + 12 + hoehe <= vh - untenFrei) {
+        y = ort.bottom + 12;
+      } else if (!oben && ort && ort.bottom > y - 8 && ort.top > hoehe + 2 * rand) {
+        y = rand + 48;
+      }
       const links = vw < 640 ? (vw - breite) / 2 : vw - rand - 8 - breite;
       karte.style.left = `${links}px`;
-      karte.style.top = `${Math.max(rand, oben)}px`;
+      karte.style.top = `${Math.max(rand, y)}px`;
       return;
     }
     // Unter der Stelle, sonst darüber, sonst rechts, sonst links: so bleibt
