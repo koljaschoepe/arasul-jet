@@ -422,6 +422,12 @@ export const KUNDEN: Kunde[] = [
 
 export const kunde = (id: number): Kunde => KUNDEN.find(k => k.id === id) ?? KUNDEN[0]!;
 
+/** „Herr Lorenz" auf Englisch „Mr Lorenz". */
+export const ansprech = (k: Kunde, sp: 'de' | 'en'): string =>
+  sp === 'en'
+    ? k.ansprechpartner.replace(/^Herr /, 'Mr ').replace(/^Frau /, 'Ms ')
+    : k.ansprechpartner;
+
 export interface Lieferant {
   id: number;
   name: string;

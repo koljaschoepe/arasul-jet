@@ -1,74 +1,97 @@
 # Demo ohne Gerät
 
-> Stand: 21.11.2026, J46 und J51 (M7). Das echte Frontend dieses Repos als statischer
-> Bau mit gespielten Antworten statt Backend, kostenlos gehostet. Einstieg für
-> Fremde ohne Gerät, verlinkt von der Website.
+> Stand: 22.11.2026, J46, J51 und J54 (M7). Das echte Frontend dieses Repos als
+> statischer Bau mit gespielten Antworten statt Backend, kostenlos gehostet.
+> Einstieg für Fremde ohne Gerät, verlinkt von der Website.
 > Adresse: <https://arasul-demo.vercel.app> (Vercel-Projekt `arasul-demo`,
 > Team `arasuls-projects`, Hobby-Tarif). `demo.arasul.de` ist vorgesehen,
 > siehe [Eigene Adresse](#eigene-adresse).
 
 ## Was der Besucher sieht
 
-Er ist ohne Anmeldung **Beispiel-Mitarbeiter** der erfundenen Beispielwerk GmbH
-(Kälte- und Klimatechnik) und hat drei kleine Apps, jede mit eigenem Symbol,
-Seitenkopf, Kennzahlen und einer kompakten Tabelle (`Datenliste`): Angebote
-(`file-text`), Wartungsplan (`wrench`), Urlaubsanträge (`calendar-days`).
+Die produktive Anwendung eines erfundenen Metallbauers, der **Kerschner
+Metallbau GmbH** in Grünfelden (62 Leute, Treppen, Geländer, Schweißbaugruppen;
+wer sie ist, steht in [`demo/FIRMA.md`](../../apps/dashboard-frontend/demo/FIRMA.md)).
+Angemeldet ist **Miriam Kerschner**, Betriebsleiterin, mit dem Recht in der
+Werkstatt. Es gibt keinen Rollenwechsel und kein Band: was sie sieht, folgt
+aus ihren Rechten. Oben in der Leiste steht das Logo der Firma, auf der
+Startseite ihr Name.
 
-**Der geführte Weg** (`fuehrung.ts`, seit J51) beginnt beim ersten Besuch von
-selbst. Fünf Schritte, jeder mit einem Hinweis aus Glas an der Stelle, um die
-es geht, einem Ring um diese Stelle, „Weiter" und „Überspringen":
+**Deutsch ist Standard**, egal was der Browser meldet; Englisch wählt man in
+der Kapsel, dann ist alles englisch (Shell und Werkstatt über das Wörterbuch,
+die Fach-Apps und Dateien selbst zweisprachig).
 
-| Schritt | Stelle                                 | „Weiter" tut                              |
-| ------- | -------------------------------------- | ----------------------------------------- |
-| 1       | Kachel „Angebote" (sonst die Leiste)   | öffnet Angebote                           |
-| 2       | das Icon der Rückmeldung in der Kapsel | geht weiter (schreiben muss man selbst)   |
-| 3       | „App-Betreuung" im Band                | wechselt die Person, die Werkstatt öffnet |
-| 4       | der Eingang der Werkstatt              | öffnet „Test nach Live"                   |
-| 5       | „Live schalten" bei Angebote 1.5.0     | beendet den Weg                           |
+**Sechs Apps**, jede mit eigenem Symbol: Angebote (`file-text`),
+Wareneingang (`package-check`), Wartungsplan (`wrench`), Prüfprotokolle
+(`clipboard-check`), Urlaubsanträge (`calendar-days`) und die Werkstatt
+(`hammer`). Die fünf Fach-Apps haben dieselbe Form: Seitenkopf mit „… anlegen"
+und CSV-Export, vier Kennzahlen mit Verlauf, eine Auswertung als Diagramm, was
+als Nächstes ansteht, die Liste mit rund 40 Einträgen, Suche, Filter nach
+Stand und Sortierung, je Zeile die nächste Aktion, Bearbeiten und Löschen.
+Ein Klick öffnet die Einzelansicht als Blatt (am Rechner daneben, am Handy von
+unten) mit Feldern, Dateien und Verlauf: bearbeiten, Stand ändern, freigeben
+oder ablehnen (mit Satz), Notiz, Datei anhängen, löschen mit Rückfrage. Das
+Formular prüft Pflichtfelder und fachliche Regeln (gültig bis nach dem Datum,
+Resturlaub, Bestellnummer).
 
-Wer selbst klickt, kommt ohne „Weiter" voran (App geöffnet, Rückmeldung
-gesendet, Eingang der Werkstatt offen). Ein offener Dialog hat Vorrang, der Hinweis tritt
-dann zurück. Am Handy steht der Hinweis über der Leiste unten. Esc und
-„Überspringen" beenden den Weg, „So geht's" im Band beginnt ihn neu, als
-Mitarbeiter. Der Stand liegt in `sessionStorage`.
+**Beispieldateien**: an den Vorgängen hängen Angebot, Lieferschein,
+Wartungs- und Prüfprotokoll, Urlaubsantrag als PDF und Zeichnung oder Foto als
+einfache Zeichnung. Der Service Worker erzeugt sie beim Öffnen aus dem Eintrag
+(`dokumente.ts`), mit dem Namen der Firma und dem Satz, dass alles erfunden ist.
+Sie passen damit auch zu einem eben angelegten oder geänderten Eintrag.
 
-Live geschaltet, rechnet Angebote mit Rabatt; das ist der Weg, den die
-Website erklärt.
+**Die Startseite** ist die des Produkts (Gruß, „Für Sie" mit den Freigaben,
+eine Kachel je App). Die Demo setzt zwei Teile dazu (`uebersicht.tsx`): unter
+den Gruß Firma, Datum, Schnellzugriffe und sechs Kennzahlen über alle Apps mit
+Verlauf; vor die Kacheln „Heute steht an" und „Zuletzt geändert". Freigaben
+in „Für Sie" öffnen den Vorgang in seiner App (`zeigt_freigaben`).
 
-Seit J52 (22.11.2026) hat auch der Mitarbeiter der Demo die **Werkstatt**: dort
-stehen nur seine Meldungen mit Stand, eine aus den Beispieldaten und die eben
-gesendete. Der Schalter im Band wechselt nicht die Rolle, sondern die Person:
-zur App-Betreuung, dieselbe Art Konto mit dem Recht in der Werkstatt. Die
-Abnahme der Demo prüft, dass der Mitarbeiter keine fremde Meldung und keine
-Seite Eingang, Apps oder Live sieht.
+**Die Werkstatt** zeigt alle Rückmeldungen (14 aus der Firma), Angebote 1.5.0
+(Rabatt) und Prüfprotokolle 1.9.0 (Nacharbeit mit Frist) warten in Test.
+Live geschaltet, rechnet Angebote mit Rabatt.
 
-Das Band liegt seit J51 hell auf hell (dunkel auf dunkel), in der Fläche des
-Produkts mit feiner Linie darunter: „Demo mit Beispieldaten", Mitarbeiter
-oder App-Betreuung, „So geht's", „Zurücksetzen", Deutsch oder Englisch, „Zur
-Website". Unter 760 px fallen „Zurücksetzen" und „Zur Website" weg.
+**Der Hinweis auf die Demo** ist eine ruhige Zeile in der Kapsel oben rechts:
+„Demo", „Kurz zeigen lassen", „Zurücksetzen" (fragt einmal nach), Deutsch
+oder Englisch, „Zur Website". Unter 1180 px ist es ein Knopf „Demo" mit
+demselben Menü aus Glas. Über einer App sitzt die Zeile in der Kapsel des
+Rahmens, sonst schwebt sie allein an derselben Stelle; der Seitenkopf hält
+den Platz frei.
+
+**Der geführte Weg** (`fuehrung.ts`) beginnt nur über „Kurz zeigen lassen".
+Fünf Schritte: Startseite, „Für Sie", Angebote, Rückmeldung, Werkstatt. Eine
+Karte aus Glas unten rechts, am Handy als Blatt von unten, ein ruhiger Rahmen
+um die Stelle (kein Puls, gleitet in 200 ms, bei „weniger Bewegung" sofort).
+„Zurück", „Weiter", „Beenden", Escape. Der Stand liegt in `sessionStorage`.
+
+Alles, was der Besucher ändert, liegt in IndexedDB in seinem Browser und
+übersteht ein Neuladen; „Zurücksetzen" stellt den Anfang her.
 
 Nicht in der Demo: die Verwaltung (gehört dem Administrator), das Terminal
-(meldet „nicht eingeschaltet"), Freigaben, Flows. Jeder Weg, den die Demo
-nicht kennt, antwortet mit 404 und dem Satz „In der Demo nicht verfügbar".
+(meldet „nicht eingeschaltet"), Flows. Jeder Weg, den die Demo nicht kennt,
+antwortet mit 404 und dem Satz „In der Demo nicht verfügbar".
 
 ## Wie sie gebaut ist
 
 Alles liegt in `apps/dashboard-frontend/demo/`. Das Produkt weiß nichts davon:
 kein Schalter in `src/`, kein Zweig im Code.
 
-| Datei                               | Was                                                                                                                                                                                       |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.html`, `start.ts`            | Eingang. Meldet den Service Worker an, wartet, bis er die Seite steuert, setzt das Band, lädt dann `src/index.tsx` unverändert                                                            |
-| `dienst.ts`                         | Service Worker, die **eine Schicht gespielter Antworten**. Fängt jede Anfrage an `/api/…` und an `/apps/<id>/(test/)api/…` ab, auch aus den iframes und von `<img>`. Zustand in IndexedDB |
-| `antworten.ts`, `daten.ts`          | Die Antworten als reine Funktion in den Formen des Backends; die Beispieldaten                                                                                                            |
-| `band.ts`, `band.css`               | Das Band. Zieht der Shell (`h-dvh`) seine Höhe ab, Farben nur aus Tokens                                                                                                                  |
-| `uebersetzung.ts`, `woerterbuch.ts` | Englisch ohne Sprachschicht im Produkt: ersetzt sichtbare Sätze im DOM nach Wörterbuch, in der Shell und in der Werkstatt. Unbekanntes bleibt deutsch                                     |
-| `apps/`                             | Die drei Beispiel-Apps, Apps ohne Bau auf `/marken/5/` wie `tests/beispielapp/`, deutsch und englisch                                                                                     |
-| `vite.config.ts`, `bauen.mjs`       | Der Bau nach `dist-demo/`                                                                                                                                                                 |
-| `abnahme.mjs`                       | Die Abnahme mit Playwright                                                                                                                                                                |
+| Datei                                | Was                                                                                                                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.html`, `start.ts`             | Eingang. Meldet den Service Worker an, wartet, bis er die Seite steuert, setzt Kapsel, Übersicht und Weg, lädt dann `src/index.tsx` unverändert                                           |
+| `dienst.ts`                          | Service Worker, die **eine Schicht gespielter Antworten**. Fängt jede Anfrage an `/api/…` und an `/apps/<id>/(test/)api/…` ab, auch aus den iframes und von `<img>`. Zustand in IndexedDB |
+| `antworten.ts`                       | Die Antworten als reine Funktion: die Plattform in den Formen des Backends, die Fach-Apps mit Einträgen, Stand, Freigabe, Dateien                                                         |
+| `firma.ts`, `bestand.ts`, `daten.ts` | Die Firma (Personen, Kunden, Lieferanten, Maschinen, Artikel, Aufträge), die Einträge der fünf Apps, der Zustand mit Rückmeldungen und Fassungen                                          |
+| `dokumente.ts`                       | PDF (kleiner Schreiber, Standardschriften) und SVG-Zeichnungen aus dem Eintrag                                                                                                            |
+| `kapsel.ts`, `kapsel.css`            | Die Demo-Zeile in der Kapsel und die Gestalt des Wegs; Farben nur aus Tokens                                                                                                              |
+| `uebersicht.tsx`, `uebersicht.css`   | Die Übersicht des Betriebs auf der Startseite                                                                                                                                             |
+| `fuehrung.ts`                        | Der geführte Weg                                                                                                                                                                          |
+| `uebersetzung.ts`, `woerterbuch.ts`  | Englisch ohne Sprachschicht im Produkt: ersetzt sichtbare Sätze im DOM nach Wörterbuch, in der Shell und in der Werkstatt                                                                 |
+| `apps/`                              | Die fünf Fach-Apps: `fachapp.tsx` (die gemeinsame Form), je App eine Beschreibung ihrer Fachlichkeit, gebaut wie eine App aus dem Kit (React und `@marken` zur Laufzeit von `/marken/5/`) |
+| `vite.config.ts`, `bauen.mjs`        | Der Bau nach `dist-demo/`; die Fach-Apps baut esbuild mit `/marken/5/` als außen                                                                                                          |
+| `abnahme.mjs`                        | Die Abnahme mit Playwright                                                                                                                                                                |
 
 Warum ein Service Worker und kein ausgetauschtes `fetch`: er erreicht auch
-Bilder (`/api/rueckmeldungen/<id>/bild`) und die Apps im iframe, darunter das
+Bilder (`/api/rueckmeldungen/<id>/bild`) und die Apps im iframe, darunter die
 Werkstatt mit ihrem eigenen `fetch`.
 
 ## Bauen und prüfen
@@ -82,10 +105,15 @@ ARASUL_PLAYWRIGHT=<Ordner mit node_modules/playwright> \
 ARASUL_DEMO_URL=https://arasul-demo.vercel.app node demo/abnahme.mjs   # gegen die Auslieferung
 ```
 
-Die Abnahme geht den Weg je Sprache bei 390, 768 und 1440 px und ist rot bei
-waagrechtem Überlauf, einer fremden Herkunft im Netzwerk, einer Anfrage an
-`/api/…`, die den Server erreicht, und einem Fehler in der Konsole.
-`--sammeln` gibt die sichtbaren Sätze aus, die das Wörterbuch braucht.
+Die Abnahme geht je Sprache bei 360, 390, 768 und 1440 px durch die
+Startseite, jede Fach-App (ein Eintrag angelegt, einer geändert, eine Datei
+geöffnet), die Werkstatt, die Einstellungen, den geführten Weg und
+„Zurücksetzen". Sie ist rot bei waagrechtem Überlauf, einer fremden Herkunft
+im Netzwerk, einer Anfrage an `/api/…`, die den Server erreicht, einem Fehler
+in der Konsole, einem Band, „Sample" oder „Beispiel-Mitarbeiter", einem Weg,
+der von selbst beginnt, und im Englischen bei einem deutschen Satz in Shell
+oder Werkstatt. `--sammeln` gibt diese deutschen Reste als Liste aus,
+`--sprache` und `--breite` grenzen den Lauf ein.
 Passt der Chromium nicht zur Playwright-Fassung: `ARASUL_CHROMIUM=<Pfad>`.
 
 Die CI baut die Demo im Job „Frontend" mit (`Demo bauen (J46)`); die Tests

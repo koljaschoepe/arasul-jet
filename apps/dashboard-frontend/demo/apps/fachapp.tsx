@@ -335,7 +335,7 @@ function FachApp({ def }: { def: AppDef }) {
   const zaehler = (stand: string) => eintraege.filter(e => e.stand === stand).length;
 
   return (
-    <div className="fa-seite">
+    <div className={eng ? 'fa-seite fa-eng' : 'fa-seite'}>
       <Kopf
         titel={def.titel}
         beschreibung={eng ? undefined : satz}

@@ -126,7 +126,7 @@ const def: AppDef = {
     },
     { key: 'notiz', titel: t('Bemerkung', 'Note'), art: 'textlang' },
   ],
-  vorbelegung: () => ({ erwartet: isoIn(1), pruefer: 7, bestellung: 'B-26-0' }),
+  vorbelegung: () => ({ erwartet: isoIn(1), pruefer: 7 }),
   pruefen: f => {
     const aus: Record<string, string> = {};
     if (typeof f.bestellung === 'string' && !/^B-\d{2}-\d{3,4}$/.test(f.bestellung)) {

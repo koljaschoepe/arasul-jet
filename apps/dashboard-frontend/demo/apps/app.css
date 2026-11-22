@@ -54,6 +54,14 @@
   color: var(--muted-foreground);
 }
 
+/* Eng (am Handy): die Seite beginnt unter der Kapsel des Rahmens, der Titel
+   hat die volle Breite, statt neben Kapsel und Werkzeugen zu verschwinden. */
+.fa-eng {
+  padding-top: 52px;
+}
+.fa-eng .ara-kopf {
+  padding-right: 0 !important;
+}
 .fa-satz-oben {
   margin: -12px 0 0;
 }

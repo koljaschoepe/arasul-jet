@@ -13,7 +13,11 @@ describe('Wörterbuch', () => {
   });
 
   it('übersetzt Sätze mit Zahlen und Namen', () => {
-    expect(uebersetzeText('Guten Tag, Beispiel-Mitarbeiter')).toBe('Hello, Sample employee');
+    expect(uebersetzeText('Guten Tag, Miriam')).toBe('Hello, Miriam');
+    expect(uebersetzeText('Sieben Freigaben warten auf Sie')).toBe(
+      'Seven approvals are waiting for you'
+    );
+    expect(uebersetzeText('wartet seit 13 Stunden')).toBe('waiting for 13 hours');
     expect(uebersetzeText('Freitag, 20. November 2026')).toBe('Friday, 20 November 2026');
     expect(uebersetzeText('1\u00a0Meldung umgesetzt')).toBe('1 feedback item done');
     expect(uebersetzeText('Angebote live schalten?')).toBe('Switch Quotes live?');

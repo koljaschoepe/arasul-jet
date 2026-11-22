@@ -217,12 +217,16 @@ function rahmenLegen(ziel: string): void {
   }
   el.scrollIntoView?.({ block: 'nearest' });
   const r = el.getBoundingClientRect();
-  const luft = r.width > window.innerWidth * 0.6 ? -4 : 4;
+  // Mit Luft um die Stelle, aber nie über den Rand des Fensters.
+  const links = Math.max(4, r.left - 6);
+  const oben = Math.max(4, r.top - 6);
+  const rechts = Math.min(window.innerWidth - 4, r.right + 6);
+  const unten = Math.min(window.innerHeight - 4, r.bottom + 6);
   rahmen.hidden = false;
-  rahmen.style.left = `${r.left - luft}px`;
-  rahmen.style.top = `${r.top - luft}px`;
-  rahmen.style.width = `${r.width + 2 * luft}px`;
-  rahmen.style.height = `${r.height + 2 * luft}px`;
+  rahmen.style.left = `${links}px`;
+  rahmen.style.top = `${oben}px`;
+  rahmen.style.width = `${rechts - links}px`;
+  rahmen.style.height = `${Math.max(0, unten - oben)}px`;
 }
 
 /** Den Weg vorn beginnen (aus der Kapsel). */

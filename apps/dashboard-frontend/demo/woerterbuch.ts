@@ -202,35 +202,59 @@ export const WOERTER: Record<string, string> = {
   'In der Demo nicht verfügbar. Auf einem echten Arasul-Server geht das.':
     'Not available in the demo. On a real Arasul server this works.',
 
-  // Beispieldaten
-  'Beispiel-Mitarbeiter': 'Sample employee',
-  'Beispiel-App-Betreuung': 'Sample app support',
-  Entwicklung: 'Development',
+  // Die Daten der Firma (J54): Apps, Abteilungen, Meldungen, Fassungen
   Angebote: 'Quotes',
   '(Test) Angebote': '(Test) Quotes',
   'Angebote (Test)': 'Quotes (test)',
+  Wareneingang: 'Goods receipt',
   Wartungsplan: 'Maintenance plan',
+  Prüfprotokolle: 'Inspection reports',
+  '(Test) Prüfprotokolle': '(Test) Inspection reports',
+  'Prüfprotokolle (Test)': 'Inspection reports (test)',
   Urlaubsanträge: 'Leave requests',
-  'Vertrieb Innendienst': 'Inside sales',
-  'Kundendienst Außendienst': 'Field service',
   Werkstatt: 'Workshop',
-  Fertigung: 'Production',
-  'Ich hätte gern die Telefonnummer des Kunden direkt in der Zeile.':
-    'I would like the customer’s phone number right in the row.',
-  Buchhaltung: 'Accounting',
-  'Bei Stammkunden geben wir oft 3 % Rabatt. Ich rechne das jedes Mal von Hand aus. Kann das Angebot einen Rabatt haben?':
-    'We often give regular customers a 3% discount. I calculate it by hand every time. Can a quote have a discount?',
-  'Am Handy ist die Spalte mit dem Kunden abgeschnitten. Unterwegs brauche ich vor allem den Ort.':
-    'On the phone the customer column is cut off. On the road I mostly need the location.',
+  'Betriebsleiterin, betreut die Apps': 'Operations manager, looks after the apps',
+  'Liegt bei Ihnen.': 'With you.',
+  'Was bei Ihnen liegt, steht gleich darunter unter „Für Sie“.':
+    'What is waiting for you is listed right below under “For you”.',
+  'Ihr Name und Ihre Adresse auf diesem Gerät.': 'Your name and address on this server.',
+  'Die Telefonnummer des Servicetechnikers direkt in der Zeile wäre praktisch.':
+    'The service technician’s phone number right in the row would be handy.',
+  'Bei Stammkunden geben wir 3 % Rabatt. Ich rechne das jedes Mal von Hand aus. Kann das Angebot einen Rabatt haben?':
+    'We give regular customers a 3% discount. I calculate it by hand every time. Can a quote have a discount?',
+  'Am Handy ist die Spalte mit der Maschine abgeschnitten. In der Halle brauche ich vor allem den Standort.':
+    'On the phone the machine column is cut off. In the hall I mostly need the location.',
   'Brückentage wären als Hinweis im Kalender praktisch.':
     'Bridge days marked in the calendar would be handy.',
   'Bitte eine Farbe pro Abteilung.': 'Please one colour per department.',
-  'Abteilungen stehen schon als eigene Spalte; mehr Farben machen die Übersicht unruhig.':
-    'Departments already have their own column; more colours make the overview restless.',
+  'Die Abteilung steht schon als eigene Spalte; mehr Farben machen die Übersicht unruhig.':
+    'The department already has its own column; more colours make the overview restless.',
+  'Beim Reklamieren will ich das Foto direkt mit dem Handy machen, ohne Umweg über die Galerie.':
+    'When raising a complaint I want to take the photo straight with the phone, without going through the gallery.',
+  'Kann die Bestellnummer aus dem Lieferschein übernommen werden?':
+    'Can the order number be taken from the delivery note?',
+  'Das Angebots-PDF sollte unsere Referenzbilder anhängen können.':
+    'The quote PDF should be able to attach our reference pictures.',
+  'Bei Nacharbeit brauche ich eine Frist und wer es macht, sonst geht es unter.':
+    'For rework I need a deadline and who does it, otherwise it gets lost.',
+  'Die Liste nach Auftrag gruppieren, dann sehe ich, was für eine Baustelle fehlt.':
+    'Group the list by order, then I see what is missing for a site.',
+  'Ein Export für die Lohnabrechnung als CSV würde mir viel Abtippen sparen.':
+    'A CSV export for payroll would save me a lot of retyping.',
+  'Laser LS-1: Schutzglas-Wechsel bitte als eigene Wartung alle zwei Wochen.':
+    'Laser LS-1: please make the protective window change its own task every two weeks.',
+  'Auf der Übersicht hätte ich gern die Annahmequote je Monat.':
+    'On the overview I would like the win rate per month.',
+  'Eine App für Arbeitszeiten auf der Baustelle wäre der nächste Schritt.':
+    'An app for working hours on site would be the next step.',
   'Rabatt je Angebot, darunter die Summe nach Rabatt (Rückmeldung #101 umgesetzt).':
     'Discount per quote, with the total after discount below (feedback #101 done).',
+  'Nacharbeit mit Frist und zuständiger Person (Rückmeldung #108).':
+    'Rework with deadline and responsible person (feedback #108).',
   'Angebote nach Kunde filtern.': 'Filter quotes by customer.',
+  'Lagerort aus dem Artikel vorbelegt.': 'Storage location pre-filled from the item.',
   'Fällige Wartungen stehen oben.': 'Due maintenance is listed first.',
+  'Messwert je Prüfung.': 'Measurement per inspection.',
   'Resturlaub steht über dem Formular.': 'Remaining leave is shown above the form.',
 };
 
@@ -258,6 +282,20 @@ const MONATE: Record<string, string> = {
   Dezember: 'December',
 };
 
+const ZAHLEN: Record<string, string> = {
+  Zwei: 'Two',
+  Drei: 'Three',
+  Vier: 'Four',
+  Fünf: 'Five',
+  Sechs: 'Six',
+  Sieben: 'Seven',
+  Acht: 'Eight',
+  Neun: 'Nine',
+  Zehn: 'Ten',
+  Elf: 'Eleven',
+  Zwölf: 'Twelve',
+};
+
 const name = (s: string) => WOERTER[s] ?? s;
 
 /** Sätze mit Zahlen oder Namen darin. Reihenfolge zählt: das erste Muster gewinnt. */
@@ -268,6 +306,27 @@ export const MUSTER: Array<[RegExp, (...teile: string[]) => string]> = [
   [/^\(Test\) (.+)$/, (_, n = '') => `(Test) ${name(n)}`],
   [/^Startseite, (\d+) offen$/, (_, n) => `Home, ${n} open`],
   [/^(\d+) Freigaben offen$/, (_, n) => `${n} approvals open`],
+  [/^(\d+) Freigaben?$/, (_, n) => `${n} approval${n === '1' ? '' : 's'}`],
+  [/^Eine Freigabe wartet auf Sie$/, () => 'One approval is waiting for you'],
+  [
+    /^(\S+) Freigaben warten auf Sie$/,
+    (_, n = '') => `${ZAHLEN[n] ?? n} approvals are waiting for you`,
+  ],
+  [
+    /^wartet seit (\d+|einer|einem) (Minuten?|Stunden?|Tagen?|Tag|Wochen?)$/,
+    (_, n = '', e = '') => {
+      const zahl = n === 'einer' || n === 'einem' ? '1' : n;
+      const einheit = e.startsWith('Minute')
+        ? 'minute'
+        : e.startsWith('Stunde')
+          ? 'hour'
+          : e.startsWith('Tag')
+            ? 'day'
+            : 'week';
+      return `waiting for ${zahl} ${einheit}${zahl === '1' ? '' : 's'}`;
+    },
+  ],
+  [/^wartet seit eben$/, () => 'waiting since just now'],
   [
     /^(Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag), (\d+)\. (\S+) (\d{4})$/,
     (_, t = '', d, m = '', j) => `${TAGE[t] ?? t}, ${d} ${MONATE[m] ?? m} ${j}`,

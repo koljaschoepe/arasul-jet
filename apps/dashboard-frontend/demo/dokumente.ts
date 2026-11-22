@@ -9,7 +9,17 @@
  * Datei zu dem, was der Besucher geändert oder eben angelegt hat.
  */
 import { txt, type AppKennung, type Eintrag } from './bestand';
-import { FIRMA, auftrag, kunde, lieferant, maschine, name, person, ARTIKEL } from './firma';
+import {
+  FIRMA,
+  ansprech,
+  auftrag,
+  kunde,
+  lieferant,
+  maschine,
+  name,
+  person,
+  ARTIKEL,
+} from './firma';
 
 type Sprache = 'de' | 'en';
 
@@ -196,7 +206,7 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
   const k = kunde(Number(f.kunde));
   briefkopf(s, FIRMA.name, zeile());
   s.text(L, 735, k.name, 10.5);
-  s.text(L, 720, W(sp, `z. Hd. ${k.ansprechpartner}`, `Attn. ${k.ansprechpartner}`), 10);
+  s.text(L, 720, W(sp, `z. Hd. ${k.ansprechpartner}`, `Attn. ${ansprech(k, sp)}`), 10);
   s.text(L, 705, k.ort, 10);
   angaben(
     s,

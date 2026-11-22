@@ -246,7 +246,10 @@ Abschnitt „Neue Bausteine der Bibliothek" im Entwurf `gestaltung.md`.
   erreichbar bleibt; nur der oberste Kopf trägt ihn.
 - **Platz der Kapsel und der Leiste.** Der Kopf hält rechts
   `--ara-kapsel-platz` frei (der Rahmen setzt ihn am `<html>` der App), so
-  überdecken sich Kapsel und Werkzeuge nie. Am Handy schwebt die Leiste über
+  überdecken sich Kapsel und Werkzeuge nie. Reicht die Zeile dann nicht für
+  Titel, Werkzeuge und Aktionen, brechen Werkzeuge und Aktionen in die nächste
+  Zeile um; der Titel behält mindestens 12rem (seit 5.11.1, gefunden an der
+  Demo am Handy). Am Handy schwebt die Leiste über
   der Fläche; die Shell nennt ihren Platz als `--ara-leiste-platz`, und
   Bereichsrahmen, Startseite und der Rahmen einer App halten ihn unten frei.
 - **Kompakte Tabelle.** `Table` hat Kopfzeile 32 px und Zeilen 40 px; die
