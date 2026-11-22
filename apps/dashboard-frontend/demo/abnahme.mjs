@@ -1,23 +1,23 @@
 /**
- * Die Abnahme der Demo (J46, M7) am fertigen Bau `dist-demo/`.
+ * Die Abnahme der Demo (J46, J54, M7) am fertigen Bau `dist-demo/`.
  *
  *   npm run demo:bauen && node demo/abnahme.mjs [--bilder <ordner>] [--sammeln]
  *   ARASUL_DEMO_URL=https://… node demo/abnahme.mjs   (gegen die Auslieferung)
  *
  * Ohne Adresse startet sie einen kleinen Server für `dist-demo/`, der die
  * Regeln aus `vercel.json` nachspielt (Umschreibungen, Köpfe). Dann geht sie
- * den Weg der Website durch, je Sprache und Breite (390, 768, 1440 px):
+ * je Sprache und Breite (360, 390, 768, 1440 px) durch die Demo:
  *
- *   Startseite als Mitarbeiter → App „Angebote" → Rückmeldung mit Foto und
- *   Markierung → Werkstatt als Mitarbeiter: nur die eigenen Meldungen mit
- *   Stand → zur App-Betreuung umschalten → Werkstatt: die Meldung im Eingang
- *   → „Test nach Live": Angebote 1.5.0 live → die App rechnet mit Rabatt.
+ *   Startseite (Firma, Kennzahlen, Freigaben, kein Band, nirgends „Sample")
+ *   → je Fach-App: Liste, ein Eintrag angelegt, einer geändert, eine Datei
+ *   geöffnet → Werkstatt → geführter Weg (beginnt nicht von selbst)
+ *   → Zurücksetzen.
  *
  * Gemessen wird: jeder Schritt sichtbar, kein waagrechter Überlauf (Shell und
  * App im Rahmen), keine Anfrage an eine fremde Herkunft, keine Anfrage an
  * `/api/…`, die den Server erreicht (der Service Worker beantwortet alle),
- * kein Fehler in der Konsole. `--sammeln` gibt stattdessen die deutschen
- * Sätze aus, die das englische Wörterbuch braucht.
+ * kein Fehler in der Konsole, im Englischen kein deutscher Satz in Shell und
+ * Werkstatt. `--sammeln` gibt diese deutschen Reste als Liste aus.
  *
  * Playwright steht nicht im Lockfile: `ARASUL_PLAYWRIGHT=<Ordner mit
  * node_modules/playwright>` oder `npm i --no-save playwright`.
@@ -56,9 +56,11 @@ const args = process.argv.slice(2);
 const SAMMELN = args.includes('--sammeln');
 const bilderArg = args.indexOf('--bilder');
 const BILDER = bilderArg >= 0 ? path.resolve(args[bilderArg + 1]) : null;
-const BREITEN = [390, 768, 1440];
+const BREITEN = [360, 390, 768, 1440];
 const spracheArg = args.indexOf('--sprache');
-const SPRACHEN = spracheArg >= 0 ? [args[spracheArg + 1]] : SAMMELN ? ['de'] : ['de', 'en'];
+const SPRACHEN = spracheArg >= 0 ? [args[spracheArg + 1]] : SAMMELN ? ['en'] : ['de', 'en'];
+const breiteArg = args.indexOf('--breite');
+const NUR_BREITE = breiteArg >= 0 ? Number(args[breiteArg + 1]) : null;
 
 const befunde = [];
 const rot = text => {
@@ -117,7 +119,7 @@ async function ueberlauf(seite, wo) {
     hoch: document.documentElement.scrollHeight - window.innerHeight,
   }));
   if (shell.breit > 1) rot(`${wo}: Seite ${shell.breit} px zu breit`);
-  if (shell.hoch > 1) rot(`${wo}: Seite ${shell.hoch} px zu hoch (rollt unter dem Band)`);
+  if (shell.hoch > 1) rot(`${wo}: Seite ${shell.hoch} px zu hoch (die Seite rollt)`);
   for (const rahmen of seite.frames().slice(1)) {
     const r = await rahmen
       .evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
@@ -126,63 +128,156 @@ async function ueberlauf(seite, wo) {
   }
 }
 
+/** Deutsch erkennen: Umlaute oder ein Wort, das es im Englischen nicht gibt. */
+const DEUTSCH =
+  /[äöüß]|\b(und|oder|nicht|mit|für|der|die|das|ein|eine|ist|sind|wird|Ihre?|Sie|bei|noch|zur|zum|vor|seit|Tage|heute|gestern|Freigabe|Meldung|Stand|alle)\b/;
 const saetze = new Set();
-async function sammeln(seite) {
+/** Sichtbare Sätze in Shell und Werkstatt, die im Englischen deutsch blieben. */
+async function deutscheReste(seite, wo) {
+  const funde = [];
   for (const rahmen of seite.frames()) {
     const pfad = new URL(rahmen.url()).pathname;
-    if (/^\/apps\/(angebote|wartungsplan|urlaub)\//.test(pfad)) continue;
+    // Die Fach-Apps sind selbst zweisprachig; Daten wie Namen bleiben.
+    if (/^\/apps\/(angebote|wareneingang|wartungsplan|pruefprotokolle|urlaub)\//.test(pfad))
+      continue;
     const liste = await rahmen
       .evaluate(() => {
         const aus = [];
-        const gang = document.createTreeWalker(
-          document.body,
-          NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT
-        );
+        const sichtbar = el => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+        };
+        const gang = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
         for (let k = gang.nextNode(); k; k = gang.nextNode()) {
-          if (k.nodeType === 1) {
-            if (k.closest('[data-demo-nicht-uebersetzen], script, style')) continue;
-            for (const a of ['aria-label', 'title', 'placeholder']) {
-              const w = k.getAttribute(a);
-              if (w) aus.push(w.trim());
-            }
-          } else if (!k.parentElement?.closest('[data-demo-nicht-uebersetzen], script, style')) {
-            const w = k.nodeValue.trim();
-            if (w) aus.push(w);
+          const el = k.parentElement;
+          if (!el || el.closest('script, style, [inert], .sr-only')) continue;
+          const w = k.nodeValue.trim();
+          if (w && sichtbar(el)) aus.push(w);
+        }
+        for (const el of document.querySelectorAll('[aria-label], [title], [placeholder]')) {
+          if (el.closest('[inert]') || !sichtbar(el)) continue;
+          for (const a of ['aria-label', 'placeholder']) {
+            const w = el.getAttribute(a);
+            if (w) aus.push(w.trim());
           }
         }
         return aus;
       })
       .catch(() => []);
-    for (const s of liste) if (/[a-zäöüß]{2}/i.test(s)) saetze.add(s);
+    for (const satz of liste) {
+      if (
+        DEUTSCH.test(satz) &&
+        !/Kerschner|Grünfelden|Yıldız|[Mm]üller|Präzision|Hagedorn|Mühlbach|Möbelwerk|Wärmetechnik|Landkreis|Eschenau|Rieger|Brandl|Schulzentrum/.test(
+          satz
+        )
+      ) {
+        funde.push(satz);
+        saetze.add(satz);
+      }
+    }
+  }
+  if (!SAMMELN && funde.length)
+    rot(`${wo}: deutsch im Englischen: ${[...new Set(funde)].slice(0, 6).join(' | ')}`);
+}
+
+async function bild(seite, name) {
+  if (BILDER) await seite.screenshot({ path: path.join(BILDER, `${name}.png`) });
+}
+
+const FACH_APPS = ['angebote', 'wareneingang', 'wartungsplan', 'pruefprotokolle', 'urlaub'];
+
+/** In der Shell zu einer Adresse, wie ein Klick in der Leiste. */
+async function geheZu(seite, pfad) {
+  await seite.evaluate(p => {
+    window.history.pushState(null, '', p);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, pfad);
+}
+
+async function rahmenVon(seite, app) {
+  for (let i = 0; i < 60; i += 1) {
+    const f = seite.frames().find(x => new URL(x.url()).pathname.startsWith(`/apps/${app}/`));
+    if (f) {
+      const da = await f
+        .locator('[data-testid^="fa-zeile-"], [data-testid="werkstatt-seite"], main, h1')
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (da) return f;
+    }
+    await warte(250);
+  }
+  throw new Error(`App ${app} kommt nicht`);
+}
+
+/** Was die Abnahme einträgt: so, wie es im Betrieb stünde. */
+const TEXTE = {
+  'feld-betreff': 'Treppengeländer Rathaus, Edelstahl',
+  'feld-bauteil': 'Podest Treppe Nord',
+  'feld-aufgabe': 'Hydraulikfilter wechseln',
+  'feld-lieferschein': 'LS 48213',
+  'feld-lagerort': 'R-12',
+};
+
+/** Die Änderung je App: eine Bemerkung, wie sie dort stünde. */
+const NOTIZ = {
+  angebote: ['Kunde wünscht Montage im Januar.', 'Customer asks for installation in January.'],
+  wareneingang: ['Zwei Bunde, Etiketten vollständig.', 'Two bundles, labels complete.'],
+  wartungsplan: ['Ersatzfilter liegt im Lager R-12.', 'Spare filter is in store R-12.'],
+  pruefprotokolle: ['Nahtbild gleichmäßig, keine Nacharbeit.', 'Even weld pattern, no rework.'],
+  urlaub: ['Abgestimmt mit Frank Wiesner.', 'Agreed with Frank Wiesner.'],
+};
+
+/** Ein leeres Formular so füllen, dass es die Prüfung besteht. */
+async function formularFuellen(rahmen, app) {
+  const heute = new Date().toISOString().slice(0, 10);
+  const felder = rahmen.locator(
+    '[data-testid="fa-formular"] input, [data-testid="fa-formular"] select'
+  );
+  for (let i = 0; i < (await felder.count()); i += 1) {
+    const f = felder.nth(i);
+    const id = await f.getAttribute('id');
+    const wert = await f.inputValue();
+    const art = await f.evaluate(el => (el.tagName === 'SELECT' ? 'select' : el.type));
+    if (id === 'feld-bestellung') await f.fill('B-26-0999');
+    else if (wert) continue;
+    else if (art === 'select') {
+      const zweite = await f.locator('option').nth(1).getAttribute('value');
+      await f.selectOption(zweite);
+    } else if (art === 'date') await f.fill(heute);
+    else if (
+      id === 'feld-menge' ||
+      id === 'feld-betrag' ||
+      id === 'feld-messwert' ||
+      id === 'feld-dauer' ||
+      id === 'feld-intervall' ||
+      id === 'feld-rabatt'
+    )
+      await f.fill(id === 'feld-betrag' ? '12400' : '2');
+    else await f.fill(TEXTE[id] ?? 'Nach Rücksprache mit dem Kunden.');
   }
 }
 
-// Belege für den PR: die Schritte, die die Website erklärt.
-const BELEGT = [
-  '1-weg-app',
-  '2-weg-rueckmeldung',
-  '3-markierung',
-  '3-meine-meldungen',
-  '4-weg-entwickler',
-  '5-weg-eingang',
-  '6-weg-live',
-  '6-weg-geschafft',
-  '7-rabatt',
-  '8-wartungsplan',
-  '8-urlaub',
-];
-async function bild(seite, name) {
-  if (BILDER && BELEGT.some(s => name.endsWith(`-${s}`))) {
-    await seite.screenshot({ path: path.join(BILDER, `${name}.png`) });
-  }
+async function ueberlaufApp(seite, rahmen, wo) {
+  const r = await rahmen
+    .evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    .catch(() => 0);
+  if (r > 1) rot(`${wo}: App ${r} px zu breit`);
+  await ueberlauf(seite, wo);
 }
 
 // ── Der Weg ─────────────────────────────────────────────────────────────────
 async function weg(browser, basis, sprache, breite) {
   const kontext = await browser.newContext({
-    viewport: { width: breite, height: breite < 600 ? 844 : breite < 1000 ? 1024 : 900 },
-    locale: sprache === 'en' ? 'en-GB' : 'de-DE',
+    viewport: {
+      width: breite,
+      height: breite < 600 ? (breite < 380 ? 640 : 844) : breite < 1000 ? 1024 : 900,
+    },
+    // Ein englischer Browser: die Demo bleibt trotzdem deutsch, bis man wählt.
+    locale: 'en-US',
+    hasTouch: breite < 900,
     serviceWorkers: 'allow',
+    acceptDownloads: true,
   });
   const herkunft = new URL(basis).origin;
   kontext.on('request', r => {
@@ -193,199 +288,173 @@ async function weg(browser, basis, sprache, breite) {
     if (u.protocol.startsWith('http') && u.origin !== herkunft)
       rot(`fremde Herkunft: ${u.origin} (${r.url()})`);
   });
-  await kontext.addInitScript(s => {
-    try {
-      localStorage.setItem('arasul-demo-sprache', s);
-    } catch {}
-  }, sprache);
+  if (sprache === 'en') {
+    await kontext.addInitScript(() => {
+      try {
+        localStorage.setItem('arasul-demo-sprache', 'en');
+      } catch {
+        /* ohne Speicher bleibt es deutsch */
+      }
+    });
+  }
   const seite = await kontext.newPage();
   const wo = `${sprache} ${breite}`;
-  const name = s => `demo-${sprache}-${breite}-${s}`;
   seite.on('console', m => {
-    if (m.type() === 'error' && !/Failed to load resource.*404/.test(m.text()))
-      rot(`${wo}: Konsole: ${m.text()}`);
+    if (m.type() === 'error' && !/404 \(Not Found\)/.test(m.text()))
+      rot(`${wo}: Konsole: ${m.text().slice(0, 200)}`);
   });
-  seite.on('pageerror', f => rot(`${wo}: Seitenfehler: ${f.message}`));
-  // Ein unbekannter Weg der Demo antwortet 404 — sammeln, damit die Liste klein bleibt.
-  seite.on('response', r => {
-    if (r.status() === 404 && new URL(r.url()).pathname.startsWith('/api/')) {
-      rot(`${wo}: kein gespielter Weg für ${new URL(r.url()).pathname}`);
-    }
-  });
+  seite.on('pageerror', f => rot(`${wo}: Fehler: ${f.message.slice(0, 200)}`));
 
-  /** Der Hinweis des geführten Wegs steht bei Schritt `n` (J51). */
-  const hinweis = async n => {
-    await seite.locator(`[data-testid="demo-weg"][data-schritt="${n}"]:not([hidden])`).waitFor({
-      timeout: 15_000,
+  // Startseite
+  await seite.goto(`${basis}/`);
+  await seite.getByTestId('demo-uebersicht').waitFor({ timeout: 20000 });
+  await seite.locator('[data-testid^="demo-kennzahl-"]').first().waitFor();
+  await warte(600);
+  const start = await seite.evaluate(() => ({
+    band: Boolean(document.querySelector('.demo-band')),
+    text: document.body.innerText,
+    lang: document.documentElement.lang,
+    weg: Boolean(document.querySelector('[data-testid="demo-weg"]')),
+  }));
+  if (start.band) rot(`${wo}: ein Band ist da`);
+  if (/Beispiel-Mitarbeiter|Sample employee|Sample/i.test(start.text))
+    rot(`${wo}: „Sample" oder „Beispiel-Mitarbeiter" sichtbar`);
+  if (!start.text.includes('Kerschner Metallbau GmbH')) rot(`${wo}: Name der Firma fehlt`);
+  if (!/Miriam/.test(start.text)) rot(`${wo}: angemeldete Person ohne Namen`);
+  if (start.lang !== sprache) rot(`${wo}: Sprache ${start.lang} statt ${sprache}`);
+  if (start.weg) rot(`${wo}: der geführte Weg beginnt von selbst`);
+  if (!(await seite.locator('#fuer-sie').count())) rot(`${wo}: „Für Sie" fehlt`);
+  await ueberlauf(seite, `${wo} Start`);
+  if (sprache === 'en') await deutscheReste(seite, `${wo} Start`);
+  await bild(seite, `${wo.replace(' ', '-')}-1-start`);
+  gruen(`${wo}: Startseite`);
+
+  // Je Fach-App: Liste, anlegen, ändern, Datei öffnen
+  for (const app of FACH_APPS) {
+    await geheZu(seite, `/workspace/app/${app}`);
+    const rahmen = await rahmenVon(seite, app);
+    await warte(500);
+    const zeilen = await rahmen.locator('[data-testid^="fa-zeile-"]').count();
+    if (zeilen < 30) rot(`${wo} ${app}: nur ${zeilen} Zeilen`);
+    await ueberlaufApp(seite, rahmen, `${wo} ${app}`);
+    await bild(seite, `${wo.replace(' ', '-')}-2-${app}`);
+
+    // Anlegen
+    await rahmen.getByTestId('fa-neu').first().click();
+    await rahmen.getByTestId('fa-formular').waitFor();
+    await formularFuellen(rahmen, app);
+    await rahmen.getByTestId('fa-speichern').click();
+    await rahmen
+      .getByTestId('fa-blatt')
+      .waitFor({ timeout: 5000 })
+      .catch(() => rot(`${wo} ${app}: nach dem Anlegen kein Blatt`));
+    if ((await rahmen.locator('[data-testid^="fa-zeile-"]').count()) !== zeilen + 1)
+      rot(`${wo} ${app}: Anlage fehlt in der Liste`);
+    await warte(400);
+    await bild(seite, `${wo.replace(' ', '-')}-3-${app}-angelegt`);
+
+    // Ändern: im Blatt bearbeiten, eine Bemerkung setzen
+    await rahmen.getByTestId('fa-bearbeiten').click();
+    await rahmen.getByTestId('fa-formular').waitFor();
+    const notiz = NOTIZ[app][sprache === 'en' ? 1 : 0];
+    await rahmen.locator('#feld-notiz').fill(notiz);
+    await rahmen.getByTestId('fa-speichern').click();
+    await rahmen.getByTestId('fa-formular').waitFor({ state: 'detached', timeout: 5000 });
+    const geaendert = await rahmen.getByTestId('fa-blatt').innerText();
+    if (!geaendert.includes(notiz)) rot(`${wo} ${app}: Änderung nicht im Blatt`);
+    await seite.keyboard.press('Escape');
+    await warte(300);
+
+    // Datei öffnen: der erste Eintrag mit Datei
+    const mitDatei = await rahmen.evaluate(async () => {
+      const r = await fetch('api/daten');
+      const j = await r.json();
+      const e = j.data.eintraege.find(x => x.dateien.length > 0 && x.verlauf.length > 1);
+      return e ? e.nr : null;
     });
-    await warte(400);
-  };
-
-  // 1. Startseite als Mitarbeiter, der Weg beginnt von selbst
-  await seite.goto(basis + '/');
-  await seite.getByTestId('uebersicht-seite').waitFor({ timeout: 20_000 });
-  await seite.locator('.demo-band').waitFor();
-  await hinweis(1);
-  await ueberlauf(seite, `${wo} Startseite`);
-  await bild(seite, name('1-weg-app'));
-  if (SAMMELN) await sammeln(seite);
-  // Die Werkstatt hat seit J52 jeder, auch der Mitarbeiter.
-  const hatWerkstatt = await seite.getByTestId('uebersicht-app-werkstatt').count();
-  if (!hatWerkstatt) rot(`${wo}: der Mitarbeiter sieht die Werkstatt nicht`);
-
-  // 2. „Weiter" öffnet Angebote (live, ohne Rabatt)
-  await seite.getByTestId('demo-weg-weiter').click();
-  const app = seite
-    .frameLocator('[data-testid="app-rahmen-angebote"] iframe, iframe[src="/apps/angebote/"]')
-    .first();
-  await app.locator('.ara-kopf').waitFor({ timeout: 15_000 });
-  await app
-    .getByText(/1\.4\.0/)
-    .first()
-    .waitFor();
-  await app.locator('[data-slot="kennzahl"]').first().waitFor();
-  await hinweis(2);
-  await ueberlauf(seite, `${wo} Angebote`);
-  await bild(seite, name('2-weg-rueckmeldung'));
-
-  // 3. Rückmeldung mit Foto und Markierung
-  await seite.getByTestId('rueckmeldung-knopf').click();
-  await seite.getByTestId('rueckmeldung-text').waitFor();
-  await seite
-    .getByTestId('rueckmeldung-text')
-    .fill(
-      sprache === 'en'
-        ? 'A discount per quote would save me time.'
-        : 'Ein Rabatt je Angebot würde mir Zeit sparen.'
-    );
-  const markierung = seite.getByTestId('rueckmeldung-markierung');
-  if (await markierung.count()) {
-    const box = await markierung.boundingBox();
-    if (box) {
-      await seite.mouse.move(box.x + box.width * 0.1, box.y + box.height * 0.2);
-      await seite.mouse.down();
-      await seite.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.4, { steps: 5 });
-      await seite.mouse.up();
+    if (!mitDatei) {
+      rot(`${wo} ${app}: kein Eintrag mit Datei`);
+      continue;
     }
-  } else {
-    rot(`${wo}: kein Bildschirmfoto im Formular`);
-  }
-  if (SAMMELN) await sammeln(seite);
-  await bild(seite, name('3-markierung'));
-  await seite.getByTestId('rueckmeldung-absenden').click();
-  await seite.getByTestId('rueckmeldung-bestaetigung').waitFor();
-  if (SAMMELN) await sammeln(seite);
-  await seite.getByTestId('rueckmeldung-fertig').click();
-
-  // 3b. Die Werkstatt des Mitarbeiters: seine Meldungen mit Stand, keine fremden (J52)
-  await hinweis(3);
-  await seite.goto(basis + '/workspace/app/werkstatt');
-  const meine = seite.frameLocator('iframe[src="/apps/werkstatt/"]');
-  await meine.getByTestId('werkstatt-meine').waitFor({ timeout: 20_000 });
-  const eigenerText = sprache === 'en' ? 'A discount per quote' : 'Ein Rabatt je Angebot';
-  await meine.getByText(eigenerText).first().waitFor();
-  const fremd =
-    sprache === 'en' ? 'Please one colour per department.' : 'Bitte eine Farbe pro Abteilung.';
-  if (await meine.getByText(fremd).count()) rot(`${wo}: der Mitarbeiter sieht eine fremde Meldung`);
-  for (const k of ['eingang', 'apps', 'live']) {
-    if (await meine.getByTestId(`werkstatt-leiste-${k}`).count()) {
-      rot(`${wo}: der Mitarbeiter sieht in der Werkstatt „${k}“`);
-    }
-  }
-  await hinweis(3);
-  await ueberlauf(seite, `${wo} Meine Meldungen`);
-  await bild(seite, name('3-meine-meldungen'));
-  if (SAMMELN) await sammeln(seite);
-
-  // 4. Der Weg zeigt auf den Schalter im Band; „Weiter" wechselt zur App-Betreuung
-  await bild(seite, name('4-weg-entwickler'));
-  await seite.getByTestId('demo-weg-weiter').click();
-  await seite.waitForURL(/\/workspace\/app\/werkstatt/);
-  const cockpit = seite.frameLocator('iframe[src="/apps/werkstatt/"]');
-  await cockpit.getByTestId('werkstatt-eingang').waitFor({ timeout: 20_000 });
-  const meldungText = sprache === 'en' ? 'A discount per quote' : 'Ein Rabatt je Angebot';
-  await cockpit.getByText(meldungText).first().waitFor();
-  await hinweis(4);
-  await ueberlauf(seite, `${wo} Werkstatt Eingang`);
-  await bild(seite, name('5-weg-eingang'));
-  if (SAMMELN) await sammeln(seite);
-  await cockpit.getByText(meldungText).first().click();
-  await warte(500);
-  const hatBild = await cockpit.getByTestId('werkstatt-bild').count();
-  if (!hatBild) rot(`${wo}: die Meldung zeigt kein Bildschirmfoto in der Werkstatt`);
-  if (SAMMELN) await sammeln(seite);
-  await seite.keyboard.press('Escape');
-  await warte(300);
-
-  // 5. „Weiter" führt zu Test nach Live
-  await seite.getByTestId('demo-weg-weiter').click();
-  await cockpit.getByTestId('werkstatt-live-schalten-angebote').waitFor({ timeout: 10_000 });
-  await hinweis(5);
-  await ueberlauf(seite, `${wo} Test nach Live`);
-  await bild(seite, name('6-weg-live'));
-  if (SAMMELN) await sammeln(seite);
-  await cockpit.getByTestId('werkstatt-live-schalten-angebote').click();
-  const frage = cockpit.getByRole('alertdialog');
-  await frage.waitFor();
-  if (SAMMELN) await sammeln(seite);
-  await frage.getByRole('button').last().click();
-  await cockpit.getByTestId('werkstatt-schalt-ausgang').waitFor({ timeout: 15_000 });
-  await seite.locator('[data-testid="demo-weg"][data-geschafft="true"]').waitFor();
-  await warte(400);
-  await bild(seite, name('6-weg-geschafft'));
-
-  // Apps-Ansicht der Werkstatt
-  if (!(await cockpit.getByTestId('werkstatt-leiste-apps').isVisible())) {
-    await cockpit.getByTestId('werkstatt-leiste-umschalten').click();
-  }
-  await cockpit.getByTestId('werkstatt-leiste-apps').click();
-  await warte(400);
-  if (SAMMELN) await sammeln(seite);
-
-  // „Angebote ansehen" beendet den Weg und öffnet die App
-  await seite.getByTestId('demo-weg-weiter').click();
-  await seite.waitForURL(/\/workspace\/app\/angebote/);
-  await seite.locator('[data-testid="demo-weg"][hidden]').waitFor({ state: 'attached' });
-
-  // 6. Angebote live rechnet jetzt mit Rabatt
-  await seite.goto(basis + '/workspace/app/angebote');
-  const live = seite.frameLocator('iframe[src="/apps/angebote/"]');
-  await live
-    .getByText(/1\.5\.0/)
-    .first()
-    .waitFor({ timeout: 15_000 });
-  await live
-    .getByText(sprache === 'en' ? 'after discount' : 'nach Rabatt')
-    .first()
-    .waitFor();
-  await warte(300);
-  await ueberlauf(seite, `${wo} Angebote mit Rabatt`);
-  await bild(seite, name('7-rabatt'));
-
-  // Die beiden anderen Beispiel-Apps: Seitenkopf, Kennzahl, Tabelle
-  for (const id of ['wartungsplan', 'urlaub']) {
-    await seite.goto(`${basis}/workspace/app/${id}`);
-    const rahmen = seite.frameLocator(`iframe[src="/apps/${id}/"]`);
-    await rahmen.locator('.ara-kopf').waitFor({ timeout: 15_000 });
-    await rahmen.locator('[data-slot="kennzahl"]').first().waitFor();
-    await warte(400);
-    await ueberlauf(seite, `${wo} ${id}`);
-    await bild(seite, name(`8-${id}`));
-    if (SAMMELN) await sammeln(seite);
+    await rahmen.locator('input[type="search"], input[placeholder]').first().fill(mitDatei);
+    await rahmen.getByTestId(`fa-zeile-${mitDatei}`).click();
+    await rahmen.locator('[data-testid^="fa-datei-"]').first().click();
+    const dok = rahmen.getByTestId('fa-dokument');
+    await dok.waitFor({ timeout: 8000 });
+    const gezeigt = await rahmen
+      .locator('[data-testid="fa-dokument"] canvas, [data-testid="fa-dokument"] img')
+      .first()
+      .waitFor({ timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!gezeigt) rot(`${wo} ${app}: Datei ${mitDatei} zeigt nichts`);
+    await warte(700);
+    await bild(seite, `${wo.replace(' ', '-')}-4-${app}-datei`);
+    await seite.keyboard.press('Escape');
+    await warte(250);
+    await seite.keyboard.press('Escape');
+    await rahmen.locator('input[type="search"], input[placeholder]').first().fill('');
+    gruen(`${wo} ${app}: Liste ${zeilen}, angelegt, geändert, Datei geöffnet`);
   }
 
-  // Einstellungen (für alle gleich): nur sammeln und auf Überlauf prüfen
-  await seite.goto(basis + '/workspace/settings/erscheinungsbild');
+  // Werkstatt: alle Meldungen, Test nach Live
+  await geheZu(seite, '/workspace/app/werkstatt');
+  const werkstatt = await rahmenVon(seite, 'werkstatt');
+  await warte(1200);
+  await ueberlaufApp(seite, werkstatt, `${wo} Werkstatt`);
+  if (sprache === 'en') await deutscheReste(seite, `${wo} Werkstatt`);
+  await bild(seite, `${wo.replace(' ', '-')}-5-werkstatt`);
+
+  // Einstellungen: nur Überlauf und Sprache
+  await geheZu(seite, '/workspace/settings');
   await warte(1200);
   await ueberlauf(seite, `${wo} Einstellungen`);
-  if (SAMMELN) await sammeln(seite);
+  if (sprache === 'en') await deutscheReste(seite, `${wo} Einstellungen`);
 
-  // „So geht’s" beginnt den Weg neu, als Mitarbeiter; „Überspringen" beendet ihn
-  await seite.locator('.demo-band-hilfe').click();
-  await seite.getByTestId('uebersicht-seite').waitFor();
-  await hinweis(1);
-  await seite.getByTestId('demo-weg-ueberspringen').click();
-  await seite.locator('[data-testid="demo-weg"][hidden]').waitFor({ state: 'attached' });
+  // Der geführte Weg: nur auf Wunsch, Escape schließt
+  await geheZu(seite, '/workspace');
+  await seite.getByTestId('demo-uebersicht').waitFor();
+  const breitZeile = await seite.locator('.demo-zeigen').isVisible();
+  if (breitZeile) await seite.locator('.demo-zeigen').click();
+  else {
+    await seite.locator('.demo-kapsel-auf').click();
+    await seite.locator('.demo-menue button').first().click();
+  }
+  await seite.locator('[data-testid="demo-weg"]').waitFor();
+  await warte(500);
+  await bild(seite, `${wo.replace(' ', '-')}-6-weg`);
+  if (sprache === 'en') await deutscheReste(seite, `${wo} Weg`);
+  for (let i = 0; i < 4; i += 1) {
+    await seite.locator('[data-testid="demo-weg-weiter"]').click();
+    await warte(900);
+    await ueberlauf(seite, `${wo} Weg ${i + 2}`);
+  }
+  await bild(seite, `${wo.replace(' ', '-')}-7-weg-werkstatt`);
+  await seite.keyboard.press('Escape');
+  if (await seite.locator('[data-testid="demo-weg"]').count())
+    rot(`${wo}: Escape schließt den Weg nicht`);
+
+  // Zurücksetzen stellt den Anfang her (ein Klick fragt, der zweite setzt zurück)
+  await geheZu(seite, '/workspace');
+  const knopf = breitZeile
+    ? seite.locator('.demo-kapsel-breit button', { hasText: /zurücksetzen|reset/i })
+    : null;
+  if (knopf) {
+    await knopf.click();
+    await knopf.click();
+  } else {
+    await seite.locator('.demo-kapsel-auf').click();
+    const k = seite.locator('.demo-menue button', { hasText: /zurücksetzen|reset/i });
+    await k.click();
+    await k.click();
+  }
+  await seite.waitForURL(/\/workspace$/);
+  await seite.getByTestId('demo-uebersicht').waitFor();
+  const nachher = await seite.evaluate(async () => {
+    const r = await fetch('/apps/angebote/api/daten');
+    return (await r.json()).data.eintraege.length;
+  });
+  if (nachher !== 42) rot(`${wo}: nach dem Zurücksetzen ${nachher} statt 42 Angebote`);
 
   gruen(`${wo}: Weg vollständig`);
   await kontext.close();
@@ -412,7 +481,7 @@ const browser = await chromium.launch(
 );
 try {
   for (const sprache of SPRACHEN) {
-    for (const breite of SAMMELN ? [1440] : BREITEN) {
+    for (const breite of NUR_BREITE ? [NUR_BREITE] : SAMMELN ? [1440] : BREITEN) {
       try {
         await weg(browser, basis, sprache, breite);
       } catch (f) {

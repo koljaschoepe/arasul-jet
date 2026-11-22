@@ -15,14 +15,14 @@
  * Worker als ES-Modul läuft nicht in jedem Browser.
  */
 import { antworte } from './antworten';
-import { anfangsZustand, type DemoZustand, type Rolle, type Sprache } from './daten';
+import { anfangsZustand, type DemoZustand, type Sprache } from './daten';
 
 interface Ereignis {
   request: Request;
   respondWith(antwort: Promise<Response>): void;
 }
 interface Nachricht {
-  data: { typ?: string; rolle?: Rolle; sprache?: Sprache } | null;
+  data: { typ?: string; sprache?: Sprache } | null;
   ports: readonly MessagePort[];
   waitUntil(p: Promise<unknown>): void;
 }
@@ -79,7 +79,7 @@ async function holeZustand(): Promise<DemoZustand> {
   if (zustand) return zustand;
   const gelesen = await lesen<DemoZustand>('zustand');
   sprache = (await lesen<Sprache>('sprache')) ?? 'de';
-  zustand = gelesen?.fassung === 1 ? gelesen : anfangsZustand();
+  zustand = gelesen?.fassung === 2 ? gelesen : anfangsZustand();
   return zustand;
 }
 
@@ -110,7 +110,15 @@ async function beantworten(anfrage: Request): Promise<Response> {
   if (antwort.bytes) {
     return new Response(antwort.bytes, {
       status: antwort.status,
-      headers: { ...koepfe, 'Content-Type': antwort.typ ?? 'application/octet-stream' },
+      headers: {
+        ...koepfe,
+        'Content-Type': antwort.typ ?? 'application/octet-stream',
+        ...(antwort.dateiname
+          ? {
+              'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(antwort.dateiname)}`,
+            }
+          : {}),
+      },
     });
   }
   return new Response(JSON.stringify(antwort.json ?? null), {
@@ -133,14 +141,12 @@ sw.addEventListener('fetch', e => {
   }
 });
 
-/** Steuerung aus dem Band: Rolle, Sprache, Zurücksetzen. Antwort über den Port. */
+/** Steuerung aus der Kapsel: Sprache, Zurücksetzen. Antwort über den Port. */
 sw.addEventListener('message', e => {
   const n = e.data ?? {};
   const fertig = async () => {
-    const z = await holeZustand();
-    if (n.typ === 'rolle' && (n.rolle === 'mitarbeiter' || n.rolle === 'entwickler')) {
-      await setzeZustand({ ...z, rolle: n.rolle });
-    } else if (n.typ === 'sprache' && (n.sprache === 'de' || n.sprache === 'en')) {
+    await holeZustand();
+    if (n.typ === 'sprache' && (n.sprache === 'de' || n.sprache === 'en')) {
       sprache = n.sprache;
       await schreiben('sprache', n.sprache);
     } else if (n.typ === 'zuruecksetzen') {
@@ -150,8 +156,7 @@ sw.addEventListener('message', e => {
       // nimmt sie hier ausdrücklich an.
       await sw.clients.claim();
     }
-    const nachher = await holeZustand();
-    e.ports[0]?.postMessage({ rolle: nachher.rolle, sprache });
+    e.ports[0]?.postMessage({ sprache });
   };
   e.waitUntil(fertig());
 });

@@ -11,19 +11,12 @@
  *   3. die Bibliothek zur Laufzeit unter `/marken/5/`, wie das Gerät sie
  *      ausliefert (`packages/marken/laufzeit.config.mjs`);
  *   4. die Werkstatt unter `/apps/werkstatt/`;
- *   5. die drei Beispiel-Apps unter `/apps/<id>/` und `/apps/<id>/test/`.
+ *   5. die fünf Fach-Apps unter `/apps/<id>/` und `/apps/<id>/test/`, gebaut
+ *      wie eine App aus dem Kit (React und `@marken` vom Gerät).
  *
  * `dist/` (was der Container des Geräts ausliefert) bleibt unberührt.
  */
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { cpSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
@@ -67,19 +60,69 @@ cpSync(path.join(werkstatt, 'dist/frontend'), path.join(ziel, 'apps/werkstatt'),
   recursive: true,
 });
 
-schritt('Beispiel-Apps');
+schritt('Fach-Apps (wie eine App aus dem Kit, Bibliothek vom Gerät)');
+// React und `@marken` bleiben außerhalb des Bündels und kommen zur Laufzeit
+// von `/marken/5/`, wie bei der Werkstatt (`apps/werkstatt/vite.config.ts`).
+const MARKEN = '/marken/5/';
+const vomGeraet = {
+  react: MARKEN + 'react.js',
+  'react-dom': MARKEN + 'react-dom.js',
+  'react-dom/client': MARKEN + 'react-dom-client.js',
+  'react/jsx-runtime': MARKEN + 'jsx-runtime.js',
+  '@marken': MARKEN + 'marken.js',
+  '@marken/diagramm': MARKEN + 'diagramm.js',
+  '@marken/symbole': MARKEN + 'symbole.js',
+};
 const apps = path.join(demo, 'apps');
-mkdirSync(path.join(ziel, 'demo-apps'), { recursive: true });
-for (const eintrag of readdirSync(apps, { withFileTypes: true })) {
-  if (eintrag.isFile() && eintrag.name.endsWith('.js')) {
-    cpSync(path.join(apps, eintrag.name), path.join(ziel, 'demo-apps', eintrag.name));
-  } else if (eintrag.isDirectory()) {
-    const seite = path.join(apps, eintrag.name, 'index.html');
-    for (const stand of ['', 'test']) {
-      const ordner = path.join(ziel, 'apps', eintrag.name, stand);
-      mkdirSync(ordner, { recursive: true });
-      cpSync(seite, path.join(ordner, 'index.html'));
-    }
+const FACH_APPS = ['angebote', 'wareneingang', 'wartungsplan', 'pruefprotokolle', 'urlaub'];
+await esbuild({
+  entryPoints: FACH_APPS.map(id => path.join(apps, `${id}.tsx`)),
+  outdir: path.join(ziel, 'demo-apps'),
+  bundle: true,
+  format: 'esm',
+  target: 'es2020',
+  jsx: 'automatic',
+  minify: true,
+  legalComments: 'none',
+  plugins: [
+    {
+      name: 'vom-geraet',
+      setup(b) {
+        b.onResolve(
+          {
+            filter:
+              /^(react|react-dom|react-dom\/client|react\/jsx-runtime|@marken(\/diagramm|\/symbole)?)$/,
+          },
+          a => ({
+            path: vomGeraet[a.path],
+            external: true,
+          })
+        );
+      },
+    },
+  ],
+});
+cpSync(path.join(apps, 'app.css'), path.join(ziel, 'demo-apps', 'app.css'));
+for (const id of FACH_APPS) {
+  const seite = `<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${id}</title>
+    <link rel="stylesheet" href="/marken/5/marken.css" />
+    <link rel="stylesheet" href="/demo-apps/app.css" />
+  </head>
+  <body class="ara-seite">
+    <div id="app" data-demo-nicht-uebersetzen></div>
+    <script type="module" src="/demo-apps/${id}.js"></script>
+  </body>
+</html>
+`;
+  for (const stand of ['', 'test']) {
+    const ordner = path.join(ziel, 'apps', id, stand);
+    mkdirSync(ordner, { recursive: true });
+    writeFileSync(path.join(ordner, 'index.html'), seite);
   }
 }
 

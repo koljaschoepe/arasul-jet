@@ -248,8 +248,15 @@
   margin-bottom: 8px;
 }
 
+/* Der Titel hat Vorrang (5.11.1): reicht die Zeile nicht für Titel,
+   Werkzeuge und Aktionen (am Handy, neben der Kapsel), brechen Werkzeuge und
+   Aktionen in die nächste Zeile um, statt den Titel auf einen Buchstaben zu
+   drücken. Am Rechner bleibt alles in einer Zeile. */
+.ara-kopf {
+  flex-wrap: wrap;
+}
 .ara-kopf__text {
-  flex: 1 1 auto;
+  flex: 1 1 12rem;
   min-width: 0;
 }
 

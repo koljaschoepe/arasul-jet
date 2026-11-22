@@ -1,512 +1,245 @@
 /**
- * Der geführte Weg der Demo (J51, M7, Karte palette-symbol-und-demo): fünf
- * Schritte, jeder mit einem kurzen Hinweis an der Stelle, um die es geht, und
- * einem sichtbaren „Weiter". „Überspringen" beendet ihn jederzeit, „So geht’s"
- * im Band fängt ihn neu an.
+ * Der geführte Weg der Demo (J54, M7), neu: ruhig, an der richtigen Stelle,
+ * jederzeit überspringbar. Er beginnt nicht von selbst, sondern über „Kurz
+ * zeigen lassen" in der Kapsel.
  *
- *   1  App öffnen               Kachel „Angebote" auf der Startseite
- *   2  Rückmeldung              das Icon in der Kapsel über der App
- *   3  Zur App-Betreuung        der Schalter im Band (dieselbe Art Konto,
- *                               mit dem Recht in der Werkstatt, J52)
- *   4  Eingang der Werkstatt    der Eingang in der Werkstatt
- *   5  Test nach Live           „Live schalten" bei Angebote 1.5.0
+ * Fünf Schritte, jeder mit einer Karte aus Glas (am Rechner unten rechts, am
+ * Handy als Blatt von unten) und einem ruhigen Rahmen um die Stelle, um die
+ * es geht: kein Puls, kein Springen, der Rahmen gleitet in 200 ms zur
+ * nächsten Stelle, bei „weniger Bewegung" sofort. „Weiter" geht dorthin, wo
+ * der Schritt spielt; Escape und „Beenden" schließen.
  *
- * Wer selbst klickt, kommt ohne „Weiter" voran; wer nur „Weiter" klickt,
- * sieht den ganzen Weg trotzdem: „Weiter" tut, was der Schritt zeigt (App
- * öffnen, zur App-Betreuung wechseln, zu „Test nach Live" gehen), nur die Rückmeldung
- * schreibt der Besucher selbst.
- *
- * Reines DOM wie das Band: die Demo steht neben dem Produkt, nicht in ihm.
- * Der Stand liegt in `sessionStorage`, weil der Wechsel der Person die Seite neu
- * lädt. Der Hinweis sucht seine Stelle alle 300 ms neu, auch in den iframes
- * (dieselbe Herkunft): die Shell lädt nach, eine App ebenso, und am Handy
- * liegt dieselbe Stelle woanders.
+ * Der Stand liegt in `sessionStorage`, damit der Weg ein Neuladen übersteht.
  */
 import type { Sprache } from './daten';
 
 const SCHLUESSEL = 'arasul-demo-weg';
-const WERKSTATT = '/workspace/app/werkstatt';
-const ANGEBOTE = '/workspace/app/angebote';
 
-/** 1 bis 5 ist ein Schritt, 0 heißt aus (übersprungen oder fertig). */
-export function schrittLesen(): number {
+interface Schritt {
+  /** Die Adresse, an der der Schritt spielt. */
+  pfad: string;
+  /** Die Stelle, um die der Rahmen liegt; ohne Treffer kein Rahmen. */
+  ziel: string;
+  titel: [string, string];
+  text: [string, string];
+}
+
+const SCHRITTE: Schritt[] = [
+  {
+    pfad: '/workspace',
+    ziel: '[data-testid="demo-uebersicht"]',
+    titel: ['Die Startseite des Betriebs', 'The company home page'],
+    text: [
+      'Angemeldet ist Miriam Kerschner, Betriebsleiterin. Oben die Kennzahlen aus allen Apps, ein Klick öffnet die App dazu. Mit den Schnellzugriffen legen Sie direkt etwas an.',
+      'Miriam Kerschner, operations manager, is signed in. At the top are the figures from all apps; a click opens the app. Quick actions create something straight away.',
+    ],
+  },
+  {
+    pfad: '/workspace',
+    ziel: '#fuer-sie',
+    titel: ['Freigaben für Sie', 'Approvals for you'],
+    text: [
+      'Große Angebote, Prüfprotokolle und Urlaubsanträge warten hier auf ihre Entscheidung. Ein Klick öffnet den Vorgang in seiner App, dort geben Sie frei oder lehnen mit einem Satz ab.',
+      'Large quotes, inspection reports and leave requests wait here for her decision. A click opens the item in its app, where you approve or decline with a sentence.',
+    ],
+  },
+  {
+    pfad: '/workspace/app/angebote',
+    ziel: '[data-testid="app-rahmen-angebote"]',
+    titel: ['Eine App, wie das Kit sie baut', 'An app as the kit builds it'],
+    text: [
+      'Kennzahlen, eine Auswertung, die Liste mit Suche, Filter und Sortierung. Legen Sie ein Angebot an, öffnen Sie eines mit seinem PDF, ändern Sie den Stand. Alles bleibt in Ihrem Browser.',
+      'Figures, a chart, the list with search, filter and sorting. Create a quote, open one with its PDF, change its status. Everything stays in your browser.',
+    ],
+  },
+  {
+    pfad: '/workspace/app/angebote',
+    ziel: '[data-testid="rueckmeldung-knopf"]',
+    titel: ['Rückmeldung zu jeder Seite', 'Feedback on every page'],
+    text: [
+      'Fehlt etwas oder stimmt etwas nicht, schreibt jeder hier eine Rückmeldung, auf Wunsch mit Bildschirmfoto und markierter Stelle. Sie landet in der Werkstatt.',
+      'If something is missing or wrong, anyone writes feedback here, optionally with a screenshot and a marked spot. It lands in the workshop.',
+    ],
+  },
+  {
+    pfad: '/workspace/app/werkstatt',
+    ziel: '[data-testid="app-rahmen-werkstatt"]',
+    titel: ['Die Werkstatt', 'The workshop'],
+    text: [
+      'Hier laufen die Rückmeldungen ein, mit Stand. Wer das Recht hat, sieht alle und schaltet eine geprüfte neue Fassung live, etwa Angebote mit Rabatt für Stammkunden.',
+      'Feedback arrives here with its status. Whoever has the right sees all of it and switches a tested new version live, such as Quotes with discounts for regular customers.',
+    ],
+  },
+];
+
+const TEXTE = {
+  de: {
+    weiter: 'Weiter',
+    zurueck: 'Zurück',
+    fertig: 'Fertig',
+    beenden: 'Beenden',
+    von: 'von',
+    titel: 'Kurz gezeigt',
+  },
+  en: {
+    weiter: 'Next',
+    zurueck: 'Back',
+    fertig: 'Done',
+    beenden: 'Close',
+    von: 'of',
+    titel: 'Quick tour',
+  },
+} as const;
+
+let sprache: Sprache = 'de';
+let karte: HTMLElement | null = null;
+let rahmen: HTMLElement | null = null;
+let uhr: number | undefined;
+
+function stand(): number {
   try {
-    const s = window.sessionStorage.getItem(SCHLUESSEL);
-    if (s === null) return 1;
-    const n = Number(s);
-    return Number.isInteger(n) && n >= 0 && n <= 5 ? n : 1;
+    return Number(window.sessionStorage.getItem(SCHLUESSEL) ?? 0);
   } catch {
     return 0;
   }
 }
 
-export function schrittSetzen(n: number): void {
+function standSetzen(n: number): void {
   try {
-    window.sessionStorage.setItem(SCHLUESSEL, String(n));
+    if (n > 0) window.sessionStorage.setItem(SCHLUESSEL, String(n));
+    else window.sessionStorage.removeItem(SCHLUESSEL);
   } catch {
-    /* ohne Speicher gilt der Schritt bis zum Neuladen */
+    /* ohne Speicher gilt der Weg bis zum Neuladen */
   }
 }
 
-interface Schritt {
-  titel: string;
-  text: string;
-  /** Die Stellen, an denen der Hinweis steht; die erste sichtbare gilt. */
-  ziele: string[];
-  /** Was „Weiter" tut, bevor der nächste Schritt kommt. */
-  weiter?: 'angebote' | 'entwickler' | 'live';
-  /**
-   * Wo der Hinweis steht: `ecke` unten rechts (Vorgabe seit der zweiten
-   * Durchsicht: an der Stelle verdeckte er, was daneben erklärt wird; unten
-   * rechts ist in jeder Ansicht der Demo Leere), `stelle` an der Stelle.
-   */
-  lage?: 'stelle' | 'ecke';
-  /** Die Aufschrift von „Weiter", wenn der Knopf etwas tut. */
-  knopf?: string;
+function geheZu(pfad: string) {
+  if (window.location.pathname === pfad) return;
+  window.history.pushState(null, '', pfad);
+  window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-const TEXTE: Record<
-  Sprache,
-  {
-    schritte: Schritt[];
-    von: (n: number) => string;
-    weiter: string;
-    fertig: string;
-    ueberspringen: string;
-    beschriftung: string;
-    geschafft: {
-      titel: string;
-      text: string;
-      ansehen: string;
-      schliessen: string;
-      zuruecksetzen: string;
-      website: string;
-    };
-  }
-> = {
-  de: {
-    beschriftung: 'Geführter Weg durch die Demo',
-    von: n => `Schritt ${n} von 5`,
-    weiter: 'Weiter',
-    fertig: 'Fertig',
-    ueberspringen: 'Überspringen',
-    geschafft: {
-      titel: 'Geschafft',
-      text: 'Angebote 1.5.0 ist live. Ab jetzt rechnet die App für alle mit Rabatt, ohne dass jemand etwas installiert.',
-      ansehen: 'Angebote ansehen',
-      schliessen: 'Schließen',
-      zuruecksetzen: 'Von vorn',
-      website: 'Zur Website',
-    },
-    schritte: [
-      {
-        titel: 'Eine App öffnen',
-        text: 'Sie sind Mitarbeiter der Beispielwerk GmbH. Jede Kachel ist eine App, die der Betrieb selbst gebaut hat. Öffnen Sie „Angebote“.',
-        ziele: ['[data-testid="uebersicht-app-angebote"]', '[data-testid="leiste-app-angebote"]'],
-        weiter: 'angebote',
-        knopf: 'Angebote öffnen',
-      },
-      {
-        titel: 'Sagen, was fehlt',
-        text: 'Über jeder App steht dieses Symbol. Tippen Sie darauf, markieren Sie eine Stelle und schreiben Sie einen Satz, etwa „Hier fehlt ein Rabatt“. Oder gehen Sie ohne Meldung weiter.',
-        ziele: ['[data-testid="rueckmeldung-knopf"]'],
-        lage: 'ecke',
-      },
-      {
-        titel: 'Zur App-Betreuung wechseln',
-        text: 'Ihre Meldung steht mit Stand in Ihrer Werkstatt. Alle Meldungen sieht dort, wer bei Ihnen die Apps betreut und das Recht dazu hat. Sehen Sie mit ihren Augen.',
-        ziele: ['.demo-band-wahl button[data-rolle="entwickler"]'],
-        weiter: 'entwickler',
-        knopf: 'Zur App-Betreuung',
-      },
-      {
-        titel: 'Der Eingang der Werkstatt',
-        text: 'Hier steht Ihre Meldung, mit Foto und markierter Stelle. Ein KI-Assistent setzt Meldungen in einer neuen Fassung um: eine frühere zum Rabatt liegt schon als Angebote 1.5.0 im Test.',
-        ziele: [
-          'iframe >> [data-testid="werkstatt-eingang"] tbody tr',
-          'iframe >> [data-testid="werkstatt-eingang"] li',
-          'iframe >> [data-testid="werkstatt-eingang"]',
-        ],
-        weiter: 'live',
-      },
-      {
-        titel: 'Von Test nach Live',
-        text: 'Schalten Sie die neue Fassung live und bestätigen Sie. Danach rechnet die App Angebote für alle mit Rabatt.',
-        knopf: 'Live schalten',
-        ziele: [
-          'iframe >> [data-testid="werkstatt-live-schalten-angebote"]',
-          'iframe >> [data-testid="werkstatt-eingang"]',
-        ],
-      },
-    ],
-  },
-  en: {
-    beschriftung: 'Guided tour of the demo',
-    von: n => `Step ${n} of 5`,
-    weiter: 'Next',
-    fertig: 'Done',
-    ueberspringen: 'Skip',
-    geschafft: {
-      titel: 'Done',
-      text: 'Quotes 1.5.0 is live. From now on the app calculates discounts for everyone, with nothing to install.',
-      ansehen: 'View Quotes',
-      schliessen: 'Close',
-      zuruecksetzen: 'Start over',
-      website: 'To the website',
-    },
-    schritte: [
-      {
-        titel: 'Open an app',
-        text: 'You work at Beispielwerk GmbH. Each tile is an app the company built for itself. Open “Quotes”.',
-        ziele: ['[data-testid="uebersicht-app-angebote"]', '[data-testid="leiste-app-angebote"]'],
-        weiter: 'angebote',
-        knopf: 'Open Quotes',
-      },
-      {
-        titel: 'Say what is missing',
-        text: 'Every app carries this icon. Tap it, mark a spot and write one sentence, such as “A discount is missing here”. Or continue without feedback.',
-        ziele: ['[data-testid="rueckmeldung-knopf"]'],
-        lage: 'ecke',
-      },
-      {
-        titel: 'Switch to app support',
-        text: 'Your feedback is listed with its status in your workshop. All feedback is visible there to whoever looks after your apps and has the right to do so. See it through their eyes.',
-        ziele: ['.demo-band-wahl button[data-rolle="entwickler"]'],
-        weiter: 'entwickler',
-        knopf: 'To app support',
-      },
-      {
-        titel: 'The workshop inbox',
-        text: 'Your feedback is here, with a screenshot and the marked spot. An AI assistant turns feedback into a new version: an earlier request for a discount is already in test as Quotes 1.5.0.',
-        ziele: [
-          'iframe >> [data-testid="werkstatt-eingang"] tbody tr',
-          'iframe >> [data-testid="werkstatt-eingang"] li',
-          'iframe >> [data-testid="werkstatt-eingang"]',
-        ],
-        weiter: 'live',
-      },
-      {
-        titel: 'From test to live',
-        text: 'Switch the new version live and confirm. Afterwards the Quotes app calculates discounts for everyone.',
-        knopf: 'Switch live',
-        ziele: [
-          'iframe >> [data-testid="werkstatt-live-schalten-angebote"]',
-          'iframe >> [data-testid="werkstatt-eingang"]',
-        ],
-      },
-    ],
-  },
-};
-
-/** Die Stelle eines Ziels im Fenster, auch in einem iframe; sonst null. */
-function stelle(ziel: string): DOMRect | null {
-  const sichtbar = (r: DOMRect) => r.width > 0 && r.height > 0;
-  if (!ziel.startsWith('iframe >> ')) {
-    for (const el of Array.from(document.querySelectorAll<HTMLElement>(ziel))) {
-      const r = el.getBoundingClientRect();
-      if (sichtbar(r) && !el.closest('[inert], .invisible')) return r;
-    }
-    return null;
-  }
-  const innen = ziel.slice('iframe >> '.length);
-  for (const rahmen of Array.from(document.querySelectorAll('iframe'))) {
-    const außen = rahmen.getBoundingClientRect();
-    if (!sichtbar(außen) || rahmen.closest('[inert], .invisible')) continue;
-    let el: Element | null = null;
-    try {
-      el = rahmen.contentDocument?.querySelector(innen) ?? null;
-    } catch {
-      continue;
-    }
-    if (!el) continue;
-    const r = el.getBoundingClientRect();
-    if (!sichtbar(r)) continue;
-    // Nur der Teil, der im Rahmen zu sehen ist.
-    const oben = Math.max(außen.top, außen.top + r.top);
-    const unten = Math.min(außen.bottom, außen.top + r.bottom);
-    if (unten - oben < 8) continue;
-    return new DOMRect(außen.left + r.left, oben, r.width, unten - oben);
-  }
-  return null;
+function knopf(
+  text: string,
+  art: 'haupt' | 'neben' | 'still',
+  beiKlick: () => void
+): HTMLButtonElement {
+  const k = document.createElement('button');
+  k.type = 'button';
+  k.className = `demo-weg-knopf demo-weg-${art}`;
+  k.textContent = text;
+  k.addEventListener('click', beiKlick);
+  return k;
 }
 
-/** Ein Element im Cockpit anklicken, wenn es da ist. */
-function imCockpit(kennung: string): boolean {
-  for (const rahmen of Array.from(document.querySelectorAll('iframe'))) {
-    try {
-      const el = rahmen.contentDocument?.querySelector<HTMLElement>(`[data-testid="${kennung}"]`);
-      if (el && el.getBoundingClientRect().width > 0) {
-        el.click();
-        return true;
-      }
-    } catch {
-      /* fremde Herkunft gibt es in der Demo nicht */
-    }
+function beenden(): void {
+  standSetzen(0);
+  karte?.remove();
+  rahmen?.remove();
+  karte = null;
+  rahmen = null;
+  window.clearInterval(uhr);
+}
+
+function zeigen(n: number): void {
+  const s = SCHRITTE[n - 1];
+  if (!s) {
+    beenden();
+    return;
   }
-  return false;
-}
-
-export interface WegHandgriffe {
-  /** Die Rolle wechseln, wie der Schalter im Band. */
-  zumEntwickler: () => Promise<void>;
-  /** Die Demo zurücksetzen, wie im Band (das es am Handy dort nicht gibt). */
-  zuruecksetzen: () => void;
-}
-
-export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
+  standSetzen(n);
+  geheZu(s.pfad);
   const t = TEXTE[sprache];
+  const i = sprache === 'en' ? 1 : 0;
 
-  const karte = document.createElement('section');
-  karte.className = 'demo-weg';
-  karte.setAttribute('aria-label', t.beschriftung);
-  karte.setAttribute('aria-live', 'polite');
-  karte.dataset.demoNichtUebersetzen = '';
-  karte.dataset.testid = 'demo-weg';
+  if (!karte) {
+    karte = document.createElement('div');
+    karte.className = 'demo-weg glas';
+    karte.dataset.demoNichtUebersetzen = '';
+    karte.setAttribute('role', 'dialog');
+    karte.setAttribute('aria-modal', 'false');
+    karte.dataset.testid = 'demo-weg';
+    document.body.append(karte);
+  }
+  if (!rahmen) {
+    rahmen = document.createElement('div');
+    rahmen.className = 'demo-weg-rahmen';
+    rahmen.setAttribute('aria-hidden', 'true');
+    document.body.append(rahmen);
+  }
 
-  const zaehler = document.createElement('p');
-  zaehler.className = 'demo-weg-zaehler';
+  karte.replaceChildren();
+  karte.setAttribute('aria-label', s.titel[i]);
+  const kopf = document.createElement('div');
+  kopf.className = 'demo-weg-kopf';
+  const zahl = document.createElement('span');
+  zahl.textContent = `${t.titel} · ${n} ${t.von} ${SCHRITTE.length}`;
+  kopf.append(zahl, knopf(t.beenden, 'still', beenden));
   const titel = document.createElement('h2');
-  titel.className = 'demo-weg-titel';
+  titel.textContent = s.titel[i];
   const text = document.createElement('p');
-  text.className = 'demo-weg-text';
+  text.textContent = s.text[i];
   const punkte = document.createElement('div');
   punkte.className = 'demo-weg-punkte';
   punkte.setAttribute('aria-hidden', 'true');
-  for (let i = 0; i < 5; i += 1) punkte.append(document.createElement('span'));
-
-  const ueberspringen = document.createElement('button');
-  ueberspringen.type = 'button';
-  ueberspringen.className = 'demo-weg-leise';
-  ueberspringen.textContent = t.ueberspringen;
-  ueberspringen.dataset.testid = 'demo-weg-ueberspringen';
-
-  const weiter = document.createElement('button');
-  weiter.type = 'button';
-  weiter.className = 'demo-weg-weiter';
+  SCHRITTE.forEach((_, k) => {
+    const p = document.createElement('span');
+    if (k === n - 1) p.dataset.an = '';
+    punkte.append(p);
+  });
+  const knoepfe = document.createElement('div');
+  knoepfe.className = 'demo-weg-knoepfe';
+  if (n > 1) knoepfe.append(knopf(t.zurueck, 'neben', () => zeigen(n - 1)));
+  const weiter = knopf(n === SCHRITTE.length ? t.fertig : t.weiter, 'haupt', () => zeigen(n + 1));
   weiter.dataset.testid = 'demo-weg-weiter';
+  knoepfe.append(weiter);
+  const fuss = document.createElement('div');
+  fuss.className = 'demo-weg-fuss';
+  fuss.append(punkte, knoepfe);
+  karte.append(kopf, titel, text, fuss);
+  weiter.focus({ preventScroll: true });
 
-  const unten = document.createElement('div');
-  unten.className = 'demo-weg-unten';
-  unten.append(punkte, ueberspringen, weiter);
-  // Im Abschluss: von vorn und zur Website, die am Handy im Band fehlen.
-  const mehr = document.createElement('p');
-  mehr.className = 'demo-weg-mehr';
-  const vonVorn = document.createElement('button');
-  vonVorn.type = 'button';
-  vonVorn.textContent = t.geschafft.zuruecksetzen;
-  vonVorn.addEventListener('click', () => griffe.zuruecksetzen());
-  const website = document.createElement('a');
-  website.href = 'https://www.arasul.de';
-  website.textContent = t.geschafft.website;
-  vonVorn.dataset.trefferSelbst = '';
-  website.dataset.trefferSelbst = '';
-  mehr.append(vonVorn, website);
-  mehr.hidden = true;
+  window.clearInterval(uhr);
+  const legen = () => rahmenLegen(s.ziel);
+  legen();
+  uhr = window.setInterval(legen, 300);
+}
 
-  karte.append(zaehler, titel, text, mehr, unten);
-
-  // Der Ring um die Stelle, auf die der Hinweis zeigt.
-  const ring = document.createElement('div');
-  ring.className = 'demo-weg-ring';
-  ring.setAttribute('aria-hidden', 'true');
-
-  document.body.append(ring, karte);
-
-  let schritt = schrittLesen();
-  let gezeigt = '';
-
-  /** Schritt 5 ist geschafft, wenn das Cockpit den Ausgang des Schaltens zeigt. */
-  let warGeschafft = false;
-  const geschafft = () => {
-    if (schritt !== 5) return false;
-    if (!warGeschafft && stelle('iframe >> [data-testid="werkstatt-schalt-ausgang"]')) {
-      warGeschafft = true;
-    }
-    return warGeschafft;
-  };
-
-  /** Ein Dialog, auch im Rahmen einer App, hat Vorrang vor dem Hinweis. */
-  function dialogOffen(): boolean {
-    const wahl = '[role="dialog"], [role="alertdialog"]';
-    if (document.querySelector(wahl)) return true;
-    for (const rahmen of Array.from(document.querySelectorAll('iframe'))) {
-      try {
-        if (rahmen.contentDocument?.querySelector(wahl)) return true;
-      } catch {
-        /* fremde Herkunft gibt es in der Demo nicht */
-      }
-    }
-    return false;
+/** Der Rahmen um die Stelle, folgt ihr, wenn sie sich bewegt. */
+function rahmenLegen(ziel: string): void {
+  if (!rahmen) return;
+  const el = [...document.querySelectorAll<HTMLElement>(ziel)].find(
+    x => !x.closest('[inert]') && x.offsetParent !== null
+  );
+  if (!el) {
+    rahmen.hidden = true;
+    return;
   }
+  el.scrollIntoView?.({ block: 'nearest' });
+  const r = el.getBoundingClientRect();
+  // Mit Luft um die Stelle, aber nie über den Rand des Fensters.
+  const links = Math.max(4, r.left - 6);
+  const oben = Math.max(4, r.top - 6);
+  const rechts = Math.min(window.innerWidth - 4, r.right + 6);
+  const unten = Math.min(window.innerHeight - 4, r.bottom + 6);
+  rahmen.hidden = false;
+  rahmen.style.left = `${links}px`;
+  rahmen.style.top = `${oben}px`;
+  rahmen.style.width = `${rechts - links}px`;
+  rahmen.style.height = `${Math.max(0, unten - oben)}px`;
+}
 
-  function zeigen() {
-    if (schritt < 1) {
-      karte.hidden = true;
-      ring.hidden = true;
-      return;
-    }
-    const s = t.schritte[schritt - 1]!;
-    const fertig = geschafft();
-    const kennung = `${schritt}${fertig ? '-fertig' : ''}`;
-    if (gezeigt !== kennung) {
-      gezeigt = kennung;
-      zaehler.textContent = t.von(schritt);
-      titel.textContent = fertig ? t.geschafft.titel : s.titel;
-      text.textContent = fertig ? t.geschafft.text : s.text;
-      weiter.textContent = fertig ? t.geschafft.ansehen : (s.knopf ?? t.weiter);
-      ueberspringen.textContent = fertig ? t.geschafft.schliessen : t.ueberspringen;
-      punkte.querySelectorAll('span').forEach((p, i) => {
-        p.dataset.an = String(i < schritt);
-      });
-      karte.dataset.schritt = String(schritt);
-      karte.dataset.geschafft = String(fertig);
-      mehr.hidden = !fertig;
-    }
-    const dialog = dialogOffen();
-    karte.hidden = dialog;
-    let ort: DOMRect | null = null;
-    const ziele = fertig
-      ? [
-          'iframe >> [data-testid="werkstatt-schalt-ausgang"]',
-          'iframe >> [data-testid="werkstatt-eingang"]',
-        ]
-      : s.ziele;
-    for (const z of ziele) {
-      ort = stelle(z);
-      if (ort) break;
-    }
-    ring.hidden = !ort || dialog || fertig;
-    platzieren(ort, s.lage ?? 'ecke', fertig);
-  }
+/** Den Weg vorn beginnen (aus der Kapsel). */
+export function wegBeginnen(): void {
+  zeigen(1);
+}
 
-  function platzieren(ort: DOMRect | null, lage: 'stelle' | 'ecke', oben = false) {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const rand = 12;
-    const abstand = 14;
-    const breite = Math.min(340, vw - 2 * rand);
-    karte.style.width = `${breite}px`;
-    const hoehe = karte.offsetHeight || 180;
-    const untenFrei = vw < 900 ? 92 : rand + 4;
-    if (ort) {
-      // Luft zwischen Ring und Inhalt; bei großen Stellen liegt er innen,
-      // damit er nicht über den Rand der Fläche ragt.
-      const luft = ort.height > 120 ? -2 : 5;
-      ring.style.left = `${ort.left - luft}px`;
-      ring.style.top = `${ort.top - luft}px`;
-      ring.style.width = `${ort.width + 2 * luft}px`;
-      ring.style.height = `${ort.height + 2 * luft}px`;
-    }
-    const setze = (x: number, y: number) => {
-      karte.style.left = `${Math.min(Math.max(rand, x), vw - rand - breite)}px`;
-      karte.style.top = `${Math.min(Math.max(rand + 40, y), vh - untenFrei - hoehe)}px`;
-    };
-    // Am Handy steht der Hinweis über der Leiste unten, in der Ecke unten
-    // rechts am Rechner; die Stelle zeigt der Ring.
-    if (!ort || vw < 640 || lage === 'ecke') {
-      let y = vh - untenFrei - hoehe;
-      // Liegt die Stelle unter dem Hinweis, rückt er nach oben. Der Abschluss
-      // am Handy steht direkt unter der Meldung des Cockpits, sonst verdeckt
-      // er dort „Zurück“.
-      if (oben && vw < 640 && ort && ort.bottom + 12 + hoehe <= vh - untenFrei) {
-        y = ort.bottom + 12;
-      } else if (!oben && ort && ort.bottom > y - 8 && ort.top > hoehe + 2 * rand) {
-        y = rand + 48;
-      }
-      const links = vw < 640 ? (vw - breite) / 2 : vw - rand - 8 - breite;
-      karte.style.left = `${links}px`;
-      karte.style.top = `${Math.max(rand, y)}px`;
-      return;
-    }
-    // Unter der Stelle, sonst darüber, sonst rechts, sonst links: so bleibt
-    // der Inhalt daneben (die Kachel nebenan, die Kennzahl) frei.
-    const mitte = ort.left + ort.width / 2 - breite / 2;
-    const links = Math.max(ort.left, Math.min(mitte, ort.right - breite));
-    if (ort.bottom + abstand + hoehe <= vh - untenFrei) setze(links, ort.bottom + abstand);
-    else if (ort.top - abstand - hoehe >= rand + 40) setze(links, ort.top - abstand - hoehe);
-    else if (ort.right + abstand + breite <= vw - rand)
-      setze(ort.right + abstand, ort.top + ort.height / 2 - hoehe / 2);
-    else setze(ort.left - abstand - breite, ort.top + ort.height / 2 - hoehe / 2);
-  }
-
-  function gehe(n: number) {
-    schritt = n;
-    schrittSetzen(n);
-    zeigen();
-  }
-
-  ueberspringen.addEventListener('click', () => gehe(0));
-  weiter.addEventListener('click', () => {
-    const s = t.schritte[schritt - 1];
-    if (!s) return;
-    if (schritt === 5) {
-      if (geschafft()) {
-        gehe(0);
-        window.location.assign(ANGEBOTE);
-      } else {
-        imCockpit('werkstatt-live-schalten-angebote');
-      }
-      return;
-    }
-    if (s.weiter === 'angebote' && !window.location.pathname.startsWith(ANGEBOTE)) {
-      gehe(schritt + 1);
-      const kachel = document.querySelector<HTMLElement>(
-        '[data-testid="uebersicht-app-angebote"], [data-testid="leiste-app-angebote"]'
-      );
-      if (kachel) kachel.click();
-      else window.location.assign(ANGEBOTE);
-      return;
-    }
-    if (s.weiter === 'entwickler') {
-      gehe(schritt + 1);
-      void griffe.zumEntwickler();
-      return;
-    }
-    if (s.weiter === 'live') {
-      gehe(schritt + 1);
-      if (!imCockpit('werkstatt-leiste-live')) {
-        imCockpit('werkstatt-leiste-umschalten');
-        window.setTimeout(() => imCockpit('werkstatt-leiste-live'), 250);
-      }
-      return;
-    }
-    gehe(schritt + 1);
+/** Beim Laden: einen begonnenen Weg fortsetzen, Escape schließt ihn. */
+export function wegSetzen(s: Sprache): void {
+  sprache = s;
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && karte) beenden();
   });
-  window.addEventListener('keydown', ev => {
-    if (ev.key === 'Escape' && schritt > 0 && !document.querySelector('[role="dialog"]')) {
-      gehe(0);
-    }
-  });
-
-  // Wer selbst klickt, kommt auch voran.
-  function vonSelbst() {
-    if (schritt === 1 && window.location.pathname.startsWith(ANGEBOTE)) gehe(2);
-    else if (schritt === 2 && document.querySelector('[data-testid="rueckmeldung-bestaetigung"]'))
-      gehe(3);
-    // Die Werkstatt hat seit J52 auch der Mitarbeiter (seine Meldungen); erst
-    // der Eingang aller Meldungen heißt, dass die App-Betreuung schaut.
-    else if (
-      schritt <= 3 &&
-      schritt > 0 &&
-      window.location.pathname.startsWith(WERKSTATT) &&
-      stelle('iframe >> [data-testid="werkstatt-eingang"]')
-    )
-      gehe(4);
-    else if (schritt === 4 && stelle('iframe >> [data-testid="werkstatt-live-schalten-angebote"]'))
-      gehe(5);
-  }
-
-  // Die Bestätigung der Rückmeldung kann kürzer stehen als ein Takt.
-  new MutationObserver(() => {
-    if (schritt === 2 && document.querySelector('[data-testid="rueckmeldung-bestaetigung"]')) {
-      gehe(3);
-    }
-  }).observe(document.body, { childList: true, subtree: true });
-
-  zeigen();
-  window.setInterval(() => {
-    vonSelbst();
-    zeigen();
-  }, 300);
-  window.addEventListener('resize', zeigen);
+  const n = stand();
+  if (n > 0) window.setTimeout(() => zeigen(n), 600);
 }
