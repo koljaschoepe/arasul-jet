@@ -128,7 +128,12 @@ function Settings({ modelle }: VerwaltungProps) {
 
   return (
     <div className="h-full min-h-0" data-testid="verwaltung">
-      <Bereichsrahmen titel="Verwaltung" gruppen={gruppen} kennzeichen="verwaltung-bereiche">
+      <Bereichsrahmen
+        titel="Verwaltung"
+        gruppen={gruppen}
+        kennzeichen="verwaltung-bereiche"
+        bereich={`${bereich}/${abschnitt ?? ''}`}
+      >
         {renderContent()}
       </Bereichsrahmen>
     </div>

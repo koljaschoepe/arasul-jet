@@ -151,7 +151,7 @@ export function LeisteUnten({ onLogout }: { onLogout: () => Promise<void> | void
     <nav
       aria-label="Aktivitätsleiste"
       data-testid="aktivitaetsleiste"
-      className="glas glas-grund flex h-[56px] shrink-0 items-center gap-[2px] overflow-hidden rounded-[16px] border px-[6px]"
+      className="glas glas-grund flex h-[56px] shrink-0 items-center gap-[2px] overflow-hidden rounded-2xl border px-[6px]"
     >
       <Feld
         name={wartend > 0 ? `Start, ${wartend} offen` : 'Start'}

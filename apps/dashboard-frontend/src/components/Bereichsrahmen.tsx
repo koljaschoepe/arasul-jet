@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useWeicherWechsel } from '@/hooks/useWeicherWechsel';
 import {
   KopfVorne,
   Seitenleiste,
@@ -13,6 +14,8 @@ interface BereichsrahmenProps {
   gruppen: readonly SeitenleistenGruppe[];
   /** `data-testid` der Navigation, für Tests und Abnahmen. */
   kennzeichen: string;
+  /** Der gewählte Bereich. Wechselt er, blendet der Inhalt weich ein (J53). */
+  bereich?: string;
   children: ReactNode;
 }
 
@@ -35,7 +38,15 @@ interface BereichsrahmenProps {
  * breiter ist als die Spalte, machte damit den ganzen Rollbereich breiter.
  * Kein `SidebarInset` daneben: der ist ein `main`, und die Shell hat schon eins.
  */
-export function Bereichsrahmen({ titel, gruppen, kennzeichen, children }: BereichsrahmenProps) {
+export function Bereichsrahmen({
+  titel,
+  gruppen,
+  kennzeichen,
+  bereich = '',
+  children,
+}: BereichsrahmenProps) {
+  // Ein anderer Bereich blendet weich ein, die Leiste daneben bleibt stehen.
+  const wechsel = useWeicherWechsel<HTMLDivElement>(bereich);
   return (
     <SidebarProvider eingebettet className="h-full">
       <Seitenleiste
@@ -45,7 +56,10 @@ export function Bereichsrahmen({ titel, gruppen, kennzeichen, children }: Bereic
         gruppen={gruppen}
       />
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-background">
-        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto animate-in fade-in">
+        <div
+          ref={wechsel}
+          className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto motion-safe:animate-in motion-safe:fade-in"
+        >
           {/* Dieselben Ränder wie in der Werkstatt (`stil.ts`): oben
               10 px, seitlich 16 bis 24 px, höchstens 64rem breit. */}
           <div className="min-w-0 max-w-[64rem] px-[clamp(16px,4vw,24px)] pt-[10px] pb-[calc(24px+var(--ara-leiste-platz,0px))]">

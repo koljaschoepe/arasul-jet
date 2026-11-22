@@ -288,7 +288,12 @@ export default function Einstellungen() {
   }));
   return (
     <div className="h-full min-h-0" data-testid="einstellungen">
-      <Bereichsrahmen titel="Einstellungen" gruppen={gruppen} kennzeichen="einstellungen-bereiche">
+      <Bereichsrahmen
+        titel="Einstellungen"
+        gruppen={gruppen}
+        kennzeichen="einstellungen-bereiche"
+        bereich={bereich}
+      >
         <Bereich id={bereich} />
       </Bereichsrahmen>
     </div>

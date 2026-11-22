@@ -294,4 +294,17 @@
  * Werkzeuge und Aktionen in der nächsten Zeile; der Titel behält mindestens
  * 12rem. Am Rechner ändert sich nichts. Gefunden an der Demo am Handy.
  */
-export const FASSUNG = '5.11.1';
+/*
+ * 5.12.0: die gemeinsame Linie. Neu ist das Muster `Blatt`: Einzelheiten und
+ * Formulare am Rechner als Flaeche daneben, rechts mit 8 px Abstand und
+ * 20 px Radius, unter 900 px von unten mit Griff, das sich wegwischen laesst;
+ * Escape, ein Tipp daneben und das Kreuz schliessen es, der Rumpf rollt in
+ * sich, die Aktionen stehen unten. Dazu die Tokens `--radius-blatt`,
+ * `--backdrop-leicht` (`bg-backdrop-leicht`) und `--schatten-blatt`. Der
+ * Verlauf des Rahmens ist kraeftiger (hell bis in ein deutliches Blau,
+ * dunkel ein tiefes Blau oben links), das Glas auf dem Grund duenner im
+ * Dunkeln, `--radius-2xl` 18 statt 14 px. Kein Name faellt weg, nichts
+ * aendert seine Bedeutung; eine App auf 5.11.1 laeuft unveraendert weiter
+ * und sieht nur den neuen Grund und die groesseren Radien.
+ */
+export const FASSUNG = '5.12.0';
