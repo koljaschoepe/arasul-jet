@@ -67,6 +67,7 @@ const SEITEN = [
   { name: 'verwaltung', pfad: '/workspace/verwaltung/apps' },
   { name: 'einzelansicht', pfad: `/workspace/verwaltung/apps/${APP}`, blatt: true },
   { name: 'einstellungen', pfad: '/workspace/settings/erscheinungsbild' },
+  { name: 'rechner', pfad: '/workspace/settings/rechner', blatt: true },
 ].filter(s => !NUR || NUR.split(',').includes(s.name));
 
 const ergebnisse = [];
@@ -123,6 +124,11 @@ function kontrast(vorne, hinten) {
  */
 const KUNDE = new RegExp(['f', 'a', 'k', 't', 'u', 'm'].join(''), 'gi');
 async function ohneKundenname(seite) {
+  // Echte Personen gehören auf kein Bild: die Liste mit Zugang zur App wird
+  // nur unscharf gezeigt.
+  await seite
+    .addStyleTag({ content: '[data-testid="personen-liste"]{filter:blur(6px)}' })
+    .catch(() => {});
   if (AUSBLENDEN.length) {
     const css = AUSBLENDEN.map(
       id =>
@@ -229,7 +235,14 @@ try {
           `${m.hoehe} px bei ${m.fenster} px`
         );
         if (!s.blatt) continue;
-        // Eine Einzelheit öffnen: der erste Flow der App öffnet das Blatt.
+        // Eine Einzelheit öffnen: der erste Flow der App (erst aufklappen) oder
+        // „Rechner verbinden“ im Seitenkopf der Einstellungen.
+        const mehr = seite.locator('[data-testid^="flow-mehr-"][data-testid$="-knopf"]').first();
+        if (await mehr.count()) {
+          await mehr.scrollIntoViewIfNeeded().catch(() => {});
+          await mehr.click();
+          await seite.waitForTimeout(300);
+        }
         const ausloeser = seite.locator('[data-blatt-oeffnen]').first();
         if (!pruefe(`${name}: es gibt etwas, das ein Blatt öffnet`, await ausloeser.count()))
           continue;

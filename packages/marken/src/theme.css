@@ -285,10 +285,10 @@
      als `--verlauf-grund`, weil auf ihm kein Text steht, nur Glas
      (`.glas-grund`); `marken.py` (Punkt 9) misst Text auf diesem Glas ueber
      jeder Stufe. */
-  --rahmen-stufe-1: #efe8da;
-  --rahmen-stufe-2: #c9d8f2;
-  --rahmen-stufe-3: #8fb0ea;
-  --rahmen-schein: #82a6e7;
+  --rahmen-stufe-1: #c9d8f2;
+  --rahmen-stufe-2: #a3bded;
+  --rahmen-stufe-3: #86a9e8;
+  --rahmen-schein: #7fa4e8;
 }
 
 /* -----------------------------------------------------------------------------
@@ -390,7 +390,7 @@
   --glas-anteil-grund: 66%;
   --glas-flaeche-grund: var(--popover);
   /* Die Flaeche der Ansicht schwebt mit einer Haarlinie und weichem Schatten. */
-  --schatten-flaeche: 0 1px 2px rgba(30, 27, 22, 0.06), 0 12px 32px -12px rgba(23, 42, 82, 0.2);
+  --schatten-flaeche: 0 1px 2px rgba(30, 27, 22, 0.06), 0 18px 44px -14px rgba(23, 42, 82, 0.34);
   --glas-filter: none;
   --glas-schleier-filter: none;
   --glas-kante: rgba(255, 255, 255, 0.7);
