@@ -65,7 +65,7 @@ In ALLEM unter `src/`, ohne Ausnahme (siehe „Der Ausnahmeordner ist weg"):
    einen Baustein der Bibliothek, kein freier Import mehr“). Symbole kommen
    aus `@marken/symbole`, gezeichnet mit `Icon` (drei Groessen, eine
    Strichstaerke). Die Shell ist vollstaendig umgestellt; das
-   Entwickler-Cockpit laedt die Bibliothek zur Laufzeit, wo es den Ausgang
+   die Werkstatt (bis J52 Entwickler-Cockpit) laedt die Bibliothek zur Laufzeit, wo es den Ausgang
    `symbole` nicht gibt, und steht mit seinen Dateien als RATSCHE in
    `LUCIDE_RATSCHE`: die Zahl darf sinken, nie steigen.
 
@@ -307,7 +307,7 @@ REGELN = [
 #
 # Seit H5 gilt das auch fuer `components/ui/`: die Bausteine stehen dort nicht
 # mehr, also gibt es keinen Grund mehr, die Regel dort auszusetzen.
-# Seit J44 dazu das Entwickler-Cockpit, die mitgelieferte App: es steht neben
+# Seit J44 dazu die Werkstatt (bis J52 Entwickler-Cockpit), die mitgelieferte App: sie steht neben
 # der Shell im selben Rahmen und haelt dieselben Regeln.
 WURZELN = ['apps/dashboard-frontend/src', 'apps/werkstatt/src']
 

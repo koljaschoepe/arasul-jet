@@ -183,8 +183,8 @@ pruefe 'Kontraktversion bleibt 14' "$(ja_wenn "$(rumpf | feld data.kontrakt)" 14
 pruefe 'paket.nachweis.pflicht ist true' "$(ja_wenn "$(rumpf | feld data.paket.nachweis.pflicht)" true)"
 pruefe 'paket.nachweis nennt nachweis.json' \
   "$(ja_wenn "$(rumpf | feld data.paket.nachweis.datei)" nachweis.json)"
-pruefe 'Das Entwickler-Cockpit ist die einzige Ausnahme' \
-  "$(ja_wenn "$(rumpf | feld data.paket.nachweis.ausgenommen)" '["entwickler-cockpit"]')"
+pruefe 'Die Werkstatt ist die einzige Ausnahme' \
+  "$(ja_wenn "$(rumpf | feld data.paket.nachweis.ausgenommen)" '["werkstatt"]')"
 
 # --- 2. Abweisungen, je Grund ------------------------------------------------
 O=$(grundpaket ohne-nachweis)
