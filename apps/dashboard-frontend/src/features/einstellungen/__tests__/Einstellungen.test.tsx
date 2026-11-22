@@ -205,9 +205,15 @@ describe('Einstellungen, persönlich', () => {
         configurable: true,
       });
       zeige('rechner');
+      // Sie steht auf der Seite „Angemeldete Rechner", nicht als eigener
+      // Bereich, und öffnet sich seit J53 im Blatt aus dem Seitenkopf.
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Angemeldete Rechner' })
+      ).toBeTruthy();
+      expect(screen.queryByTestId('rechner-verbinden')).toBeNull();
+      await user.click(screen.getByTestId('rechner-verbinden-oeffnen'));
       const anleitung = await screen.findByTestId('rechner-verbinden');
-      // Sie steht auf der Seite „Angemeldete Rechner", nicht als eigener Bereich.
-      expect(screen.getByRole('heading', { level: 1, name: 'Angemeldete Rechner' })).toBeTruthy();
+      expect(screen.getByRole('dialog', { name: 'Rechner verbinden' })).toBeTruthy();
       const befehl = within(anleitung).getByTestId('rechner-verbinden-befehl');
       expect(befehl.textContent).toBe(
         `node arasul.mjs login ${window.location.origin} --user probe`

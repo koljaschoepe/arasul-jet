@@ -6,7 +6,7 @@
  * (`StartpasswortDialog`). Angemeldet wird mit der E-Mail.
  */
 import { useState, type FormEvent } from 'react';
-import { Button, Dialogform, Input, Label, Switch } from '@marken';
+import { Blatt, Button, Input, Label, Switch } from '@marken';
 import type { NeuePerson } from './usePersonen';
 
 interface Props {
@@ -45,13 +45,14 @@ export function PersonAnlegenDialog({ offen, laeuft, onSchliessen, onAnlegen }: 
   };
 
   return (
-    <Dialogform
+    <Blatt
       offen={offen}
       beiSchliessen={schliessen}
       titel="Person anlegen"
-      groesse="klein"
+      beschreibung="Angemeldet wird mit der E-Mail. Das Startpasswort zeigt Arasul danach einmal."
+      kennzeichen="person-anlegen-blatt"
       fuss={
-        <div className="flex w-full justify-end gap-3">
+        <>
           <Button type="button" variant="outline" onClick={schliessen}>
             Abbrechen
           </Button>
@@ -63,7 +64,7 @@ export function PersonAnlegenDialog({ offen, laeuft, onSchliessen, onAnlegen }: 
           >
             {laeuft ? 'Legt an …' : 'Anlegen'}
           </Button>
-        </div>
+        </>
       }
     >
       <form id="person-anlegen" className="flex flex-col gap-4" onSubmit={absenden}>
@@ -110,6 +111,6 @@ export function PersonAnlegenDialog({ offen, laeuft, onSchliessen, onAnlegen }: 
           />
         </div>
       </form>
-    </Dialogform>
+    </Blatt>
   );
 }

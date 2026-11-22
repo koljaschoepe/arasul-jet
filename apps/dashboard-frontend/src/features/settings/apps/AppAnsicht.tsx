@@ -16,8 +16,8 @@
  *
  * Darunter ein Weg zu den Läufen dieser App (Bereich Läufe der Verwaltung, die
  * eine Stelle dafür) und, erst auf „Zeigen": Modellaufrufe und Protokoll. Ein
- * Flow ÖFFNET SICH AN DERSELBEN STELLE statt in einem Dialog: er ist zum Lesen
- * da und kann lang sein. Der Weg zurück ist ein Knopf.
+ * Flow öffnet sich seit J53 im BLATT der Bibliothek, neben der Seite: er ist
+ * zum Lesen da und kann lang sein, und die Seite bleibt dahinter stehen.
  */
 import { useState } from 'react';
 import {
@@ -151,6 +151,8 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
   const { data: modelle } = useKurzliste();
 
   const [blick, setBlick] = useState<Blick>({ was: 'app' });
+  // Der zuletzt offene Flow bleibt im Blatt, während es zugeht.
+  const [letzterFlow, setLetzterFlow] = useState<{ name: string; stand: Stand } | null>(null);
   const oeffneAnsicht = useWorkspaceStore(st => st.oeffne);
   const [stand, setStand] = useState<Stand>('live');
   const [modellFuer, setModellFuer] = useState<AppFlow | FlowDefinition | null>(null);
@@ -234,27 +236,6 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
       }
     );
   };
-
-  if (blick.was === 'flow') {
-    return (
-      <>
-        <FlowAnsicht
-          appId={appId}
-          stand={blick.stand}
-          name={blick.name}
-          onZurueck={() => setBlick({ was: 'app' })}
-          onModellAendern={setModellFuer}
-        />
-        <ModellDialog
-          fuer={modellFuer}
-          modelle={modelle ?? []}
-          laeuft={modellSetzen.isPending}
-          onSchliessen={() => setModellFuer(null)}
-          onSetzen={handleModell}
-        />
-      </>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-6" data-testid={`app-ansicht-${appId}`}>
@@ -346,7 +327,10 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
             flows={detail?.flows ?? []}
             stand={gezeigterStand}
             onModell={setModellFuer}
-            onOeffnen={(name, st) => setBlick({ was: 'flow', name, stand: st })}
+            onOeffnen={(name, st) => {
+              setLetzterFlow({ name, stand: st });
+              setBlick({ was: 'flow', name, stand: st });
+            }}
           />
           {/* Modell je Schritt (M5): gilt dem Flow, nicht dem Stand, und steht
               deshalb unter der Liste und nicht in ihren Zeilen. */}
@@ -421,6 +405,17 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         </KlappGruppe>
       </Formularseite>
 
+      {letzterFlow && (
+        <FlowAnsicht
+          key={`${letzterFlow.stand}:${letzterFlow.name}`}
+          appId={appId}
+          stand={letzterFlow.stand}
+          name={letzterFlow.name}
+          offen={blick.was === 'flow'}
+          onZurueck={() => setBlick({ was: 'app' })}
+          onModellAendern={setModellFuer}
+        />
+      )}
       <ModellDialog
         fuer={modellFuer}
         modelle={modelle ?? []}
