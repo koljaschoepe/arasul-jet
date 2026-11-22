@@ -235,6 +235,11 @@ Frontends) und die Regeln der Gestalt (Tokens, drei Größen).
 
 ## Abnahme am Orin
 
+Die ganze Schleife (Meldung, Werkstatt, Kit-Befehl, Test, Live) Schritt für
+Schritt für den Betreiber, mit Prüfskript `scripts/test/schleife-abnahme.mjs`:
+[`docs/ops/SCHLEIFE_ABNAHME.md`](../ops/SCHLEIFE_ABNAHME.md). Generalprobe am
+22.11.2026 mit dem Probekonto, 14 von 14 grün (J47).
+
 Die Werkstatt: `scripts/test/werkstatt-abnahme.mjs` (J52), am 22.11.2026 nach
 dem Deploy 90 von 90 grün (beide Sichten in Chromium und WebKit bei 1440 und
 390 px, alte Adresse, fremde Bilder 404, Stand setzen, Live schalten, Spalte
