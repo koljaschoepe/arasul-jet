@@ -175,7 +175,7 @@ const def: AppDef = {
     {
       schluessel: 'pruefart',
       titel: t('Prüfung', 'Inspection'),
-      breite: '12rem',
+      breite: '15rem',
       kuerzen: true,
       wert: e => artText(e.felder.pruefart),
       zelle: e => artText(e.felder.pruefart),

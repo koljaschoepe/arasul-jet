@@ -31,7 +31,7 @@ const SCHRITTE: Schritt[] = [
     titel: ['Die Startseite des Betriebs', 'The company home page'],
     text: [
       'Angemeldet ist Miriam Kerschner, Betriebsleiterin. Oben die Kennzahlen aus allen Apps, ein Klick öffnet die App dazu. Mit den Schnellzugriffen legen Sie direkt etwas an.',
-      'Signed in is Miriam Kerschner, operations manager. At the top the figures from all apps; a click opens the app. Quick actions create something straight away.',
+      'Miriam Kerschner, operations manager, is signed in. At the top are the figures from all apps; a click opens the app. Quick actions create something straight away.',
     ],
   },
   {

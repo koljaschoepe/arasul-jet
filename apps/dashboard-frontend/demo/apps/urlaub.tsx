@@ -7,17 +7,7 @@ import { Undo2 } from '@marken/symbole';
 import type { Eintrag } from '../bestand';
 import { ABTEILUNGEN, PERSONEN, person, name } from '../firma';
 import { starten, Mono, type AppDef } from './fachapp';
-import {
-  datum,
-  datumKurz,
-  heuteIso,
-  isoIn,
-  kalenderwoche,
-  tagAus,
-  t,
-  tageBis,
-  tx,
-} from './gemeinsam';
+import { datum, datumKurz, heuteIso, kalenderwoche, tagAus, t, tageBis, tx } from './gemeinsam';
 
 const ARTEN: [string, string][] = [
   ['urlaub', t('Urlaub', 'Leave')],
@@ -41,6 +31,13 @@ function arbeitstage(von: string, bis: string): number {
     if (d.getDay() !== 0 && d.getDay() !== 6) n += 1;
   }
   return n;
+}
+
+/** Der Montag in `wochen` Wochen, plus `tage` Tage, als `JJJJ-MM-TT`. */
+function montagIn(wochen: number, tage = 0): string {
+  const d = tagAus(heuteIso());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + wochen * 7 + tage);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -122,7 +119,13 @@ const def: AppDef = {
     },
     { key: 'notiz', titel: t('Bemerkung', 'Note'), art: 'textlang' },
   ],
-  vorbelegung: () => ({ person: 16, art: 'urlaub', von: isoIn(21), bis: isoIn(25), vertretung: 8 }),
+  vorbelegung: () => ({
+    person: 16,
+    art: 'urlaub',
+    von: montagIn(3),
+    bis: montagIn(3, 4),
+    vertretung: 8,
+  }),
   pruefen: f => {
     const aus: Record<string, string> = {};
     if (typeof f.von === 'string' && typeof f.bis === 'string') {
@@ -205,7 +208,6 @@ const def: AppDef = {
     const bald = liste.filter(
       e => e.stand === 'genehmigt' && tageBis(e.felder.von) <= 14 && tageBis(e.felder.bis) >= 0
     );
-    const genehmigt = liste.filter(e => e.stand === 'genehmigt' && e.felder.art === 'urlaub');
     const rest = PERSONEN.reduce((s, p) => s + p.urlaub, 0) / PERSONEN.length;
     return [
       {
@@ -227,21 +229,18 @@ const def: AppDef = {
         verlauf: wochen,
       },
       {
-        beschriftung: t('Resturlaub im Schnitt', 'Average leave left'),
+        beschriftung: t('Resturlaub', 'Leave left'),
         wert: String(Math.round(rest)),
         einheit: t('Tage', 'days'),
-        fussnote: t(
-          `${genehmigt.reduce((s, e) => s + Number(e.felder.tage), 0)} Tage genehmigt`,
-          `${genehmigt.reduce((s, e) => s + Number(e.felder.tage), 0)} days approved`
-        ),
+        fussnote: t('im Schnitt je Person', 'average per person'),
       },
     ];
   },
   diagramm: liste => ({
     titel: t('Abwesenheit je Woche', 'Absence per week'),
     satz: t(
-      'Genehmigte Arbeitstage, sechs Wochen zurück und sechs voraus.',
-      'Approved working days, six weeks back and six ahead.'
+      'Arbeitstage genehmigt und beantragt, sechs Wochen zurück und sechs voraus.',
+      'Working days approved and requested, six weeks back and six ahead.'
     ),
     art: 'balken',
     data: tageJeWoche(liste, 5, 6),

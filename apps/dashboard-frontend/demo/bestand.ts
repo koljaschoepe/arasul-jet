@@ -125,11 +125,17 @@ function zufall(samen: number) {
   };
 }
 
-/** Ein Werktag: Samstag und Sonntag rücken auf Montag. */
+/** Ein Werktag: Wochenende und Feiertage um den Jahreswechsel rücken weiter. */
 function werktag(abstand: number, jetzt: number): number {
-  const d = new Date(jetzt + abstand * TAG).getDay();
-  if (d === 6) return abstand + 2;
-  if (d === 0) return abstand + 1;
+  for (let a = abstand; a < abstand + 10; a += 1) {
+    const d = new Date(jetzt + a * TAG);
+    const frei =
+      d.getDay() === 0 ||
+      d.getDay() === 6 ||
+      (d.getMonth() === 11 && [24, 25, 26, 31].includes(d.getDate())) ||
+      (d.getMonth() === 0 && d.getDate() === 1);
+    if (!frei) return a;
+  }
   return abstand;
 }
 
@@ -539,7 +545,7 @@ const BAUTEILE: Text[] = [
   T('Rahmen RF-200', 'Frame RF-200'),
   T('Konsole Vordach', 'Canopy bracket'),
   T('Torflügel', 'Gate leaf'),
-  T('Kantteil Verkleidung', 'Bent guard part'),
+  T('Kantteil Verkleidung', 'Folded cover panel'),
   T('Stütze HEA 160', 'Column HEA 160'),
 ];
 

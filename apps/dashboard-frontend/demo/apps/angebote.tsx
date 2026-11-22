@@ -214,7 +214,8 @@ const def: AppDef = {
       { key: 'angeboten', name: t('Angeboten', 'Quoted'), unit: ' €' },
       { key: 'angenommen', name: t('Angenommen', 'Accepted'), unit: ' €' },
     ],
-    formatY: n => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n)),
+    formatY: n =>
+      n >= 1000 ? t(`${Math.round(n / 1000)} Tsd.`, `${Math.round(n / 1000)}k`) : String(n),
   }),
   naechstes: {
     titel: t('Nachfassen', 'Follow up'),

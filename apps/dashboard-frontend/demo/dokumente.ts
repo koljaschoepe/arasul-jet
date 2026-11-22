@@ -197,7 +197,7 @@ const datum = (iso: string | null | undefined, sp: Sprache) =>
       })
     : '–';
 
-const zeile = () => `${FIRMA.strasse} · ${FIRMA.plz} ${FIRMA.ort} · ${FIRMA.web}`;
+const zeile = () => `${FIRMA.strasse} · ${FIRMA.plz} ${FIRMA.ort} · Tel. ${FIRMA.telefon}`;
 const W = (sp: Sprache, de: string, en: string) => (sp === 'en' ? en : de);
 
 function angebotPdf(e: Eintrag, sp: Sprache): Seite {
@@ -244,7 +244,9 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
       0.53,
     ],
     [
-      W(sp, 'Oberfläche: feuerverzinkt bzw. beschichtet', 'Finish: galvanised or coated'),
+      e.id % 2
+        ? W(sp, 'Oberfläche: feuerverzinkt', 'Finish: hot-dip galvanised')
+        : W(sp, 'Oberfläche: pulverbeschichtet RAL 7016', 'Finish: powder-coated RAL 7016'),
       W(sp, '1 psch.', '1 lot'),
       0.13,
     ],
@@ -278,7 +280,7 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
     s.rechts(R - 6, y, wert, 10, fett);
     y -= 16;
   };
-  summe(W(sp, 'Summe', 'Subtotal'), euro(betrag, sp));
+  if (rabatt) summe(W(sp, 'Summe', 'Subtotal'), euro(betrag, sp));
   if (rabatt)
     summe(W(sp, `Rabatt ${rabatt} %`, `Discount ${rabatt}%`), `− ${euro(betrag - netto, sp)}`);
   summe(W(sp, 'Netto', 'Net'), euro(netto, sp));

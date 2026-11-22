@@ -34,6 +34,15 @@ const def: AppDef = {
       `${MASCHINEN.length} machines and installations in three halls. Maintenance: Ralf Gerber.`
     ),
   startStand: 'geplant',
+  // Offenes nach Fälligkeit zuerst, Erledigtes danach, das jüngste oben.
+  ordnen: (a, b) => {
+    const offenA = a.stand !== 'erledigt';
+    const offenB = b.stand !== 'erledigt';
+    if (offenA !== offenB) return offenA ? -1 : 1;
+    return offenA
+      ? String(a.felder.faellig).localeCompare(String(b.felder.faellig))
+      : String(b.felder.erledigt_am).localeCompare(String(a.felder.erledigt_am));
+  },
   titelVon: e => tx(e.felder.aufgabe) || artText(e.felder.art),
   nebenVon: e => `${maschinenText(e)} · ${t('fällig', 'due')} ${datum(e.felder.faellig)}`,
   felder: () => [
@@ -173,7 +182,10 @@ const def: AppDef = {
       6,
       { n: () => 1, h: e => Number(e.felder.dauer) || 0 }
     );
-    const bald = liste.filter(e => e.stand !== 'erledigt' && tageBis(e.felder.faellig) <= 7);
+    const bald = liste.filter(
+      e =>
+        e.stand !== 'erledigt' && tageBis(e.felder.faellig) >= 0 && tageBis(e.felder.faellig) <= 7
+    );
     const ueber = liste.filter(ueberfaellig);
     const erledigt = liste.filter(e => e.stand === 'erledigt');
     const puenktlich = erledigt.filter(

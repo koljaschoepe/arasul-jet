@@ -276,13 +276,11 @@ function Oben() {
         </Kachel>
         <Kachel app="pruefprotokolle">
           <Kennzahl
-            beschriftung={t('Prüfungen offen', 'Open inspections')}
-            wert={String(
-              d.pruefprotokolle.filter(e => e.stand === 'offen' || e.stand === 'freigabe').length
-            )}
+            beschriftung={t('Prüfprotokolle', 'Inspections')}
+            wert={String(pruefFreigabe.length)}
             fussnote={t(
-              `${pruefFreigabe.length} zur Freigabe, ${nacharbeit.length} in Nacharbeit`,
-              `${pruefFreigabe.length} to approve, ${nacharbeit.length} in rework`
+              `zur Freigabe, ${nacharbeit.length} in Nacharbeit`,
+              `to approve, ${nacharbeit.length} in rework`
             )}
             verlauf={proMonat(
               d.pruefprotokolle,
@@ -306,7 +304,7 @@ function Oben() {
         </Kachel>
         <Kachel app="werkstatt">
           <Kennzahl
-            beschriftung={t('Rückmeldungen', 'Feedback')}
+            beschriftung={t('Meldungen', 'Feedback')}
             wert={String(meldungen.length)}
             fussnote={t('zu den Apps, noch offen', 'on the apps, still open')}
           />

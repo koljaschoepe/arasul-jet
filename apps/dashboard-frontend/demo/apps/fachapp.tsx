@@ -121,6 +121,8 @@ export interface AppDef {
   /** Der Stand, mit dem ein neuer Eintrag anlegt wird, aus seinen Feldern. */
   standBeimAnlegen?: (f: Record<string, Wert>) => string;
   csv: (e: Eintrag) => Record<string, string>;
+  /** Die Reihenfolge der Liste, bevor jemand eine Spalte sortiert. */
+  ordnen?: (a: Eintrag, b: Eintrag) => number;
 }
 
 const VARIANTE: Record<
@@ -247,7 +249,10 @@ function FachApp({ def }: { def: AppDef }) {
     }
   }, []);
 
-  const eintraege = liste ?? [];
+  const eintraege = useMemo(
+    () => (liste && def.ordnen ? [...liste].sort(def.ordnen) : (liste ?? [])),
+    [liste, def]
+  );
   const gezeigt = useMemo(
     () => (filter === 'alle' ? eintraege : eintraege.filter(e => e.stand === filter)),
     [eintraege, filter]
@@ -670,8 +675,8 @@ function Einzelansicht({
                   titel={t('Wartet auf Ihre Freigabe', 'Waiting for your approval')}
                 >
                   {t(
-                    'Sie entscheiden. Eine Ablehnung braucht einen Satz, er steht im Verlauf.',
-                    'You decide. Declining needs a sentence; it goes into the history.'
+                    'Bei einer Ablehnung nennen Sie kurz den Grund, er steht danach im Verlauf.',
+                    'If you decline, give a short reason; it is kept in the history.'
                   )}
                 </Meldung>
                 <div className="fa-knoepfe">

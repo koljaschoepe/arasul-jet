@@ -292,6 +292,6 @@
  * die Zeile nicht für Titel, Werkzeuge und Aktionen (am Handy neben der
  * Kapsel, auf der Startseite mit „N Freigaben warten auf Sie"), stehen
  * Werkzeuge und Aktionen in der nächsten Zeile; der Titel behält mindestens
- * 12rem. Am Rechner ändert sich nichts. Gefunden an der Demo (J54).
+ * 12rem. Am Rechner ändert sich nichts. Gefunden an der Demo am Handy.
  */
 export const FASSUNG = '5.11.1';
