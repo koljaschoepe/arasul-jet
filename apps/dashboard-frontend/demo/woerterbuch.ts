@@ -62,8 +62,8 @@ export const WOERTER: Record<string, string> = {
   Absenden: 'Send',
   'Sendet …': 'Sending …',
   Danke: 'Thank you',
-  'Ihre Rückmeldung ist angekommen. Wer die App weiterbaut, sieht sie jetzt.':
-    'Your feedback has arrived. Whoever develops the app can see it now.',
+  'Ihre Rückmeldung ist angekommen. Sie steht mit ihrem Stand in der Werkstatt.':
+    'Your feedback has arrived. You will find it with its status in the Workshop.',
   Schließen: 'Close',
   'Dialog schließen': 'Close dialog',
 

@@ -48,7 +48,7 @@ describe('Wörterbuch', () => {
       'Keine offene Freigabe',
       'Was fehlt oder stimmt nicht?',
       'Bildschirmfoto mitschicken',
-      'Ihre Rückmeldung ist angekommen. Wer die App weiterbaut, sieht sie jetzt.',
+      'Ihre Rückmeldung ist angekommen. Sie steht mit ihrem Stand in der Werkstatt.',
       'Offen (neu und angenommen)',
       'Wer gemeldet hat, sieht Stand und Grund in der eigenen Werkstatt.',
       'Meine Meldungen',

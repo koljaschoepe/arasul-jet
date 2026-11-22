@@ -41,7 +41,9 @@ Icon, Formular und Bildschirmfoto gehören dem Rahmen, nicht der App.
      Foto: Ziehen zeichnet einen Rahmen um die Stelle, Tippen setzt ein
      kleines Quadrat; jede neue Geste ersetzt die vorige.
    - Ein Satz, was mitgeht: App, Seite, Name, Uhrzeit, gespeichert am Gerät.
-3. Nach dem Absenden steht „Ihre Rückmeldung ist angekommen.“ Seit dem
+3. Nach dem Absenden steht „Ihre Rückmeldung ist angekommen. Sie steht mit
+   ihrem Stand in der Werkstatt.“ (den zweiten Satz seit der Generalprobe der
+   Schleife am 22.11.2026; vorher sagte er nicht, wo sie wieder zu lesen ist). Seit dem
    22.11.2026 steht die Meldung danach in der Werkstatt unter „Meine
    Meldungen“, mit Stand (neu, angenommen, umgesetzt, abgelehnt) und bei einer
    Ablehnung dem Grund (Regel 2 der Schleife, neu; bis dahin gab es keinen Weg,
