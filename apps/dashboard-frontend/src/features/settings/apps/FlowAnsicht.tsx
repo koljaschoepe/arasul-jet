@@ -190,7 +190,9 @@ export function FlowAnsicht({
               <h4 className="mb-1.5 text-sm font-medium text-foreground">Auftrag an das Modell</h4>
               <pre
                 className={cn(
-                  'max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md',
+                  // Wie in der Datei, Zeile für Zeile: ein weicher Umbruch dazu ließ
+                  // einzelne Wörter allein stehen. Lange Zeilen rollen in sich.
+                  'max-h-96 overflow-auto whitespace-pre rounded-md',
                   'border border-border p-ui-3 font-mono text-xs text-foreground'
                 )}
                 data-testid="flow-prompt"

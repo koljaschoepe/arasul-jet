@@ -313,4 +313,10 @@
  * sonst war er nur in einer Ecke zu sehen. Die Flaeche der Ansicht wirft
  * einen tieferen Schatten. Kein Name, keine Eigenschaft aendert sich.
  */
-export const FASSUNG = '5.12.1';
+/*
+ * 5.12.2: der dunkle Verlauf des Rahmens spreizt weiter, ein tiefes Blau
+ * ueber den groesseren Teil und unten rechts ein klares Anthrazit; die
+ * unbeteiligte Durchsicht sah dunkel kaum einen Unterschied. Kein Name,
+ * keine Eigenschaft aendert sich.
+ */
+export const FASSUNG = '5.12.2';

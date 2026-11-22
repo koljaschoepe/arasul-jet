@@ -367,6 +367,14 @@
     bottom: auto;
   }
 }
+/* Ist am Handy ein Blatt offen, steht die Meldung über seinen Aktionen,
+   nicht über seinem Kopf: dort verdeckte sie Titel, Griff und Kreuz. */
+@media (max-width: 639px) {
+  body:has([data-blatt='unten']) .fa-toast {
+    top: auto;
+    bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+}
 @keyframes fa-auf {
   from {
     opacity: 0;

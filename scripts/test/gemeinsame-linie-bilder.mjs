@@ -147,6 +147,11 @@ async function ohneKundenname(seite) {
         }
       };
       ersetze(document);
+      // Die Adresse des Geräts gehört auch auf kein Bild (Befehl im Blatt
+      // „Rechner verbinden“): ein Platzhalter statt der echten.
+      for (const c of document.querySelectorAll('code')) {
+        c.textContent = c.textContent.replaceAll(location.host, 'arasul.firma.local');
+      }
       for (const f of document.querySelectorAll('iframe')) {
         try {
           if (f.contentDocument?.body) ersetze(f.contentDocument);
