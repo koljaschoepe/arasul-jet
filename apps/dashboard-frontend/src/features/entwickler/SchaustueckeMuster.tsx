@@ -26,6 +26,7 @@ import {
   Button,
   Dateiablage,
   Datenliste,
+  Blatt,
   Dialogform,
   Dokumentanzeige,
   Feldgruppe,
@@ -199,6 +200,7 @@ const APPS = [
 export function SchaustueckeMuster() {
   const [app, setApp] = useState('');
   const [gewaehlt, setGewaehlt] = useState<string | null>('r2');
+  const [blattOffen, setBlattOffen] = useState(false);
   const [dateien, setDateien] = useState<File[]>([]);
   // Einmal gebaut, nicht je Render: eine neue Quelle je Render liesse die
   // Dokumentanzeige bei jedem Tastendruck auf dieser Seite neu laden.
@@ -500,7 +502,7 @@ export function SchaustueckeMuster() {
         satz="Jede Seite beginnt gleich: links Titel und ein Satz, rechts die Werkzeugleiste. Im Rahmen hält er rechts den Platz der Kapsel frei."
       >
         <Zustand name="mit Werkzeugleiste und Knopf der Seitenleiste">
-          <div className="w-[36rem] max-w-full rounded-[14px] border border-border bg-background p-4">
+          <div className="w-[36rem] max-w-full rounded-2xl border border-border bg-background p-4">
             <Kopf
               ebene={2}
               titel="Belege"
@@ -612,6 +614,37 @@ export function SchaustueckeMuster() {
               Der Rumpf rollt, wenn er länger wird als der Bildschirm; Kopf und Fuß bleiben stehen.
             </p>
           </Dialogform>
+        </Zustand>
+      </Schaustueck>
+
+      <Schaustueck
+        name="Blatt"
+        satz="Einzelheiten und Formulare: am Rechner als Fläche daneben, am Handy von unten mit Griff. Wischen, Tipp daneben oder Escape schließt."
+      >
+        <Zustand name="Einzelansicht mit Aktionen">
+          <Button variant="outline" data-blatt-oeffnen onClick={() => setBlattOffen(true)}>
+            Blatt öffnen
+          </Button>
+          <Blatt
+            offen={blattOffen}
+            beiSchliessen={() => setBlattOffen(false)}
+            oben="A-2026-0142"
+            titel="Geländer Treppenhaus, Haus B"
+            beschreibung="Angebot an die Wohnbau Süd, 14.11.2026"
+            fuss={
+              <>
+                <Button variant="outline" onClick={() => setBlattOffen(false)}>
+                  Schließen
+                </Button>
+                <Button onClick={() => setBlattOffen(false)}>Freigeben</Button>
+              </>
+            }
+          >
+            <p className="text-sm text-muted-foreground">
+              Der Rumpf rollt in sich, Kopf und Aktionen bleiben stehen. Links bleibt die Liste
+              sichtbar, aus der das Blatt kam.
+            </p>
+          </Blatt>
         </Zustand>
       </Schaustueck>
 

@@ -14,7 +14,7 @@
 import { useState, type FormEvent } from 'react';
 import {
   Button,
-  Dialogform,
+  Blatt,
   Input,
   Label,
   RadioGroup,
@@ -72,13 +72,14 @@ export function OrdnerAnlegenDialog({ offen, laeuft, bereiche, onSchliessen, onA
   };
 
   return (
-    <Dialogform
+    <Blatt
       offen={offen}
       beiSchliessen={schliessen}
       titel="Ordner anlegen"
-      groesse="klein"
+      beschreibung="Ein Bereich, ein Projekt darin oder ein Ordner, der am Gerät bleibt. Die Rechte vergeben Sie danach am Ordner."
+      kennzeichen="ordner-anlegen-blatt"
       fuss={
-        <div className="flex w-full justify-end gap-3">
+        <>
           <Button type="button" variant="outline" onClick={schliessen}>
             Abbrechen
           </Button>
@@ -90,7 +91,7 @@ export function OrdnerAnlegenDialog({ offen, laeuft, bereiche, onSchliessen, onA
           >
             {laeuft ? 'Legt an…' : 'Anlegen'}
           </Button>
-        </div>
+        </>
       }
     >
       <form id="ordner-anlegen" className="flex flex-col gap-4" onSubmit={absenden}>
@@ -164,6 +165,6 @@ export function OrdnerAnlegenDialog({ offen, laeuft, bereiche, onSchliessen, onA
           />
         </div>
       </form>
-    </Dialogform>
+    </Blatt>
   );
 }

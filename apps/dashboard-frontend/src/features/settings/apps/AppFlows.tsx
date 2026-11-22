@@ -307,6 +307,7 @@ function FlowZeile({
           className="mt-1"
           onClick={onOeffnen}
           data-testid={`flow-oeffnen-${f.name}`}
+          data-blatt-oeffnen
         >
           Datei mit Auftrag an das Modell lesen
         </Button>

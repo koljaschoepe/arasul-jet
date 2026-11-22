@@ -11,9 +11,10 @@
  * „Abmelden" steht nicht hier, sondern im Konto unten in der Leiste, am Handy
  * unter „Mehr" (Karte glas-rahmen-und-leiste): eine Stelle je Funktion.
  */
-import { Layers, LogOut, Monitor, Moon, Palette, Sun } from '@marken/symbole';
+import { Laptop, Layers, LogOut, Monitor, Moon, Palette, Sun } from '@marken/symbole';
 import { useState } from 'react';
 import {
+  Blatt,
   Button,
   Feldgruppe,
   Kopf,
@@ -131,7 +132,8 @@ function Erscheinungsbild() {
 /**
  * Die Rechner, an denen ein Ausweis dieser Person liegt. „Abmelden" widerruft
  * ihn. Erzeugt wird hier nichts: der Ausweis für das CLI entsteht nie im
- * Browser.
+ * Browser. Die Anleitung zum Verbinden öffnet seit J53 ein Blatt, aus dem
+ * Seitenkopf oder aus der leeren Liste.
  */
 function AngemeldeteRechner() {
   const api = useApi();
@@ -140,6 +142,7 @@ function AngemeldeteRechner() {
   const { data, isLoading, isError } = useAusweise();
   const widerrufen = useAusweisWiderrufen();
   const [ueberall, setUeberall] = useState(false);
+  const [verbinden, setVerbinden] = useState(false);
   const liste = data ?? [];
 
   const abmelden = async (id: number, name: string) => {
@@ -179,19 +182,36 @@ function AngemeldeteRechner() {
         titel="Angemeldete Rechner"
         beschreibung="Wo Ihr Konto gerade angemeldet ist. Ein fremder Rechner lässt sich hier abmelden."
         werkzeuge={
-          liste.length > 0 ? (
+          <>
             <Werkzeug
-              symbol={<LogOut />}
-              beschriftung="Überall abmelden"
-              onClick={() => void ueberallAbmelden()}
-              disabled={ueberall}
-              data-testid="ueberall-abmelden"
+              symbol={<Laptop />}
+              beschriftung="Rechner verbinden"
+              onClick={() => setVerbinden(true)}
+              data-blatt-oeffnen
+              data-testid="rechner-verbinden-oeffnen"
             />
-          ) : undefined
+            {liste.length > 0 && (
+              <Werkzeug
+                symbol={<LogOut />}
+                beschriftung="Überall abmelden"
+                onClick={() => void ueberallAbmelden()}
+                disabled={ueberall}
+                data-testid="ueberall-abmelden"
+              />
+            )}
+          </>
         }
       />
       {ConfirmDialog}
-      <RechnerVerbinden />
+      <Blatt
+        offen={verbinden}
+        beiSchliessen={() => setVerbinden(false)}
+        titel="Rechner verbinden"
+        beschreibung="Ein Befehl, danach steht der Rechner in dieser Liste."
+        kennzeichen="rechner-verbinden-blatt"
+      >
+        <RechnerVerbinden />
+      </Blatt>
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Wird geladen …</p>
       ) : isError ? (
@@ -199,7 +219,14 @@ function AngemeldeteRechner() {
           Die Liste ließ sich nicht laden.
         </p>
       ) : liste.length === 0 ? (
-        <Leerzustand titel="Kein Rechner angemeldet" />
+        <Leerzustand
+          titel="Kein Rechner angemeldet"
+          aktion={
+            <Button variant="outline" size="sm" onClick={() => setVerbinden(true)}>
+              Rechner verbinden
+            </Button>
+          }
+        />
       ) : (
         <ul className="rounded-md border border-border" data-testid="rechner-liste">
           {liste.map(a => (
@@ -288,7 +315,12 @@ export default function Einstellungen() {
   }));
   return (
     <div className="h-full min-h-0" data-testid="einstellungen">
-      <Bereichsrahmen titel="Einstellungen" gruppen={gruppen} kennzeichen="einstellungen-bereiche">
+      <Bereichsrahmen
+        titel="Einstellungen"
+        gruppen={gruppen}
+        kennzeichen="einstellungen-bereiche"
+        bereich={bereich}
+      >
         <Bereich id={bereich} />
       </Bereichsrahmen>
     </div>

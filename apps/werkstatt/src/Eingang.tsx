@@ -14,9 +14,9 @@ import {
   Werkzeug,
   Badge,
   Bestaetigung,
+  Blatt,
   Button,
   Datenliste,
-  Dialogform,
   Kopf,
   Label,
   Meldung as Hinweis,
@@ -168,8 +168,19 @@ function Auswahl({
   );
 }
 
-/** Eine Meldung offen: lesen, Stand setzen, entfernen. */
-function MeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: () => void }) {
+/**
+ * Eine Meldung offen: lesen, Stand setzen, entfernen. Seit J53 im Blatt der
+ * Bibliothek, am Rechner neben der Liste, am Handy von unten.
+ */
+function MeldungDialog({
+  meldung,
+  offen,
+  schliessen,
+}: {
+  meldung: Meldung;
+  offen: boolean;
+  schliessen: () => void;
+}) {
   const setzen = useStandSetzen();
   const entfernen = useEntfernen();
   const [stand, setStand] = useState<StandMeldung>(meldung.stand_meldung);
@@ -180,11 +191,13 @@ function MeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: 
 
   return (
     <>
-      <Dialogform
-        offen
+      <Blatt
+        offen={offen}
         beiSchliessen={schliessen}
         titel={appName(meldung)}
-        groesse="gross"
+        beschreibung={`${meldung.person?.anzeigeName ?? 'Gelöschte Person'} · ${zeit(meldung.erstellt_am)}`}
+        breite="breit"
+        kennzeichen="werkstatt-blatt"
         fuss={
           <div style={{ ...zeile(2), justifyContent: 'space-between', width: '100%' }}>
             <Button
@@ -218,9 +231,6 @@ function MeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: 
         }
       >
         <div style={spalte(3)} data-testid="werkstatt-meldung">
-          <p style={leise}>
-            {meldung.person?.anzeigeName ?? 'Gelöschte Person'} · {zeit(meldung.erstellt_am)}
-          </p>
           <p style={fliesstext}>{meldung.text}</p>
           <p style={{ ...fest, ...leise }} data-testid="werkstatt-seite">
             {meldung.seite}
@@ -270,7 +280,7 @@ function MeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: 
             </p>
           </div>
         </div>
-      </Dialogform>
+      </Blatt>
       <Bestaetigung
         offen={weg}
         beiSchliessen={() => setWeg(false)}
@@ -315,6 +325,11 @@ export function Eingang({
   const appWahl = useMemo(() => appsAusMeldungen(meldungen, apps), [meldungen, apps]);
   const offen = meldungen.filter(istOffen).length;
   const gewaehlt = meldungen.find(m => m.id === offenId) ?? null;
+  // Die zuletzt offene Meldung bleibt im Blatt, während es zugeht.
+  const [letzte, setLetzte] = useState<Meldung | null>(null);
+  useEffect(() => {
+    if (gewaehlt) setLetzte(gewaehlt);
+  }, [gewaehlt]);
 
   // Verschwindet die offene Meldung (entfernt), schließt der Dialog.
   useEffect(() => {
@@ -399,8 +414,13 @@ export function Eingang({
           {anzahl(gefiltert.length, 'Meldung', 'Meldungen')} in diesem Filter
         </p>
       )}
-      {gewaehlt && (
-        <MeldungDialog key={gewaehlt.id} meldung={gewaehlt} schliessen={() => setOffenId(null)} />
+      {(gewaehlt ?? letzte) && (
+        <MeldungDialog
+          key={(gewaehlt ?? letzte)!.id}
+          meldung={(gewaehlt ?? letzte)!}
+          offen={gewaehlt !== null}
+          schliessen={() => setOffenId(null)}
+        />
       )}
     </div>
   );

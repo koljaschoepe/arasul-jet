@@ -163,60 +163,18 @@
   justify-content: flex-end;
 }
 
-/* Das Blatt: am Rechner rechts daneben, am Handy von unten mit Griff. */
-.fa-blatt {
-  padding: 0 !important;
-  gap: 0 !important;
-}
-.fa-blatt[data-seite='rechts'] {
-  /* Unter der Kapsel des Rahmens, als schwebende Fläche daneben. */
-  top: 52px !important;
-  right: 8px !important;
-  bottom: 8px !important;
-  height: auto !important;
-  width: min(560px, calc(100vw - 16px)) !important;
-  max-width: min(560px, calc(100vw - 16px)) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 16px;
-}
-.fa-blatt[data-seite='unten'] {
-  max-height: 88dvh;
-  border-radius: 24px 24px 0 0;
-}
+/* Die Einzelansicht steht im Blatt der Bibliothek (`Blatt`, am Rechner
+   daneben unter der Kapsel, am Handy von unten mit Griff); hier nur ihr
+   Inneres. */
 .fa-blatt-inhalt {
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 20px 20px calc(24px + env(safe-area-inset-bottom));
   display: grid;
   gap: 18px;
   align-content: start;
-  height: 100%;
-  box-sizing: border-box;
-}
-.fa-griff {
-  justify-self: center;
-  width: 40px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--border);
-  margin: -8px 0 -6px;
-}
-.fa-blatt-kopf {
-  display: grid;
-  gap: 4px;
-  padding-right: 28px;
 }
 .fa-blatt-nr {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: var(--muted-foreground);
-}
-.fa-blatt-titel {
-  font-size: 16px !important;
-  font-weight: 500 !important;
-  line-height: 1.3 !important;
 }
 
 .fa-knoepfe {

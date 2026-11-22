@@ -67,7 +67,7 @@ describe('WorkspaceShell', () => {
     expect(shell.querySelector('[data-panel]')).toBeNull();
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     // Die Ansicht ist eine deckende, abgerundete Fläche auf dem Verlauf.
-    expect(screen.getByTestId('workspace-ansicht')).toHaveClass('bg-background', 'rounded-[14px]');
+    expect(screen.getByTestId('workspace-ansicht')).toHaveClass('bg-background', 'rounded-2xl');
     expect(shell.className).toContain('--verlauf-rahmen');
   });
 

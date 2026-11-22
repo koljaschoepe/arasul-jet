@@ -21,7 +21,8 @@ Path aliases (both in `tsconfig.json` and `vite.config.ts`):
     Sidebar, … **Der einzige Ort dafür** — ein zweiter Button in der Shell ist
     ein Befund (`scripts/test/bausteine.py`). `Drawer` und `Sonner` gibt es
     bewusst nicht: das eine ist `Sheet side="bottom"`, das andere `Toast`.
-  - **Muster** (`src/muster/`, 11 Stück): Datenliste, Suchauswahl,
+  - **Muster** (`src/muster/`, 12 Stück): `Blatt` (Einzelheiten und
+    Formulare, am Rechner daneben, am Handy von unten, J53), Datenliste, Suchauswahl,
     Dateiablage, Seitenleiste, Formularseite mit Feldgruppe, Leerzustand,
     Ladezustand, `Dialogform`, `Bestaetigung` (auf `AlertDialog`),
     `Kennzahl`/`Kennzahlen`, `Freigabe` (Liste, Einzelansicht, Bestätigen,
@@ -66,7 +67,7 @@ src/
                    Vorname, Nachname, Funktion, Kürzel, Bild), Passwort
                    (`PasswordManagement.tsx`), Angemeldete Rechner (die Ausweise
                    der Person, „abmelden" widerruft; erzeugt wird im Browser
-                   nie einer, `useAusweise.ts`; darüber die Anleitung zum Verbinden
+                   nie einer, `useAusweise.ts`; im Blatt aus dem Seitenkopf die Anleitung zum Verbinden
                    eines Rechners mit einem Befehl zum Kopieren,
                    `RechnerVerbinden.tsx`) und Erscheinungsbild (System,
                    hell, dunkel; `useTheme` löst `system` selbst auf). Gebaut
@@ -281,14 +282,14 @@ src/
     workspace/     Die Shell (Karte glas-rahmen-und-leiste, 20.11.2026): auf
                    dem Verlauf `--verlauf-rahmen` links die Aktivitätsleiste
                    aus Glas, daneben genau EINE Ansicht als deckende Fläche
-                   (Radius 14 px, 8 px Abstand). Es gibt keine Kopfleiste,
+                   (Radius 18 px seit J53, 8 px Abstand). Es gibt keine Kopfleiste,
                    keine Tab-Leiste, keine rechte Spalte, keine zweite
                    Seitenleiste und keine Statuszeile mehr (kein Datum,
                    keine Uhrzeit; eine Störung ist eine Meldung). **Immer aktiv** — `/`
                    landet nach Login auf `/workspace`, ohne weiteren Pfad auf
                    der **Startseite**.
                    • **ActivityBar** — Glas (`.glas.glas-grund`), 52 px
-                     breit, Radius 16 px, drei Abschnitte mit zwei Trennern
+                     breit, Radius 18 px, drei Abschnitte mit zwei Trennern
                      (`leiste-trenner`). Oben das Haus (Startseite, mit der
                      Zahl offener Freigaben aus `useOffeneFreigaben`),
                      darunter die eigenen Apps, JEDE GENAU EINMAL

@@ -1,19 +1,19 @@
 # Marken — das Designsystem des Geräts
 
 Die Tokens (`theme.css`), **sechsundvierzig Primitive** auf Radix und Tailwind,
-**elf Muster** darüber und **sechs Bausteine** auf reinem CSS. Sie tragen
+**zwölf Muster** darüber und **sechs Bausteine** auf reinem CSS. Sie tragen
 die Shell und jede App auf diesem Gerät.
 
 ## Drei Sätze, zwei Laufzeiten
 
-|                   | Primitive                                       | Muster                                  | Bausteine                                   |
-| ----------------- | ----------------------------------------------- | --------------------------------------- | ------------------------------------------- |
-| Was               | Button, Input, Dialog, Tabelle, Kalender … (46) | Datenliste, Dialogform, Kennzahl … (10) | Kopf, Liste, Karte, Formular, Meldung, Menü |
-| Höhe              | ein Teil                                        | eine **Form**, aus Teilen gebaut        | ein Teil, ohne Tailwind                     |
-| Worauf            | Radix + Tailwind-Utilities aus `theme.css`      | die Primitive                           | reines CSS, Klassen `ara-*`                 |
-| Braucht einen Bau | **ja**                                          | **ja**                                  | nein                                        |
-| Wer sie bekommt   | die Shell, eine App **mit** Bau (Kit-Vorlage)   | dieselben                               | zusätzlich jede App **ohne** Bau            |
-| Wo                | `src/primitive/`                                | `src/muster/`                           | `src/*.tsx`                                 |
+|                   | Primitive                                       | Muster                               | Bausteine                                   |
+| ----------------- | ----------------------------------------------- | ------------------------------------ | ------------------------------------------- |
+| Was               | Button, Input, Dialog, Tabelle, Kalender … (46) | Blatt, Datenliste, Dialogform … (12) | Kopf, Liste, Karte, Formular, Meldung, Menü |
+| Höhe              | ein Teil                                        | eine **Form**, aus Teilen gebaut     | ein Teil, ohne Tailwind                     |
+| Worauf            | Radix + Tailwind-Utilities aus `theme.css`      | die Primitive                        | reines CSS, Klassen `ara-*`                 |
+| Braucht einen Bau | **ja**                                          | **ja**                               | nein                                        |
+| Wer sie bekommt   | die Shell, eine App **mit** Bau (Kit-Vorlage)   | dieselben                            | zusätzlich jede App **ohne** Bau            |
+| Wo                | `src/primitive/`                                | `src/muster/`                        | `src/*.tsx`                                 |
 
 Das ist keine Doppelung, sondern erstens der Unterschied zwischen zwei
 Laufzeiten und zweitens der zwischen zwei Höhen. Eine App ohne Bau hat keinen

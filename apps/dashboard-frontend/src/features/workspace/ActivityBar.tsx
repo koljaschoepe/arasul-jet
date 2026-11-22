@@ -247,7 +247,7 @@ function LeisteLinks({ onLogout }: { onLogout: () => Promise<void> | void }) {
     <nav
       aria-label="Aktivitätsleiste"
       data-testid="aktivitaetsleiste"
-      className="glas glas-grund flex h-full w-[52px] shrink-0 flex-col items-center rounded-[16px] border py-[8px]"
+      className="glas glas-grund flex h-full w-[52px] shrink-0 flex-col items-center rounded-2xl border py-[8px]"
     >
       <div className="flex shrink-0 flex-col items-center gap-0.5" data-testid="leiste-oben">
         <LogoDesHauses />

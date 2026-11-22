@@ -14,6 +14,7 @@ import { bereichAusAdresse } from '@/features/settings/sections';
 import { AnsichtInhalt } from './AnsichtInhalt';
 import { cn, useSchmalesFenster } from '@marken';
 import { ActivityBar } from './ActivityBar';
+import { useWeicherWechsel } from '@/hooks/useWeicherWechsel';
 import { Befehlspalette } from './Befehlspalette';
 
 /** Was die Shell von außen braucht: das Abmelden, und sonst nichts. */
@@ -61,7 +62,7 @@ function ausDerAdresse(pathname: string, search: string): Ansicht | null {
  * Rahmen):
  *
  *   Verlauf des Rahmens (`--verlauf-rahmen`), darauf mit 8 px Abstand
- *   Leiste aus Glas · Fläche der Ansicht (deckend, Radius 14 px)
+ *   Leiste aus Glas · Fläche der Ansicht (deckend, Radius 18 px seit J53)
  *
  * Es gibt keine Kopfleiste, keine Tab-Leiste, keine rechte Spalte, keine
  * zweite Seitenleiste und seit dieser Karte auch keine Statuszeile mehr: das
@@ -92,6 +93,14 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
   // vergleicht hiergegen und nicht gegen `location`, deren Schnappschuss im
   // selben Commit noch die alte Adresse trägt.
   const abgeglichen = useRef<string | null>(null);
+
+  // Wechselt die Ansicht der Leiste (Start, eine App, Verwaltung,
+  // Einstellungen), blendet die Fläche weich ein. Live und Test derselben App
+  // oder ein Bereich der Verwaltung bewegen hier nichts; den Bereich bewegt
+  // der `Bereichsrahmen` selbst, ohne seine Leiste.
+  const wechsel = useWeicherWechsel<HTMLDivElement>(
+    ansicht.type === 'app' ? `app:${ansicht.appId}` : ansicht.type
+  );
 
   // Der Titel des Browser-Tabs sagt, was vorn steht (J35, 26.09.2026).
   const titel = ansichtTitel(ansicht);
@@ -157,13 +166,15 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
       <div className="relative flex min-h-0 min-w-0 flex-1">
         <main
           className={cn(
-            'relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-[14px] border bg-background shadow-[var(--schatten-flaeche)]',
+            'relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl border bg-background shadow-[var(--schatten-flaeche)]',
             testfassung ? 'border-2 border-primary' : 'border-border'
           )}
           data-testid="workspace-ansicht"
           data-testfassung={testfassung || undefined}
         >
-          <AnsichtInhalt />
+          <div ref={wechsel} className="h-full w-full">
+            <AnsichtInhalt />
+          </div>
         </main>
         {testfassung && (
           <span

@@ -9,7 +9,7 @@
  * nicht diese Seite; ein Bild gibt das Gerät nur zur eigenen Meldung heraus.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Button, Datenliste, Dialogform, Kopf, Meldung as Hinweis, type Spalte } from '@marken';
+import { Blatt, Button, Datenliste, Kopf, Meldung as Hinweis, type Spalte } from '@marken';
 import { Bildschirmfoto, StandAbzeichen, appName } from './Eingang';
 import { anzahl, istOffen, zeit } from './logik';
 import { fest, fliesstext, leise, spalte } from './stil';
@@ -49,13 +49,24 @@ const STAND_SATZ: Record<Meldung['stand_meldung'], string> = {
   abgelehnt: 'Ihre Meldung wird nicht umgesetzt.',
 };
 
-function EigeneMeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: () => void }) {
+/** Die eigene Meldung im Blatt der Bibliothek (J53), nur zum Lesen. */
+function EigeneMeldungDialog({
+  meldung,
+  offen,
+  schliessen,
+}: {
+  meldung: Meldung;
+  offen: boolean;
+  schliessen: () => void;
+}) {
   return (
-    <Dialogform
-      offen
+    <Blatt
+      offen={offen}
       beiSchliessen={schliessen}
       titel={appName(meldung)}
-      groesse="gross"
+      beschreibung={`Gemeldet ${zeit(meldung.erstellt_am)}`}
+      breite="breit"
+      kennzeichen="werkstatt-blatt"
       fuss={
         <Button type="button" variant="outline" onClick={schliessen}>
           Schließen
@@ -63,7 +74,6 @@ function EigeneMeldungDialog({ meldung, schliessen }: { meldung: Meldung; schlie
       }
     >
       <div style={spalte(3)} data-testid="werkstatt-eigene-meldung">
-        <p style={leise}>{`Gemeldet ${zeit(meldung.erstellt_am)}`}</p>
         <p style={fliesstext}>{meldung.text}</p>
         <p style={{ ...fest, ...leise }} data-testid="werkstatt-seite">
           {meldung.seite}
@@ -93,7 +103,7 @@ function EigeneMeldungDialog({ meldung, schliessen }: { meldung: Meldung; schlie
           )}
         </div>
       </div>
-    </Dialogform>
+    </Blatt>
   );
 }
 
@@ -111,6 +121,11 @@ export function EigeneMeldungen({
   const [offenId, setOffenId] = useState<number | null>(null);
   const offen = useMemo(() => meldungen.filter(istOffen).length, [meldungen]);
   const gewaehlt = meldungen.find(m => m.id === offenId) ?? null;
+  // Die zuletzt offene Meldung bleibt im Blatt, während es zugeht.
+  const [letzte, setLetzte] = useState<Meldung | null>(null);
+  useEffect(() => {
+    if (gewaehlt) setLetzte(gewaehlt);
+  }, [gewaehlt]);
 
   useEffect(() => {
     if (offenId !== null && !laedt && !gewaehlt) setOffenId(null);
@@ -152,10 +167,11 @@ export function EigeneMeldungen({
           {`${anzahl(meldungen.length, 'Meldung', 'Meldungen')} von Ihnen`}
         </p>
       )}
-      {gewaehlt && (
+      {(gewaehlt ?? letzte) && (
         <EigeneMeldungDialog
-          key={gewaehlt.id}
-          meldung={gewaehlt}
+          key={(gewaehlt ?? letzte)!.id}
+          meldung={(gewaehlt ?? letzte)!}
+          offen={gewaehlt !== null}
           schliessen={() => setOffenId(null)}
         />
       )}
