@@ -174,8 +174,8 @@ async function bild(seite, name) {
   await seite.screenshot({ path: path.join(BILDER, `${name}.png`) });
 }
 
-async function appOeffnen(seite, stand = 'live') {
-  await seite.goto(`${URL}/workspace/app/${APP}${stand === 'test' ? '?stand=test' : ''}`);
+async function appOeffnen(seite) {
+  await seite.goto(`${URL}/workspace/app/${APP}`);
   const knopf = seite.locator('[data-testid="rueckmeldung-knopf"]');
   const da = await knopf.waitFor({ timeout: 30000 }).then(
     () => true,
