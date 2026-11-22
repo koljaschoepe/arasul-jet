@@ -574,7 +574,7 @@ export function useFlowAktiv(appId: string) {
 /**
  * Der Schalter „Bildschirmfotos an den Agenten" (J43,
  * `PUT /api/apps/:id/bilder-an-agenten`). Er gilt nur für das, was das Kit
- * über die Schnittstelle bekommt; im Gerät sehen Entwickler die Bilder immer.
+ * über die Schnittstelle bekommt; im Gerät sieht sie, wer das Recht in der Werkstatt hat.
  */
 export function useBilderAnAgenten(appId: string) {
   const api = useApi();

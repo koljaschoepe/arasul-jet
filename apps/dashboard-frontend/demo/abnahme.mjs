@@ -277,7 +277,7 @@ async function weg(browser, basis, sprache, breite) {
   await seite.getByTestId('demo-weg-weiter').click();
   await seite.waitForURL(/entwickler-cockpit/);
   const cockpit = seite.frameLocator('iframe[src="/apps/entwickler-cockpit/"]');
-  await cockpit.getByTestId('cockpit-eingang').waitFor({ timeout: 20_000 });
+  await cockpit.getByTestId('werkstatt-eingang').waitFor({ timeout: 20_000 });
   const meldungText = sprache === 'en' ? 'A discount per quote' : 'Ein Rabatt je Angebot';
   await cockpit.getByText(meldungText).first().waitFor();
   await hinweis(4);
@@ -286,7 +286,7 @@ async function weg(browser, basis, sprache, breite) {
   if (SAMMELN) await sammeln(seite);
   await cockpit.getByText(meldungText).first().click();
   await warte(500);
-  const hatBild = await cockpit.getByTestId('cockpit-bild').count();
+  const hatBild = await cockpit.getByTestId('werkstatt-bild').count();
   if (!hatBild) rot(`${wo}: die Meldung zeigt kein Bildschirmfoto im Cockpit`);
   if (SAMMELN) await sammeln(seite);
   await seite.keyboard.press('Escape');
@@ -294,26 +294,26 @@ async function weg(browser, basis, sprache, breite) {
 
   // 5. „Weiter" führt zu Test nach Live
   await seite.getByTestId('demo-weg-weiter').click();
-  await cockpit.getByTestId('cockpit-live-schalten-angebote').waitFor({ timeout: 10_000 });
+  await cockpit.getByTestId('werkstatt-live-schalten-angebote').waitFor({ timeout: 10_000 });
   await hinweis(5);
   await ueberlauf(seite, `${wo} Test nach Live`);
   await bild(seite, name('6-weg-live'));
   if (SAMMELN) await sammeln(seite);
-  await cockpit.getByTestId('cockpit-live-schalten-angebote').click();
+  await cockpit.getByTestId('werkstatt-live-schalten-angebote').click();
   const frage = cockpit.getByRole('alertdialog');
   await frage.waitFor();
   if (SAMMELN) await sammeln(seite);
   await frage.getByRole('button').last().click();
-  await cockpit.getByTestId('cockpit-schalt-ausgang').waitFor({ timeout: 15_000 });
+  await cockpit.getByTestId('werkstatt-schalt-ausgang').waitFor({ timeout: 15_000 });
   await seite.locator('[data-testid="demo-weg"][data-geschafft="true"]').waitFor();
   await warte(400);
   await bild(seite, name('6-weg-geschafft'));
 
   // Apps-Ansicht des Cockpits
-  if (!(await cockpit.getByTestId('cockpit-leiste-apps').isVisible())) {
-    await cockpit.getByTestId('cockpit-leiste-umschalten').click();
+  if (!(await cockpit.getByTestId('werkstatt-leiste-apps').isVisible())) {
+    await cockpit.getByTestId('werkstatt-leiste-umschalten').click();
   }
-  await cockpit.getByTestId('cockpit-leiste-apps').click();
+  await cockpit.getByTestId('werkstatt-leiste-apps').click();
   await warte(400);
   if (SAMMELN) await sammeln(seite);
 

@@ -1,6 +1,10 @@
 /**
- * Der Rahmen des Cockpits: die Seitenleiste der Bibliothek mit drei
- * Einträgen (Eingang, Apps, Test nach Live), daneben die gewählte Ansicht.
+ * Der Rahmen der Werkstatt: die Seitenleiste der Bibliothek, daneben die
+ * gewählte Ansicht. Welche Einträge die Leiste trägt, hängt am Recht in der
+ * Werkstatt (J52, `GET /api/werkstatt/ich`): ohne es genau einer, „Meine
+ * Meldungen“; mit ihm drei, Eingang (alle Meldungen), Apps und Test nach
+ * Live. Einen Wechsel der Rolle gibt es nicht, das Recht entscheidet allein
+ * (`company/schleife.md`, Regel 2).
  * Unter 900 px wird die Leiste ein Blatt. Der Knopf dafür sitzt im
  * Seitenkopf jeder Ansicht (`KopfVorne`, Bibliothek 5.9.0), nicht mehr in
  * einer eigenen Zeile darüber. Die
@@ -9,9 +13,10 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AppWindow, ArrowUpFromLine, Inbox, RefreshCw } from '@marken/symbole';
+import { AppWindow, ArrowUpFromLine, Inbox, MessageSquareText, RefreshCw } from '@marken/symbole';
 import {
   Icon,
+  Meldung as Hinweis,
   KopfVorne,
   Seitenleiste,
   SidebarInset,
@@ -20,9 +25,10 @@ import {
   Werkzeug,
 } from '@marken';
 import { AppsAnsicht } from './AppsAnsicht';
+import { EigeneMeldungen } from './EigeneMeldungen';
 import { Eingang } from './Eingang';
 import { TestNachLive } from './TestNachLive';
-import { SCHLUESSEL, useApps, useMeldungen } from './daten';
+import { SCHLUESSEL, useApps, useIch, useMeldungen } from './daten';
 import {
   FILTER_VORGABE,
   ansichtAusAdresse,
@@ -34,31 +40,39 @@ import { inhalt } from './stil';
 import type { Ansicht } from './typen';
 
 const NAMEN: Record<Ansicht, string> = {
+  meine: 'Meine Meldungen',
   eingang: 'Eingang',
   apps: 'Apps',
   live: 'Test nach Live',
 };
 
 export function App() {
-  const [ansicht, setAnsicht] = useState<Ansicht>(() => ansichtAusAdresse(window.location.hash));
+  const ich = useIch();
+  const recht = ich.data?.recht === true;
+  const [ansicht, setAnsicht] = useState<Ansicht>(() =>
+    ansichtAusAdresse(window.location.hash, true)
+  );
   const [filter, setFilter] = useState<EingangFilter>(FILTER_VORGABE);
   const meldungen = useMeldungen();
-  const apps = useApps();
+  const apps = useApps(recht);
   const qc = useQueryClient();
+  // Ohne das Recht gibt es nur „Meine Meldungen“, was immer im Fragment steht.
+  const sicht: Ansicht = recht ? ansicht : 'meine';
   const neuLaden = (
     <Werkzeug
       symbol={<Icon symbol={RefreshCw} />}
       beschriftung="Neu laden"
       onClick={() => {
+        void qc.invalidateQueries({ queryKey: SCHLUESSEL.ich });
         void qc.invalidateQueries({ queryKey: SCHLUESSEL.meldungen });
         void qc.invalidateQueries({ queryKey: SCHLUESSEL.apps });
       }}
-      data-testid="cockpit-neu-laden"
+      data-testid="werkstatt-neu-laden"
     />
   );
 
   useEffect(() => {
-    const folgen = () => setAnsicht(ansichtAusAdresse(window.location.hash));
+    const folgen = () => setAnsicht(ansichtAusAdresse(window.location.hash, true));
     window.addEventListener('hashchange', folgen);
     return () => window.removeEventListener('hashchange', folgen);
   }, []);
@@ -74,30 +88,53 @@ export function App() {
     kennung,
     name: NAMEN[kennung],
     symbol,
-    aktiv: ansicht === kennung,
+    aktiv: sicht === kennung,
     zahl: zahl || undefined,
     aufKlick: () => oeffne(kennung),
-    kennzeichen: `cockpit-leiste-${kennung}`,
+    kennzeichen: `werkstatt-leiste-${kennung}`,
   });
 
   return (
     <SidebarProvider>
       <Seitenleiste
-        titel="Entwickler-Cockpit"
-        gruppen={[
-          {
-            eintraege: [
-              eintrag('eingang', <Icon symbol={Inbox} />, offen),
-              eintrag('apps', <Icon symbol={AppWindow} />),
-              eintrag('live', <Icon symbol={ArrowUpFromLine} />, wartend),
-            ],
-          },
-        ]}
+        titel="Werkstatt"
+        gruppen={
+          ich.isLoading
+            ? []
+            : [
+                {
+                  eintraege: recht
+                    ? [
+                        eintrag('eingang', <Icon symbol={Inbox} />, offen),
+                        eintrag('apps', <Icon symbol={AppWindow} />),
+                        eintrag('live', <Icon symbol={ArrowUpFromLine} />, wartend),
+                      ]
+                    : [eintrag('meine', <Icon symbol={MessageSquareText} />, offen)],
+                },
+              ]
+        }
       />
       <SidebarInset>
-        <KopfVorne knopf={<SidebarTrigger data-testid="cockpit-leiste-umschalten" />}>
+        <KopfVorne knopf={<SidebarTrigger data-testid="werkstatt-leiste-umschalten" />}>
           <div style={inhalt}>
-            {ansicht === 'eingang' && (
+            {ich.isError && (
+              <Hinweis
+                art="fehler"
+                titel="Die Werkstatt ließ sich nicht laden."
+                kennzeichen="werkstatt-ich-fehler"
+              >
+                {ich.error.message}
+              </Hinweis>
+            )}
+            {ich.isSuccess && sicht === 'meine' && (
+              <EigeneMeldungen
+                meldungen={meldungen.data ?? []}
+                laedt={meldungen.isLoading}
+                fehler={meldungen.isError ? meldungen.error.message : null}
+                werkzeuge={neuLaden}
+              />
+            )}
+            {recht && sicht === 'eingang' && (
               <Eingang
                 meldungen={meldungen.data ?? []}
                 apps={apps.data ?? []}
@@ -108,7 +145,7 @@ export function App() {
                 werkzeuge={neuLaden}
               />
             )}
-            {ansicht === 'apps' && (
+            {recht && sicht === 'apps' && (
               <AppsAnsicht
                 apps={apps.data ?? []}
                 laedt={apps.isLoading}
@@ -120,7 +157,7 @@ export function App() {
                 }}
               />
             )}
-            {ansicht === 'live' && (
+            {recht && sicht === 'live' && (
               <TestNachLive
                 apps={apps.data ?? []}
                 laedt={apps.isLoading}

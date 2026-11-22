@@ -149,7 +149,10 @@ function entscheide({ decoded, zeile, origin, host }) {
     return { status: 403, grund: 'Auf diesem Gerät ist das Terminal nicht eingeschaltet.' };
   }
   if (zeile.entwickler !== true) {
-    return { status: 403, grund: 'Das Terminal ist nur für Personen mit der Rolle Entwickler.' };
+    return {
+      status: 403,
+      grund: 'Das Terminal ist nur für Personen mit dem Recht in der Werkstatt.',
+    };
   }
   const nutzer = linuxNutzer(zeile.id);
   if (!nutzer) {

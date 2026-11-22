@@ -122,9 +122,9 @@ const TEXTE: Record<
         titel: 'Der Eingang im Cockpit',
         text: 'Hier steht Ihre Meldung, mit Foto und markierter Stelle. Ein KI-Assistent setzt Meldungen in einer neuen Fassung um: eine frühere zum Rabatt liegt schon als Angebote 1.5.0 im Test.',
         ziele: [
-          'iframe >> [data-testid="cockpit-eingang"] tbody tr',
-          'iframe >> [data-testid="cockpit-eingang"] li',
-          'iframe >> [data-testid="cockpit-eingang"]',
+          'iframe >> [data-testid="werkstatt-eingang"] tbody tr',
+          'iframe >> [data-testid="werkstatt-eingang"] li',
+          'iframe >> [data-testid="werkstatt-eingang"]',
         ],
         weiter: 'live',
       },
@@ -133,8 +133,8 @@ const TEXTE: Record<
         text: 'Schalten Sie die neue Fassung live und bestätigen Sie. Danach rechnet die App Angebote für alle mit Rabatt.',
         knopf: 'Live schalten',
         ziele: [
-          'iframe >> [data-testid="cockpit-live-schalten-angebote"]',
-          'iframe >> [data-testid="cockpit-eingang"]',
+          'iframe >> [data-testid="werkstatt-live-schalten-angebote"]',
+          'iframe >> [data-testid="werkstatt-eingang"]',
         ],
       },
     ],
@@ -178,9 +178,9 @@ const TEXTE: Record<
         titel: 'The cockpit inbox',
         text: 'Your feedback is here, with a screenshot and the marked spot. An AI assistant turns feedback into a new version: an earlier request for a discount is already in test as Quotes 1.5.0.',
         ziele: [
-          'iframe >> [data-testid="cockpit-eingang"] tbody tr',
-          'iframe >> [data-testid="cockpit-eingang"] li',
-          'iframe >> [data-testid="cockpit-eingang"]',
+          'iframe >> [data-testid="werkstatt-eingang"] tbody tr',
+          'iframe >> [data-testid="werkstatt-eingang"] li',
+          'iframe >> [data-testid="werkstatt-eingang"]',
         ],
         weiter: 'live',
       },
@@ -189,8 +189,8 @@ const TEXTE: Record<
         text: 'Switch the new version live and confirm. Afterwards the Quotes app calculates discounts for everyone.',
         knopf: 'Switch live',
         ziele: [
-          'iframe >> [data-testid="cockpit-live-schalten-angebote"]',
-          'iframe >> [data-testid="cockpit-eingang"]',
+          'iframe >> [data-testid="werkstatt-live-schalten-angebote"]',
+          'iframe >> [data-testid="werkstatt-eingang"]',
         ],
       },
     ],
@@ -318,7 +318,7 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
   let warGeschafft = false;
   const geschafft = () => {
     if (schritt !== 5) return false;
-    if (!warGeschafft && stelle('iframe >> [data-testid="cockpit-schalt-ausgang"]')) {
+    if (!warGeschafft && stelle('iframe >> [data-testid="werkstatt-schalt-ausgang"]')) {
       warGeschafft = true;
     }
     return warGeschafft;
@@ -366,8 +366,8 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
     let ort: DOMRect | null = null;
     const ziele = fertig
       ? [
-          'iframe >> [data-testid="cockpit-schalt-ausgang"]',
-          'iframe >> [data-testid="cockpit-eingang"]',
+          'iframe >> [data-testid="werkstatt-schalt-ausgang"]',
+          'iframe >> [data-testid="werkstatt-eingang"]',
         ]
       : s.ziele;
     for (const z of ziele) {
@@ -443,7 +443,7 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
         gehe(0);
         window.location.assign(ANGEBOTE);
       } else {
-        imCockpit('cockpit-live-schalten-angebote');
+        imCockpit('werkstatt-live-schalten-angebote');
       }
       return;
     }
@@ -463,9 +463,9 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
     }
     if (s.weiter === 'live') {
       gehe(schritt + 1);
-      if (!imCockpit('cockpit-leiste-live')) {
-        imCockpit('cockpit-leiste-umschalten');
-        window.setTimeout(() => imCockpit('cockpit-leiste-live'), 250);
+      if (!imCockpit('werkstatt-leiste-live')) {
+        imCockpit('werkstatt-leiste-umschalten');
+        window.setTimeout(() => imCockpit('werkstatt-leiste-live'), 250);
       }
       return;
     }
@@ -483,7 +483,7 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
     else if (schritt === 2 && document.querySelector('[data-testid="rueckmeldung-bestaetigung"]'))
       gehe(3);
     else if (schritt <= 3 && schritt > 0 && window.location.pathname.startsWith(COCKPIT)) gehe(4);
-    else if (schritt === 4 && stelle('iframe >> [data-testid="cockpit-live-schalten-angebote"]'))
+    else if (schritt === 4 && stelle('iframe >> [data-testid="werkstatt-live-schalten-angebote"]'))
       gehe(5);
   }
 

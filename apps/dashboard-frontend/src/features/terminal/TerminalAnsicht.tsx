@@ -43,8 +43,8 @@ export default function TerminalAnsicht() {
     return (
       <Leerzustand
         symbol={<SquareTerminal />}
-        titel="Das Terminal ist für Entwickler"
-        beschreibung="Die Verwaltung schaltet es je Person frei, unter Personen."
+        titel="Das Terminal gehört zum Recht in der Werkstatt"
+        beschreibung="Die Verwaltung gibt es je Person, unter Personen."
       />
     );
   }

@@ -1,14 +1,18 @@
-/** Abfragen und Änderungen des Cockpits, über React Query. */
+/** Abfragen und Änderungen der Werkstatt, über React Query. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type { StandMeldung } from './typen';
 
-export const SCHLUESSEL = { meldungen: ['meldungen'], apps: ['apps'] } as const;
+export const SCHLUESSEL = { ich: ['ich'], meldungen: ['meldungen'], apps: ['apps'] } as const;
+
+export const useIch = () => useQuery({ queryKey: SCHLUESSEL.ich, queryFn: api.ich });
 
 export const useMeldungen = () =>
   useQuery({ queryKey: SCHLUESSEL.meldungen, queryFn: api.meldungen });
 
-export const useApps = () => useQuery({ queryKey: SCHLUESSEL.apps, queryFn: api.apps });
+/** Die Apps nur mit dem Recht: ohne es antwortet das Gerät 403, also gar nicht fragen. */
+export const useApps = (recht: boolean) =>
+  useQuery({ queryKey: SCHLUESSEL.apps, queryFn: api.apps, enabled: recht });
 
 /** Nach jedem Ausgang beide Listen neu: die Zahl offener Meldungen hängt dran. */
 function useNeuLaden() {

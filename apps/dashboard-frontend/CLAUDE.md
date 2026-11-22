@@ -178,11 +178,15 @@ src/
                      Freigaben). `features/apps/` ist die Nutzer-Sicht —
                      zwei Ordner, zwei Fragen, dasselbe Wort.
                    - **Rückmeldungen** gibt es hier nicht mehr (J42 bis
-                     J44): gelesen und bearbeitet werden sie im
-                     Entwickler-Cockpit, der mitgelieferten App unter
-                     `apps/entwickler-cockpit/` (eigener Bau, Tests fährt
-                     `vitest` dieses Ordners mit, `npm run lint` ebenso).
-                     Die alte Adresse landet bei den Apps.
+                     J44): gelesen und bearbeitet werden sie in der
+                     Werkstatt (bis J52 Entwickler-Cockpit), der
+                     mitgelieferten App unter `apps/werkstatt/` (eigener
+                     Bau, Tests fährt `vitest` dieses Ordners mit,
+                     `npm run lint` ebenso). Jeder sieht dort seine
+                     eigenen Meldungen mit Stand, wer das Recht in der
+                     Werkstatt hat (Schalter „Werkstatt" unter Personen,
+                     Kennzeichen `entwickler`), alle. Die alte Adresse
+                     landet bei den Apps.
                    - **Personen** (`PersonenSettings.tsx` +
                      `personen/`, M5; ersetzt den Reiter „Mitarbeiter",
                      Tieflink bleibt `?tab=benutzer`): Liste mit Bild und
@@ -190,7 +194,8 @@ src/
                      (`PersonAnlegenDialog.tsx`), Startpasswort einmal als
                      Text oder Zettel (`StartpasswortDialog.tsx`), Sperren,
                      Schalter „Verwaltung" (der letzte Admin bleibt, das
-                     Backend weist ab), Freigaben der Apps als Tabelle mit fester
+                     Backend weist ab), Schalter „Werkstatt" (das Recht in
+                     der Werkstatt samt Terminal, J52), Freigaben der Apps als Tabelle mit fester
                      erster Spalte (Schalter, `FreigabeMatrix.tsx`). Die Stufen
                      auf Ordnern stehen NICHT hier, sondern einmal im Bereich
                      Firmenordner (eine Stelle je Funktion).

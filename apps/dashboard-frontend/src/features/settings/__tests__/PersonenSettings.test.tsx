@@ -239,13 +239,16 @@ describe('PersonenSettings', () => {
     );
   });
 
-  it('schaltet „Entwickler" ueber PUT /benutzer/:id/entwickler, Standard aus', async () => {
+  it('schaltet das Recht in der Werkstatt ueber PUT /benutzer/:id/entwickler, Standard aus', async () => {
     antworte();
     apiMock.put.mockResolvedValue({ data: { ...MIA, entwickler: true } });
     render(<PersonenSettings />, { wrapper: huelle() });
 
     const schalter = await screen.findByTestId('entwickler-mia');
     expect(schalter).toHaveAttribute('aria-checked', 'false');
+    // Sichtbar ein Recht in der Werkstatt, keine Rolle (J52).
+    expect(schalter).toHaveAccessibleName(/Recht in der Werkstatt für/);
+    expect(screen.queryByText(/^Entwickler$/)).toBeNull();
     // Ohne die Rolle steht kein Nutzer am Geraet daneben.
     expect(screen.queryByTestId('linux-nutzer-mia')).toBeNull();
     fireEvent.click(schalter);

@@ -95,4 +95,10 @@ describe('logik des Cockpits', () => {
     expect(ansichtAusAdresse('')).toBe('eingang');
     expect(ansichtAusAdresse('#quatsch')).toBe('eingang');
   });
+
+  it('ohne das Recht gibt es nur „Meine Meldungen“, was immer im Fragment steht', () => {
+    for (const hash of ['', '#apps', '#live', '#eingang']) {
+      expect(ansichtAusAdresse(hash, false)).toBe('meine');
+    }
+  });
 });

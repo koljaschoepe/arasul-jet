@@ -1,8 +1,9 @@
 /**
- * Das Entwickler-Cockpit (J44, M7): die mitgelieferte App für alle mit dem
- * Kennzeichen Entwickler. Eingang der Rückmeldungen, Stand jeder App, der
+ * Die Werkstatt (J44, M7; bis J52 Entwickler-Cockpit): die mitgelieferte App
+ * für alle. Jeder sieht seine Rückmeldungen mit Stand; wer das Recht in der
+ * Werkstatt hat, dazu den Eingang aller Meldungen, Stand jeder App und den
  * Schritt von Test nach Live. Vertrag: `docs/features/RUECKMELDUNG.md`,
- * Abschnitt „Das Entwickler-Cockpit".
+ * Abschnitt „Die Werkstatt".
  */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

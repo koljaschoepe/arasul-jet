@@ -13,8 +13,13 @@
  * (das steht im Bereich Daten, nicht hier): es nimmt den Zugang und beendet die angemeldeten Rechner, Entscheidungen und
  * Läufe bleiben stehen. Der Schalter „Verwaltung" macht zum Administrator; der
  * letzte bleibt, und das weist das Backend ab, nicht nur diese Oberfläche.
- * Der Schalter „Entwickler" öffnet der Person das Terminal (Karte
- * terminal-im-frontend, M5); Standard aus.
+ * Der Schalter „Werkstatt" gibt der Person das Recht in der Werkstatt: alle
+ * Rückmeldungen lesen und ihren Stand setzen, die Apps sehen und von Test
+ * nach Live schalten, dazu das Terminal (Karten terminal-im-frontend, M5, und
+ * werkstatt-und-rechte, J52). Standard aus. Technisch ist es das Kennzeichen
+ * `entwickler`; sichtbar heißt es ein Recht, keine Rolle, denn gewechselt
+ * wird nichts: ohne das Recht sieht dieselbe Person in der Werkstatt ihre
+ * eigenen Meldungen mit Stand.
  *
  * Freigaben: die Apps je Person (Schalter). Die Stufen auf den Ordnern stehen
  * NICHT hier, sondern einmal im Bereich Firmenordner, am aufgeklappten Ordner.
@@ -164,15 +169,16 @@ export function PersonenSettings() {
                 />
               )}
               entwickler={b => (
-                /* Die Rolle Entwickler öffnet das Terminal (Karte
-                   terminal-im-frontend). Standard aus. Ist sie an, steht der
+                /* Das Recht in der Werkstatt (Kennzeichen `entwickler`): alle
+                   Meldungen, Apps, Live schalten, Terminal. Standard aus. Ist es an, steht der
                    Nutzer am Gerät daneben: den braucht, wer ihn mit
                    `scripts/terminal/nutzer.sh` anlegt. */
                 <span className="flex items-center gap-2">
                   <Switch
                     checked={b.entwickler === true}
                     disabled={entwicklerSetzen.isPending}
-                    aria-label={`Entwickler für ${anzeigeName(b)}`}
+                    aria-label={`Recht in der Werkstatt für ${anzeigeName(b)}`}
+                    title="Recht in der Werkstatt: alle Rückmeldungen, Apps von Test nach Live schalten, Terminal"
                     data-testid={`entwickler-${b.username}`}
                     onCheckedChange={an => entwicklerSetzen.mutate({ id: b.id, entwickler: an })}
                   />

@@ -44,7 +44,9 @@ describe('TerminalAnsicht', () => {
 
   it('ohne die Rolle Entwickler: ein Satz, kein Rahmen', async () => {
     zeige({ an: true, entwickler: false, linuxNutzer: null });
-    expect(await screen.findByText('Das Terminal ist für Entwickler')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Das Terminal gehört zum Recht in der Werkstatt')
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('terminal-rahmen')).toBeNull();
   });
 });

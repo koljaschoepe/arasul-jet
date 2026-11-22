@@ -44,7 +44,7 @@ export function TestNachLive({
   werkzeuge,
 }: {
   apps: readonly AppStand[];
-  /** Werkzeuge, die jede Ansicht trägt (Neu laden), aus dem Rahmen des Cockpits. */
+  /** Werkzeuge, die jede Ansicht trägt (Neu laden), aus dem Rahmen der Werkstatt. */
   werkzeuge?: ReactNode;
   laedt: boolean;
   fehler: string | null;
@@ -85,14 +85,14 @@ export function TestNachLive({
   };
 
   return (
-    <div style={spalte(2)} data-testid="cockpit-live">
+    <div style={spalte(2)} data-testid="werkstatt-live">
       <Kopf
         titel="Test nach Live"
         werkzeuge={werkzeuge}
         beschreibung="Was in der Testfassung neuer ist als live. Ein Klick schaltet live, mit Sicherung vorher und Rückweg."
       />
       {ausgang && (
-        <Hinweis art={ausgang.art} titel={ausgang.titel} kennzeichen="cockpit-schalt-ausgang">
+        <Hinweis art={ausgang.art} titel={ausgang.titel} kennzeichen="werkstatt-schalt-ausgang">
           {ausgang.text}
         </Hinweis>
       )}
@@ -100,7 +100,7 @@ export function TestNachLive({
         <Hinweis
           art="fehler"
           titel="Die Apps ließen sich nicht laden."
-          kennzeichen="cockpit-fehler"
+          kennzeichen="werkstatt-fehler"
         >
           {fehler}
         </Hinweis>
@@ -115,7 +115,7 @@ export function TestNachLive({
       ) : (
         <div style={spalte(3)}>
           {wartend.map(app => (
-            <Karte key={app.id} kennzeichen={`cockpit-wartet-${app.id}`}>
+            <Karte key={app.id} kennzeichen={`werkstatt-wartet-${app.id}`}>
               <div style={spalte(2)}>
                 <div style={{ ...zeile(2), justifyContent: 'space-between' }}>
                   <p style={titel}>{app.name}</p>
@@ -124,7 +124,7 @@ export function TestNachLive({
                     variant="solid"
                     disabled={schalten.isPending}
                     onClick={() => setVorhaben({ app, ziel: 'live' })}
-                    data-testid={`cockpit-live-schalten-${app.id}`}
+                    data-testid={`werkstatt-live-schalten-${app.id}`}
                   >
                     {schalten.isPending && schalten.variables?.appId === app.id
                       ? 'Sichert und schaltet…'
@@ -143,7 +143,7 @@ export function TestNachLive({
                   )}
                 </p>
                 {app.test?.aenderungstext ? (
-                  <p style={fliesstext} data-testid={`cockpit-aenderung-${app.id}`}>
+                  <p style={fliesstext} data-testid={`werkstatt-aenderung-${app.id}`}>
                     {app.test.aenderungstext}
                   </p>
                 ) : (
@@ -166,7 +166,7 @@ export function TestNachLive({
       )}
 
       {!laedt && !fehler && zurueck.length > 0 && (
-        <div style={spalte(2)} data-testid="cockpit-zurueck-liste">
+        <div style={spalte(2)} data-testid="werkstatt-zurueck-liste">
           <p style={titel}>Zuletzt live geschaltet</p>
           {zurueck.map(app => (
             <div key={app.id} style={{ ...zeile(2), justifyContent: 'space-between' }}>
@@ -181,7 +181,7 @@ export function TestNachLive({
                 size="sm"
                 disabled={schalten.isPending}
                 onClick={() => setVorhaben({ app, ziel: 'zurueck' })}
-                data-testid={`cockpit-zurueck-${app.id}`}
+                data-testid={`werkstatt-zurueck-${app.id}`}
               >
                 <Icon symbol={Undo2} /> Zurück
               </Button>

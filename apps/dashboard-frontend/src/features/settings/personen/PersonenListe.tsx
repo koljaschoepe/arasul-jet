@@ -26,7 +26,11 @@ interface ListeProps {
   istIchSelbst: (b: Benutzer) => boolean;
   /** Der Schalter „Verwaltung" je Zeile; lebt beim Aufrufer, samt Mutation. */
   verwaltung: (b: Benutzer) => ReactNode;
-  /** Der Schalter „Entwickler" (Terminal) je Zeile; lebt beim Aufrufer, samt Mutation. */
+  /**
+   * Der Schalter „Werkstatt" je Zeile (Recht in der Werkstatt, technisch das
+   * Kennzeichen `entwickler`, an dem auch das Terminal hängt); lebt beim
+   * Aufrufer, samt Mutation.
+   */
   entwickler: (b: Benutzer) => ReactNode;
   /** Die Knöpfe je Zeile. Sie leben beim Aufrufer, samt Mutationen. */
   aktionen: (b: Benutzer) => ReactNode;
@@ -101,7 +105,7 @@ export function PersonenListe({
               Verwaltung {verwaltung(b)}
             </span>
             <span className="flex items-center gap-2 text-xs text-muted-foreground">
-              Entwickler {entwickler(b)}
+              Recht in der Werkstatt {entwickler(b)}
             </span>
             <span className="text-xs">
               <Passwort b={b} />
@@ -128,8 +132,12 @@ export function PersonenListe({
             <th scope="col" className="p-2 font-medium">
               Verwaltung
             </th>
-            <th scope="col" className="p-2 font-medium">
-              Entwickler
+            <th
+              scope="col"
+              className="p-2 font-medium"
+              title="Recht in der Werkstatt: alle Rückmeldungen, Apps von Test nach Live schalten, Terminal"
+            >
+              Werkstatt
             </th>
             <th scope="col" className="p-2 font-medium">
               Passwort
