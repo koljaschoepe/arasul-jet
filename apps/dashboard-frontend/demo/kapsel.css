@@ -1,0 +1,366 @@
+/* Die Demo-Zeile in der Kapsel und der geführte Weg (J54, M7). Farben nur
+   aus den Tokens von `theme.css`, Glas aus den Glas-Tokens des Produkts
+   (`--glas-*`). In der Kapsel einer App ist die Zeile ein Teil der Kapsel;
+   ohne Kapsel schwebt sie allein als Glas an derselben Stelle. */
+
+body[data-demo] {
+  background: var(--verlauf-rahmen, var(--background));
+}
+
+.demo-kapsel {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+.demo-kapsel button,
+.demo-kapsel a,
+.demo-menue button,
+.demo-menue a {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  position: relative;
+}
+
+/* Schwebend, wo es keine Kapsel gibt. */
+.demo-kapsel[data-ort='frei'] {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 40;
+  height: 32px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+.demo-kapsel[data-ort='frei'].glas {
+  box-shadow: var(--glas-schatten-klein);
+}
+@media (max-width: 899px) {
+  .demo-kapsel[data-ort='frei'] {
+    top: 16px;
+    right: 16px;
+  }
+}
+
+/* In der Kapsel: ein Trenner zu Live, Test und Rückmeldung. */
+.demo-kapsel[data-ort='kapsel']::after {
+  content: '';
+  width: 1px;
+  height: 16px;
+  margin: 0 4px 0 6px;
+  background: var(--border);
+}
+
+.demo-kapsel-breit {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.demo-kapsel-schmal {
+  display: none;
+}
+@media (max-width: 1179px) {
+  .demo-kapsel-breit {
+    display: none;
+  }
+  .demo-kapsel-schmal {
+    display: flex;
+  }
+}
+
+.demo-kapsel-marke {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 6px;
+  color: var(--muted-foreground);
+  cursor: help;
+}
+.demo-punkt {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.demo-kapsel-breit > button,
+.demo-kapsel-breit > a,
+.demo-kapsel-auf {
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  text-decoration: none;
+  color: var(--muted-foreground);
+  transition:
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+}
+.demo-kapsel-breit > button:hover,
+.demo-kapsel-breit > a:hover,
+.demo-kapsel-auf:hover,
+.demo-kapsel-auf[aria-expanded='true'] {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.demo-kapsel-breit > button[data-frage],
+.demo-menue button[data-frage] {
+  color: var(--destructive);
+}
+.demo-kapsel button:focus-visible,
+.demo-kapsel a:focus-visible,
+.demo-menue button:focus-visible,
+.demo-menue a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.demo-sprache {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  margin: 0 2px;
+}
+.demo-sprache button {
+  height: 20px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 500;
+}
+.demo-sprache button[aria-pressed='true'] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+/* Trefferfläche bei grobem Zeiger, das Sichtbare bleibt klein. */
+@media (pointer: coarse) {
+  .demo-kapsel button::before,
+  .demo-kapsel a::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    min-height: 44px;
+    transform: translateY(-50%);
+  }
+}
+
+/* Das Menü: Glas (`.glas` des Produkts), Radius 12 px. */
+.demo-menue {
+  position: fixed;
+  z-index: 70;
+  width: min(300px, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+  border-radius: 12px;
+  border: 1px solid;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--foreground);
+}
+.demo-menue[hidden] {
+  display: none;
+}
+.demo-menue p {
+  margin: 0 0 6px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: normal;
+}
+.demo-menue > button,
+.demo-menue > a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  text-decoration: none;
+}
+.demo-menue > button:hover,
+.demo-menue > a:hover {
+  background: var(--accent);
+}
+.demo-menue .demo-sprache {
+  justify-self: start;
+  height: 32px;
+  margin: 4px 6px;
+}
+.demo-menue .demo-sprache button {
+  height: 28px;
+  min-width: 52px;
+  font-size: 12px;
+}
+
+/* Der geführte Weg: eine Karte aus Glas, am Handy ein Blatt von unten. Der
+   Rahmen um die Stelle steht still und gleitet nur von Schritt zu Schritt. */
+.demo-weg {
+  position: fixed;
+  z-index: 65;
+  right: 24px;
+  bottom: 24px;
+  width: 360px;
+  box-sizing: border-box;
+  padding: 14px 16px 14px;
+  border: 1px solid;
+  border-radius: 16px;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  animation: demo-weg-auf 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.demo-weg-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.demo-weg h2 {
+  margin: 6px 0 4px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.demo-weg p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.demo-weg-fuss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+.demo-weg-punkte {
+  display: flex;
+  gap: 5px;
+}
+.demo-weg-punkte span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.demo-weg-punkte span[data-an] {
+  background: var(--primary);
+}
+.demo-weg-knoepfe {
+  display: flex;
+  gap: 8px;
+}
+.demo-weg-knopf {
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+}
+.demo-weg-haupt {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.demo-weg-neben {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+.demo-weg-still {
+  background: transparent;
+  color: var(--muted-foreground);
+  height: 28px;
+  padding: 0 8px;
+}
+.demo-weg-still:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.demo-weg-knopf:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .demo-weg-knopf {
+    height: 44px;
+  }
+}
+.demo-weg-rahmen {
+  position: fixed;
+  z-index: 64;
+  pointer-events: none;
+  border: 2px solid var(--primary);
+  border-radius: 16px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 14%, transparent);
+  transition:
+    left 200ms ease-out,
+    top 200ms ease-out,
+    width 200ms ease-out,
+    height 200ms ease-out;
+}
+.demo-weg-rahmen[hidden] {
+  display: none;
+}
+@media (max-width: 899px) {
+  .demo-weg {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    border-radius: 24px 24px 0 0;
+    border-bottom: 0;
+    padding: 10px 20px calc(16px + env(safe-area-inset-bottom));
+    animation-name: demo-weg-blatt;
+  }
+  .demo-weg::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: 0 auto 8px;
+    border-radius: 2px;
+    background: var(--border);
+  }
+}
+@keyframes demo-weg-auf {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes demo-weg-blatt {
+  from {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-weg {
+    animation: none;
+  }
+  .demo-weg-rahmen {
+    transition: none;
+  }
+}

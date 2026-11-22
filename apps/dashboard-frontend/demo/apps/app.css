@@ -1,0 +1,401 @@
+/* Die Gestalt der Fach-Apps der Demo (J54, M7). Nur Tokens aus `marken.css`
+   (`/marken/5/`), keine Farbwerte. Maße in Pixeln wie im Rahmen. Was die
+   Bibliothek kann (Kopf, Kennzahl, Datenliste, Blatt, Dialog), kommt von
+   dort; hier steht nur die Anordnung der Seite. */
+
+.fa-seite {
+  box-sizing: border-box;
+  max-width: 100rem;
+  padding: 10px clamp(16px, 4vw, 24px) 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+}
+
+.fa-platzhalter {
+  height: 96px;
+  border-radius: 14px;
+  background: var(--muted);
+}
+
+.fa-reihe {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 16px;
+}
+@media (max-width: 860px) {
+  .fa-reihe {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.fa-flaeche {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.fa-abschnitt {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fa-satz {
+  margin: 2px 0 10px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.fa-satz-oben {
+  margin: -12px 0 0;
+}
+
+.fa-hinweise {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.fa-hinweise li + li {
+  border-top: 1px solid var(--border);
+}
+.fa-hinweise button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 6px;
+  border-radius: 8px;
+  min-height: 44px;
+}
+.fa-hinweise button:hover {
+  background: var(--accent);
+}
+.fa-hinweise button:focus-visible {
+  outline: 2px solid var(--ring);
+}
+.fa-hinweis-titel {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fa-hinweis-satz {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.fa-hinweise button[data-wichtig] .fa-hinweis-satz {
+  color: var(--destructive);
+}
+
+.fa-liste {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.fa-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fa-filter button {
+  font: inherit;
+  font-size: 13px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+.fa-filter button span {
+  color: var(--muted-foreground);
+}
+.fa-filter button[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--primary) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  color: var(--primary);
+}
+.fa-filter button[aria-pressed='true'] span {
+  color: inherit;
+}
+@media (pointer: coarse) {
+  .fa-filter button::after {
+    content: '';
+    position: absolute;
+    inset: -8px -2px;
+  }
+}
+
+.fa-zeilenaktionen {
+  display: inline-flex;
+  gap: 2px;
+  justify-content: flex-end;
+}
+
+/* Das Blatt: am Rechner rechts daneben, am Handy von unten mit Griff. */
+.fa-blatt {
+  padding: 0 !important;
+  gap: 0 !important;
+}
+.fa-blatt[data-seite='rechts'] {
+  /* Unter der Kapsel des Rahmens, als schwebende Fläche daneben. */
+  top: 52px !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  height: auto !important;
+  width: min(560px, calc(100vw - 16px)) !important;
+  max-width: min(560px, calc(100vw - 16px)) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px;
+}
+.fa-blatt[data-seite='unten'] {
+  max-height: 88dvh;
+  border-radius: 24px 24px 0 0;
+}
+.fa-blatt-inhalt {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 20px calc(24px + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  height: 100%;
+  box-sizing: border-box;
+}
+.fa-griff {
+  justify-self: center;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: -8px 0 -6px;
+}
+.fa-blatt-kopf {
+  display: grid;
+  gap: 4px;
+  padding-right: 28px;
+}
+.fa-blatt-nr {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.fa-blatt-titel {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+}
+
+.fa-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fa-knoepfe-ende {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.fa-freigabe {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 7%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+}
+
+.fa-felder {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+.fa-felder div {
+  min-width: 0;
+}
+.fa-felder dt {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.fa-felder dd {
+  margin: 1px 0 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 420px) {
+  .fa-felder {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.fa-zeile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fa-dateiliste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.fa-datei {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--primary);
+}
+.fa-datei:hover {
+  background: var(--accent);
+}
+.fa-datei:focus-visible {
+  outline: 2px solid var(--ring);
+}
+.fa-datei svg {
+  grid-row: span 2;
+}
+.fa-datei-name {
+  font-size: 13px;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fa-datei-wann {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.fa-verlauf {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--border);
+  display: grid;
+  gap: 10px;
+}
+.fa-verlauf li {
+  display: grid;
+  gap: 1px;
+  position: relative;
+}
+.fa-verlauf li::before {
+  content: '';
+  position: absolute;
+  left: -19px;
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--primary);
+}
+.fa-verlauf-text {
+  font-size: 13px;
+}
+.fa-verlauf-wer {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.fa-notiz {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.fa-notiz input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--background);
+  color: var(--foreground);
+}
+@media (pointer: coarse) {
+  .fa-notiz input {
+    height: 44px;
+  }
+}
+
+.fa-formular {
+  display: grid;
+  gap: 12px;
+}
+.fa-fehler {
+  color: var(--destructive);
+}
+
+.fa-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--primary);
+  text-decoration: none;
+  min-height: 32px;
+}
+
+.fa-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + var(--ara-leiste-platz, 0px));
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(440px, calc(100vw - 32px));
+  box-shadow: var(
+    --glas-schatten,
+    0 8px 24px color-mix(in srgb, var(--foreground) 18%, transparent)
+  );
+  border-radius: 12px;
+  animation: fa-auf 180ms ease-out;
+}
+@keyframes fa-auf {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fa-toast {
+    animation: none;
+  }
+}

@@ -1,0 +1,179 @@
+/* Die Übersicht des Betriebs auf der Startseite der Demo (J54, M7). Nur
+   Tokens, Maße in Pixeln. Karten deckend, wie jede Fläche mit Inhalt. */
+
+.demo-oben {
+  display: grid;
+  gap: 12px;
+  margin: 4px 0 20px;
+  font-family: var(--font-sans);
+}
+.demo-firma {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.demo-firma span {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.demo-schnell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.demo-schnell button {
+  font: inherit;
+  font-size: 13px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: background-color 120ms ease-out;
+}
+.demo-schnell button:hover {
+  background: var(--accent);
+}
+.demo-schnell button svg {
+  color: var(--primary);
+}
+@media (pointer: coarse) {
+  .demo-schnell button {
+    height: 44px;
+  }
+}
+@media (max-width: 599px) {
+  .demo-schnell {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  .demo-schnell button {
+    flex: none;
+  }
+}
+
+.demo-kacheln,
+.demo-kacheln-platz {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 8px;
+}
+.demo-kacheln-platz {
+  min-height: 112px;
+}
+@media (max-width: 599px) {
+  .demo-kacheln {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.demo-kachel {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  cursor: pointer;
+  border-radius: 14px;
+  min-width: 0;
+  transition: transform 150ms ease-out;
+}
+.demo-kachel > * {
+  height: 100%;
+}
+.demo-kachel:hover > * {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+.demo-kachel:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.demo-unten {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 8px 0 24px;
+  font-family: var(--font-sans);
+}
+@media (max-width: 899px) {
+  .demo-unten {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.demo-flaeche {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 12px 8px;
+  min-width: 0;
+}
+.demo-flaeche h2 {
+  margin: 0 4px 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.demo-leise {
+  margin: 4px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.demo-punkte {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.demo-punkte li + li {
+  border-top: 1px solid var(--border);
+}
+.demo-punkte button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: center;
+  padding: 7px 4px;
+  min-height: 44px;
+  border-radius: 8px;
+}
+.demo-punkte button:hover {
+  background: var(--accent);
+}
+.demo-punkte button:focus-visible {
+  outline: 2px solid var(--ring);
+}
+.demo-symbol {
+  grid-row: span 2;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+  color: var(--primary);
+}
+.demo-punkt-text {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.demo-punkt-neben {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.demo-punkte button[data-wichtig] .demo-punkt-neben {
+  color: var(--destructive);
+}

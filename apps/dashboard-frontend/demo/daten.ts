@@ -1,16 +1,20 @@
 /**
- * Die Beispieldaten der Demo (J46, M7): eine erfundene Firma mit drei kleinen
- * Apps, wie ein Mittelständler sie baut. Keine echten Namen, keine echten
- * Kundendaten, kein Name aus den Apps eines Geräts. Personen tragen keine
- * Namen, nur ihre Rolle.
+ * Der Zustand der Demo (J46, J54, M7): die Firma aus `firma.ts`, ihre fünf
+ * Fach-Apps mit dem Bestand aus `bestand.ts`, dazu die Werkstatt mit den
+ * Rückmeldungen und Fassungen.
+ *
+ * Angemeldet ist Miriam Kerschner, Betriebsleiterin, mit dem Recht in der
+ * Werkstatt. Es gibt keinen Rollenwechsel (J54): was sie sieht, folgt aus
+ * ihren Rechten.
  *
  * Das ist der Zustand, mit dem jeder Besuch anfängt und zu dem „Zurücksetzen"
  * zurückkehrt. Was der Besucher danach tut, liegt in seinem Browser
  * (IndexedDB) und nirgends sonst.
  */
+import { anfangsBestand, type AppKennung, type Bestand } from './bestand';
+import { FIRMA, ICH_ID, name, person } from './firma';
 
 export type Sprache = 'de' | 'en';
-export type Rolle = 'mitarbeiter' | 'entwickler';
 
 export interface DemoFassung {
   version: string;
@@ -19,7 +23,7 @@ export interface DemoFassung {
 }
 
 export interface DemoApp {
-  id: string;
+  id: AppKennung;
   name: { de: string; en: string };
   beschreibung: { de: string; en: string };
   symbol: string;
@@ -53,56 +57,79 @@ export interface DemoSchaltung {
 }
 
 export interface DemoZustand {
-  fassung: 1;
-  rolle: Rolle;
+  fassung: 2;
   theme: 'light' | 'dark' | 'system';
   reihenfolge: string[];
   apps: DemoApp[];
   meldungen: DemoMeldung[];
   schaltungen: DemoSchaltung[];
   naechsteId: number;
+  /** Die Einträge der fünf Fach-Apps. */
+  bestand: Bestand;
+  /** Die nächste Kennung eines neuen Eintrags, über alle Apps. */
+  naechsterEintrag: number;
 }
 
-export const FIRMA = 'Beispielwerk GmbH';
+export { FIRMA };
 
-/**
- * Die beiden Menschen der Demo; nur die Aufgabe, kein Name. Dieselbe Art
- * Konto (J52): die App-Betreuung hat dazu das Recht in der Werkstatt.
- */
-export const PERSONEN = {
-  mitarbeiter: {
-    id: 7,
-    username: 'beispiel-mitarbeiter',
-    de: 'Beispiel-Mitarbeiter',
-    en: 'Sample employee',
-  },
-  entwickler: {
-    id: 3,
-    username: 'beispiel-app-betreuung',
-    de: 'Beispiel-App-Betreuung',
-    en: 'Sample app support',
-  },
-} as const;
+/** Die angemeldete Person, in den Formen des Backends. */
+export const ICH = {
+  id: ICH_ID,
+  username: 'm.kerschner',
+  vorname: person(ICH_ID).vorname,
+  nachname: person(ICH_ID).nachname,
+  kuerzel: person(ICH_ID).kuerzel,
+  funktion: person(ICH_ID).aufgabe,
+  anzeigeName: name(ICH_ID),
+};
 
 /** Die Zeit relativ zum Besuch: Beispieldaten altern nicht. */
 function vor(stunden: number, jetzt: number): string {
   return new Date(jetzt - stunden * 3_600_000).toISOString();
 }
 
+function meldung(
+  id: number,
+  app_id: string,
+  von: number,
+  text: string,
+  stand_meldung: DemoMeldung['stand_meldung'],
+  stundenAlt: number,
+  jetzt: number,
+  extra: Partial<DemoMeldung> = {}
+): DemoMeldung {
+  return {
+    id,
+    app_id,
+    stand: 'live',
+    seite: `/apps/${app_id}/`,
+    text,
+    bild: null,
+    markierung: null,
+    person: { id: von, anzeigeName: name(von) },
+    stand_meldung,
+    grund: null,
+    stand_geaendert_am: stand_meldung === 'neu' ? null : vor(Math.max(1, stundenAlt - 20), jetzt),
+    erstellt_am: vor(stundenAlt, jetzt),
+    ...extra,
+  };
+}
+
 export function anfangsZustand(jetzt = Date.now()): DemoZustand {
   return {
-    fassung: 1,
-    rolle: 'mitarbeiter',
+    fassung: 2,
     theme: 'light',
     reihenfolge: [],
-    naechsteId: 105,
+    naechsteId: 130,
+    naechsterEintrag: 9000,
+    bestand: anfangsBestand(jetzt),
     apps: [
       {
         id: 'angebote',
         name: { de: 'Angebote', en: 'Quotes' },
         beschreibung: {
-          de: 'Angebote anlegen, Stand verfolgen, Summe auf einen Blick.',
-          en: 'Create quotes, track their status, see the total at a glance.',
+          de: 'Angebote kalkulieren, versenden und nachfassen; große gehen zur Freigabe.',
+          en: 'Estimate, send and follow up quotes; large ones go for approval.',
         },
         symbol: 'file-text',
         live: {
@@ -119,11 +146,27 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
         vorige_version: '1.3.2',
       },
       {
+        id: 'wareneingang',
+        name: { de: 'Wareneingang', en: 'Goods receipt' },
+        beschreibung: {
+          de: 'Lieferungen erwarten, annehmen, prüfen und einlagern; Reklamationen mit Foto.',
+          en: 'Expect, receive, check and store deliveries; complaints with a photo.',
+        },
+        symbol: 'package-check',
+        live: {
+          version: '2.0.1',
+          eingespielt_am: vor(24 * 20, jetzt),
+          aenderungstext: 'Lagerort aus dem Artikel vorbelegt.',
+        },
+        test: null,
+        vorige_version: '2.0.0',
+      },
+      {
         id: 'wartungsplan',
         name: { de: 'Wartungsplan', en: 'Maintenance plan' },
         beschreibung: {
-          de: 'Welche Anlage wann gewartet wird und was fällig ist.',
-          en: 'Which machine is serviced when, and what is due.',
+          de: 'Welche Maschine wann gewartet wird, was fällig und was überfällig ist.',
+          en: 'Which machine is serviced when, what is due and what is overdue.',
         },
         symbol: 'wrench',
         live: {
@@ -135,11 +178,31 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
         vorige_version: '2.0.3',
       },
       {
+        id: 'pruefprotokolle',
+        name: { de: 'Prüfprotokolle', en: 'Inspection reports' },
+        beschreibung: {
+          de: 'Prüfungen je Auftrag und Bauteil erfassen und freigeben, nach EN 1090.',
+          en: 'Record and approve inspections per order and part, to EN 1090.',
+        },
+        symbol: 'clipboard-check',
+        live: {
+          version: '1.8.2',
+          eingespielt_am: vor(24 * 9, jetzt),
+          aenderungstext: 'Messwert je Prüfung.',
+        },
+        test: {
+          version: '1.9.0',
+          eingespielt_am: vor(26, jetzt),
+          aenderungstext: 'Nacharbeit mit Frist und zuständiger Person (Rückmeldung #108).',
+        },
+        vorige_version: '1.8.1',
+      },
+      {
         id: 'urlaub',
         name: { de: 'Urlaubsanträge', en: 'Leave requests' },
         beschreibung: {
-          de: 'Urlaub beantragen und sehen, wer wann fehlt.',
-          en: 'Request leave and see who is away when.',
+          de: 'Urlaub beantragen, genehmigen und sehen, wer wann fehlt.',
+          en: 'Request and approve leave and see who is away when.',
         },
         symbol: 'calendar-days',
         live: {
@@ -152,80 +215,150 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
       },
     ],
     meldungen: [
-      {
-        // Die eine Meldung des Mitarbeiters selbst: seine Werkstatt zeigt sie
-        // mit Stand (J52), die anderen sieht er nicht.
-        id: 100,
-        app_id: 'wartungsplan',
-        stand: 'live',
-        seite: '/apps/wartungsplan/',
-        text: 'Ich hätte gern die Telefonnummer des Kunden direkt in der Zeile.',
-        bild: null,
-        markierung: null,
-        person: { id: 7, anzeigeName: 'Beispiel-Mitarbeiter' },
-        stand_meldung: 'angenommen',
-        grund: null,
-        stand_geaendert_am: vor(6, jetzt),
-        erstellt_am: vor(24 + 4, jetzt),
-      },
-      {
-        id: 101,
-        app_id: 'angebote',
-        stand: 'live',
-        seite: '/apps/angebote/',
-        text: 'Bei Stammkunden geben wir oft 3 % Rabatt. Ich rechne das jedes Mal von Hand aus. Kann das Angebot einen Rabatt haben?',
-        bild: null,
-        markierung: null,
-        person: { id: 11, anzeigeName: 'Vertrieb Innendienst' },
-        stand_meldung: 'umgesetzt',
-        grund: null,
-        stand_geaendert_am: vor(3, jetzt),
-        erstellt_am: vor(24 * 2 + 5, jetzt),
-      },
-      {
-        id: 102,
-        app_id: 'wartungsplan',
-        stand: 'live',
-        seite: '/apps/wartungsplan/',
-        text: 'Am Handy ist die Spalte mit dem Kunden abgeschnitten. Unterwegs brauche ich vor allem den Ort.',
-        bild: null,
-        markierung: null,
-        person: { id: 12, anzeigeName: 'Kundendienst Außendienst' },
-        stand_meldung: 'neu',
-        grund: null,
-        stand_geaendert_am: null,
-        erstellt_am: vor(20, jetzt),
-      },
-      {
-        id: 103,
-        app_id: 'urlaub',
-        stand: 'live',
-        seite: '/apps/urlaub/',
-        text: 'Brückentage wären als Hinweis im Kalender praktisch.',
-        bild: null,
-        markierung: null,
-        person: { id: 13, anzeigeName: 'Fertigung' },
-        stand_meldung: 'angenommen',
-        grund: null,
-        stand_geaendert_am: vor(26, jetzt),
-        erstellt_am: vor(24 * 3, jetzt),
-      },
-      {
-        id: 104,
-        app_id: 'urlaub',
-        stand: 'live',
-        seite: '/apps/urlaub/',
-        text: 'Bitte eine Farbe pro Abteilung.',
-        bild: null,
-        markierung: null,
-        person: { id: 14, anzeigeName: 'Buchhaltung' },
-        stand_meldung: 'abgelehnt',
+      meldung(
+        100,
+        'wartungsplan',
+        ICH_ID,
+        'Die Telefonnummer des Servicetechnikers direkt in der Zeile wäre praktisch.',
+        'angenommen',
+        28,
+        jetzt
+      ),
+      meldung(
+        101,
+        'angebote',
+        3,
+        'Bei Stammkunden geben wir 3 % Rabatt. Ich rechne das jedes Mal von Hand aus. Kann das Angebot einen Rabatt haben?',
+        'umgesetzt',
+        53,
+        jetzt
+      ),
+      meldung(
+        102,
+        'wartungsplan',
+        12,
+        'Am Handy ist die Spalte mit der Maschine abgeschnitten. In der Halle brauche ich vor allem den Standort.',
+        'neu',
+        20,
+        jetzt
+      ),
+      meldung(
+        103,
+        'urlaub',
+        16,
+        'Brückentage wären als Hinweis im Kalender praktisch.',
+        'angenommen',
+        72,
+        jetzt
+      ),
+      meldung(104, 'urlaub', 15, 'Bitte eine Farbe pro Abteilung.', 'abgelehnt', 144, jetzt, {
         grund:
-          'Abteilungen stehen schon als eigene Spalte; mehr Farben machen die Übersicht unruhig.',
-        stand_geaendert_am: vor(24 * 4, jetzt),
-        erstellt_am: vor(24 * 6, jetzt),
+          'Die Abteilung steht schon als eigene Spalte; mehr Farben machen die Übersicht unruhig.',
+      }),
+      meldung(
+        105,
+        'wareneingang',
+        7,
+        'Beim Reklamieren will ich das Foto direkt mit dem Handy machen, ohne Umweg über die Galerie.',
+        'neu',
+        6,
+        jetzt
+      ),
+      meldung(
+        106,
+        'wareneingang',
+        6,
+        'Kann die Bestellnummer aus dem Lieferschein übernommen werden?',
+        'angenommen',
+        98,
+        jetzt
+      ),
+      meldung(
+        107,
+        'angebote',
+        4,
+        'Das Angebots-PDF sollte unsere Referenzbilder anhängen können.',
+        'neu',
+        30,
+        jetzt
+      ),
+      meldung(
+        108,
+        'pruefprotokolle',
+        11,
+        'Bei Nacharbeit brauche ich eine Frist und wer es macht, sonst geht es unter.',
+        'umgesetzt',
+        120,
+        jetzt
+      ),
+      meldung(
+        109,
+        'pruefprotokolle',
+        8,
+        'Die Liste nach Auftrag gruppieren, dann sehe ich, was für eine Baustelle fehlt.',
+        'angenommen',
+        46,
+        jetzt
+      ),
+      meldung(
+        110,
+        'urlaub',
+        13,
+        'Ein Export für die Lohnabrechnung als CSV würde mir viel Abtippen sparen.',
+        'umgesetzt',
+        300,
+        jetzt
+      ),
+      meldung(
+        111,
+        'wartungsplan',
+        9,
+        'Laser LS-1: Schutzglas-Wechsel bitte als eigene Wartung alle zwei Wochen.',
+        'umgesetzt',
+        400,
+        jetzt
+      ),
+      meldung(
+        112,
+        'angebote',
+        1,
+        'Auf der Übersicht hätte ich gern die Annahmequote je Monat.',
+        'neu',
+        3,
+        jetzt
+      ),
+      meldung(
+        113,
+        'werkstatt',
+        5,
+        'Eine App für Arbeitszeiten auf der Baustelle wäre der nächste Schritt.',
+        'neu',
+        52,
+        jetzt
+      ),
+    ],
+    schaltungen: [
+      {
+        app_id: 'angebote',
+        ergebnis: 'live',
+        satz: 'Fassung 1.4.0 ist live.',
+        nach_version: '1.4.0',
+        am: vor(24 * 12, jetzt),
+      },
+      {
+        app_id: 'pruefprotokolle',
+        ergebnis: 'live',
+        satz: 'Fassung 1.8.2 ist live.',
+        nach_version: '1.8.2',
+        am: vor(24 * 9, jetzt),
+      },
+      {
+        app_id: 'urlaub',
+        ergebnis: 'live',
+        satz: 'Fassung 1.2.0 ist live.',
+        nach_version: '1.2.0',
+        am: vor(24 * 5, jetzt),
       },
     ],
-    schaltungen: [],
   };
 }

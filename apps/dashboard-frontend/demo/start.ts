@@ -4,13 +4,17 @@
  *
  *  1. den Service Worker anmelden, der statt des Backends antwortet
  *     (`dienst.ts`), und warten, bis er diese Seite steuert;
- *  2. das Band „Demo mit Beispieldaten" setzen (`band.ts`);
+ *  2. die ruhige Demo-Zeile in die Kapsel setzen (`kapsel.ts`), dazu die
+ *     Übersicht des Betriebs auf der Startseite (`uebersicht.tsx`) und den
+ *     geführten Weg, der nur auf Wunsch beginnt (`fuehrung.ts`);
  *  3. bei Englisch die Übersetzung einschalten (`uebersetzung.ts`).
  *
  * Die Reihenfolge ist der Kern: ginge das Frontend vor dem Worker los, liefe
  * seine erste Anfrage (`/api/auth/session`) ins Netz.
  */
-import { bandSetzen, spracheLesen, anDienst } from './band';
+import { kapselSetzen, spracheLesen, anDienst } from './kapsel';
+import { wegSetzen, wegBeginnen } from './fuehrung';
+import { uebersichtSetzen } from './uebersicht';
 import { uebersetzen } from './uebersetzung';
 
 async function dienstBereit(): Promise<void> {
@@ -47,7 +51,9 @@ dienstBereit()
     const sprache = spracheLesen();
     await anDienst({ typ: 'sprache', sprache });
     document.documentElement.lang = sprache;
-    bandSetzen(sprache);
+    kapselSetzen(sprache, () => wegBeginnen());
+    wegSetzen(sprache);
+    uebersichtSetzen(sprache);
     if (sprache === 'en') uebersetzen(document);
     // Die Startseite der Demo ist der Arbeitsbereich: eine Anmeldung gibt es nicht.
     if (window.location.pathname === '/') window.history.replaceState(null, '', '/workspace');
