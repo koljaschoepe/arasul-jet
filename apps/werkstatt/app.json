@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "id": "werkstatt",
+  "name": "Werkstatt",
+  "version": "2.0.0",
+  "beschreibung": "Ihre Rückmeldungen mit Stand. Mit dem Recht dazu: alle Meldungen, die Fassungen in Test und Live, der Schritt nach Live.",
+  "frontend": { "verzeichnis": "frontend" },
+  "marken": "5",
+  "symbol": "hammer"
+}

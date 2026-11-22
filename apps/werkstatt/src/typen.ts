@@ -1,4 +1,9 @@
-/** Die Formen, die das Cockpit von der Plattform-API bekommt (J44, M7). */
+/** Die Formen, die die Werkstatt von der Plattform-API bekommt (J44, M7, J52). */
+
+/** Aus `GET /api/werkstatt/ich`: das Recht in der Werkstatt (Kennzeichen Entwickler). */
+export interface Ich {
+  recht: boolean;
+}
 
 export const STAENDE = ['neu', 'angenommen', 'umgesetzt', 'abgelehnt'] as const;
 export type StandMeldung = (typeof STAENDE)[number];
@@ -28,7 +33,7 @@ export interface Fassung {
   vorige_version?: string | null;
 }
 
-/** Eine Zeile aus `GET /api/entwickler/apps`. */
+/** Eine Zeile aus `GET /api/werkstatt/apps`. */
 export interface AppStand {
   id: string;
   name: string;
@@ -47,5 +52,9 @@ export interface AppStand {
   } | null;
 }
 
-/** Die Ansichten des Cockpits; sie stehen im Fragment der Adresse. */
-export type Ansicht = 'eingang' | 'apps' | 'live';
+/**
+ * Die Ansichten der Werkstatt; sie stehen im Fragment der Adresse. `meine`
+ * ist die einzige ohne das Recht in der Werkstatt, die anderen drei gibt es
+ * nur mit ihm.
+ */
+export type Ansicht = 'meine' | 'eingang' | 'apps' | 'live';

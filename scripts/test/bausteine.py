@@ -65,7 +65,7 @@ In ALLEM unter `src/`, ohne Ausnahme (siehe „Der Ausnahmeordner ist weg"):
    einen Baustein der Bibliothek, kein freier Import mehr“). Symbole kommen
    aus `@marken/symbole`, gezeichnet mit `Icon` (drei Groessen, eine
    Strichstaerke). Die Shell ist vollstaendig umgestellt; das
-   Entwickler-Cockpit laedt die Bibliothek zur Laufzeit, wo es den Ausgang
+   die Werkstatt (bis J52 Entwickler-Cockpit) laedt die Bibliothek zur Laufzeit, wo es den Ausgang
    `symbole` nicht gibt, und steht mit seinen Dateien als RATSCHE in
    `LUCIDE_RATSCHE`: die Zahl darf sinken, nie steigen.
 
@@ -307,9 +307,9 @@ REGELN = [
 #
 # Seit H5 gilt das auch fuer `components/ui/`: die Bausteine stehen dort nicht
 # mehr, also gibt es keinen Grund mehr, die Regel dort auszusetzen.
-# Seit J44 dazu das Entwickler-Cockpit, die mitgelieferte App: es steht neben
+# Seit J44 dazu die Werkstatt (bis J52 Entwickler-Cockpit), die mitgelieferte App: sie steht neben
 # der Shell im selben Rahmen und haelt dieselben Regeln.
-WURZELN = ['apps/dashboard-frontend/src', 'apps/entwickler-cockpit/src']
+WURZELN = ['apps/dashboard-frontend/src', 'apps/werkstatt/src']
 
 AUSGENOMMENE_ORDNER = ()
 
@@ -333,7 +333,7 @@ AUSGENOMMENE_ORDNER = ()
 # (340 bis 20 Grad) liegt, ist gruen, orange, gelb, violett -- und faellt.
 # Farbworte (`white`, `black`, `transparent`, `currentColor`) sind keine
 # Palette und werden nicht gelesen.
-CSS_WURZELN = ['apps/dashboard-frontend/src', 'packages/marken/src', 'apps/entwickler-cockpit/src']
+CSS_WURZELN = ['apps/dashboard-frontend/src', 'packages/marken/src', 'apps/werkstatt/src']
 FARBQUELLE = 'packages/marken/src/theme.css'
 HEX = re.compile(r'#([0-9A-Fa-f]{3,8})\b')
 RGB = re.compile(r'\brgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)')
@@ -581,7 +581,7 @@ def navigation_doppelt(wurzel: Path) -> list[str]:
 # Die zehnte Regel: Symbole nur ueber die Bibliothek (20.11.2026)
 # --------------------------------------------------------------------------
 LUCIDE_IMPORT = re.compile(r"""(?:from\s+|import\(\s*)['"]lucide-react(?:/[^'"]*)?['"]""")
-LUCIDE_ORDNER = ['apps/dashboard-frontend/src', 'apps/dashboard-frontend/demo', 'apps/entwickler-cockpit/src']
+LUCIDE_ORDNER = ['apps/dashboard-frontend/src', 'apps/dashboard-frontend/demo', 'apps/werkstatt/src']
 # Dateien, die Lucide noch selbst holen duerfen, und warum. Die Ratsche: wer
 # eine umstellt, nimmt sie hier heraus; eine neue kommt nicht dazu.
 # Leer seit J50 (Bibliothek 5.9.0): das Cockpit bindet `@marken/symbole` an

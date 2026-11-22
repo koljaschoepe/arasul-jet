@@ -1,10 +1,11 @@
 /**
  * Eingang: alle Rückmeldungen je App mit Text, Bild, Seite, Person und Stand
- * (J44, M7). Filter je App und Stand, Vorgabe „offen“ (neu und angenommen).
- * Ein Klick auf eine Meldung öffnet sie: Text, Seite, Bildschirmfoto mit der
- * markierten Stelle, Stand setzen, bei „abgelehnt“ mit Pflichtgrund,
- * Entfernen mit Rückfrage. Ersetzt die Liste Verwaltung › Rückmeldungen
- * aus J42.
+ * (J44, M7). Nur mit dem Recht in der Werkstatt (J52); ohne es zeigt die
+ * Werkstatt „Meine Meldungen“ (`EigeneMeldungen.tsx`). Filter je App und
+ * Stand, Vorgabe „offen“ (neu und angenommen). Ein Klick auf eine Meldung
+ * öffnet sie: Text, Seite, Bildschirmfoto mit der markierten Stelle, Stand
+ * setzen, bei „abgelehnt“ mit Pflichtgrund, Entfernen mit Rückfrage. Ersetzt
+ * die Liste Verwaltung › Rückmeldungen aus J42.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { FilterX } from '@marken/symbole';
@@ -52,13 +53,42 @@ const BADGE: Record<StandMeldung, 'primary' | 'default' | 'outline' | 'warning'>
 
 export function StandAbzeichen({ stand }: { stand: StandMeldung }) {
   return (
-    <Badge variant={BADGE[stand]} data-testid="cockpit-stand">
+    <Badge variant={BADGE[stand]} data-testid="werkstatt-stand">
       {STAND_WORT[stand]}
     </Badge>
   );
 }
 
-const appName = (m: Meldung) => `${m.app_name ?? m.app_id}${m.stand === 'test' ? ' (Test)' : ''}`;
+export const appName = (m: Meldung) =>
+  `${m.app_name ?? m.app_id}${m.stand === 'test' ? ' (Test)' : ''}`;
+
+/** Das Bildschirmfoto einer Meldung; ein Klick zeigt es groß. */
+export function Bildschirmfoto({ meldung }: { meldung: Meldung }) {
+  const [gross, setGross] = useState(false);
+  if (!meldung.hat_bild) return <p style={leise}>Ohne Bildschirmfoto.</p>;
+  return (
+    <button
+      type="button"
+      onClick={() => setGross(g => !g)}
+      aria-label={gross ? 'Bildschirmfoto kleiner' : 'Bildschirmfoto groß zeigen'}
+      style={{ padding: 0, border: 0, background: 'none', cursor: 'zoom-in' }}
+    >
+      <img
+        src={bildAdresse(meldung.id)}
+        alt="Bildschirmfoto mit markierter Stelle"
+        data-testid="werkstatt-bild"
+        style={{
+          display: 'block',
+          maxWidth: '100%',
+          maxHeight: gross ? 'none' : '18rem',
+          height: 'auto',
+          border: '1px solid var(--ara-kante)',
+          borderRadius: 'var(--ara-rundung-sm)',
+        }}
+      />
+    </button>
+  );
+}
 
 const SPALTEN: ReadonlyArray<Spalte<Meldung>> = [
   {
@@ -145,7 +175,6 @@ function MeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: 
   const [stand, setStand] = useState<StandMeldung>(meldung.stand_meldung);
   const [grund, setGrund] = useState(meldung.grund ?? '');
   const [weg, setWeg] = useState(false);
-  const [gross, setGross] = useState(false);
   const fehlt = grundFehlt(stand, grund);
   const unveraendert = stand === meldung.stand_meldung && grund.trim() === (meldung.grund ?? '');
 
@@ -162,7 +191,7 @@ function MeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: 
               type="button"
               variant="ghost"
               onClick={() => setWeg(true)}
-              data-testid="cockpit-entfernen"
+              data-testid="werkstatt-entfernen"
             >
               Entfernen
             </Button>
@@ -174,7 +203,7 @@ function MeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: 
                 type="button"
                 variant="solid"
                 disabled={fehlt || unveraendert || setzen.isPending}
-                data-testid="cockpit-stand-speichern"
+                data-testid="werkstatt-stand-speichern"
                 onClick={() =>
                   setzen.mutate(
                     { id: meldung.id, stand, grund: grund.trim() || undefined },
@@ -188,38 +217,15 @@ function MeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: 
           </div>
         }
       >
-        <div style={spalte(3)} data-testid="cockpit-meldung">
+        <div style={spalte(3)} data-testid="werkstatt-meldung">
           <p style={leise}>
             {meldung.person?.anzeigeName ?? 'Gelöschte Person'} · {zeit(meldung.erstellt_am)}
           </p>
           <p style={fliesstext}>{meldung.text}</p>
-          <p style={{ ...fest, ...leise }} data-testid="cockpit-seite">
+          <p style={{ ...fest, ...leise }} data-testid="werkstatt-seite">
             {meldung.seite}
           </p>
-          {meldung.hat_bild ? (
-            <button
-              type="button"
-              onClick={() => setGross(g => !g)}
-              aria-label={gross ? 'Bildschirmfoto kleiner' : 'Bildschirmfoto groß zeigen'}
-              style={{ padding: 0, border: 0, background: 'none', cursor: 'zoom-in' }}
-            >
-              <img
-                src={bildAdresse(meldung.id)}
-                alt="Bildschirmfoto mit markierter Stelle"
-                data-testid="cockpit-bild"
-                style={{
-                  display: 'block',
-                  maxWidth: '100%',
-                  maxHeight: gross ? 'none' : '18rem',
-                  height: 'auto',
-                  border: '1px solid var(--ara-kante)',
-                  borderRadius: 'var(--ara-rundung-sm)',
-                }}
-              />
-            </button>
-          ) : (
-            <p style={leise}>Ohne Bildschirmfoto.</p>
-          )}
+          <Bildschirmfoto meldung={meldung} />
 
           <div
             style={{
@@ -229,19 +235,19 @@ function MeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: 
             }}
           >
             <Auswahl
-              kennung="cockpit-stand-wahl"
+              kennung="werkstatt-stand-wahl"
               beschriftung="Stand"
               wert={stand}
               setze={w => setStand(w as StandMeldung)}
               moeglichkeiten={STAENDE.map(s => ({ wert: s, name: STAND_WORT[s] }))}
             />
             <div style={spalte(1)}>
-              <Label htmlFor="cockpit-grund" style={leise}>
+              <Label htmlFor="werkstatt-grund" style={leise}>
                 {stand === 'abgelehnt' ? 'Grund (Pflicht beim Ablehnen)' : 'Grund (frei)'}
               </Label>
               <Textarea
-                id="cockpit-grund"
-                data-testid="cockpit-grund"
+                id="werkstatt-grund"
+                data-testid="werkstatt-grund"
                 value={grund}
                 maxLength={2000}
                 onChange={e => setGrund(e.target.value)}
@@ -249,17 +255,19 @@ function MeldungDialog({ meldung, schliessen }: { meldung: Meldung; schliessen: 
                 rows={3}
               />
               {fehlt && (
-                <p style={leise} data-testid="cockpit-grund-fehlt">
+                <p style={leise} data-testid="werkstatt-grund-fehlt">
                   Wer ablehnt, schreibt dazu, warum.
                 </p>
               )}
             </div>
             {setzen.isError && (
-              <Hinweis art="fehler" kennzeichen="cockpit-stand-fehler">
+              <Hinweis art="fehler" kennzeichen="werkstatt-stand-fehler">
                 {setzen.error.message}
               </Hinweis>
             )}
-            <p style={leise}>Wer gemeldet hat, erfährt davon nichts.</p>
+            <p style={leise}>
+              Wer gemeldet hat, sieht Stand und Grund in der eigenen Werkstatt.
+            </p>
           </div>
         </div>
       </Dialogform>
@@ -299,7 +307,7 @@ export function Eingang({
   fehler: string | null;
   filter: EingangFilter;
   setzeFilter: (f: EingangFilter) => void;
-  /** Werkzeuge, die jede Ansicht trägt (Neu laden), aus dem Rahmen des Cockpits. */
+  /** Werkzeuge, die jede Ansicht trägt (Neu laden), aus dem Rahmen der Werkstatt. */
   werkzeuge?: ReactNode;
 }) {
   const [offenId, setOffenId] = useState<number | null>(null);
@@ -314,7 +322,7 @@ export function Eingang({
   }, [offenId, laedt, gewaehlt]);
 
   return (
-    <div style={spalte(2)} data-testid="cockpit-eingang">
+    <div style={spalte(2)} data-testid="werkstatt-eingang">
       <Kopf
         titel="Eingang"
         beschreibung={`Was in den Apps über das Icon oben rechts gemeldet wurde. ${anzahl(offen, 'Meldung ist', 'Meldungen sind')} offen.`}
@@ -325,7 +333,7 @@ export function Eingang({
                 symbol={<Icon symbol={FilterX} />}
                 beschriftung="Filter zurücksetzen"
                 onClick={() => setzeFilter(FILTER_VORGABE)}
-                data-testid="cockpit-filter-zuruecksetzen"
+                data-testid="werkstatt-filter-zuruecksetzen"
               />
             )}
             {werkzeuge}
@@ -334,7 +342,7 @@ export function Eingang({
       />
       <div style={zeile(2)}>
         <Auswahl
-          kennung="cockpit-filter-app"
+          kennung="werkstatt-filter-app"
           beschriftung="App"
           wert={filter.app}
           setze={app => setzeFilter({ ...filter, app })}
@@ -344,7 +352,7 @@ export function Eingang({
           ]}
         />
         <Auswahl
-          kennung="cockpit-filter-stand"
+          kennung="werkstatt-filter-stand"
           beschriftung="Stand"
           wert={filter.stand}
           setze={s => setzeFilter({ ...filter, stand: s as EingangFilter['stand'] })}
@@ -359,7 +367,7 @@ export function Eingang({
         <Hinweis
           art="fehler"
           titel="Die Rückmeldungen ließen sich nicht laden."
-          kennzeichen="cockpit-fehler"
+          kennzeichen="werkstatt-fehler"
         >
           {fehler}
         </Hinweis>
@@ -387,7 +395,7 @@ export function Eingang({
         />
       )}
       {!laedt && !fehler && meldungen.length > 0 && (
-        <p style={leise} data-testid="cockpit-zahl">
+        <p style={leise} data-testid="werkstatt-zahl">
           {anzahl(gefiltert.length, 'Meldung', 'Meldungen')} in diesem Filter
         </p>
       )}

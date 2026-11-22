@@ -210,9 +210,10 @@ und gezeichnet mit `<Icon symbol={Trash2} groesse="klein|mittel|gross" />`
 `theme.css` zieht jedes Lucide-Symbol darauf (`non-scaling-stroke`), auch
 eines, das direkt als Komponente steht. `scripts/test/bausteine.py` (Regel 10)
 meldet jeden freien Import von `lucide-react` außerhalb von
-`packages/marken/`; das Entwickler-Cockpit lädt die Bibliothek zur Laufzeit,
-und bindet seit 5.9.0 `@marken/symbole` an `/marken/5/symbole.js`, einen
-eigenen Eingang der Laufzeit; `LUCIDE_RATSCHE` ist damit leer und bleibt es.
+`packages/marken/`; die Werkstatt (bis J52 Entwickler-Cockpit) lädt die
+Bibliothek zur Laufzeit und bindet seit 5.9.0 `@marken/symbole` an
+`/marken/5/symbole.js`, einen eigenen Eingang der Laufzeit; `LUCIDE_RATSCHE`
+ist damit leer und bleibt es.
 
 ## Maße
 

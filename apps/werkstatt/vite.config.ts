@@ -1,14 +1,14 @@
 /**
- * Der Bau des Entwickler-Cockpits (J44, M7): eine App „mit Bau" nach
+ * Der Bau der Werkstatt (J44, M7; bis J52 Entwickler-Cockpit): eine App „mit Bau" nach
  * `docs/features/APPS.md` (Bibliothek zur Laufzeit). React und `@marken`
  * bleiben außerhalb des Bündels und kommen vom Gerät unter `/marken/5/`;
  * React gibt es damit genau einmal, das des Geräts.
  *
  * Aufruf aus dem Wurzelordner des Repos:
- *   npx vite build --config apps/entwickler-cockpit/vite.config.ts
- * Ergebnis: `apps/entwickler-cockpit/dist/` mit `app.json` und `frontend/`,
- * so wie das Backend es unter `mitgeliefert/entwickler-cockpit/` erwartet
- * (`apps/dashboard-backend/Dockerfile`, Stufe `cockpit`).
+ *   npx vite build --config apps/werkstatt/vite.config.ts
+ * Ergebnis: `apps/werkstatt/dist/` mit `app.json` und `frontend/`,
+ * so wie das Backend es unter `mitgeliefert/werkstatt/` erwartet
+ * (`apps/dashboard-backend/Dockerfile`, Stufe `werkstatt`).
  */
 import { copyFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';

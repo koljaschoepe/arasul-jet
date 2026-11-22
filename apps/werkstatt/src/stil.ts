@@ -1,5 +1,5 @@
 /**
- * Was das Cockpit selbst gestaltet, steht mit den Tokens der Bibliothek da
+ * Was die Werkstatt selbst gestaltet, steht mit den Tokens der Bibliothek da
  * (`--ara-*` aus `marken.css`), nicht mit Tailwind-Klassen: die gibt es zur
  * Laufzeit nur, soweit die Bibliothek sie selbst benutzt (APPS.md). Drei
  * Größen, zwei Gewichte, Farben nur aus Tokens.

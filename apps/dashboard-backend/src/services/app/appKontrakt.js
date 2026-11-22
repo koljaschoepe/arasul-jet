@@ -583,7 +583,7 @@ const RUECKMELDUNGEN_REGELN = Object.freeze([
   'Ist es an, trägt jede Meldung `bild`: `null` ohne Foto, sonst `weg` (relativ zur Adresse des Geräts), `format` und `markierung` (`x`, `y`, `breite`, `hoehe` als Anteile von 0 bis 1, oder `null`). Die Stelle ist zusätzlich ins PNG gezeichnet.',
   'Die Stände einer Meldung: `neu`, `angenommen`, `umgesetzt`, `abgelehnt`. Wer ablehnt, nennt `grund`; ein neuer Stand ohne Grund löscht den alten.',
   'Jede Abfrage, jedes abgeholte Bild und jeder gesetzte Stand steht im Protokoll des Geräts: welcher Schlüssel, wann, welche App, mit oder ohne Bilder.',
-  'Mitarbeiter sehen ihre Meldungen nach dem Absenden nicht wieder und bekommen keine Antwort über diesen Weg; der Stand ist für den Entwickler.',
+  'Wer gemeldet hat, sieht seine eigenen Meldungen in der App Werkstatt am Gerät mit Stand und Grund (seit 22.11.2026). Ein Grund beim Ablehnen ist also ein Satz an diese Person; fremde Meldungen sieht dort nur, wer das Recht in der Werkstatt hat.',
 ]);
 
 /**

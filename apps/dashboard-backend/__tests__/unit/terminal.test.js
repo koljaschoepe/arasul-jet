@@ -157,13 +157,13 @@ describe('Terminal', () => {
       expect(db.query.mock.calls[0][0]).toMatch(/is_active = true/);
     });
 
-    test('ein Konto ohne die Rolle Entwickler: 403, keine Kopfzeile', async () => {
+    test('ein Konto ohne das Recht in der Werkstatt: 403, keine Kopfzeile', async () => {
       mitZeile(OHNE_ROLLE);
       const res = await request(app())
         .get('/intern/terminal/tor')
         .set('Cookie', 'arasul_session=x');
       expect(res.status).toBe(403);
-      expect(res.text).toMatch(/Rolle Entwickler/);
+      expect(res.text).toMatch(/Recht in der Werkstatt/);
       expect(res.headers['x-arasul-terminal-nutzer']).toBeUndefined();
     });
 

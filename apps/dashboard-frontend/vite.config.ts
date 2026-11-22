@@ -117,9 +117,9 @@ export default defineConfig({
       'src/**/*.{test,spec}.{ts,tsx}',
       '../../packages/marken/src/**/*.{test,spec}.{ts,tsx}',
       // Das Entwickler-Cockpit (J44): eine eigene App neben der Shell, mit
-      // eigenem Bau (`apps/entwickler-cockpit/vite.config.ts`), aber mit
+      // eigenem Bau (`apps/werkstatt/vite.config.ts`), aber mit
       // denselben Werkzeugen geprueft -- Typen, Tests, Regeln der Gestalt.
-      '../entwickler-cockpit/src/**/*.{test,spec}.{ts,tsx}',
+      '../werkstatt/src/**/*.{test,spec}.{ts,tsx}',
       // Die Demo (J46): gespielte Antworten und Wörterbuch, ohne Browser geprüft.
       'demo/**/*.test.ts',
     ],

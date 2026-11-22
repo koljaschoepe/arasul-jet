@@ -5,7 +5,7 @@
  * Regel 3 der Verbesserungsschleife: Bilder verlassen das Haus nur mit
  * Erlaubnis je App. Vorgabe aus. Aus heißt: das Kit bekommt Text, Seite, App
  * und Person, aber weder Bild noch Markierung noch einen Hinweis, dass es eins
- * gibt. Entwickler sehen die Bilder am Gerät in jedem Fall.
+ * gibt. Wer das Recht in der Werkstatt hat, sieht die Bilder am Gerät in jedem Fall.
  */
 import { Switch } from '@marken';
 import { useToast } from '@/contexts/ToastContext';

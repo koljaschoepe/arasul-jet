@@ -192,9 +192,9 @@ einmal (lässt die Tests laufen und schreibt den Nachweis neu), bei `fehlt` und
 `schritt-fehlt` vorher einen Plan aktiv setzen. Wo eine App steht, sagt
 `node .ara/tools/app.mjs --app <name> --nachweis`.
 
-**Ausgenommen ist genau eine App:** das Entwickler-Cockpit. Es kommt mit dem
-Gerät und nicht über das Kit, und seine Kennung ist für Pakete ohnehin
-vergeben. **Fremde Container** weist das Gerät ab, bis entschieden ist, wie
+**Ausgenommen ist genau eine App:** die Werkstatt (`werkstatt`, bis
+22.11.2026 `entwickler-cockpit`). Sie kommt mit dem Gerät und nicht über das
+Kit, und ihre Kennung ist für Pakete ohnehin vergeben, die alte ebenso. **Fremde Container** weist das Gerät ab, bis entschieden ist, wie
 fremde Projekte als App kommen.
 
 **Der Nachweis ist kein Schutz gegen Fälschung** (Entscheidung 20.11.2026):

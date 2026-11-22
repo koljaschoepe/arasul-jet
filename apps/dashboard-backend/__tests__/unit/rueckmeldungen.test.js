@@ -171,14 +171,13 @@ describe('POST /api/rueckmeldungen (melden)', () => {
   });
 });
 
-describe('Lesen nur mit dem Kennzeichen Entwickler', () => {
-  const lesend = [
-    ['GET /', a => request(a).get('/api/rueckmeldungen')],
-    ['GET /:id/bild', a => request(a).get('/api/rueckmeldungen/7/bild')],
+describe('Lesen: die eigenen für jeden, alle nur mit dem Recht in der Werkstatt (J52)', () => {
+  const nurMitRecht = [
+    ['PATCH /:id', a => request(a).patch('/api/rueckmeldungen/7').send({ stand_meldung: 'neu' })],
     ['DELETE /:id', a => request(a).delete('/api/rueckmeldungen/7')],
   ];
 
-  test.each(lesend)('%s: ein Mitarbeiter ohne Kennzeichen bekommt 403', async (_, rufe) => {
+  test.each(nurMitRecht)('%s: ein Mitarbeiter ohne das Recht bekommt 403', async (_, rufe) => {
     db.query.mockResolvedValueOnce({ rows: [{ entwickler: false }] });
     const res = await rufe(app());
     expect(res.status).toBe(403);
@@ -186,7 +185,7 @@ describe('Lesen nur mit dem Kennzeichen Entwickler', () => {
     expect(db.query.mock.calls[0][0]).toMatch(/SELECT entwickler FROM public\.admin_users/);
   });
 
-  test.each(lesend)('%s: ein Administrator ohne Kennzeichen bekommt 403', async (_, rufe) => {
+  test.each(nurMitRecht)('%s: ein Administrator ohne das Recht bekommt 403', async (_, rufe) => {
     mockAngemeldet = { id: '1', username: 'chef', role: 'admin', entwickler: true };
     // Der Zwischenspeicher sagt `entwickler: true`, die Datenbank nicht mehr:
     // es gilt die Datenbank.
@@ -196,13 +195,88 @@ describe('Lesen nur mit dem Kennzeichen Entwickler', () => {
     expect(db.query).toHaveBeenCalledTimes(1);
   });
 
-  test('ein gesperrtes Konto bekommt 403, auch mit Kennzeichen', async () => {
-    db.query.mockResolvedValueOnce({ rows: [] });
+  test('ohne das Recht: die Liste fragt NUR nach den eigenen, Sicht „eigene"', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ entwickler: false }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '9',
+            app_id: 'belege',
+            app_name: 'Belege',
+            stand: 'live',
+            seite: '/apps/belege/',
+            text: 'Mein Filter fehlt',
+            bild: null,
+            markierung: null,
+            person_id: '2',
+            username: 'mia',
+            vorname: 'Mia',
+            nachname: 'Muster',
+            stand_meldung: 'abgelehnt',
+            grund: 'Gibt es schon: oben rechts.',
+            erstellt_am: '2026-11-22T10:00:00Z',
+          },
+        ],
+      });
     const res = await request(app()).get('/api/rueckmeldungen');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(res.body.sicht).toBe('eigene');
+    expect(res.body.data[0]).toMatchObject({
+      id: 9,
+      stand_meldung: 'abgelehnt',
+      grund: 'Gibt es schon: oben rechts.',
+    });
+    // Die Abfrage selbst grenzt auf die Person ein, nicht der Browser.
+    expect(db.query.mock.calls[1][0]).toMatch(/r\.person_id = \$3/);
+    expect(db.query.mock.calls[1][1]).toEqual([null, 500, '2']);
   });
 
-  test('ein Entwickler (auch Mitarbeiter) liest die Liste mit Person und App', async () => {
+  test('ein Administrator ohne das Recht sieht ebenfalls nur die eigenen', async () => {
+    mockAngemeldet = { id: '1', username: 'chef', role: 'admin' };
+    db.query.mockResolvedValueOnce({ rows: [{ entwickler: false }] }).mockResolvedValueOnce({
+      rows: [],
+    });
+    const res = await request(app()).get('/api/rueckmeldungen');
+    expect(res.status).toBe(200);
+    expect(res.body.sicht).toBe('eigene');
+    expect(db.query.mock.calls[1][1]).toEqual([null, 500, '1']);
+  });
+
+  test('ein gesperrtes Konto sieht nichts Fremdes', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] });
+    const res = await request(app()).get('/api/rueckmeldungen');
+    expect(res.body.sicht).toBe('eigene');
+    expect(db.query.mock.calls[1][1]).toEqual([null, 500, '2']);
+  });
+
+  test('ohne das Recht: ein fremdes Bild ist 404, gefragt wird mit der Person', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ entwickler: false }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app()).get('/api/rueckmeldungen/7/bild');
+    expect(res.status).toBe(404);
+    expect(res.headers['content-type']).not.toMatch(/image/);
+    expect(db.query.mock.calls[1][0]).toMatch(/person_id = \$2/);
+    expect(db.query.mock.calls[1][1]).toEqual([7, '2']);
+  });
+
+  test('ohne das Recht: das eigene Bild kommt', async () => {
+    const name = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd.png';
+    fs.mkdirSync(path.join(ordner, '.rueckmeldungen'));
+    fs.writeFileSync(
+      path.join(ordner, '.rueckmeldungen', name),
+      Buffer.from(PIXEL.split(',')[1], 'base64')
+    );
+    db.query
+      .mockResolvedValueOnce({ rows: [{ entwickler: false }] })
+      .mockResolvedValueOnce({ rows: [{ bild: name }] });
+    const res = await request(app()).get('/api/rueckmeldungen/7/bild');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/image\/png/);
+  });
+
+  test('mit dem Recht (auch als Mitarbeiter) liest sie alle mit Person und App', async () => {
     db.query.mockResolvedValueOnce({ rows: [{ entwickler: true }] }).mockResolvedValueOnce({
       rows: [
         {
@@ -238,6 +312,7 @@ describe('Lesen nur mit dem Kennzeichen Entwickler', () => {
     });
     const res = await request(app()).get('/api/rueckmeldungen?app_id=belege');
     expect(res.status).toBe(200);
+    expect(res.body.sicht).toBe('alle');
     expect(res.body.data[0]).toMatchObject({
       id: 7,
       app_name: 'Belege',
@@ -247,7 +322,7 @@ describe('Lesen nur mit dem Kennzeichen Entwickler', () => {
     });
     expect(res.body.data[0]).not.toHaveProperty('bild');
     expect(res.body.data[1]).toMatchObject({ hat_bild: false, person: null });
-    expect(db.query.mock.calls[1][1]).toEqual(['belege', 500]);
+    expect(db.query.mock.calls[1][1]).toEqual(['belege', 500, null]);
   });
 
   test('das Bild kommt als PNG; fehlt die Datei, ist es 404', async () => {

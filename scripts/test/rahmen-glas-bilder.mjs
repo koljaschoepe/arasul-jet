@@ -63,7 +63,7 @@ const SEITEN = [
   { name: 'start', pfad: '/workspace/dashboard' },
   { name: 'app', pfad: `/workspace/app/${APP}`, rahmen: true },
   { name: 'app-test', pfad: `/workspace/app/${APP}/test`, rahmen: true, test: true },
-  { name: 'cockpit', pfad: '/workspace/app/entwickler-cockpit', rahmen: true },
+  { name: 'cockpit', pfad: '/workspace/app/werkstatt', rahmen: true },
   { name: 'verwaltung', pfad: '/workspace/verwaltung/apps' },
   { name: 'einstellungen', pfad: '/workspace/settings/erscheinungsbild' },
 ].filter(s => !NUR || NUR.split(',').includes(s.name));

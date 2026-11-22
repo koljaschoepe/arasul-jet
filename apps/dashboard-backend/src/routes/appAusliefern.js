@@ -121,6 +121,19 @@ function pfadErkennen(req, res, next) {
     return next('router');
   }
 
+  // Eine mitgelieferte App, die umbenannt wurde (J52: `entwickler-cockpit`
+  // heisst `werkstatt`): die alte Adresse zieht dauerhaft um, samt Rest und
+  // Abfrage, VOR der Anmeldung -- wie der Umzug darunter sagt er nichts
+  // darueber, wer fragt. Lesezeichen und alte Verweise bleiben gueltig.
+  const neu = mitgeliefert.neueKennung(kennung);
+  if (neu) {
+    const abfrage = req.originalUrl.includes('?')
+      ? req.originalUrl.slice(req.originalUrl.indexOf('?'))
+      : '';
+    const hinten = `${testTeil ? 'test/' : ''}${rest}`;
+    return res.redirect(301, `${req.baseUrl}/${neu}/${hinten}${abfrage}`);
+  }
+
   // Ohne Schraegstrich am Ende zeigen relative Verweise in der Seite
   // (`./api/…`, `assets/…`) eine Ebene zu hoch. Ein Umzug statt einer
   // kaputten Seite, und zwar VOR der Anmeldung: der Umzug sagt nichts darueber

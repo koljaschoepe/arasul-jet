@@ -18,16 +18,16 @@ Seitenkopf, Kennzahlen und einer kompakten Tabelle (`Datenliste`): Angebote
 selbst. Fünf Schritte, jeder mit einem Hinweis aus Glas an der Stelle, um die
 es geht, einem Ring um diese Stelle, „Weiter" und „Überspringen":
 
-| Schritt | Stelle                                 | „Weiter" tut                            |
-| ------- | -------------------------------------- | --------------------------------------- |
-| 1       | Kachel „Angebote" (sonst die Leiste)   | öffnet Angebote                         |
-| 2       | das Icon der Rückmeldung in der Kapsel | geht weiter (schreiben muss man selbst) |
-| 3       | „Entwickler" im Band                   | wechselt die Rolle, das Cockpit öffnet  |
-| 4       | der Eingang im Cockpit                 | öffnet „Test nach Live"                 |
-| 5       | „Live schalten" bei Angebote 1.5.0     | beendet den Weg                         |
+| Schritt | Stelle                                 | „Weiter" tut                              |
+| ------- | -------------------------------------- | ----------------------------------------- |
+| 1       | Kachel „Angebote" (sonst die Leiste)   | öffnet Angebote                           |
+| 2       | das Icon der Rückmeldung in der Kapsel | geht weiter (schreiben muss man selbst)   |
+| 3       | „App-Betreuung" im Band                | wechselt die Person, die Werkstatt öffnet |
+| 4       | der Eingang der Werkstatt              | öffnet „Test nach Live"                   |
+| 5       | „Live schalten" bei Angebote 1.5.0     | beendet den Weg                           |
 
 Wer selbst klickt, kommt ohne „Weiter" voran (App geöffnet, Rückmeldung
-gesendet, Cockpit offen). Ein offener Dialog hat Vorrang, der Hinweis tritt
+gesendet, Eingang der Werkstatt offen). Ein offener Dialog hat Vorrang, der Hinweis tritt
 dann zurück. Am Handy steht der Hinweis über der Leiste unten. Esc und
 „Überspringen" beenden den Weg, „So geht's" im Band beginnt ihn neu, als
 Mitarbeiter. Der Stand liegt in `sessionStorage`.
@@ -35,9 +35,16 @@ Mitarbeiter. Der Stand liegt in `sessionStorage`.
 Live geschaltet, rechnet Angebote mit Rabatt; das ist der Weg, den die
 Website erklärt.
 
+Seit J52 (22.11.2026) hat auch der Mitarbeiter der Demo die **Werkstatt**: dort
+stehen nur seine Meldungen mit Stand, eine aus den Beispieldaten und die eben
+gesendete. Der Schalter im Band wechselt nicht die Rolle, sondern die Person:
+zur App-Betreuung, dieselbe Art Konto mit dem Recht in der Werkstatt. Die
+Abnahme der Demo prüft, dass der Mitarbeiter keine fremde Meldung und keine
+Seite Eingang, Apps oder Live sieht.
+
 Das Band liegt seit J51 hell auf hell (dunkel auf dunkel), in der Fläche des
 Produkts mit feiner Linie darunter: „Demo mit Beispieldaten", Mitarbeiter
-oder Entwickler, „So geht's", „Zurücksetzen", Deutsch oder Englisch, „Zur
+oder App-Betreuung, „So geht's", „Zurücksetzen", Deutsch oder Englisch, „Zur
 Website". Unter 760 px fallen „Zurücksetzen" und „Zur Website" weg.
 
 Nicht in der Demo: die Verwaltung (gehört dem Administrator), das Terminal
@@ -55,14 +62,14 @@ kein Schalter in `src/`, kein Zweig im Code.
 | `dienst.ts`                         | Service Worker, die **eine Schicht gespielter Antworten**. Fängt jede Anfrage an `/api/…` und an `/apps/<id>/(test/)api/…` ab, auch aus den iframes und von `<img>`. Zustand in IndexedDB |
 | `antworten.ts`, `daten.ts`          | Die Antworten als reine Funktion in den Formen des Backends; die Beispieldaten                                                                                                            |
 | `band.ts`, `band.css`               | Das Band. Zieht der Shell (`h-dvh`) seine Höhe ab, Farben nur aus Tokens                                                                                                                  |
-| `uebersetzung.ts`, `woerterbuch.ts` | Englisch ohne Sprachschicht im Produkt: ersetzt sichtbare Sätze im DOM nach Wörterbuch, in der Shell und im Cockpit. Unbekanntes bleibt deutsch                                           |
+| `uebersetzung.ts`, `woerterbuch.ts` | Englisch ohne Sprachschicht im Produkt: ersetzt sichtbare Sätze im DOM nach Wörterbuch, in der Shell und in der Werkstatt. Unbekanntes bleibt deutsch                                     |
 | `apps/`                             | Die drei Beispiel-Apps, Apps ohne Bau auf `/marken/5/` wie `tests/beispielapp/`, deutsch und englisch                                                                                     |
 | `vite.config.ts`, `bauen.mjs`       | Der Bau nach `dist-demo/`                                                                                                                                                                 |
 | `abnahme.mjs`                       | Die Abnahme mit Playwright                                                                                                                                                                |
 
 Warum ein Service Worker und kein ausgetauschtes `fetch`: er erreicht auch
 Bilder (`/api/rueckmeldungen/<id>/bild`) und die Apps im iframe, darunter das
-Cockpit mit seinem eigenen `fetch`.
+Werkstatt mit ihrem eigenen `fetch`.
 
 ## Bauen und prüfen
 
@@ -87,7 +94,7 @@ unter `demo/` laufen mit Vitest.
 ## Ausliefern
 
 **Aus der CI** (seit J51): `.github/workflows/demo.yml` baut nach jedem Merge
-auf `main`, der Frontend, Cockpit oder Bibliothek ändert (oder von Hand mit
+auf `main`, der Frontend, Werkstatt oder Bibliothek ändert (oder von Hand mit
 `workflow_dispatch`), und legt `dist-demo/` als Produktion auf
 `arasul-demo`. Danach fragt er die Adresse einmal ab. Dafür braucht das Repo
 das Geheimnis `VERCEL_TOKEN` (ein Token des Teams `arasuls-projects`, unter

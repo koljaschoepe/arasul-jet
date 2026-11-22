@@ -276,8 +276,8 @@ export function AnsichtInhalt() {
               </div>
             ) : !istEntwickler && nurFuerEntwickler(ansicht.type) ? (
               <div className="p-ui-4" data-testid="ansicht-nur-entwickler">
-                <Meldung titel="Das Terminal ist für Entwickler.">
-                  Die Verwaltung schaltet es je Person frei.
+                <Meldung titel="Das Terminal gehört zum Recht in der Werkstatt.">
+                  Die Verwaltung gibt es je Person, unter Personen.
                 </Meldung>
               </div>
             ) : (

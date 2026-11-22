@@ -367,7 +367,7 @@ export function AppAnsicht({ appId, onZurueck }: { appId: string; onZurueck: () 
         <Feldgruppe
           titel="Rückmeldungen"
           symbol={<MessageSquarePlus />}
-          beschreibung="Was der Agent über das Kit von den Rückmeldungen zu dieser App bekommt. Entwickler sehen am Gerät immer alles."
+          beschreibung="Was der Agent über das Kit von den Rückmeldungen zu dieser App bekommt. Wer das Recht in der Werkstatt hat, sieht dort am Gerät immer alles."
         >
           <AppBilderAnAgenten
             appId={appId}

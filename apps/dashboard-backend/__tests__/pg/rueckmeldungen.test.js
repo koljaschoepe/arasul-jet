@@ -130,6 +130,59 @@ beschreibe('Rückmeldungen gegen echtes Postgres', () => {
   it('das Kennzeichen kommt aus der Datenbank', async () => {
     await expect(dienst.pruefeEntwickler(mia)).rejects.toMatchObject({ statusCode: 403 });
     await expect(dienst.pruefeEntwickler(chef)).resolves.toBeUndefined();
+    expect(await dienst.hatWerkstattRecht(mia)).toBe(false);
+    expect(await dienst.hatWerkstattRecht(chef)).toBe(true);
+  });
+
+  it('die eigene Sicht (J52): nur die Meldungen dieser Person, fremde Bilder nie', async () => {
+    // Eine fremde Meldung mit Bild, direkt in die Tabelle (chef hat die App nicht).
+    const { id: eigene } = await dienst.melde(meldung({ bild: PIXEL, text: 'Meine Meldung' }));
+    const name = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee.png';
+    fs.mkdirSync(path.join(ordner, '.rueckmeldungen'), { recursive: true });
+    fs.writeFileSync(path.join(ordner, '.rueckmeldungen', name), Buffer.from('x'));
+    const { rows } = await db.query(
+      `INSERT INTO public.rueckmeldungen (app_id, stand, seite, text, bild, person_id)
+       VALUES ('jrm-belege', 'live', '/apps/jrm-belege/', 'Fremde Meldung', $1, $2) RETURNING id`,
+      [name, chef]
+    );
+    const fremde = Number(rows[0].id);
+
+    const meine = await dienst.liste({ personId: mia });
+    expect(meine.length).toBeGreaterThan(0);
+    expect(meine.every(m => m.person?.id === mia)).toBe(true);
+    expect(meine.map(m => m.id)).toContain(eigene);
+    expect(meine.map(m => m.id)).not.toContain(fremde);
+
+    const alle = await dienst.liste({ appId: 'jrm-belege' });
+    expect(alle.map(m => m.id)).toEqual(expect.arrayContaining([eigene, fremde]));
+
+    expect((await dienst.bild(eigene, { personId: mia })).subarray(1, 4).toString()).toBe('PNG');
+    await expect(dienst.bild(fremde, { personId: mia })).rejects.toMatchObject({
+      statusCode: 404,
+    });
+    expect((await dienst.bild(fremde)).toString()).toBe('x');
+  });
+
+  it('Migration 218: die alte Kennung zieht auf werkstatt um, die Seite mit', async () => {
+    const sql = fs.readFileSync(
+      path.join(__dirname, '../../../../services/postgres/init/218_werkstatt_m7.sql'),
+      'utf8'
+    );
+    const { rows } = await db.query(
+      `INSERT INTO public.rueckmeldungen (app_id, stand, seite, text)
+       VALUES ('entwickler-cockpit', 'live', '/apps/entwickler-cockpit/#apps', 'jrm-alt') RETURNING id`
+    );
+    try {
+      await db.query(sql);
+      await db.query(sql); // ein zweiter Lauf aendert nichts und scheitert nicht
+      const { rows: nach } = await db.query(
+        'SELECT app_id, seite FROM public.rueckmeldungen WHERE id = $1',
+        [rows[0].id]
+      );
+      expect(nach[0]).toEqual({ app_id: 'werkstatt', seite: '/apps/werkstatt/#apps' });
+    } finally {
+      await db.query('DELETE FROM public.rueckmeldungen WHERE id = $1', [rows[0].id]);
+    }
   });
 
   it('die Tabelle weist leeren Text und einen fremden Bildnamen ab', async () => {
@@ -310,8 +363,8 @@ beschreibe('Rückmeldungen gegen echtes Postgres', () => {
          VALUES ('jrm-belege', 'test', '1.1.0', '{"symbol":"receipt"}'::jsonb, 'Filter nach Monat.')
          ON CONFLICT (app_id, stand) DO UPDATE SET version = EXCLUDED.version`
       );
-      const cockpit = require('../../src/services/app/entwicklerCockpit');
-      const apps = await cockpit.apps();
+      const werkstatt = require('../../src/services/app/werkstatt');
+      const apps = await werkstatt.apps();
       const belege = apps.find(a => a.id === 'jrm-belege');
       expect(belege).toMatchObject({
         live: { version: '1.0.0' },
@@ -324,7 +377,7 @@ beschreibe('Rückmeldungen gegen echtes Postgres', () => {
           WHERE app_id = 'jrm-belege' AND stand_meldung IN ('neu', 'angenommen')`
       );
       expect(belege.meldungen.offen).toBe(rows[0].n);
-      expect(apps.at(-1)).toMatchObject({ id: 'entwickler-cockpit', mitgeliefert: true });
+      expect(apps.at(-1)).toMatchObject({ id: 'werkstatt', mitgeliefert: true });
     });
   });
 });

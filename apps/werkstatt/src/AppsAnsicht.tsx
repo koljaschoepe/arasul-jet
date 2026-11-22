@@ -2,7 +2,8 @@
  * Apps: je App die Fassung in Test und Live, zuletzt geändert, die Zahl
  * offener Meldungen (J44, M7). Ein Klick führt in den Eingang, gefiltert auf
  * diese App. Gelesen über alle Apps des Geräts, nicht nur die freigegebenen:
- * wer das Kennzeichen trägt, baut die Apps dieses Hauses.
+ * wer das Recht in der Werkstatt hat, baut die Apps dieses Hauses. Nur mit
+ * diesem Recht (J52).
  */
 import type { ReactNode } from 'react';
 import {
@@ -82,7 +83,7 @@ const SPALTEN: ReadonlyArray<Spalte<AppStand>> = [
       a.meldungen.offen > 0 ? (
         <Badge
           variant={a.meldungen.neu > 0 ? 'primary' : 'default'}
-          data-testid={`cockpit-offen-${a.id}`}
+          data-testid={`werkstatt-offen-${a.id}`}
         >
           {a.meldungen.offen}
         </Badge>
@@ -103,21 +104,21 @@ export function AppsAnsicht({
   laedt: boolean;
   fehler: string | null;
   zeigeMeldungen: (appId: string) => void;
-  /** Werkzeuge, die jede Ansicht trägt (Neu laden), aus dem Rahmen des Cockpits. */
+  /** Werkzeuge, die jede Ansicht trägt (Neu laden), aus dem Rahmen der Werkstatt. */
   werkzeuge?: ReactNode;
 }) {
   const offen = apps.reduce((summe, a) => summe + a.meldungen.offen, 0);
   const neu = apps.reduce((summe, a) => summe + a.meldungen.neu, 0);
   const wartend = wartetAufLive(apps).length;
   return (
-    <div style={spalte(2)} data-testid="cockpit-apps">
+    <div style={spalte(2)} data-testid="werkstatt-apps">
       <Kopf
         titel="Apps"
         werkzeuge={werkzeuge}
         beschreibung={`Je App die Fassung in Test und Live. ${anzahl(offen, 'offene Meldung', 'offene Meldungen')} über alle Apps; ein Klick zeigt sie.`}
       />
       {!fehler && !laedt && apps.length > 0 && (
-        <div data-testid="cockpit-kennzahlen">
+        <div data-testid="werkstatt-kennzahlen">
           <Kennzahlen>
             <Kennzahl beschriftung="Apps" wert={apps.length} />
             <Kennzahl beschriftung="Offene Meldungen" wert={offen} />
@@ -130,7 +131,7 @@ export function AppsAnsicht({
         <Hinweis
           art="fehler"
           titel="Die Apps ließen sich nicht laden."
-          kennzeichen="cockpit-fehler"
+          kennzeichen="werkstatt-fehler"
         >
           {fehler}
         </Hinweis>

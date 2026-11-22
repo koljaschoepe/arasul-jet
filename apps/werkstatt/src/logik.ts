@@ -1,5 +1,5 @@
 /**
- * Was das Cockpit rechnet, ohne React: Filter, Zahlen, Wörter. Hier steht es
+ * Was die Werkstatt rechnet, ohne React: Filter, Zahlen, Wörter. Hier steht es
  * getrennt, damit die Tests es ohne Oberfläche prüfen.
  */
 import type { Ansicht, AppStand, Meldung, StandMeldung } from './typen';
@@ -63,7 +63,7 @@ export function wartetAufLive(apps: readonly AppStand[]): AppStand[] {
     );
 }
 
-/** Wie lange nach dem Live-Schalten das Cockpit „Zurück“ anbietet. */
+/** Wie lange nach dem Live-Schalten die Werkstatt „Zurück“ anbietet. */
 export const RUECKWEG_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -90,8 +90,13 @@ export const zeit = (iso: string | null | undefined): string =>
 
 export const anzahl = (n: number, eins: string, viele: string) => `${n} ${n === 1 ? eins : viele}`;
 
-/** Die Ansicht aus dem Fragment der Adresse (`#apps`), sonst der Eingang. */
-export function ansichtAusAdresse(hash: string): Ansicht {
+/**
+ * Die Ansicht aus dem Fragment der Adresse (`#apps`). Ohne das Recht gibt es
+ * nur `meine`, was immer im Fragment steht; mit dem Recht ist der Eingang die
+ * Vorgabe (er zeigt die eigenen Meldungen mit, denn er zeigt alle).
+ */
+export function ansichtAusAdresse(hash: string, recht = true): Ansicht {
+  if (!recht) return 'meine';
   const wort = hash.replace(/^#/, '').split('?')[0];
   return wort === 'apps' || wort === 'live' ? wort : 'eingang';
 }

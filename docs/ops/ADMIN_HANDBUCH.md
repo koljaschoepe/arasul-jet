@@ -64,7 +64,9 @@ nicht nur in dem Browser, in dem er es umgestellt hat.
   ihr Symbol in `app.json` mitbringen, sonst weist das Gerät sie beim
   Ausrollen ab. Nennt eine ältere App keines, wählen Sie es unter
   **Verwaltung → Apps → (die App) → Symbol**; es gilt, bis die App selbst
-  eines mitbringt. Unten **Terminal** (nur Entwickler),
+  eines mitbringt. Dort steht für jeden auch die **Werkstatt** (siehe
+  „Rückmeldungen aus den Apps“). Unten **Terminal** (nur mit dem Recht in der
+  Werkstatt),
   **Verwaltung** (nur Administratoren), das **Zahnrad** (die persönlichen
   Einstellungen) und Ihr **Konto** als runde Fläche: ein Klick zeigt Name und
   Rolle und **Abmelden**. Eine Statuszeile mit Datum und Uhrzeit gibt es nicht
@@ -941,15 +943,17 @@ Nach dem Wechsel sind **alle** Sitzungen des Betroffenen beendet; er meldet
 sich einmal neu an. Das ist der Zweck: wer wechselt, weil ein Zweiter das alte
 Passwort kannte, will genau das.
 
-### Terminal für Entwickler
+### Terminal
 
-Eine Person mit der Rolle **Entwickler** öffnet in der Aktivitätsleiste ein
-Terminal: eine Shell am Gerät in ihrem eigenen Ordner, in der sie zum Beispiel
-Claude Code mit ihrem eigenen Konto startet. Alle anderen sehen kein Terminal,
-auch der Administrator nicht, solange er sich die Rolle nicht selbst gibt.
+Eine Person mit dem **Recht in der Werkstatt** öffnet in der Aktivitätsleiste
+ein Terminal: eine Shell am Gerät in ihrem eigenen Ordner, in der sie zum
+Beispiel Claude Code mit ihrem eigenen Konto startet. Alle anderen sehen kein
+Terminal, auch der Administrator nicht, solange er sich das Recht nicht selbst
+gibt. Bis zum 22.11.2026 hieß dieses Recht „Entwickler“; es ist dasselbe.
 
-**Verwaltung → Personen**, Schalter „Entwickler“ in der Zeile der Person.
-Standard ist aus. Ist er an, steht daneben ihr Name am Gerät, etwa `ara-7`.
+**Verwaltung → Personen**, Schalter in der Spalte „Werkstatt“ in der Zeile der
+Person. Standard ist aus. Ist er an, steht daneben ihr Name am Gerät, etwa
+`ara-7`.
 
 Am Gerät braucht es einmal die Einrichtung und je Person einen eigenen
 Linux-Zugang. Das macht Ihr Betreuer mit sudo:
@@ -967,7 +971,7 @@ ins Internet, die Apps über `arasul.mjs call` aufrufen. Was sie nicht darf:
 einen anderen Ordner öffnen, `sudo`, Docker, die Dienste des Geräts direkt
 ansprechen. Die letzte Zeile oben prüft genau das und nennt eine Summe.
 
-Schalten Sie „Entwickler“ ab, öffnet sich das Terminal beim nächsten Mal nicht
+Schalten Sie das Recht in der Werkstatt ab, öffnet sich das Terminal beim nächsten Mal nicht
 mehr; ein schon offenes läuft weiter, bis es geschlossen wird. Sofort heraus
 ist jemand mit `sudo ./scripts/terminal/nutzer.sh entfernen ara-7`. Das
 entfernt auch seinen Ordner am Gerät.
@@ -980,22 +984,32 @@ Mehr dazu: [`docs/features/TERMINAL.md`](../features/TERMINAL.md).
 mit einer App arbeitet, tippt darauf, schreibt, was fehlt oder nicht stimmt,
 und markiert auf einem Bildschirmfoto der Seite die Stelle. Das Foto lässt
 sich abwählen. App, Seite, Name und Uhrzeit gehen von selbst mit. Danach sieht
-die Person nur „Ihre Rückmeldung ist angekommen.“ und ihre Meldung nicht
-wieder.
+die Person „Ihre Rückmeldung ist angekommen.“
 
-Lesen kann die Meldungen nur, wer das Kennzeichen **Entwickler** trägt, auch
-der Administrator nicht ohne es: **Verwaltung → Personen**, Schalter
-„Entwickler“. Mit dem Kennzeichen steht in der Aktivitätsleiste die App
-**Entwickler-Cockpit**; sie kommt mit Arasul, auch eine Person ohne
-Verwaltung sieht sie, wer das Kennzeichen nicht trägt, sieht sie nicht. Drei
-Ansichten:
+**Die Werkstatt** (bis 22.11.2026 „Entwickler-Cockpit“) ist eine App, die mit
+Arasul kommt und in der Aktivitätsleiste **jeder** Person steht, ohne Freigabe.
+Was dort steht, hängt an einem Recht, nicht an einer Rolle; umschalten muss
+niemand:
+
+- **Ohne das Recht** sieht eine Person unter „Meine Meldungen“ nur, was sie
+  selbst gemeldet hat: Text, Seite, Foto, den Stand (neu, angenommen,
+  umgesetzt, abgelehnt) und bei einer Ablehnung den Grund. Meldungen und Fotos
+  anderer sieht sie nie.
+- **Mit dem Recht in der Werkstatt** sieht sie alle Meldungen samt Fotos,
+  setzt den Stand, sieht die Apps und schaltet von Test nach Live. Das Recht
+  geben Sie unter **Verwaltung → Personen**, Schalter in der Spalte
+  „Werkstatt“; es öffnet auch das Terminal. Die Rolle Administrator allein
+  reicht nicht, Sie geben es sich bei Bedarf selbst.
+
+Mit dem Recht hat die Werkstatt drei Ansichten:
 
 - **Eingang**: die Meldungen aller Apps, neueste zuerst, mit Filter nach App
   und Stand. Ein Klick öffnet eine Meldung mit Text, Seite, Person, Zeit und
   dem Foto. Dort setzen Sie den Stand: neu, angenommen, umgesetzt oder
-  abgelehnt; wer ablehnt, schreibt den Grund dazu. Die meldende Person erfährt
-  davon nichts. „Entfernen“ nimmt Meldung und Foto vom Gerät; in älteren
-  Sicherungen bleiben sie, bis diese ablaufen.
+  abgelehnt; wer ablehnt, schreibt den Grund dazu. Stand und Grund sieht die
+  meldende Person danach in ihrer Werkstatt; schreiben Sie den Grund also so,
+  dass sie ihn versteht. „Entfernen“ nimmt Meldung und Foto vom Gerät; in
+  älteren Sicherungen bleiben sie, bis diese ablaufen.
 - **Apps**: je App die Fassung im Test und live, wann zuletzt geändert, wie
   viele Meldungen offen sind.
 - **Test nach Live**: welche App im Test eine neuere Fassung hat als live,
@@ -1006,7 +1020,8 @@ Ansichten:
   Verwaltung → Apps.
 
 Bis zum 20.11.2026 stand die Liste der Meldungen in der Verwaltung als
-eigene Seite; die gibt es nicht mehr, ihre alte Adresse führt zu den Apps.
+eigene Seite; die gibt es nicht mehr, ihre alte Adresse führt zu den Apps. Die
+alte Adresse des Cockpits (`/apps/entwickler-cockpit/`) führt zur Werkstatt.
 
 Gespeichert wird nur am Gerät: der Text in der Datenbank, das Foto als Datei
 bei den Apps (`data/apps/.rueckmeldungen/`). Beides geht in die nächtliche
@@ -1027,8 +1042,8 @@ fest: **Verwaltung → Apps → (App) → Rückmeldungen**, Schalter
 Text, Seite und Person, aber weder das Foto noch die markierte Stelle, und
 auch keinen Hinweis, dass es eines gibt. Schalten Sie es nur ein, wenn auf den
 Seiten dieser App nichts steht, was das Haus nicht verlassen darf, oder wenn
-mit dem Anbieter des Agenten ein Vertrag dafür besteht. Am Gerät sehen
-Entwickler die Fotos in jedem Fall. Jede Abfrage durch das Kit steht im
+mit dem Anbieter des Agenten ein Vertrag dafür besteht. Am Gerät sieht die
+Fotos in jedem Fall, wer das Recht in der Werkstatt hat. Jede Abfrage durch das Kit steht im
 Sicherheitsprotokoll: welcher Schlüssel, wann, welche App, mit oder ohne
 Bilder.
 

@@ -5,7 +5,7 @@
  * genau das Verbiegen, das die Demo nicht darf. Stattdessen ersetzt diese
  * Datei sichtbare Sätze im fertigen DOM nach einem Wörterbuch
  * (`woerterbuch.ts`), in der Shell und in jeder App im Rahmen gleicher
- * Herkunft (Entwickler-Cockpit). Was das Wörterbuch nicht kennt, bleibt
+ * Herkunft (Werkstatt). Was das Wörterbuch nicht kennt, bleibt
  * deutsch; der Weg der Demo ist vollständig erfasst, `woerterbuch.test.ts`
  * misst die Liste.
  *

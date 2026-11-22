@@ -86,7 +86,7 @@ const ALT: Record<string, { bereich: SettingsSectionId; abschnitt?: string }> = 
   privacy: { bereich: 'daten' },
   // Seit M5 stehen die Verbindungen auf der Seite jeder App.
   verbindungen: { bereich: 'apps' },
-  // Die Liste der Rückmeldungen (J42) ist im Entwickler-Cockpit aufgegangen
+  // Die Liste der Rückmeldungen (J42) ist im Entwickler-Cockpit aufgegangen, heute Werkstatt
   // (J44); ein altes Lesezeichen landet bei den Apps, wo der Schalter für
   // Bildschirmfotos steht.
   rueckmeldungen: { bereich: 'apps' },

@@ -46,7 +46,10 @@ export interface Benutzer {
   funktion: string | null;
   kuerzel: string | null;
   hat_bild: boolean;
-  /** Rolle Entwickler: darf das Terminal öffnen (Migration 213). */
+  /**
+   * Recht in der Werkstatt (Migration 213, sichtbar seit J52 so benannt): alle
+   * Rückmeldungen, Apps live schalten, Terminal.
+   */
   entwickler: boolean;
 }
 
@@ -165,7 +168,7 @@ export function useVerwaltungSetzen() {
   });
 }
 
-/** Der Schalter „Entwickler": darf die Person das Terminal öffnen. Standard aus. */
+/** Der Schalter „Werkstatt": das Recht in der Werkstatt samt Terminal. Standard aus. */
 export function useEntwicklerSetzen() {
   const api = useApi();
   const qc = useQueryClient();

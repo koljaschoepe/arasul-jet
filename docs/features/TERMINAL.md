@@ -49,8 +49,10 @@ mit Rechten erst geben müsste.
 
 `ara-<id>`, aus der Kennung der Person, **nie aus dem Benutzernamen**: eindeutig,
 unveränderlich bei einer Umbenennung, und ohne Umschreiben ein gültiger
-Linux-Name. Die Verwaltung zeigt ihn unter Personen neben dem Schalter
-„Entwickler“.
+Linux-Name. Die Verwaltung zeigt ihn unter Personen neben dem Schalter in der
+Spalte „Werkstatt“ (bis 22.11.2026 „Entwickler“; seit J52 heißt das
+Kennzeichen sichtbar Recht in der Werkstatt, technisch bleibt es
+`admin_users.entwickler`).
 
 ### Das Siegel
 
@@ -130,7 +132,7 @@ Das Backend gehört in den Befehl, weil es `COMPOSE_PROFILES` liest und eine
 Umgebungsvariable einen laufenden Container nicht erreicht (dieselbe Falle wie
 beim Firmenordner).
 
-Je Person, nachdem die Verwaltung „Entwickler“ eingeschaltet hat:
+Je Person, nachdem die Verwaltung das Recht in der Werkstatt eingeschaltet hat:
 
 ```bash
 sudo ./scripts/terminal/nutzer.sh anlegen ara-7

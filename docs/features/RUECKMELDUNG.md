@@ -6,15 +6,20 @@
 > für das Kit mit dem Schalter je App für Bilder (Karte
 > `rueckmeldung-schnittstelle`, J43, Abschnitt
 > [Schnittstelle für das Kit](#schnittstelle-für-das-kit)). Seit demselben Tag
-> das Entwickler-Cockpit (Karte `entwickler-cockpit`, J44, Abschnitt
-> [Das Entwickler-Cockpit](#das-entwickler-cockpit)); es ersetzt die Liste
-> Verwaltung › Rückmeldungen.
+> das Entwickler-Cockpit (Karte `entwickler-cockpit`, J44); es ersetzt die Liste
+> Verwaltung › Rückmeldungen. Seit 22.11.2026 heißt es **Werkstatt** und steht
+> allen offen (Karte `werkstatt-und-rechte`, J52, Abschnitt
+> [Die Werkstatt](#die-werkstatt)): jeder sieht seine eigenen Meldungen mit
+> Stand, wer das Recht in der Werkstatt hat, alle (`company/schleife.md`,
+> Regel 2, neu).
 
 Über jeder App zeigt der Rahmen von Arasul oben rechts ein kleines Icon. Ein
 Mitarbeiter tippt darauf, schreibt in freien Worten, was fehlt oder nicht
 stimmt, und markiert auf einem Bildschirmfoto der Seite die Stelle. App, Stand,
 Seite, Person und Zeit hängen Rahmen und Gerät selbst an. Gespeichert wird am
-Gerät. Lesen kann eine Meldung nur, wer das Kennzeichen **Entwickler** trägt.
+Gerät. Seine eigenen Meldungen liest jeder in der Werkstatt, mit Stand und
+Grund; alle Meldungen liest nur, wer das **Recht in der Werkstatt** hat
+(technisch das Kennzeichen `admin_users.entwickler`).
 
 Keine App bekommt dafür eine Zeile Code, und keine App kann es abschalten:
 Icon, Formular und Bildschirmfoto gehören dem Rahmen, nicht der App.
@@ -36,9 +41,11 @@ Icon, Formular und Bildschirmfoto gehören dem Rahmen, nicht der App.
      Foto: Ziehen zeichnet einen Rahmen um die Stelle, Tippen setzt ein
      kleines Quadrat; jede neue Geste ersetzt die vorige.
    - Ein Satz, was mitgeht: App, Seite, Name, Uhrzeit, gespeichert am Gerät.
-3. Nach dem Absenden steht nur „Ihre Rückmeldung ist angekommen.“ Einen Weg,
-   die eigene Meldung wieder zu lesen, gibt es nicht (Regel 2 der Schleife,
-   von Kolja am 20.11.2026 so entschieden).
+3. Nach dem Absenden steht „Ihre Rückmeldung ist angekommen.“ Seit dem
+   22.11.2026 steht die Meldung danach in der Werkstatt unter „Meine
+   Meldungen“, mit Stand (neu, angenommen, umgesetzt, abgelehnt) und bei einer
+   Ablehnung dem Grund (Regel 2 der Schleife, neu; bis dahin gab es keinen Weg,
+   die eigene Meldung wieder zu lesen).
 
 Ließ sich kein Foto aufnehmen, sagt das Formular es in einem Satz, und die
 Meldung geht nur mit Text.
@@ -110,32 +117,59 @@ PNG gezeichnet (Farbe aus dem Token `--primary`) und zusätzlich als
 | Weg                                | Wer                                                                   |
 | ---------------------------------- | --------------------------------------------------------------------- |
 | `POST /api/rueckmeldungen`         | jeder, der die App in diesem Stand benutzen darf (`appZugang.pruefe`) |
-| `GET /api/rueckmeldungen`          | nur Kennzeichen Entwickler                                            |
-| `GET /api/rueckmeldungen/:id/bild` | nur Kennzeichen Entwickler                                            |
-| `PATCH /api/rueckmeldungen/:id`    | nur Kennzeichen Entwickler (Stand setzen im Cockpit, J44)             |
-| `DELETE /api/rueckmeldungen/:id`   | nur Kennzeichen Entwickler                                            |
+| `GET /api/rueckmeldungen`          | jeder: die eigenen; mit dem Recht in der Werkstatt alle (J52)         |
+| `GET /api/rueckmeldungen/:id/bild` | jeder: das Bild zur eigenen Meldung; mit dem Recht jedes (J52)        |
+| `PATCH /api/rueckmeldungen/:id`    | nur mit dem Recht in der Werkstatt (Stand setzen, J44)                |
+| `DELETE /api/rueckmeldungen/:id`   | nur mit dem Recht in der Werkstatt                                    |
+| `GET /api/werkstatt/ich`           | jeder: ob er das Recht hat                                            |
+| `GET /api/werkstatt/apps`          | nur mit dem Recht in der Werkstatt                                    |
 
-Das Kennzeichen wird bei **jedem** lesenden Aufruf frisch aus der Datenbank
-gelesen, nicht aus dem Zwischenspeicher der Anmeldung: ein entzogenes
-Kennzeichen gilt beim nächsten Aufruf. Die Rolle Administrator allein reicht
-nicht. Belegt in `apps/dashboard-backend/__tests__/unit/rueckmeldungen.test.js`
-(Abweisung für Mitarbeiter und für Administrator ohne Kennzeichen) und gegen
-echtes Postgres in `__tests__/pg/rueckmeldungen.test.js`.
+Das Recht wird bei **jedem** Aufruf frisch aus der Datenbank gelesen, nicht
+aus dem Zwischenspeicher der Anmeldung: ein entzogenes Recht gilt beim nächsten
+Aufruf. Die Rolle Administrator allein reicht nicht. **Die eigene Sicht grenzt
+die Abfrage selbst ein** (`WHERE person_id = …`), nicht der Browser; eine
+fremde Meldung oder ihr Bild antwortet ohne das Recht 404, wie eine, die es
+nicht gibt. Die Antwort auf `GET` sagt in `sicht`, ob `"eigene"` oder `"alle"`
+galt. Belegt in `apps/dashboard-backend/__tests__/unit/rueckmeldungen.test.js`
+(eigene Sicht für Mitarbeiter und Administrator ohne das Recht, fremdes Bild
+404, Stand setzen und Entfernen 403) und gegen echtes Postgres in
+`__tests__/pg/rueckmeldungen.test.js` (eigene Sicht, fremdes Bild, Migration
+218).
+
+**Das Recht heißt Recht, nicht Rolle.** Technisch bleibt es das Kennzeichen
+`admin_users.entwickler` (Migration 213), an dem auch das Terminal hängt; so
+brechen weder Terminal noch Kit-Schnittstelle noch der App-Standard. Sichtbar
+steht es unter Verwaltung › Personen als Schalter in der Spalte „Werkstatt“
+(„Recht in der Werkstatt für …“). Mitarbeiter und wer die Apps betreut sind
+dieselbe Art Konto; umgeschaltet wird nirgends.
 
 Einzelheiten der Wege: [`docs/api/API_REFERENCE.md`](../api/API_REFERENCE.md#rückmeldungen-j42-m7-20112026).
 
-## Das Entwickler-Cockpit
+## Die Werkstatt
 
-> Karte `entwickler-cockpit` (J44, M7, 20.11.2026). Quelle: `company/schleife.md`,
-> Teile „Eingang" und „Test nach Live"; `company/plattform.md`: „Einzige
-> mitgelieferte App".
+> Karte `entwickler-cockpit` (J44, M7, 20.11.2026), seit der Karte
+> `werkstatt-und-rechte` (J52, M7, 22.11.2026) unter diesem Namen und für alle.
+> Quelle: `company/schleife.md`, Teile „Eingang" und „Test nach Live", Regel 2;
+> `company/plattform.md`: „Einzige mitgelieferte App".
 
 Eine App im Rahmen wie jede andere, nur dass sie mit Arasul kommt: Adresse
-`/apps/entwickler-cockpit/`, ein Symbol in der Aktivitätsleiste, gebaut aus
-der Bibliothek zur Laufzeit (`/marken/5/`), am Handy mit der Leiste als Blatt.
-**Sichtbar nur mit dem Kennzeichen Entwickler**, auch ohne Admin-Rolle; ohne
-Kennzeichen steht es weder in der Leiste noch öffnet die Adresse etwas (403,
-auch für den Administrator). Drei Ansichten:
+`/apps/werkstatt/`, Symbol Hammer in der Aktivitätsleiste, gebaut aus der
+Bibliothek zur Laufzeit (`/marken/5/`), am Handy mit der Leiste als Blatt.
+**Sie steht jeder aktiven Person offen**, ohne Freigabe und ohne Kennzeichen.
+Die alte Adresse `/apps/entwickler-cockpit/…` zieht mit 301 hierher um, samt
+Rest und Abfrage und vor der Anmeldung (`routes/appAusliefern.js`).
+
+**Was dort steht, entscheidet das Recht in der Werkstatt** (`GET
+/api/werkstatt/ich`), nicht eine Rolle; umgeschaltet wird nichts:
+
+| Wer            | Ansichten                                                                                                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ohne das Recht | **Meine Meldungen**: was die Person selbst gemeldet hat, neueste zuerst, mit App, Zeit und Stand. Ein Klick öffnet die Meldung nur zum Lesen: Text, Seite, das eigene Bildschirmfoto, Stand mit Satz, bei „abgelehnt“ der Grund |
+| mit dem Recht  | **Eingang**, **Apps**, **Test nach Live** (Tabelle unten). „Meine Meldungen“ gibt es dort nicht eigens: der Eingang zeigt alle, die eigenen mit                                                                                 |
+
+Steht im Fragment der Adresse eine Seite, die es ohne das Recht nicht gibt
+(`#live`), zeigt die Werkstatt trotzdem „Meine Meldungen“; die Apps fragt sie
+ohne das Recht gar nicht erst. Mit dem Recht drei Ansichten:
 
 | Ansicht            | Was dort steht                                                                                                                                                                                                                                                             |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -143,54 +177,68 @@ auch für den Administrator). Drei Ansichten:
 | **Apps**           | Je App die Fassung in Test und Live, zuletzt geändert, die Zahl offener Meldungen; ein Klick zeigt ihre Meldungen im Eingang                                                                                                                                               |
 | **Test nach Live** | Was im Test neuer ist als live, mit dem Änderungstext der Fassung. „Live schalten“ nach einer Rückfrage; darunter „Zurück“ auf die Fassung davor, in den 24 Stunden nach einer Schaltung                                                                                   |
 
+**Der Grund einer Ablehnung ist ein Satz an die Person, die gemeldet hat**:
+sie liest ihn in ihrer Werkstatt. Das sagt der Dialog beim Setzen und der
+Kontrakt dem Kit.
+
 **Wie es an die Meldungen kommt, ohne die Regel der Apps zu brechen.** Die
 Regel vom 01.10.2026 sagt: eine App erreicht nur ihre eigene Datenbank und die
-Plattform-API. Das Cockpit hat **kein Backend**, also weder Datenbank noch
+Plattform-API. Die Werkstatt hat **kein Backend**, also weder Datenbank noch
 Schlüssel. Es läuft wie jede App als iframe gleicher Herkunft und ruft die
 Plattform-API **mit der Sitzung des Menschen davor** (Cookie, CSRF-Kopf):
 `GET/PATCH/DELETE /api/rueckmeldungen`, `GET /api/rueckmeldungen/:id/bild`,
-`GET /api/entwickler/apps`, `POST /api/apps/:id/schalten`. Jede dieser Routen
-prüft das Kennzeichen frisch aus der Datenbank. Damit kann das Cockpit genau
-das, was dieser Mensch darf, und nichts darüber hinaus; eine fremde Datenbank
-liest es nie. Verworfen: ein Backend mit einem eigenen Schlüssel im Bereich
+`GET /api/werkstatt/ich`, `GET /api/werkstatt/apps`, `POST
+/api/apps/:id/schalten`. Jede dieser Routen prüft das Recht frisch aus der
+Datenbank. Damit kann die Werkstatt genau das, was dieser Mensch darf, und
+nichts darüber hinaus; eine fremde Datenbank liest sie nie. Darum konnte sie
+mit J52 für alle aufgehen, ohne dass sich an ihr eine Zeile Sicherheit
+änderte: die Grenze steht an den Routen. Verworfen: ein Backend mit einem eigenen Schlüssel im Bereich
 `feedback:agent`. Es hätte allen dasselbe gezeigt, auch nach einem entzogenen
 Kennzeichen, und einen dauerhaft gültigen Schlüssel im Container gebraucht.
 
 **Was es von einer ausgerollten App unterscheidet**
 (`apps/dashboard-backend/src/services/app/mitgeliefert.js`):
 
-- Die Dateien liegen im Abbild des Backends (`mitgeliefert/entwickler-cockpit/`,
-  gebaut im Dockerfile aus `apps/entwickler-cockpit/`), nicht in `APPS_DIR`. Es
-  kommt mit jedem Update des Geräts, hat keine Zeile in `apps` oder
+- Die Dateien liegen im Abbild des Backends (`mitgeliefert/werkstatt/`, gebaut
+  im Dockerfile, Stufe `werkstatt`, aus `apps/werkstatt/`), nicht in
+  `APPS_DIR`. Sie kommt mit jedem Update des Geräts, hat keine Zeile in `apps` oder
   `app_staende`, keinen Teststand, keinen Container.
-- Die Kennung `entwickler-cockpit` ist für Pakete vergeben: ein Manifest, das
-  sie nennt, wird abgewiesen.
-- Über dem Cockpit steht das Icon der Rückmeldung wie über jeder App; eine
-  Meldung dazu landet im Eingang unter „Entwickler-Cockpit“.
+- Die Kennung `werkstatt` ist für Pakete vergeben, die alte
+  `entwickler-cockpit` ebenso (`ALTE_KENNUNGEN` in `schemas/apps.js`): ein
+  Manifest, das eine nennt, wird abgewiesen.
+- Über der Werkstatt steht das Icon der Rückmeldung wie über jeder App; eine
+  Meldung dazu landet im Eingang unter „Werkstatt“. Weil jeder die Werkstatt
+  hat, kann auch jemand ohne eine einzige App-Freigabe melden, nämlich zu ihr.
+  Migration 218 hat Meldungen zur alten Kennung umgezogen.
 
 **Test nach Live ist kein zweiter Mechanismus.** Der Knopf ruft denselben Weg
 wie Verwaltung › Apps (`POST /api/apps/:id/schalten` → `liveSchalten.js`):
 alten Livestand anhalten, Daten sichern (restic, `vorher`), schalten,
 zusehen, bei Bedarf selbst zurück, ein Eintrag in `app_schaltungen`. Seit J44
-darf diesen Weg auch ein Entwickler ohne Admin-Rolle gehen
-(`company/schleife.md`: „der Entwickler … schaltet es live“).
+darf diesen Weg auch gehen, wer das Recht in der Werkstatt hat, ohne
+Admin-Rolle (`company/schleife.md`: „der Entwickler … schaltet es live“).
 
-**Am Gerät ändert der Schalter „Bildschirmfotos an den Agenten“ nichts**: im
-Cockpit sieht ein Entwickler jedes Foto.
+**Am Gerät ändert der Schalter „Bildschirmfotos an den Agenten“ nichts**: in
+der Werkstatt sieht jedes Foto, wer das Recht hat, und jeder sein eigenes.
 
 **Der Nachweis des Kit-Ablaufs** (Ara-Kit, `.ara/knowledge/nachweis.de.md`,
-J45) kann das Cockpit nicht tragen und muss als mitgelieferte App ausgenommen
-sein: es wird nicht mit dem Kit gebaut und nicht ausgerollt, sondern mit dem
-Gerät gebaut und mit dem Update geliefert. Den App-Standard erfüllt es sonst:
+J45) kann die Werkstatt nicht tragen und muss als mitgelieferte App
+ausgenommen sein: sie wird nicht mit dem Kit gebaut und nicht ausgerollt,
+sondern mit dem Gerät gebaut und mit dem Update geliefert. Den App-Standard
+erfüllt sie sonst:
 Bausteine der Bibliothek (Seitenleiste, Datenliste, Kopf, Karte, Dialogform,
 Bestätigung, Meldung, Leerzustand), Typen, Tests
-(`apps/entwickler-cockpit/src/__tests__/`, mitgefahren von den Tests des
+(`apps/werkstatt/src/__tests__/`, mitgefahren von den Tests des
 Frontends) und die Regeln der Gestalt (Tokens, drei Größen).
 
 ## Abnahme am Orin
 
-Das Entwickler-Cockpit: `scripts/test/entwickler-cockpit-abnahme.mjs`, am
-20.11.2026 nach dem Deploy 70 von 70 grün (Abweisung ohne Kennzeichen, alle
+Die Werkstatt: `scripts/test/werkstatt-abnahme.mjs` (J52), beide Sichten.
+Ergebnis nach dem Deploy: [`docs/plans/audits/2026-11-22-werkstatt/`](../plans/audits/2026-11-22-werkstatt/README.md).
+
+Das Entwickler-Cockpit (J44; das Skript hieß bis 22.11.2026
+`entwickler-cockpit-abnahme.mjs` und ist in der Werkstatt-Abnahme aufgegangen),
+am 20.11.2026 nach dem Deploy 70 von 70 grün (Abweisung ohne Kennzeichen, alle
 drei Ansichten in Chromium und WebKit bei 1440 und 390 px, Stand setzen, Live
 schalten mit Sicherung und Zurück). Bericht und Bilder:
 [`docs/plans/audits/2026-11-20-entwickler-cockpit/`](../plans/audits/2026-11-20-entwickler-cockpit/README.md).
@@ -246,8 +294,8 @@ Namen von Mitarbeitern. Widerrufen wie jeder Schlüssel
 | **aus**  | Text, Seite, App, Stand, Person, Zeit, Stand der Meldung. Das Feld `bild` **fehlt** an jeder Meldung: kein Bild, keine Markierung, kein Weg dorthin, kein Hinweis, ob es eins gibt. Der Abholweg antwortet 403 |
 | **an**   | dazu je Meldung `bild`: `null` ohne Foto, sonst `{ "weg", "format", "markierung" }`. Das Bild selbst über `weg`                                                                                                |
 
-Am Gerät ändert der Schalter nichts: Entwickler sehen die Fotos in der Liste
-(und später im Cockpit) immer. Den Dateinamen am Gerät nennt die Antwort nie.
+Am Gerät ändert der Schalter nichts: in der Werkstatt sieht die Fotos immer,
+wer das Recht hat. Den Dateinamen am Gerät nennt die Antwort nie.
 
 ### Lesen
 
@@ -371,7 +419,8 @@ bei Schalter an), dazu `vorher`:
 ```
 
 Am Gerät steht dazu `stand_geaendert_durch = "schluessel:<präfix>"`. Der
-Mitarbeiter, der gemeldet hat, erfährt davon nichts (Regel 2).
+Mitarbeiter, der gemeldet hat, sieht Stand und Grund in seiner Werkstatt
+(Regel 2 seit 22.11.2026); schreiben Sie den Grund für ihn.
 
 ### Fehlerfälle
 
@@ -417,4 +466,5 @@ Schalter an, Stand, Protokoll) und gegen echtes Postgres in
 ## Was nicht gebaut ist
 
 Der Kit-Befehl, der diese Schnittstelle nutzt (K29). Kein Chat, kein Agent im Browser,
-keine Abstimmung, keine Sicht für andere Mitarbeiter.
+keine Abstimmung, ohne das Recht in der Werkstatt keine Sicht auf die Meldungen
+anderer.

@@ -1,7 +1,8 @@
 /**
- * Was das Entwickler-Cockpit ueber die Apps des Geraets wissen muss (J44, M7).
+ * Was die Werkstatt ueber die Apps des Geraets wissen muss (J44, M7; bis J52
+ * Entwickler-Cockpit).
  *
- * Eine Abfrage fuer zwei Ansichten des Cockpits:
+ * Eine Abfrage fuer zwei Ansichten der Werkstatt (nur mit dem Recht dazu):
  *
  *   Apps          je App die Fassung in Test und Live, zuletzt geaendert,
  *                 die Zahl offener Meldungen (neu und angenommen)
@@ -15,14 +16,14 @@
  * Mechanismus.
  *
  * Gelesen wird ueber ALLE Apps des Geraets, nicht nur die freigegebenen: wer
- * das Kennzeichen Entwickler traegt, baut die Apps dieses Hauses. Die Pruefung
- * des Kennzeichens steht an der Route.
+ * das Recht in der Werkstatt hat (Kennzeichen Entwickler), baut die Apps
+ * dieses Hauses. Die Pruefung des Rechts steht an der Route.
  */
 
 const db = require('../../database');
 const mitgeliefert = require('./mitgeliefert');
 
-/** Ein Stand so, wie das Cockpit ihn zeigt, oder `null`. */
+/** Ein Stand so, wie die Werkstatt ihn zeigt, oder `null`. */
 function stand(version, eingespieltAm, aenderungstext, vorigeVersion = null) {
   if (!version) {
     return null;
@@ -58,7 +59,7 @@ function testIstNeuer(live, test) {
 }
 
 /**
- * Die Apps fuer das Cockpit, nach Namen. Die mitgelieferten stehen am Ende:
+ * Die Apps fuer die Werkstatt, nach Namen. Die mitgelieferten stehen am Ende:
  * sie haben nur einen Livestand, kommen mit Arasul und werden nie geschaltet,
  * aber auch zu ihnen gibt es Meldungen.
  *

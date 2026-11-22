@@ -275,8 +275,8 @@ describe('(b) und (c) der Nachweis, in der Reihenfolge des Blatts', () => {
 });
 
 describe('Ausnahmen', () => {
-  it('das Entwickler-Cockpit ist als mitgelieferte App ausgenommen', async () => {
-    const manifest = { ...MANIFEST, id: 'entwickler-cockpit' };
+  it('die Werkstatt ist als mitgelieferte App ausgenommen', async () => {
+    const manifest = { ...MANIFEST, id: 'werkstatt' };
     const urteil = await appStandard.pruefe(paket({ manifest, ohneNachweis: true }), manifest);
     expect(urteil).toEqual({ erfuellt: true, ausgenommen: true, funde: [] });
   });

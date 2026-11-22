@@ -5,7 +5,7 @@
  * Anfrage an `/api/…` und an die Schnittstelle einer Beispiel-App selbst
  * (`antworten.ts`). Ein Service Worker und kein ausgetauschtes `fetch`, weil
  * er auch erreicht, was kein Skript abfängt: Bilder (`<img src="/api/…">`)
- * und die Apps im iframe, darunter das Entwickler-Cockpit mit seinem eigenen
+ * und die Apps im iframe, darunter die Werkstatt mit ihrem eigenen
  * `fetch`. Das Frontend weiß von all dem nichts.
  *
  * Nichts verlässt den Browser: der Zustand liegt in IndexedDB, und eine

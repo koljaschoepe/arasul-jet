@@ -24,7 +24,8 @@
  * dem Bau geaenderte Datei, eine kopierte App, vergessene Tests. Darum steckt
  * hier kein Schluessel und keine Signatur.
  *
- * AUSNAHMEN: genau eine, die mitgelieferte App (das Entwickler-Cockpit). Sie
+ * AUSNAHMEN: genau eine, die mitgelieferte App (die Werkstatt, bis J52
+ * Entwickler-Cockpit). Sie
  * kommt mit dem Geraet und nicht ueber das Kit. Einen Schalter, der die
  * Pruefung umgeht, gibt es nicht. Ein fremder Container (kein Frontend, ein
  * fertiges Image) traegt laut Blatt keinen Nachweis; das Geraet weist ihn ab,

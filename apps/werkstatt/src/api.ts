@@ -1,12 +1,13 @@
 /**
- * Der Weg des Cockpits zur Plattform-API (J44, M7).
+ * Der Weg der Werkstatt zur Plattform-API (J44, M7; bis J52 Entwickler-Cockpit).
  *
- * Das Cockpit ist eine mitgelieferte App ohne eigenes Backend. Es läuft im
+ * Die Werkstatt ist eine mitgelieferte App ohne eigenes Backend. Es läuft im
  * Rahmen als iframe gleicher Herkunft und ruft die Plattform mit der Sitzung
  * des Menschen, der davor sitzt: das Cookie geht von selbst mit, für jeden
  * ändernden Aufruf der CSRF-Kopf aus dem Cookie `arasul_csrf`, wie in der
- * Shell. Jede Route prüft das Kennzeichen Entwickler selbst; was das Cockpit
- * darf, darf genau dieser Mensch. Einen Schlüssel oder eine Datenbank hat es
+ * Shell. Jede Route prüft das Recht in der Werkstatt selbst; was die
+ * Werkstatt darf, darf genau dieser Mensch: ohne das Recht liefert
+ * `/api/rueckmeldungen` nur die eigenen Meldungen. Einen Schlüssel oder eine Datenbank hat es
  * nicht (`apps/dashboard-backend/src/services/app/mitgeliefert.js`).
  *
  * Absolute Pfade (`/api/…`) mit Absicht: das ist die Plattform, nicht die
@@ -95,8 +96,11 @@ async function rufe<T>(
 }
 
 export const api = {
+  /** Hat dieser Mensch das Recht in der Werkstatt? Danach richten sich die Seiten. */
+  ich: () => rufe<import('./typen').Ich>('GET', '/api/werkstatt/ich'),
+  /** Ohne das Recht die eigenen Meldungen, mit ihm alle (das Gerät entscheidet). */
   meldungen: () => rufe<import('./typen').Meldung[]>('GET', '/api/rueckmeldungen'),
-  apps: () => rufe<import('./typen').AppStand[]>('GET', '/api/entwickler/apps'),
+  apps: () => rufe<import('./typen').AppStand[]>('GET', '/api/werkstatt/apps'),
   standSetzen: (id: number, standMeldung: string, grund?: string) =>
     rufe<import('./typen').Meldung>('PATCH', `/api/rueckmeldungen/${id}`, {
       stand_meldung: standMeldung,
