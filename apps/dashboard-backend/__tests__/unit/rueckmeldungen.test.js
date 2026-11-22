@@ -232,6 +232,28 @@ describe('Lesen: die eigenen für jeden, alle nur mit dem Recht in der Werkstatt
     expect(db.query.mock.calls[1][1]).toEqual([null, 500, '2']);
   });
 
+  test('eine Meldung zur Werkstatt trägt ihren Namen, nicht die Kennung', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ entwickler: false }] }).mockResolvedValueOnce({
+      rows: [
+        {
+          id: '10',
+          app_id: 'werkstatt',
+          app_name: null,
+          stand: 'live',
+          seite: '/apps/werkstatt/',
+          text: 'Zur Werkstatt',
+          bild: null,
+          markierung: null,
+          person_id: '2',
+          stand_meldung: 'neu',
+          erstellt_am: '2026-11-22T10:00:00Z',
+        },
+      ],
+    });
+    const res = await request(app()).get('/api/rueckmeldungen');
+    expect(res.body.data[0].app_name).toBe('Werkstatt');
+  });
+
   test('ein Administrator ohne das Recht sieht ebenfalls nur die eigenen', async () => {
     mockAngemeldet = { id: '1', username: 'chef', role: 'admin' };
     db.query.mockResolvedValueOnce({ rows: [{ entwickler: false }] }).mockResolvedValueOnce({
