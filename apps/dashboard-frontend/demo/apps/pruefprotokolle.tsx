@@ -283,7 +283,8 @@ const def: AppDef = {
                     `zu prüfen · ${name(Number(e.felder.pruefer))}`,
                     `to inspect · ${name(Number(e.felder.pruefer))}`
                   ),
-          wichtig: e.stand !== 'offen',
+          wichtig: e.stand === 'nacharbeit',
+          freigabe: e.stand === 'freigabe',
         })),
   },
   schritte: e => {

@@ -219,6 +219,15 @@ const TEXTE = {
   'feld-lagerort': 'R-12',
 };
 
+/** Die Änderung je App: eine Bemerkung, wie sie dort stünde. */
+const NOTIZ = {
+  angebote: ['Kunde wünscht Montage im Januar.', 'Customer asks for installation in January.'],
+  wareneingang: ['Zwei Bunde, Etiketten vollständig.', 'Two bundles, labels complete.'],
+  wartungsplan: ['Ersatzfilter liegt im Lager R-12.', 'Spare filter is in store R-12.'],
+  pruefprotokolle: ['Nahtbild gleichmäßig, keine Nacharbeit.', 'Even weld pattern, no rework.'],
+  urlaub: ['Abgestimmt mit Frank Wiesner.', 'Agreed with Frank Wiesner.'],
+};
+
 /** Ein leeres Formular so füllen, dass es die Prüfung besteht. */
 async function formularFuellen(rahmen, app) {
   const heute = new Date().toISOString().slice(0, 10);
@@ -347,20 +356,12 @@ async function weg(browser, basis, sprache, breite) {
     // Ändern: im Blatt bearbeiten, eine Bemerkung setzen
     await rahmen.getByTestId('fa-bearbeiten').click();
     await rahmen.getByTestId('fa-formular').waitFor();
-    await rahmen
-      .locator('#feld-notiz')
-      .fill(
-        sprache === 'en'
-          ? 'Customer asks for installation in January.'
-          : 'Kunde wünscht Montage im Januar.'
-      );
+    const notiz = NOTIZ[app][sprache === 'en' ? 1 : 0];
+    await rahmen.locator('#feld-notiz').fill(notiz);
     await rahmen.getByTestId('fa-speichern').click();
     await rahmen.getByTestId('fa-formular').waitFor({ state: 'detached', timeout: 5000 });
     const geaendert = await rahmen.getByTestId('fa-blatt').innerText();
-    if (
-      !/Kunde wünscht Montage im Januar|Customer asks for installation in January/.test(geaendert)
-    )
-      rot(`${wo} ${app}: Änderung nicht im Blatt`);
+    if (!geaendert.includes(notiz)) rot(`${wo} ${app}: Änderung nicht im Blatt`);
     await seite.keyboard.press('Escape');
     await warte(300);
 

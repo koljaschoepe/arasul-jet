@@ -97,6 +97,8 @@ export interface Hinweis {
   e: Eintrag;
   satz: string;
   wichtig?: boolean;
+  /** Wartet auf eine Freigabe: blau, nicht rot (Rot heißt Fehler). */
+  freigabe?: boolean;
 }
 
 export interface AppDef {
@@ -412,6 +414,7 @@ function FachApp({ def }: { def: AppDef }) {
                       type="button"
                       onClick={() => setGewaehlt(h.e.id)}
                       data-wichtig={h.wichtig ? 'ja' : undefined}
+                      data-freigabe={h.freigabe ? 'ja' : undefined}
                     >
                       <span className="fa-hinweis-titel">
                         {h.e.nr} {def.titelVon(h.e)}
@@ -438,7 +441,7 @@ function FachApp({ def }: { def: AppDef }) {
             onClick={() => setFilter('alle')}
             data-treffer-selbst=""
           >
-            {t('Alle', 'All')} <Mono>{eintraege.length}</Mono>
+            {t('Alle', 'All')} <span>{eintraege.length}</span>
           </button>
           {STAENDE[def.id].map(([k, text]) => (
             <button
@@ -448,7 +451,7 @@ function FachApp({ def }: { def: AppDef }) {
               onClick={() => setFilter(filter === k ? 'alle' : k)}
               data-treffer-selbst=""
             >
-              {text[SPRACHE]} <Mono>{zaehler(k)}</Mono>
+              {text[SPRACHE]} <span>{zaehler(k)}</span>
             </button>
           ))}
         </div>

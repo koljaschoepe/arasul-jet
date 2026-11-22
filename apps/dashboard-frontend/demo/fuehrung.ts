@@ -66,8 +66,8 @@ const SCHRITTE: Schritt[] = [
     ziel: '[data-testid="app-rahmen-werkstatt"]',
     titel: ['Die Werkstatt', 'The workshop'],
     text: [
-      'Hier laufen die Rückmeldungen ein, mit Stand. Wer das Recht hat, sieht alle und schaltet eine geprüfte Testfassung live, etwa Angebote 1.5.0 mit Rabatt.',
-      'Feedback arrives here with its status. Whoever has the right sees all of it and switches a tested version live, such as Quotes 1.5.0 with discounts.',
+      'Hier laufen die Rückmeldungen ein, mit Stand. Wer das Recht hat, sieht alle und schaltet eine geprüfte neue Fassung live, etwa Angebote mit Rabatt für Stammkunden.',
+      'Feedback arrives here with its status. Whoever has the right sees all of it and switches a tested new version live, such as Quotes with discounts for regular customers.',
     ],
   },
 ];

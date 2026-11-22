@@ -88,10 +88,12 @@ export function tagRelativ(abstand: number, jetzt: number): string {
  */
 export function arbeitszeit(ms: number, jetzt: number): string {
   const d = new Date(ms);
+  const index = Math.floor(ms / 3_600_000);
   const stunde = d.getHours();
-  if (stunde < 7 || stunde >= 17) {
-    d.setHours(7 + (Math.floor(ms / 3_600_000) % 10), Math.floor(ms / 60_000) % 60);
-  }
+  // Die Minute aus der Stunde gestreut: sonst endete jeder Zeitpunkt auf
+  // der Minute des Besuchs.
+  if (stunde < 7 || stunde >= 17) d.setHours(7 + (index % 10), (index * 37 + 11) % 60);
+  else d.setMinutes((index * 37 + 11) % 60);
   for (let i = 0; i < 10; i += 1) {
     if (d.getDay() === 6) d.setDate(d.getDate() - 1);
     else if (d.getDay() === 0) d.setDate(d.getDate() - 2);
@@ -294,7 +296,14 @@ function wareneingang(jetzt: number): Eintrag[] {
     const artikel = r.eins(ARTIKEL);
     // Von 70 Tagen zurück bis 6 Tage voraus; die letzten sind erwartet.
     // Die letzten fünf: heute und in den nächsten Tagen erwartet, an jedem Wochentag.
-    const abstand = i >= 39 ? [0, 0, 0, 1, 2][i - 39]! : werktag(Math.min(tag, -1), jetzt);
+    // Heute erwartet nur an einem Werktag; am Wochenende rückt es auf Montag.
+    const letzter = [-2, 0, 0, 0, 0, 0, -1][new Date(jetzt).getDay()]!;
+    const abstand =
+      i >= 39
+        ? i === 41
+          ? letzter
+          : werktag([0, 0, 0, 1, 2][i - 39]!, jetzt)
+        : werktag(Math.min(tag, -1), jetzt);
     const auftrag = r.z() < 0.65 ? r.eins(AUFTRAEGE) : null;
     let stand: string;
     if (abstand > 0) stand = 'erwartet';
@@ -302,11 +311,13 @@ function wareneingang(jetzt: number): Eintrag[] {
     else if (abstand > -3) stand = r.eins(['eingegangen', 'geprueft']);
     else stand = r.z() < 0.07 ? 'reklamiert' : 'eingelagert';
     const menge =
-      artikel.einheit.de === 'Stück'
-        ? r.ganz(2, 40) * 10
-        : artikel.einheit.de === 'm'
-          ? r.ganz(4, 30) * 6
-          : r.ganz(2, 24);
+      artikel.lagerort === 'L-30'
+        ? r.ganz(4, 12)
+        : artikel.einheit.de === 'Stück'
+          ? r.ganz(2, 40) * 10
+          : artikel.einheit.de === 'm'
+            ? r.ganz(4, 30) * 6
+            : r.ganz(2, 24);
     const nr = `WE-26-${String(311 + i).padStart(4, '0')}`;
     const felder: Record<string, Wert> = {
       lieferant: artikel.lieferant,
@@ -316,7 +327,11 @@ function wareneingang(jetzt: number): Eintrag[] {
       menge,
       auftrag: auftrag?.nr ?? null,
       erwartet: tagRelativ(abstand, jetzt),
-      eingang: stand === 'erwartet' ? null : tagRelativ(abstand, jetzt),
+      // Jede siebte Lieferung kam einen Tag zu spät.
+      eingang:
+        stand === 'erwartet'
+          ? null
+          : tagRelativ(i % 7 === 3 && abstand < -1 ? abstand + 1 : abstand, jetzt),
       pruefer: 7,
       lagerort: artikel.lagerort,
       notiz: null,

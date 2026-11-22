@@ -444,7 +444,11 @@ function pruefungPdf(e: Eintrag, sp: Sprache): Seite {
     100
   );
   const zeilen: string[][] = [
-    [W(sp, 'Grundlage', 'Basis'), W(sp, 'Zeichnung, EN 1090 EXC2', 'Drawing, EN 1090 EXC2'), ''],
+    [
+      W(sp, 'Grundlage', 'Basis'),
+      W(sp, 'Zeichnung, EN 1090 EXC2', 'Drawing, EN 1090 EXC2'),
+      W(sp, 'erfüllt', 'met'),
+    ],
     [
       W(sp, 'Schweißnähte Sichtprüfung', 'Visual weld check'),
       W(sp, 'Bewertungsgruppe C', 'Quality level C'),

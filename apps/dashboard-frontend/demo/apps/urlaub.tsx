@@ -7,7 +7,17 @@ import { Undo2 } from '@marken/symbole';
 import type { Eintrag } from '../bestand';
 import { ABTEILUNGEN, PERSONEN, person, name } from '../firma';
 import { starten, Mono, type AppDef } from './fachapp';
-import { datum, datumKurz, isoIn, proWoche, t, tageBis, tx } from './gemeinsam';
+import {
+  datum,
+  datumKurz,
+  heuteIso,
+  isoIn,
+  kalenderwoche,
+  tagAus,
+  t,
+  tageBis,
+  tx,
+} from './gemeinsam';
 
 const ARTEN: [string, string][] = [
   ['urlaub', t('Urlaub', 'Leave')],
@@ -31,6 +41,36 @@ function arbeitstage(von: string, bis: string): number {
     if (d.getDay() !== 0 && d.getDay() !== 6) n += 1;
   }
   return n;
+}
+
+/**
+ * Arbeitstage der Abwesenheit je Woche, über die ganze Dauer verteilt: wer
+ * Montag bis Mittwoch der Folgewoche fehlt, zählt in beiden Wochen.
+ */
+function tageJeWoche(liste: Eintrag[], zurueck: number, voraus: number) {
+  const montag = tagAus(heuteIso());
+  montag.setDate(montag.getDate() - ((montag.getDay() + 6) % 7));
+  return Array.from({ length: zurueck + voraus + 1 }, (_, i) => {
+    const beginn = new Date(montag);
+    beginn.setDate(beginn.getDate() + (i - zurueck) * 7);
+    const ende = new Date(beginn);
+    ende.setDate(ende.getDate() + 4);
+    const zeile = {
+      x: i,
+      name: `${t('KW', 'Wk')} ${kalenderwoche(beginn)}`,
+      genehmigt: 0,
+      beantragt: 0,
+    };
+    for (const e of liste) {
+      if (e.stand !== 'genehmigt' && e.stand !== 'beantragt') continue;
+      const von = Math.max(beginn.getTime(), tagAus(String(e.felder.von)).getTime());
+      const bis = Math.min(ende.getTime(), tagAus(String(e.felder.bis)).getTime());
+      for (let d = new Date(von); d.getTime() <= bis; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() !== 0 && d.getDay() !== 6) zeile[e.stand] += 1;
+      }
+    }
+    return zeile;
+  });
 }
 
 const def: AppDef = {
@@ -157,13 +197,7 @@ const def: AppDef = {
     },
   ],
   kennzahlen: liste => {
-    const wochen = proWoche(
-      liste,
-      e => (e.stand === 'genehmigt' ? String(e.felder.von) : null),
-      5,
-      0,
-      { n: e => Number(e.felder.tage) || 0 }
-    );
+    const wochen = tageJeWoche(liste, 5, 0).map(w => w.genehmigt);
     const weg = liste.filter(
       e => e.stand === 'genehmigt' && tageBis(e.felder.von) <= 0 && tageBis(e.felder.bis) >= 0
     );
@@ -190,6 +224,7 @@ const def: AppDef = {
         beschriftung: t('Nächste 14 Tage', 'Next 14 days'),
         wert: String(bald.length),
         fussnote: t('genehmigte Abwesenheiten', 'approved absences'),
+        verlauf: wochen,
       },
       {
         beschriftung: t('Resturlaub im Schnitt', 'Average leave left'),
@@ -199,7 +234,6 @@ const def: AppDef = {
           `${genehmigt.reduce((s, e) => s + Number(e.felder.tage), 0)} Tage genehmigt`,
           `${genehmigt.reduce((s, e) => s + Number(e.felder.tage), 0)} days approved`
         ),
-        verlauf: wochen.map(w => Number(w.n)),
       },
     ];
   },
@@ -210,16 +244,7 @@ const def: AppDef = {
       'Approved working days, six weeks back and six ahead.'
     ),
     art: 'balken',
-    data: proWoche(
-      liste,
-      e => (e.stand === 'genehmigt' || e.stand === 'beantragt' ? String(e.felder.von) : null),
-      5,
-      6,
-      {
-        genehmigt: e => (e.stand === 'genehmigt' ? Number(e.felder.tage) || 0 : 0),
-        beantragt: e => (e.stand === 'beantragt' ? Number(e.felder.tage) || 0 : 0),
-      }
-    ),
+    data: tageJeWoche(liste, 5, 6),
     series: [
       { key: 'genehmigt', name: t('Genehmigt', 'Approved'), unit: t(' Tage', ' days') },
       { key: 'beantragt', name: t('Beantragt', 'Requested'), unit: t(' Tage', ' days') },
@@ -252,7 +277,7 @@ const def: AppDef = {
                     `away today, until ${datum(e.felder.bis)} · cover ${name(Number(e.felder.vertretung))}`
                   )
                 : `${zeitraum(e)} · ${tageText(Number(e.felder.tage))}`,
-          wichtig: e.stand === 'beantragt',
+          freigabe: e.stand === 'beantragt',
         })),
   },
   schritte: e =>

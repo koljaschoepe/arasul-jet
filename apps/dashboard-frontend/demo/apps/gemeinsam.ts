@@ -145,7 +145,7 @@ export function proWoche(
     beginn.setDate(beginn.getDate() + (i - zurueck) * 7);
     const zeile: { x: number; name: string; [reihe: string]: number | string } = {
       x: i,
-      name: `${t('KW', 'W')} ${kalenderwoche(beginn)}`,
+      name: `${t('KW', 'Wk')} ${kalenderwoche(beginn)}`,
     };
     for (const r of Object.keys(reihen)) zeile[r] = 0;
     return { zeile, beginn: beginn.getTime() };

@@ -208,8 +208,10 @@ function Oben() {
     const offen = d.angebote.filter(e =>
       ['entwurf', 'freigabe', 'freigegeben', 'versendet'].includes(e.stand)
     );
+    // Am Wochenende zählt der nächste Werktag als „heute" für das Tor.
+    const bisWerktag = [1, 0, 0, 0, 0, 0, 2][new Date().getDay()]!;
     const heuteErwartet = d.wareneingang.filter(
-      e => e.stand === 'erwartet' && tage(e.felder.erwartet) <= 0
+      e => e.stand === 'erwartet' && tage(e.felder.erwartet) <= bisWerktag
     );
     const zuPruefen = d.wareneingang.filter(e => e.stand === 'eingegangen');
     const faellig = d.wartungsplan.filter(
@@ -241,10 +243,14 @@ function Oben() {
         </Kachel>
         <Kachel app="wareneingang">
           <Kennzahl
-            beschriftung={t('Lieferungen heute', 'Deliveries today')}
+            beschriftung={
+              bisWerktag
+                ? t('Lieferungen Montag', 'Deliveries Monday')
+                : t('Lieferungen heute', 'Deliveries today')
+            }
             wert={String(heuteErwartet.length)}
             fussnote={t(
-              `${zuPruefen.length} warten auf Prüfung`,
+              `${zuPruefen.length} ${zuPruefen.length === 1 ? 'wartet' : 'warten'} auf Prüfung`,
               `${zuPruefen.length} awaiting check`
             )}
             verlauf={proWoche(d.wareneingang, e =>
@@ -270,11 +276,13 @@ function Oben() {
         </Kachel>
         <Kachel app="pruefprotokolle">
           <Kennzahl
-            beschriftung={t('Zur Freigabe', 'For approval')}
-            wert={String(pruefFreigabe.length)}
+            beschriftung={t('Prüfungen offen', 'Open inspections')}
+            wert={String(
+              d.pruefprotokolle.filter(e => e.stand === 'offen' || e.stand === 'freigabe').length
+            )}
             fussnote={t(
-              `Prüfprotokolle, ${nacharbeit.length} in Nacharbeit`,
-              `inspections, ${nacharbeit.length} in rework`
+              `${pruefFreigabe.length} zur Freigabe, ${nacharbeit.length} in Nacharbeit`,
+              `${pruefFreigabe.length} to approve, ${nacharbeit.length} in rework`
             )}
             verlauf={proMonat(
               d.pruefprotokolle,
@@ -298,9 +306,9 @@ function Oben() {
         </Kachel>
         <Kachel app="werkstatt">
           <Kennzahl
-            beschriftung={t('Vorschläge', 'Suggestions')}
+            beschriftung={t('Rückmeldungen', 'Feedback')}
             wert={String(meldungen.length)}
-            fussnote={t('zu den Apps, offen', 'on the apps, open')}
+            fussnote={t('zu den Apps, noch offen', 'on the apps, still open')}
           />
         </Kachel>
       </div>

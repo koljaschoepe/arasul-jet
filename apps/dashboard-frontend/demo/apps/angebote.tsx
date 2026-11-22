@@ -237,7 +237,8 @@ const def: AppDef = {
                     `gültig bis ${datum(e.felder.gueltig)}, ${kunde(Number(e.felder.kunde)).ansprechpartner} anrufen`,
                     `valid until ${datum(e.felder.gueltig)}, call ${ansprech(kunde(Number(e.felder.kunde)), 'en')}`
                   ),
-          wichtig: e.stand === 'freigabe' || tageBis(e.felder.gueltig) < 3,
+          wichtig: e.stand !== 'freigabe' && tageBis(e.felder.gueltig) < 3,
+          freigabe: e.stand === 'freigabe',
         })),
   },
   schritte: e => {

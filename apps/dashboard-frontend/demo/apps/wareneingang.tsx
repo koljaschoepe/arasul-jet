@@ -195,7 +195,11 @@ const def: AppDef = {
         rekl: e => (e.stand === 'reklamiert' ? 1 : 0),
       }
     );
-    const heute = liste.filter(e => e.stand === 'erwartet' && tageBis(e.felder.erwartet) <= 0);
+    // Am Wochenende zählt der nächste Werktag als „heute" für das Tor.
+    const bisWerktag = [1, 0, 0, 0, 0, 0, 2][new Date().getDay()]!;
+    const heute = liste.filter(
+      e => e.stand === 'erwartet' && tageBis(e.felder.erwartet) <= bisWerktag
+    );
     const eingegangen = liste.filter(e => e.felder.eingang);
     const puenktlich = eingegangen.filter(
       e => String(e.felder.eingang) <= String(e.felder.erwartet)
@@ -203,7 +207,9 @@ const def: AppDef = {
     const rekl = liste.filter(e => e.stand === 'reklamiert');
     return [
       {
-        beschriftung: t('Heute erwartet', 'Expected today'),
+        beschriftung: bisWerktag
+          ? t('Montag erwartet', 'Expected Monday')
+          : t('Heute erwartet', 'Expected today'),
         wert: String(heute.length),
         fussnote: t(
           `${liste.filter(e => e.stand === 'erwartet').length} unterwegs`,

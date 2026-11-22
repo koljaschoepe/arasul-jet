@@ -105,6 +105,12 @@
 .fa-hinweise button[data-wichtig] .fa-hinweis-satz {
   color: var(--destructive);
 }
+.fa-hinweise button[data-freigabe] .fa-hinweis-satz {
+  color: var(--primary);
+}
+.fa-filter button span {
+  font-variant-numeric: tabular-nums;
+}
 
 .fa-liste {
   display: grid;
@@ -395,6 +401,13 @@
   );
   border-radius: 12px;
   animation: fa-auf 180ms ease-out;
+}
+/* Am Handy oben unter der Kapsel: unten verdeckte sie Felder und Knöpfe. */
+@media (max-width: 639px) {
+  .fa-toast {
+    top: 52px;
+    bottom: auto;
+  }
 }
 @keyframes fa-auf {
   from {

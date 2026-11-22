@@ -218,11 +218,11 @@ const def: AppDef = {
   diagramm: liste => ({
     titel: t('Wartungsstunden je Monat', 'Maintenance hours per month'),
     satz: t(
-      'Erledigt in den letzten zwölf Monaten, eigene Leute und Dienstleister.',
-      'Done in the last twelve months, own staff and service providers.'
+      'Erledigt in den letzten sechs Monaten, eigene Leute und Dienstleister.',
+      'Done in the last six months, own staff and service providers.'
     ),
     art: 'balken',
-    data: proMonat(liste, e => (e.felder.erledigt_am ? String(e.felder.erledigt_am) : null), 12, {
+    data: proMonat(liste, e => (e.felder.erledigt_am ? String(e.felder.erledigt_am) : null), 6, {
       eigen: e => (e.felder.extern ? 0 : Number(e.felder.dauer) || 0),
       extern: e => (e.felder.extern ? Number(e.felder.dauer) || 0 : 0),
     }),
