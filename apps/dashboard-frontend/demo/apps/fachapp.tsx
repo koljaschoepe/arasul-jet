@@ -663,7 +663,27 @@ function Einzelansicht({
         breite="breit"
         kennzeichen="fa-blatt-flaeche"
         fuss={
-          x && (
+          x &&
+          (wartet ? (
+            <>
+              <Button
+                variant="solid"
+                data-testid="fa-freigeben"
+                onClick={async () => {
+                  try {
+                    const r = await api.freigabe(x.id, 'ja');
+                    uebernehmen(r.eintrag);
+                    melden('erfolg', t(`${x.nr} freigegeben.`, `${x.nr} approved.`));
+                  } catch (f) {
+                    melden('fehler', (f as Error).message);
+                  }
+                }}
+              >
+                {t('Freigeben', 'Approve')}
+              </Button>
+              <Button onClick={() => ablehnen(x)}>{t('Ablehnen', 'Decline')}</Button>
+            </>
+          ) : (
             <>
               {def
                 .schritte(x, ctx)
@@ -688,7 +708,7 @@ function Einzelansicht({
                 {t('Löschen', 'Delete')}
               </Button>
             </>
-          )
+          ))
         }
       >
         {x && (
@@ -704,23 +724,31 @@ function Einzelansicht({
                     'If you decline, give a short reason; it is kept in the history.'
                   )}
                 </Meldung>
+                {/* Freigeben und Ablehnen stehen unten im Fuß des Blatts, in
+                    Daumenreichweite; die übrigen Aktionen hier. */}
                 <div className="fa-knoepfe">
-                  <Button
-                    variant="solid"
-                    data-testid="fa-freigeben"
-                    onClick={async () => {
-                      try {
-                        const r = await api.freigabe(x.id, 'ja');
-                        uebernehmen(r.eintrag);
-                        melden('erfolg', t(`${x.nr} freigegeben.`, `${x.nr} approved.`));
-                      } catch (f) {
-                        melden('fehler', (f as Error).message);
-                      }
-                    }}
-                  >
-                    {t('Freigeben', 'Approve')}
+                  {def
+                    .schritte(x, ctx)
+                    .filter(s => !(wartet && s.nach === x.stand))
+                    .map(s => (
+                      <Button
+                        key={s.nach}
+                        variant={s.haupt && !wartet ? 'solid' : 'default'}
+                        size="sm"
+                        onClick={() => schritt(x, s)}
+                      >
+                        <Icon symbol={s.symbol} />
+                        {s.text}
+                      </Button>
+                    ))}
+                  <Button size="sm" onClick={() => bearbeiten(x)} data-testid="fa-bearbeiten">
+                    <Icon symbol={Pencil} />
+                    {t('Bearbeiten', 'Edit')}
                   </Button>
-                  <Button onClick={() => ablehnen(x)}>{t('Ablehnen', 'Decline')}</Button>
+                  <Button size="sm" variant="destructive" onClick={() => loeschen(x)}>
+                    <Icon symbol={Trash2} />
+                    {t('Löschen', 'Delete')}
+                  </Button>
                 </div>
               </div>
             )}

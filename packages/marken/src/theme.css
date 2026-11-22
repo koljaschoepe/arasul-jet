@@ -340,8 +340,8 @@
   /* Der Grund des Rahmens: Tiefblau mit einem Schein oben links, nach
      Anthrazit unten rechts. */
   --rahmen-stufe-1: #12336c;
-  --rahmen-stufe-2: #0f2245;
-  --rahmen-stufe-3: #23272f;
+  --rahmen-stufe-2: #0e2550;
+  --rahmen-stufe-3: #2a2d34;
   --rahmen-schein: #133672;
 }
 
@@ -408,7 +408,7 @@
   --glas-anteil-grund: 3%;
   --schatten-flaeche: 0 0 0 1px rgba(246, 243, 237, 0.05), 0 16px 40px -12px rgba(0, 0, 0, 0.7);
   --verlauf-rahmen:
-    radial-gradient(90% 70% at 0% 0%, var(--rahmen-schein) 0%, transparent 65%),
+    radial-gradient(130% 100% at 0% 0%, var(--rahmen-schein) 0%, transparent 70%),
     linear-gradient(
       135deg,
       var(--rahmen-stufe-1) 0%,
