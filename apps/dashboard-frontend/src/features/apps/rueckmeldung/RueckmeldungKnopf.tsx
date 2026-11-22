@@ -173,7 +173,7 @@ export function RueckmeldungKnopf({ appId, stand, rahmen }: Props) {
       >
         {gesendet ? (
           <p className="text-sm" data-testid="rueckmeldung-bestaetigung">
-            Ihre Rückmeldung ist angekommen. Wer die App weiterbaut, sieht sie jetzt.
+            Ihre Rückmeldung ist angekommen. Sie steht mit ihrem Stand in der Werkstatt.
           </p>
         ) : (
           <form id="rueckmeldung" className="flex flex-col gap-4" onSubmit={absenden}>

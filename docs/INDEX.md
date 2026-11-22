@@ -63,6 +63,7 @@ docs/
 | Document                                                           | Topic                                                                               |
 | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
 | [`ops/AUSLIEFERUNG.md`](ops/AUSLIEFERUNG.md)                       | Das Artefakt, seine Adresse, `install.sh`, woher die Fassung kommt                  |
+| [`ops/SCHLEIFE_ABNAHME.md`](ops/SCHLEIFE_ABNAHME.md)               | Die Schleife am Orin abnehmen: Meldung, Werkstatt, Kit, Test, Live, mit Prüfskript  |
 | [`ops/spark-erster-tag.md`](ops/spark-erster-tag.md)               | Der erste Tag am DGX Spark als Messplan: jeder Messpunkt mit Befehl und Sollwert    |
 | [`ops/NETZNAME_UND_ZERTIFIKAT.md`](ops/NETZNAME_UND_ZERTIFIKAT.md) | `https://arasul/`, die Geräte-CA, Anleitung für Windows, macOS, iOS, Android        |
 | [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)                           | Install (Artefakt / Quellbaum / ohne Rückfragen), pre-shipping checklist, hardening |
