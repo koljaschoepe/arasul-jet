@@ -6,17 +6,18 @@
  *
  *   1  App öffnen               Kachel „Angebote" auf der Startseite
  *   2  Rückmeldung              das Icon in der Kapsel über der App
- *   3  Wechsel zum Entwickler   der Schalter im Band
- *   4  Eingang im Cockpit       der Eingang im Entwickler-Cockpit
+ *   3  Zur App-Betreuung        der Schalter im Band (dieselbe Art Konto,
+ *                               mit dem Recht in der Werkstatt, J52)
+ *   4  Eingang der Werkstatt    der Eingang in der Werkstatt
  *   5  Test nach Live           „Live schalten" bei Angebote 1.5.0
  *
  * Wer selbst klickt, kommt ohne „Weiter" voran; wer nur „Weiter" klickt,
  * sieht den ganzen Weg trotzdem: „Weiter" tut, was der Schritt zeigt (App
- * öffnen, Rolle wechseln, zu „Test nach Live" gehen), nur die Rückmeldung
+ * öffnen, zur App-Betreuung wechseln, zu „Test nach Live" gehen), nur die Rückmeldung
  * schreibt der Besucher selbst.
  *
  * Reines DOM wie das Band: die Demo steht neben dem Produkt, nicht in ihm.
- * Der Stand liegt in `sessionStorage`, weil der Rollenwechsel die Seite neu
+ * Der Stand liegt in `sessionStorage`, weil der Wechsel der Person die Seite neu
  * lädt. Der Hinweis sucht seine Stelle alle 300 ms neu, auch in den iframes
  * (dieselbe Herkunft): die Shell lädt nach, eine App ebenso, und am Handy
  * liegt dieselbe Stelle woanders.
@@ -24,7 +25,7 @@
 import type { Sprache } from './daten';
 
 const SCHLUESSEL = 'arasul-demo-weg';
-const COCKPIT = '/workspace/app/entwickler-cockpit';
+const WERKSTATT = '/workspace/app/werkstatt';
 const ANGEBOTE = '/workspace/app/angebote';
 
 /** 1 bis 5 ist ein Schritt, 0 heißt aus (übersprungen oder fertig). */
@@ -112,14 +113,14 @@ const TEXTE: Record<
         lage: 'ecke',
       },
       {
-        titel: 'Zum Entwickler wechseln',
-        text: 'Die Meldung geht an die Person, die bei Ihnen die Apps betreut. Wechseln Sie in ihre Rolle.',
+        titel: 'Zur App-Betreuung wechseln',
+        text: 'Ihre Meldung steht mit Stand in Ihrer Werkstatt. Alle Meldungen sieht dort, wer bei Ihnen die Apps betreut und das Recht dazu hat. Sehen Sie mit ihren Augen.',
         ziele: ['.demo-band-wahl button[data-rolle="entwickler"]'],
         weiter: 'entwickler',
-        knopf: 'Zum Entwickler',
+        knopf: 'Zur App-Betreuung',
       },
       {
-        titel: 'Der Eingang im Cockpit',
+        titel: 'Der Eingang der Werkstatt',
         text: 'Hier steht Ihre Meldung, mit Foto und markierter Stelle. Ein KI-Assistent setzt Meldungen in einer neuen Fassung um: eine frühere zum Rabatt liegt schon als Angebote 1.5.0 im Test.',
         ziele: [
           'iframe >> [data-testid="werkstatt-eingang"] tbody tr',
@@ -168,14 +169,14 @@ const TEXTE: Record<
         lage: 'ecke',
       },
       {
-        titel: 'Switch to developer',
-        text: 'The feedback goes to the person who looks after your apps. Switch to their role.',
+        titel: 'Switch to app support',
+        text: 'Your feedback is listed with its status in your workshop. All feedback is visible there to whoever looks after your apps and has the right to do so. See it through their eyes.',
         ziele: ['.demo-band-wahl button[data-rolle="entwickler"]'],
         weiter: 'entwickler',
-        knopf: 'To developer',
+        knopf: 'To app support',
       },
       {
-        titel: 'The cockpit inbox',
+        titel: 'The workshop inbox',
         text: 'Your feedback is here, with a screenshot and the marked spot. An AI assistant turns feedback into a new version: an earlier request for a discount is already in test as Quotes 1.5.0.',
         ziele: [
           'iframe >> [data-testid="werkstatt-eingang"] tbody tr',
@@ -482,7 +483,15 @@ export function wegSetzen(sprache: Sprache, griffe: WegHandgriffe): void {
     if (schritt === 1 && window.location.pathname.startsWith(ANGEBOTE)) gehe(2);
     else if (schritt === 2 && document.querySelector('[data-testid="rueckmeldung-bestaetigung"]'))
       gehe(3);
-    else if (schritt <= 3 && schritt > 0 && window.location.pathname.startsWith(COCKPIT)) gehe(4);
+    // Die Werkstatt hat seit J52 auch der Mitarbeiter (seine Meldungen); erst
+    // der Eingang aller Meldungen heißt, dass die App-Betreuung schaut.
+    else if (
+      schritt <= 3 &&
+      schritt > 0 &&
+      window.location.pathname.startsWith(WERKSTATT) &&
+      stelle('iframe >> [data-testid="werkstatt-eingang"]')
+    )
+      gehe(4);
     else if (schritt === 4 && stelle('iframe >> [data-testid="werkstatt-live-schalten-angebote"]'))
       gehe(5);
   }

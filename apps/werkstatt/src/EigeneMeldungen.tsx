@@ -63,7 +63,7 @@ function EigeneMeldungDialog({ meldung, schliessen }: { meldung: Meldung; schlie
       }
     >
       <div style={spalte(3)} data-testid="werkstatt-eigene-meldung">
-        <p style={leise}>Gemeldet {zeit(meldung.erstellt_am)}</p>
+        <p style={leise}>{`Gemeldet ${zeit(meldung.erstellt_am)}`}</p>
         <p style={fliesstext}>{meldung.text}</p>
         <p style={{ ...fest, ...leise }} data-testid="werkstatt-seite">
           {meldung.seite}
@@ -149,7 +149,7 @@ export function EigeneMeldungen({
       )}
       {!laedt && !fehler && meldungen.length > 0 && (
         <p style={leise} data-testid="werkstatt-zahl">
-          {anzahl(meldungen.length, 'Meldung', 'Meldungen')} von Ihnen
+          {`${anzahl(meldungen.length, 'Meldung', 'Meldungen')} von Ihnen`}
         </p>
       )}
       {gewaehlt && (

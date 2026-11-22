@@ -1,6 +1,7 @@
 /**
  * Das Band der Demo (J46, J51, M7): sagt, dass hier Beispieldaten stehen,
- * schaltet zwischen Mitarbeiter und Entwickler, zwischen Deutsch und
+ * schaltet zwischen zwei Menschen (Mitarbeiter und App-Betreuung, dieselbe
+ * Art Konto, die zweite mit dem Recht in der Werkstatt), zwischen Deutsch und
  * Englisch, beginnt den geführten Weg neu, setzt zurück und führt zurück auf
  * arasul.de. Reines DOM ohne React: es gehört
  * nicht zum Produkt und soll neben ihm stehen, nicht in ihm.
@@ -12,7 +13,7 @@ import type { Rolle, Sprache } from './daten';
 import { schrittSetzen, wegSetzen } from './fuehrung';
 
 const SPRACHE_SCHLUESSEL = 'arasul-demo-sprache';
-const COCKPIT = '/workspace/app/entwickler-cockpit';
+const WERKSTATT = '/workspace/app/werkstatt';
 
 export function spracheLesen(): Sprache {
   try {
@@ -48,7 +49,7 @@ const TEXTE = {
     kurz: 'Demo',
     rolle: 'Sie sind',
     mitarbeiter: 'Mitarbeiter',
-    entwickler: 'Entwickler',
+    entwickler: 'App-Betreuung',
     hilfe: 'So geht’s',
     hilfeTitel: 'Den geführten Weg von vorn beginnen',
     sprache: 'Sprache',
@@ -62,7 +63,7 @@ const TEXTE = {
     kurz: 'Demo',
     rolle: 'You are',
     mitarbeiter: 'Employee',
-    entwickler: 'Developer',
+    entwickler: 'App support',
     hilfe: 'How it works',
     hilfeTitel: 'Start the guided tour again',
     sprache: 'Language',
@@ -123,7 +124,7 @@ export function bandSetzen(sprache: Sprache): void {
   async function rolleSetzen(neu: Rolle) {
     if (neu === rolle) return;
     await anDienst({ typ: 'rolle', rolle: neu });
-    window.location.assign(neu === 'entwickler' ? COCKPIT : '/workspace');
+    window.location.assign(neu === 'entwickler' ? WERKSTATT : '/workspace');
   }
 
   const sprachen = gruppe(

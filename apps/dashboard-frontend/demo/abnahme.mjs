@@ -9,7 +9,8 @@
  * den Weg der Website durch, je Sprache und Breite (390, 768, 1440 px):
  *
  *   Startseite als Mitarbeiter → App „Angebote" → Rückmeldung mit Foto und
- *   Markierung → auf Entwickler umschalten → Cockpit: die Meldung im Eingang
+ *   Markierung → Werkstatt als Mitarbeiter: nur die eigenen Meldungen mit
+ *   Stand → zur App-Betreuung umschalten → Werkstatt: die Meldung im Eingang
  *   → „Test nach Live": Angebote 1.5.0 live → die App rechnet mit Rabatt.
  *
  * Gemessen wird: jeder Schritt sichtbar, kein waagrechter Überlauf (Shell und
@@ -161,6 +162,7 @@ const BELEGT = [
   '1-weg-app',
   '2-weg-rueckmeldung',
   '3-markierung',
+  '3-meine-meldungen',
   '4-weg-entwickler',
   '5-weg-eingang',
   '6-weg-live',
@@ -227,8 +229,9 @@ async function weg(browser, basis, sprache, breite) {
   await ueberlauf(seite, `${wo} Startseite`);
   await bild(seite, name('1-weg-app'));
   if (SAMMELN) await sammeln(seite);
-  const hatCockpit = await seite.getByTestId('uebersicht-app-entwickler-cockpit').count();
-  if (hatCockpit) rot(`${wo}: der Mitarbeiter sieht das Cockpit`);
+  // Die Werkstatt hat seit J52 jeder, auch der Mitarbeiter.
+  const hatWerkstatt = await seite.getByTestId('uebersicht-app-werkstatt').count();
+  if (!hatWerkstatt) rot(`${wo}: der Mitarbeiter sieht die Werkstatt nicht`);
 
   // 2. „Weiter" öffnet Angebote (live, ohne Rabatt)
   await seite.getByTestId('demo-weg-weiter').click();
@@ -236,7 +239,10 @@ async function weg(browser, basis, sprache, breite) {
     .frameLocator('[data-testid="app-rahmen-angebote"] iframe, iframe[src="/apps/angebote/"]')
     .first();
   await app.locator('.ara-kopf').waitFor({ timeout: 15_000 });
-  await app.getByText(/1\.4\.0/).first().waitFor();
+  await app
+    .getByText(/1\.4\.0/)
+    .first()
+    .waitFor();
   await app.locator('[data-slot="kennzahl"]').first().waitFor();
   await hinweis(2);
   await ueberlauf(seite, `${wo} Angebote`);
@@ -271,23 +277,42 @@ async function weg(browser, basis, sprache, breite) {
   if (SAMMELN) await sammeln(seite);
   await seite.getByTestId('rueckmeldung-fertig').click();
 
-  // 4. Der Weg zeigt auf den Schalter im Band; „Weiter" wechselt zum Entwickler
+  // 3b. Die Werkstatt des Mitarbeiters: seine Meldungen mit Stand, keine fremden (J52)
   await hinweis(3);
+  await seite.goto(basis + '/workspace/app/werkstatt');
+  const meine = seite.frameLocator('iframe[src="/apps/werkstatt/"]');
+  await meine.getByTestId('werkstatt-meine').waitFor({ timeout: 20_000 });
+  const eigenerText = sprache === 'en' ? 'A discount per quote' : 'Ein Rabatt je Angebot';
+  await meine.getByText(eigenerText).first().waitFor();
+  const fremd =
+    sprache === 'en' ? 'Please one colour per department.' : 'Bitte eine Farbe pro Abteilung.';
+  if (await meine.getByText(fremd).count()) rot(`${wo}: der Mitarbeiter sieht eine fremde Meldung`);
+  for (const k of ['eingang', 'apps', 'live']) {
+    if (await meine.getByTestId(`werkstatt-leiste-${k}`).count()) {
+      rot(`${wo}: der Mitarbeiter sieht in der Werkstatt „${k}“`);
+    }
+  }
+  await hinweis(3);
+  await ueberlauf(seite, `${wo} Meine Meldungen`);
+  await bild(seite, name('3-meine-meldungen'));
+  if (SAMMELN) await sammeln(seite);
+
+  // 4. Der Weg zeigt auf den Schalter im Band; „Weiter" wechselt zur App-Betreuung
   await bild(seite, name('4-weg-entwickler'));
   await seite.getByTestId('demo-weg-weiter').click();
-  await seite.waitForURL(/entwickler-cockpit/);
-  const cockpit = seite.frameLocator('iframe[src="/apps/entwickler-cockpit/"]');
+  await seite.waitForURL(/\/workspace\/app\/werkstatt/);
+  const cockpit = seite.frameLocator('iframe[src="/apps/werkstatt/"]');
   await cockpit.getByTestId('werkstatt-eingang').waitFor({ timeout: 20_000 });
   const meldungText = sprache === 'en' ? 'A discount per quote' : 'Ein Rabatt je Angebot';
   await cockpit.getByText(meldungText).first().waitFor();
   await hinweis(4);
-  await ueberlauf(seite, `${wo} Cockpit Eingang`);
+  await ueberlauf(seite, `${wo} Werkstatt Eingang`);
   await bild(seite, name('5-weg-eingang'));
   if (SAMMELN) await sammeln(seite);
   await cockpit.getByText(meldungText).first().click();
   await warte(500);
   const hatBild = await cockpit.getByTestId('werkstatt-bild').count();
-  if (!hatBild) rot(`${wo}: die Meldung zeigt kein Bildschirmfoto im Cockpit`);
+  if (!hatBild) rot(`${wo}: die Meldung zeigt kein Bildschirmfoto in der Werkstatt`);
   if (SAMMELN) await sammeln(seite);
   await seite.keyboard.press('Escape');
   await warte(300);
@@ -309,7 +334,7 @@ async function weg(browser, basis, sprache, breite) {
   await warte(400);
   await bild(seite, name('6-weg-geschafft'));
 
-  // Apps-Ansicht des Cockpits
+  // Apps-Ansicht der Werkstatt
   if (!(await cockpit.getByTestId('werkstatt-leiste-apps').isVisible())) {
     await cockpit.getByTestId('werkstatt-leiste-umschalten').click();
   }

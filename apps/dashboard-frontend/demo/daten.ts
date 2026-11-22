@@ -65,7 +65,10 @@ export interface DemoZustand {
 
 export const FIRMA = 'Beispielwerk GmbH';
 
-/** Die beiden Menschen der Demo; nur die Rolle, kein Name. */
+/**
+ * Die beiden Menschen der Demo; nur die Aufgabe, kein Name. Dieselbe Art
+ * Konto (J52): die App-Betreuung hat dazu das Recht in der Werkstatt.
+ */
 export const PERSONEN = {
   mitarbeiter: {
     id: 7,
@@ -75,9 +78,9 @@ export const PERSONEN = {
   },
   entwickler: {
     id: 3,
-    username: 'beispiel-entwickler',
-    de: 'Beispiel-Entwickler',
-    en: 'Sample developer',
+    username: 'beispiel-app-betreuung',
+    de: 'Beispiel-App-Betreuung',
+    en: 'Sample app support',
   },
 } as const;
 
@@ -150,6 +153,22 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
     ],
     meldungen: [
       {
+        // Die eine Meldung des Mitarbeiters selbst: seine Werkstatt zeigt sie
+        // mit Stand (J52), die anderen sieht er nicht.
+        id: 100,
+        app_id: 'wartungsplan',
+        stand: 'live',
+        seite: '/apps/wartungsplan/',
+        text: 'Ich hätte gern die Telefonnummer des Kunden direkt in der Zeile.',
+        bild: null,
+        markierung: null,
+        person: { id: 7, anzeigeName: 'Beispiel-Mitarbeiter' },
+        stand_meldung: 'angenommen',
+        grund: null,
+        stand_geaendert_am: vor(6, jetzt),
+        erstellt_am: vor(24 + 4, jetzt),
+      },
+      {
         id: 101,
         app_id: 'angebote',
         stand: 'live',
@@ -185,7 +204,7 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
         text: 'Brückentage wären als Hinweis im Kalender praktisch.',
         bild: null,
         markierung: null,
-        person: { id: 13, anzeigeName: 'Werkstatt' },
+        person: { id: 13, anzeigeName: 'Fertigung' },
         stand_meldung: 'angenommen',
         grund: null,
         stand_geaendert_am: vor(26, jetzt),

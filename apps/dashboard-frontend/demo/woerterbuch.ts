@@ -1,10 +1,10 @@
 /**
  * Das Wörterbuch der englischen Demo (J46, M7): sichtbare Sätze der Shell und
- * des Entwickler-Cockpits auf dem Weg der Demo, Deutsch → Englisch.
+ * der Werkstatt (bis J52 Entwickler-Cockpit) auf dem Weg der Demo, Deutsch → Englisch.
  *
  * Gesammelt am fertigen Bau (`node demo/abnahme.mjs --sammeln`) und aus den
  * Quellen der Ansichten, die der Weg berührt (Startseite, Rahmen mit
- * Rückmeldung, Cockpit, Einstellungen, Terminal). Ein Satz, der hier fehlt,
+ * Rückmeldung, Werkstatt, Einstellungen, Terminal). Ein Satz, der hier fehlt,
  * bleibt deutsch; `woerterbuch.test.ts` hält die gemessenen fest.
  *
  * Die Beispieldaten (`daten.ts`) stehen mit drin: Meldungen, Abteilungen und
@@ -67,8 +67,25 @@ export const WOERTER: Record<string, string> = {
   Schließen: 'Close',
   'Dialog schließen': 'Close dialog',
 
-  // Entwickler-Cockpit
-  'Entwickler-Cockpit': 'Developer cockpit',
+  // Werkstatt (bis J52 Entwickler-Cockpit); das Wort selbst steht bei den
+  // Beispieldaten, es war dort vorher eine Abteilung.
+  'Meine Meldungen': 'My feedback',
+  Gemeldet: 'Reported',
+  'Noch keine Meldung von Ihnen': 'No feedback from you yet',
+  'Fehlt in einer App etwas oder stimmt etwas nicht, tippen Sie dort oben rechts auf das Icon. Ihre Meldung steht danach hier, mit Stand.':
+    'If something is missing or wrong in an app, tap the icon at the top right there. Your feedback then appears here, with its status.',
+  'Ihre Meldungen ließen sich nicht laden.': 'Your feedback could not be loaded.',
+  'Die Werkstatt ließ sich nicht laden.': 'The workshop could not be loaded.',
+  'Ihre Meldung ist angekommen und noch nicht bearbeitet.':
+    'Your feedback has arrived and has not been handled yet.',
+  'Ihre Meldung ist angenommen und wird umgesetzt.':
+    'Your feedback has been accepted and will be implemented.',
+  'Ihre Meldung ist umgesetzt.': 'Your feedback has been implemented.',
+  'Ihre Meldung wird nicht umgesetzt.': 'Your feedback will not be implemented.',
+  'Grund der Ablehnung': 'Reason for declining',
+  Anmerkung: 'Note',
+  'App-Betreuung': 'App support',
+  'Neu laden': 'Reload',
   Eingang: 'Inbox',
   'Test nach Live': 'Test to live',
   'Seitenleiste umschalten': 'Toggle sidebar',
@@ -102,7 +119,8 @@ export const WOERTER: Record<string, string> = {
   'Grund (frei)': 'Reason (optional)',
   'Grund (Pflicht beim Ablehnen)': 'Reason (required when declining)',
   'Wer ablehnt, schreibt dazu, warum.': 'Whoever declines writes down why.',
-  'Wer gemeldet hat, erfährt davon nichts.': 'The person who reported it is not notified.',
+  'Wer gemeldet hat, sieht Stand und Grund in der eigenen Werkstatt.':
+    'The person who reported it sees the status and reason in their own workshop.',
   'Stand speichern': 'Save status',
   Entfernen: 'Remove',
   'Rückmeldung entfernen?': 'Remove feedback?',
@@ -176,7 +194,9 @@ export const WOERTER: Record<string, string> = {
   'Ihr Betreuer schaltet es ein; danach steht hier Ihre Shell.':
     'Your service partner switches it on; afterwards your shell appears here.',
   'Das Terminal wird geöffnet …': 'Opening the terminal …',
-  'Das Terminal ist für Entwickler': 'The terminal is for developers',
+  'Das Terminal gehört zum Recht in der Werkstatt': 'The terminal comes with the workshop right',
+  'Die Verwaltung gibt es je Person, unter Personen.':
+    'Administration grants it per person, under People.',
 
   // In der Demo nicht vorhanden
   'In der Demo nicht verfügbar. Auf einem echten Arasul-Server geht das.':
@@ -184,7 +204,7 @@ export const WOERTER: Record<string, string> = {
 
   // Beispieldaten
   'Beispiel-Mitarbeiter': 'Sample employee',
-  'Beispiel-Entwickler': 'Sample developer',
+  'Beispiel-App-Betreuung': 'Sample app support',
   Entwicklung: 'Development',
   Angebote: 'Quotes',
   '(Test) Angebote': '(Test) Quotes',
@@ -194,6 +214,9 @@ export const WOERTER: Record<string, string> = {
   'Vertrieb Innendienst': 'Inside sales',
   'Kundendienst Außendienst': 'Field service',
   Werkstatt: 'Workshop',
+  Fertigung: 'Production',
+  'Ich hätte gern die Telefonnummer des Kunden direkt in der Zeile.':
+    'I would like the customer’s phone number right in the row.',
   Buchhaltung: 'Accounting',
   'Bei Stammkunden geben wir oft 3 % Rabatt. Ich rechne das jedes Mal von Hand aus. Kann das Angebot einen Rabatt haben?':
     'We often give regular customers a 3% discount. I calculate it by hand every time. Can a quote have a discount?',
@@ -251,6 +274,16 @@ export const MUSTER: Array<[RegExp, (...teile: string[]) => string]> = [
   ],
   [/^(\d+) Meldung(?:en)?$/, (_, n) => `${n} feedback item${n === '1' ? '' : 's'}`],
   [/^(\d+) offen$/, (_, n) => `${n} open`],
+  [
+    /^(\d+) Meldung(?:en)? von Ihnen$/,
+    (_, n) => `${n} feedback item${n === '1' ? '' : 's'} from you`,
+  ],
+  [/^Gemeldet (.+)$/, (_, d = '') => `Reported ${d}`],
+  [
+    /^Was Sie über das Icon oben rechts in einer App gemeldet haben, und was daraus wurde\. (\d+|Eine) Meldung(?:en)? (?:ist|sind) in Arbeit\.$/,
+    (_, n = '') =>
+      `What you reported via the icon at the top right of an app, and what became of it. ${n === 'Eine' || n === '1' ? 'One item is' : `${n} items are`} in progress.`,
+  ],
   [/^(\d+) Meldung(?:en)? umgesetzt$/, (_, n) => `${n} feedback item${n === '1' ? '' : 's'} done`],
   [
     /^Was in den Apps über das Icon oben rechts gemeldet wurde\. (\d+|Eine) Meldung(?:en)? (?:ist|sind) offen\.$/,

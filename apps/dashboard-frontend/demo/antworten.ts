@@ -28,7 +28,8 @@ export interface Antwort {
   typ?: string;
 }
 
-const COCKPIT = 'entwickler-cockpit';
+const WERKSTATT = 'werkstatt';
+const OHNE_RECHT = 'Das dürfen nur Personen mit dem Recht in der Werkstatt.';
 
 const jetzt = () => new Date().toISOString();
 const ok = (data: unknown, status = 200): Antwort => ({
@@ -59,7 +60,10 @@ function person(z: DemoZustand, sprache: Sprache) {
   };
 }
 
-/** `GET /api/apps/meine`: der Entwickler ist Testperson und sieht das Cockpit. */
+/**
+ * `GET /api/apps/meine`: die Werkstatt hat jeder (J52), die Testfassungen nur,
+ * wer die Apps betreut (Testperson mit dem Recht in der Werkstatt).
+ */
 function meineApps(z: DemoZustand, sprache: Sprache) {
   const entwickler = z.rolle === 'entwickler';
   const apps = z.apps.map(a => ({
@@ -73,18 +77,18 @@ function meineApps(z: DemoZustand, sprache: Sprache) {
         ? { version: a.test.version, pfad: `/apps/${a.id}/test/`, api: `/apps/${a.id}/test/api/` }
         : null,
   }));
-  if (!entwickler) return apps;
   return [
     ...apps,
     {
-      id: COCKPIT,
-      name: 'Entwickler-Cockpit',
+      id: WERKSTATT,
+      name: 'Werkstatt',
       beschreibung:
         sprache === 'en'
-          ? 'Feedback per app, test and live versions, the step to live.'
-          : 'Rückmeldungen je App mit Stand, Fassungen in Test und Live, der Schritt nach Live.',
-      symbol: 'gauge',
-      live: { version: '1.0.0', pfad: `/apps/${COCKPIT}/`, api: null },
+          ? 'Your feedback with its status. With the right to do so: all feedback, test and live versions, the step to live.'
+          : 'Ihre Rückmeldungen mit Stand. Mit dem Recht dazu: alle Meldungen, die Fassungen in Test und Live, der Schritt nach Live.',
+      symbol: 'hammer',
+      mitgeliefert: true,
+      live: { version: '2.0.0', pfad: `/apps/${WERKSTATT}/`, api: null },
       test: null,
     },
   ];
@@ -99,8 +103,8 @@ function meldungAussen(z: DemoZustand, m: DemoZustand['meldungen'][number], spra
   };
 }
 
-/** `GET /api/entwickler/apps`, Form aus `services/app/entwicklerCockpit.js`. */
-function entwicklerApps(z: DemoZustand, sprache: Sprache) {
+/** `GET /api/werkstatt/apps`, Form aus `services/app/werkstatt.js`. */
+function werkstattApps(z: DemoZustand, sprache: Sprache) {
   return z.apps.map(a => {
     const meldungen = z.meldungen.filter(m => m.app_id === a.id);
     const schaltung = [...z.schaltungen].reverse().find(s => s.app_id === a.id) ?? null;
@@ -257,23 +261,28 @@ export function antworte(
         return [ok({ an: false, entwickler, linuxNutzer: null }), z];
       case '/api/profil':
         return [ok(person(z, sprache)), z];
+      case '/api/werkstatt/ich':
+        return [ok({ recht: entwickler }), z];
       case '/api/rueckmeldungen':
-        if (!entwickler) return [fehler(403, 'FORBIDDEN', 'Nur für Entwickler.'), z];
+        // Wie am Gerät (J52): ohne das Recht nur die eigenen Meldungen.
         return [
           ok(
             [...z.meldungen]
+              .filter(m => entwickler || m.person?.id === PERSONEN[z.rolle].id)
               .sort((x, y) => y.erstellt_am.localeCompare(x.erstellt_am))
               .map(m => meldungAussen(z, m, sprache))
           ),
           z,
         ];
-      case '/api/entwickler/apps':
-        if (!entwickler) return [fehler(403, 'FORBIDDEN', 'Nur für Entwickler.'), z];
-        return [ok(entwicklerApps(z, sprache)), z];
+      case '/api/werkstatt/apps':
+        if (!entwickler) return [fehler(403, 'FORBIDDEN', OHNE_RECHT), z];
+        return [ok(werkstattApps(z, sprache)), z];
     }
     const bild = pfad.match(/^\/api\/rueckmeldungen\/(\d+)\/bild$/);
     if (bild) {
-      const m = z.meldungen.find(x => x.id === Number(bild[1]));
+      const m = z.meldungen.find(
+        x => x.id === Number(bild[1]) && (entwickler || x.person?.id === PERSONEN[z.rolle].id)
+      );
       const bytes = m?.bild ? bytesAusDataUrl(m.bild) : null;
       if (!bytes) return [fehler(404, 'NOT_FOUND', 'Zu dieser Rückmeldung gibt es kein Bild.'), z];
       return [
@@ -344,7 +353,7 @@ export function antworte(
 
   const einzeln = pfad.match(/^\/api\/rueckmeldungen\/(\d+)$/);
   if (einzeln && (methode === 'PATCH' || methode === 'DELETE')) {
-    if (!entwickler) return [fehler(403, 'FORBIDDEN', 'Nur für Entwickler.'), z];
+    if (!entwickler) return [fehler(403, 'FORBIDDEN', OHNE_RECHT), z];
     const id = Number(einzeln[1]);
     const m = z.meldungen.find(x => x.id === id);
     if (!m) return [fehler(404, 'NOT_FOUND', 'Diese Rückmeldung gibt es nicht.'), z];
@@ -376,7 +385,7 @@ export function antworte(
 
   const schalt = pfad.match(/^\/api\/apps\/([a-z0-9-]+)\/schalten$/);
   if (schalt && methode === 'POST') {
-    if (!entwickler) return [fehler(403, 'FORBIDDEN', 'Nur für Entwickler.'), z];
+    if (!entwickler) return [fehler(403, 'FORBIDDEN', OHNE_RECHT), z];
     const app = z.apps.find(x => x.id === schalt[1]);
     if (!app) return [fehler(404, 'NOT_FOUND', 'Diese App gibt es nicht.'), z];
     return schalten(z, app, koerper.ziel);

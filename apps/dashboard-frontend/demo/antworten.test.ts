@@ -1,6 +1,7 @@
 /**
  * Die gespielten Antworten der Demo (J46, M7): der Weg der Website, ohne
- * Browser. Mitarbeiter meldet, Entwickler sieht die Meldung, schaltet live.
+ * Browser. Mitarbeiter meldet und sieht seine Meldungen in der Werkstatt, die
+ * App-Betreuung mit dem Recht in der Werkstatt sieht alle und schaltet live.
  */
 import { describe, expect, it } from 'vitest';
 import { antworte, type Anfrage } from './antworten';
@@ -19,7 +20,7 @@ function daten<T>(z: DemoZustand, a: Anfrage, sprache: 'de' | 'en' = 'de') {
 }
 
 describe('gespielte Antworten', () => {
-  it('der Besucher ist angemeldet, als Mitarbeiter ohne Cockpit', () => {
+  it('der Besucher ist angemeldet, als Mitarbeiter mit Werkstatt, aber ohne das Recht', () => {
     const z = anfangsZustand();
     const s = daten<{ authenticated: boolean; user: { entwickler: boolean; role: string } }>(
       z,
@@ -33,12 +34,60 @@ describe('gespielte Antworten', () => {
       z,
       frage('GET', '/api/apps/meine')
     );
-    expect(apps.json.data.map(a => a.id)).toEqual(['angebote', 'wartungsplan', 'urlaub']);
+    expect(apps.json.data.map(a => a.id)).toEqual([
+      'angebote',
+      'wartungsplan',
+      'urlaub',
+      'werkstatt',
+    ]);
     expect(apps.json.data.every(a => a.test === null)).toBe(true);
-    expect(daten(z, frage('GET', '/api/rueckmeldungen')).status).toBe(403);
+    expect(
+      daten<{ data: { recht: boolean } }>(z, frage('GET', '/api/werkstatt/ich')).json.data
+    ).toEqual({ recht: false });
+    // Ohne das Recht nur die eigenen Meldungen, mit Stand (J52).
+    const meine = daten<{ data: Array<{ id: number; person: { id: number } }> }>(
+      z,
+      frage('GET', '/api/rueckmeldungen')
+    );
+    expect(meine.status).toBe(200);
+    expect(meine.json.data.map(m => m.id)).toEqual([100]);
+    expect(daten(z, frage('GET', '/api/werkstatt/apps')).status).toBe(403);
+    expect(
+      daten(z, frage('PATCH', '/api/rueckmeldungen/100', { stand_meldung: 'neu' })).status
+    ).toBe(403);
   });
 
-  it('eine Meldung kommt als Entwickler im Eingang an, mit Bild', () => {
+  it('ein fremdes Bild bekommt der Mitarbeiter nie, das eigene schon', () => {
+    let z: DemoZustand = { ...anfangsZustand(), rolle: 'entwickler' };
+    const bild = 'data:image/png;base64,' + btoa('png');
+    const fremd = daten<{ data: { id: number } }>(
+      z,
+      frage('POST', '/api/rueckmeldungen', {
+        app_id: 'angebote',
+        seite: '/apps/angebote/',
+        text: 'Von der App-Betreuung',
+        bild,
+      })
+    );
+    z = { ...fremd.nachher, rolle: 'mitarbeiter' };
+    expect(daten(z, frage('GET', `/api/rueckmeldungen/${fremd.json.data.id}/bild`)).status).toBe(
+      404
+    );
+    const eigen = daten<{ data: { id: number } }>(
+      z,
+      frage('POST', '/api/rueckmeldungen', {
+        app_id: 'angebote',
+        seite: '/apps/angebote/',
+        text: 'Meine',
+        bild,
+      })
+    );
+    expect(
+      daten(eigen.nachher, frage('GET', `/api/rueckmeldungen/${eigen.json.data.id}/bild`)).status
+    ).toBe(200);
+  });
+
+  it('eine Meldung kommt mit dem Recht in der Werkstatt im Eingang an, mit Bild', () => {
     let z = anfangsZustand();
     const bild = 'data:image/png;base64,' + btoa('png');
     const neu = daten<{ data: { id: number } }>(
@@ -72,7 +121,7 @@ describe('gespielte Antworten', () => {
     let z: DemoZustand = { ...anfangsZustand(), rolle: 'entwickler' };
     const vorher = daten<{ data: Array<{ id: string; test_neuer: boolean }> }>(
       z,
-      frage('GET', '/api/entwickler/apps')
+      frage('GET', '/api/werkstatt/apps')
     );
     expect(vorher.json.data.find(a => a.id === 'angebote')?.test_neuer).toBe(true);
 
@@ -133,6 +182,11 @@ describe('gespielte Antworten', () => {
   it('Namen der Apps in der Sprache des Besuchers', () => {
     const z = anfangsZustand();
     const en = daten<{ data: Array<{ name: string }> }>(z, frage('GET', '/api/apps/meine'), 'en');
-    expect(en.json.data.map(a => a.name)).toEqual(['Quotes', 'Maintenance plan', 'Leave requests']);
+    expect(en.json.data.map(a => a.name)).toEqual([
+      'Quotes',
+      'Maintenance plan',
+      'Leave requests',
+      'Werkstatt',
+    ]);
   });
 });

@@ -10,7 +10,7 @@
  *      esbuild als IIFE nach `/demo-dienst.js`);
  *   3. die Bibliothek zur Laufzeit unter `/marken/5/`, wie das Gerät sie
  *      ausliefert (`packages/marken/laufzeit.config.mjs`);
- *   4. das Entwickler-Cockpit unter `/apps/entwickler-cockpit/`;
+ *   4. die Werkstatt unter `/apps/werkstatt/`;
  *   5. die drei Beispiel-Apps unter `/apps/<id>/` und `/apps/<id>/test/`.
  *
  * `dist/` (was der Container des Geräts ausliefert) bleibt unberührt.
@@ -60,10 +60,10 @@ await build({
 });
 delete process.env.MARKEN_LAUFZEIT_ZIEL;
 
-schritt('Entwickler-Cockpit');
-const cockpit = path.join(repo, 'apps/entwickler-cockpit');
-await build({ configFile: path.join(cockpit, 'vite.config.ts'), logLevel: 'warn' });
-cpSync(path.join(cockpit, 'dist/frontend'), path.join(ziel, 'apps/entwickler-cockpit'), {
+schritt('Werkstatt');
+const werkstatt = path.join(repo, 'apps/werkstatt');
+await build({ configFile: path.join(werkstatt, 'vite.config.ts'), logLevel: 'warn' });
+cpSync(path.join(werkstatt, 'dist/frontend'), path.join(ziel, 'apps/werkstatt'), {
   recursive: true,
 });
 
