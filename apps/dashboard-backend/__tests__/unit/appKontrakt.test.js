@@ -427,7 +427,14 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // Manifest. Enger wird es nur beim Ausrollen, und das Geraet sagt in einem
     // Satz, was fehlt. Ein Kit, das bis 14 zaehlt, spielt sonst ein wie
     // bisher; eine 15 hielte es ohne Not an. Die Zahl bleibt bei 14.
-    expect(abdruck).toBe('83e314b0d5faa634da3ad651e705fd619e85082f638cb2abeaff7bb29ad9ec68');
+    //
+    // 22.11.2026 (M7, J52, Auftrag werkstatt-und-rechte): die mitgelieferte
+    // App heisst `werkstatt` statt `entwickler-cockpit` (`paket.nachweis.
+    // ausgenommen`), und eine Regel der Rueckmeldungen sagt neu, dass der
+    // Melder Stand und Grund in der Werkstatt sieht. Kein Weg, kein Feld,
+    // kein Bereich aendert sich; das Kit baut die ausgenommene App nie. Die
+    // Zahl bleibt bei 14.
+    expect(abdruck).toBe('ae3f00b786ea6264c3a615914a72745d43a6f354b1f42d9064b5846b1d12765e');
   });
 
   /**

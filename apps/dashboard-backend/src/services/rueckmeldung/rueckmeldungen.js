@@ -6,15 +6,18 @@
  * App, Stand, Seite, Person und Zeit haengt der Rahmen an. Vertrag:
  * docs/features/RUECKMELDUNG.md.
  *
- * ZWEI SEITEN, ZWEI RECHTE.
+ * WER WAS DARF.
  *   - Melden darf jeder, der die App in diesem Stand benutzen darf
  *     (`appZugang.pruefe`, dieselbe Frage wie vor jeder Seite der App).
  *     Wer die App nicht hat, kann auch nichts zu ihr melden.
- *   - Lesen darf nur, wer das Kennzeichen Entwickler traegt
- *     (`admin_users.entwickler`, Migration 213). Gefragt wird die Datenbank
+ *   - Seine EIGENEN Meldungen liest jeder, mit Stand und Grund, und das
+ *     Bild dazu (seit J52, 22.11.2026; vorher gar keine).
+ *   - ALLE Meldungen samt Bildern liest, setzt und entfernt nur, wer das
+ *     Recht in der Werkstatt hat, technisch das Kennzeichen
+ *     `admin_users.entwickler` (Migration 213). Gefragt wird die Datenbank
  *     bei jedem Aufruf, nicht der Zwischenspeicher von `requireAuth`: ein
- *     entzogenes Kennzeichen gilt beim naechsten Aufruf. Die Rolle Admin
- *     allein reicht NICHT (schleife.md, Regel 2).
+ *     entzogenes Recht gilt beim naechsten Aufruf. Die Rolle Admin allein
+ *     reicht NICHT (schleife.md, Regel 2).
  *
  * DAS BILD LIEGT ALS DATEI AM GERAET, nicht in der Datenbank: unter
  * `<APPS_DIR>/.rueckmeldungen/<uuid>.png`. Der Ordner liegt im Baum der Apps
@@ -138,19 +141,28 @@ async function melde({ personId, appId, stand, seite, text, bild = null, markier
 }
 
 /**
- * Traegt diese Person das Kennzeichen Entwickler? Frisch aus der Datenbank.
- * Wirft 403, wenn nicht -- auch fuer einen Administrator ohne Kennzeichen.
+ * Hat diese Person das Recht in der Werkstatt (Kennzeichen
+ * `admin_users.entwickler`)? Frisch aus der Datenbank, ohne zu werfen.
  */
-async function pruefeEntwickler(personId) {
+async function hatWerkstattRecht(personId) {
   const { rows } = await db.query(
     'SELECT entwickler FROM public.admin_users WHERE id = $1 AND is_active = true',
     [personId]
   );
-  if (rows[0]?.entwickler !== true) {
+  return rows[0]?.entwickler === true;
+}
+
+/**
+ * Wie `hatWerkstattRecht`, aber wirft 403, wenn nicht -- auch fuer einen
+ * Administrator ohne das Recht. Der Name bleibt der technische: das Recht
+ * ist das Kennzeichen Entwickler, an dem auch das Terminal haengt.
+ */
+async function pruefeEntwickler(personId) {
+  if (!(await hatWerkstattRecht(personId))) {
     throw new ForbiddenError(
-      'Das dürfen nur Personen mit dem Kennzeichen Entwickler: Rückmeldungen lesen, ' +
+      'Das dürfen nur Personen mit dem Recht in der Werkstatt: alle Rückmeldungen lesen, ' +
         'ihren Stand setzen, Apps live schalten ohne Verwaltung. ' +
-        'Ein Administrator schaltet es unter Verwaltung › Personen.'
+        'Ein Administrator gibt es unter Verwaltung › Personen.'
     );
   }
 }
@@ -175,11 +187,13 @@ function nachAussen(z) {
 }
 
 /**
- * Die Meldungen, neueste zuerst, hoechstens `grenze` (500: das Cockpit filtert
- * je App und Stand im Browser, J44).
- * @param {{appId?: string, grenze?: number}} [f]
+ * Die Meldungen, neueste zuerst, hoechstens `grenze` (500: die Werkstatt
+ * filtert je App und Stand im Browser, J44). Mit `personId` nur die dieser
+ * Person -- die Sicht ohne das Recht in der Werkstatt (J52). Ohne `personId`
+ * alle; das darf nur rufen, wer das Recht geprueft hat.
+ * @param {{appId?: string, personId?: number|string, grenze?: number}} [f]
  */
-async function liste({ appId, grenze = 500 } = {}) {
+async function liste({ appId, personId, grenze = 500 } = {}) {
   const { rows } = await db.query(
     `SELECT r.id, r.app_id, a.name AS app_name, r.stand, r.seite, r.text, r.bild,
             r.markierung, r.person_id, r.stand_meldung, r.grund, r.stand_geaendert_am,
@@ -188,16 +202,28 @@ async function liste({ appId, grenze = 500 } = {}) {
        LEFT JOIN public.apps a ON a.id = r.app_id
        LEFT JOIN public.admin_users u ON u.id = r.person_id
       WHERE ($1::text IS NULL OR r.app_id = $1)
+        AND ($3::bigint IS NULL OR r.person_id = $3)
       ORDER BY r.erstellt_am DESC, r.id DESC
       LIMIT $2`,
-    [appId ?? null, grenze]
+    [appId ?? null, grenze, personId ?? null]
   );
   return rows.map(nachAussen);
 }
 
-/** Die Bytes des Bildes einer Meldung. 404, wenn sie keins hat. */
-async function bild(id) {
-  const { rows } = await db.query('SELECT bild FROM public.rueckmeldungen WHERE id = $1', [id]);
+/**
+ * Die Bytes des Bildes einer Meldung. 404, wenn sie keins hat. Mit
+ * `personId` nur, wenn die Meldung dieser Person gehoert, sonst ebenfalls 404
+ * (nicht 403): wer ohne das Recht fragt, erfaehrt nicht einmal, ob es eine
+ * fremde Meldung mit dieser Nummer gibt (J52).
+ * @param {number|string} id
+ * @param {{personId?: number|string}} [f]
+ */
+async function bild(id, { personId } = {}) {
+  const { rows } = await db.query(
+    `SELECT bild FROM public.rueckmeldungen
+      WHERE id = $1 AND ($2::bigint IS NULL OR person_id = $2)`,
+    [id, personId ?? null]
+  );
   if (rows.length === 0) {
     throw new NotFoundError(`Keine Rückmeldung ${id}`);
   }
@@ -242,7 +268,7 @@ async function loesche(id) {
  *           nicht einmal, ob es eines gibt. Der Abholweg antwortet 403.
  *   an   -> je Meldung `bild`: null ohne Foto, sonst `{ weg, markierung }`.
  *
- * Im Geraet selbst (Liste der Entwickler, spaeter das Cockpit) aendert der
+ * Im Geraet selbst (die Werkstatt) aendert der
  * Schalter nichts; das Bild verlaesst nur ueber diesen Weg das Haus.
  */
 
@@ -392,11 +418,11 @@ async function setzeStand({ appId, nr, standMeldung, grund, durch }) {
 }
 
 /**
- * Den Stand einer Meldung am Geraet setzen, durch einen Entwickler im Cockpit
- * (J44). Dieselbe Regel wie fuer das Kit (`setzeStand`): `grund` Pflicht bei
+ * Den Stand einer Meldung am Geraet setzen, durch eine Person mit dem Recht in
+ * der Werkstatt (J44, J52). Dieselbe Regel wie fuer das Kit (`setzeStand`): `grund` Pflicht bei
  * `abgelehnt`, ein neuer Stand ohne Grund loescht den alten. Anders als dort
- * gehoert die Meldung zu keiner bestimmten App des Aufrufers -- ein Entwickler
- * am Geraet sieht alle --, und die Antwort hat die Form der Liste, mit Bild,
+ * gehoert die Meldung zu keiner bestimmten App des Aufrufers -- wer das Recht
+ * hat, sieht alle --, und die Antwort hat die Form der Liste, mit Bild,
  * denn am Geraet aendert der Schalter je App nichts.
  *
  * @param {{id: number, standMeldung: string, grund?: string, durch: string}} a
@@ -528,6 +554,7 @@ module.exports = {
   bild,
   loesche,
   pruefeEntwickler,
+  hatWerkstattRecht,
   bildOrdner,
   BILD_GRENZE,
 };

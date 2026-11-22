@@ -780,11 +780,12 @@ router.post(
 );
 
 /**
- * Schalten darf der Administrator -- und seit dem Entwickler-Cockpit (J44, M7)
- * auch, wer das Kennzeichen Entwickler traegt, ohne Admin zu sein
+ * Schalten darf der Administrator -- und seit dem Entwickler-Cockpit (J44, M7,
+ * seit J52 die Werkstatt) auch, wer das Recht in der Werkstatt hat
+ * (Kennzeichen Entwickler), ohne Admin zu sein
  * (`company/schleife.md`, Teil „Test nach Live": der Entwickler sieht, was im
  * Test neu ist, und schaltet es live). Das Kennzeichen frisch aus der
- * Datenbank, wie an jedem Weg des Cockpits.
+ * Datenbank, wie an jedem Weg der Werkstatt.
  */
 const adminOderEntwickler = asyncHandler(async (req, res, next) => {
   if (req.user.role !== 'admin') {

@@ -51,7 +51,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/firmenordner', group: 'core' },
   { prefix: '/terminal', group: 'core' },
   { prefix: '/rueckmeldungen', group: 'core' },
-  { prefix: '/entwickler', group: 'core' },
+  { prefix: '/werkstatt', group: 'core' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/v1/external', group: 'external' },
   { prefix: '/docs', group: 'core', description: 'Static API documentation' },
@@ -101,9 +101,10 @@ router.use('/firmenordner', require('./firmenordner'));
 // Kern-Wegen: es gehoert dem Angemeldeten, die Rolle Entwickler entscheidet.
 router.use('/terminal', require('./terminal'));
 // Die Rueckmeldung im Rahmen (J42, M7). Bei den Kern-Wegen: melden darf
-// jeder mit Zugang zur App, lesen nur das Kennzeichen Entwickler.
+// jeder mit Zugang zur App, lesen jeder die eigenen, alle nur mit dem Recht
+// in der Werkstatt (J52).
 router.use('/rueckmeldungen', require('./rueckmeldungen'));
-router.use('/entwickler', require('./entwickler'));
+router.use('/werkstatt', require('./werkstatt'));
 
 // --- System ---
 router.use('/system', require('./system/system'));

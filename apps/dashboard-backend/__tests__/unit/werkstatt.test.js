@@ -1,13 +1,16 @@
 /**
- * Das Entwickler-Cockpit (J44, M7, Karte entwickler-cockpit).
+ * Die Werkstatt (J44, M7, Karte entwickler-cockpit; seit J52, Karte
+ * werkstatt-und-rechte, heisst sie Werkstatt und steht allen offen).
  *
- * Belegt wird, was die Karte verlangt und das Backend traegt:
- *   - die mitgelieferte App sieht nur, wer das Kennzeichen Entwickler traegt,
- *     auch ohne Admin-Rolle -- ohne Kennzeichen weder in `/meine` noch ueber
- *     die Adresse (403), auch nicht als Administrator;
- *   - ihre Kennung ist fuer Pakete vergeben;
- *   - Stand und Ablehnungsgrund setzt ein Entwickler am Geraet;
- *   - die Uebersicht je App mit Test, Live, offenen Meldungen und „Test neuer".
+ * Belegt wird, was die Karten verlangen und das Backend traegt:
+ *   - die mitgelieferte App oeffnet jede aktive Person, mit oder ohne das
+ *     Recht in der Werkstatt, in `/meine` und ueber die Adresse;
+ *   - die alte Adresse `/apps/entwickler-cockpit/` zieht um, vor der Anmeldung;
+ *   - neue und alte Kennung sind fuer Pakete vergeben;
+ *   - Stand und Ablehnungsgrund setzt nur, wer das Recht hat;
+ *   - `/api/werkstatt/ich` sagt, ob das Recht da ist;
+ *   - die Uebersicht je App mit Test, Live, offenen Meldungen und „Test neuer"
+ *     nur mit dem Recht.
  */
 const fs = require('fs');
 const os = require('os');
@@ -55,29 +58,29 @@ const app = () => {
   const a = express();
   a.use(express.json());
   a.use('/api/rueckmeldungen', require('../../src/routes/rueckmeldungen'));
-  a.use('/api/entwickler', require('../../src/routes/entwickler'));
+  a.use('/api/werkstatt', require('../../src/routes/werkstatt'));
   a.use('/apps', require('../../src/routes/appAusliefern'));
   a.use(errorHandler);
   return a;
 };
 
 let ordner;
-function cockpitGebaut() {
-  const wurzel = path.join(ordner, 'entwickler-cockpit');
+function werkstattGebaut() {
+  const wurzel = path.join(ordner, 'werkstatt');
   fs.mkdirSync(path.join(wurzel, 'frontend'), { recursive: true });
   fs.writeFileSync(
     path.join(wurzel, 'app.json'),
     JSON.stringify({
       schema: 1,
-      id: 'entwickler-cockpit',
-      name: 'Entwickler-Cockpit',
-      version: '1.0.0',
+      id: 'werkstatt',
+      name: 'Werkstatt',
+      version: '2.0.0',
       frontend: { verzeichnis: 'frontend' },
       marken: '5',
-      symbol: 'gauge',
+      symbol: 'hammer',
     })
   );
-  fs.writeFileSync(path.join(wurzel, 'frontend', 'index.html'), '<!doctype html><p>Cockpit</p>');
+  fs.writeFileSync(path.join(wurzel, 'frontend', 'index.html'), '<!doctype html><p>Werkstatt</p>');
 }
 
 beforeEach(() => {
@@ -92,108 +95,131 @@ afterEach(() => {
 });
 
 const kennzeichen = wert => db.query.mockResolvedValueOnce({ rows: [{ entwickler: wert }] });
+/** `istAktiv` in `mitgeliefert.js`: eine Zeile, wenn die Person aktiv ist. */
+const aktiv = (ja = true) => db.query.mockResolvedValueOnce({ rows: ja ? [{ '?column?': 1 }] : [] });
 
-describe('die Kennung ist vergeben', () => {
-  test('ein Manifest mit entwickler-cockpit wird abgewiesen, mit Satz', () => {
-    const r = AppManifest.safeParse({
-      schema: 1,
-      id: 'entwickler-cockpit',
-      name: 'Nachbau',
-      version: '1.0.0',
-      frontend: { verzeichnis: 'frontend' },
-    });
-    expect(r.success).toBe(false);
-    expect(r.error.issues[0].message).toMatch(/vergeben/);
-  });
+describe('die Kennung ist vergeben, die neue und die alte', () => {
+  test.each(['werkstatt', 'entwickler-cockpit'])(
+    'ein Manifest mit %s wird abgewiesen, mit Satz',
+    id => {
+      const r = AppManifest.safeParse({
+        schema: 1,
+        id,
+        name: 'Nachbau',
+        version: '1.0.0',
+        frontend: { verzeichnis: 'frontend' },
+      });
+      expect(r.success).toBe(false);
+      expect(r.error.issues[0].message).toMatch(/vergeben/);
+    }
+  );
 
   test('als Pfad und Parameter bleibt sie eine gültige Kennung', () => {
-    expect(AppId.safeParse('entwickler-cockpit').success).toBe(true);
+    expect(AppId.safeParse('werkstatt').success).toBe(true);
   });
 });
 
-describe('wer das Cockpit sieht', () => {
-  test('ein Entwickler ohne Admin-Rolle: ja, ohne Blick in app_members', async () => {
-    kennzeichen(true);
+describe('die alte Adresse zieht um', () => {
+  test.each([
+    ['/apps/entwickler-cockpit/', '/apps/werkstatt/'],
+    ['/apps/entwickler-cockpit', '/apps/werkstatt/'],
+    ['/apps/entwickler-cockpit/assets/app.js', '/apps/werkstatt/assets/app.js'],
+    ['/apps/entwickler-cockpit/?x=1#apps', '/apps/werkstatt/?x=1'],
+  ])('%s -> %s, dauerhaft und vor der Anmeldung', async (alt, neu) => {
+    mockAngemeldet = null;
+    const res = await request(app()).get(alt);
+    expect(res.status).toBe(301);
+    expect(res.headers.location).toBe(neu);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+});
+
+describe('wer die Werkstatt öffnet: jede aktive Person', () => {
+  test('ein Mitarbeiter ohne das Recht: ja, ohne Blick in app_members oder das Kennzeichen', async () => {
+    aktiv();
     await expect(
-      appZugang.pruefe({ benutzerId: 2, appId: 'entwickler-cockpit', stand: 'live' })
-    ).resolves.toMatchObject({ app_id: 'entwickler-cockpit', stand: 'live' });
+      appZugang.pruefe({ benutzerId: 2, appId: 'werkstatt', stand: 'live' })
+    ).resolves.toMatchObject({ app_id: 'werkstatt', stand: 'live' });
     expect(db.query).toHaveBeenCalledTimes(1);
-    expect(db.query.mock.calls[0][0]).not.toMatch(/app_members/);
+    expect(db.query.mock.calls[0][0]).not.toMatch(/app_members|entwickler/);
   });
 
-  test('ein Administrator ohne Kennzeichen: 403 mit Grund für die Sperrseite', async () => {
-    kennzeichen(false);
+  test('ein gesperrtes Konto: 403 mit Grund für die Sperrseite', async () => {
+    aktiv(false);
     await expect(
-      appZugang.pruefe({ benutzerId: 1, appId: 'entwickler-cockpit', stand: 'live' })
+      appZugang.pruefe({ benutzerId: 1, appId: 'werkstatt', stand: 'live' })
     ).rejects.toMatchObject({ statusCode: 403, grund: 'nicht_freigegeben' });
   });
 
   test('einen Teststand gibt es nicht: 404', async () => {
-    kennzeichen(true);
+    aktiv();
     await expect(
-      appZugang.pruefe({ benutzerId: 2, appId: 'entwickler-cockpit', stand: 'test' })
+      appZugang.pruefe({ benutzerId: 2, appId: 'werkstatt', stand: 'test' })
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 
-  test('/apps/entwickler-cockpit/ liefert die Seite an einen Entwickler', async () => {
-    cockpitGebaut();
-    kennzeichen(true);
-    const res = await request(app()).get('/apps/entwickler-cockpit/');
-    expect(res.status).toBe(200);
-    expect(res.text).toContain('Cockpit');
-  });
-
-  test('ohne Kennzeichen ist die Adresse zu, auch für den Administrator', async () => {
-    cockpitGebaut();
-    mockAngemeldet = { ...CHEF };
-    kennzeichen(false);
-    const seite = await request(app()).get('/apps/entwickler-cockpit/').set('Accept', 'text/html');
-    expect(seite.status).toBe(403);
-    expect(seite.text).not.toContain('Cockpit</p>');
-
-    kennzeichen(false);
-    const datei = await request(app()).get('/apps/entwickler-cockpit/assets/app.js');
-    expect(datei.status).toBe(403);
+  test('/apps/werkstatt/ liefert die Seite an jeden, Mitarbeiter wie Administrator', async () => {
+    werkstattGebaut();
+    for (const wer of [MIA, CHEF]) {
+      mockAngemeldet = { ...wer };
+      aktiv();
+      const res = await request(app()).get('/apps/werkstatt/');
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('Werkstatt');
+    }
   });
 
   test('ohne Anmeldung: Umzug zur Anmeldung, nichts aus der App', async () => {
-    cockpitGebaut();
+    werkstattGebaut();
     mockAngemeldet = null;
-    const res = await request(app()).get('/apps/entwickler-cockpit/');
+    const res = await request(app()).get('/apps/werkstatt/');
     expect(res.status).toBe(302);
     expect(db.query).not.toHaveBeenCalled();
   });
 
   test('fehlt der Bau im Abbild, ist das 503 APP_DATEIEN_FEHLEN', async () => {
-    kennzeichen(true);
-    const res = await request(app()).get('/apps/entwickler-cockpit/');
+    aktiv();
+    const res = await request(app()).get('/apps/werkstatt/');
     expect(res.status).toBe(503);
     expect(res.body.error.code).toBe('APP_DATEIEN_FEHLEN');
   });
 
-  test('/meine: der Eintrag nur mit Kennzeichen und nur, wenn gebaut', async () => {
+  test('/meine: der Eintrag für jede aktive Person, nur wenn gebaut', async () => {
     expect(await mitgeliefert.fuerNutzer(2)).toEqual([]);
     expect(db.query).not.toHaveBeenCalled();
 
-    cockpitGebaut();
-    kennzeichen(false);
+    werkstattGebaut();
+    aktiv(false);
     expect(await mitgeliefert.fuerNutzer(1)).toEqual([]);
 
-    kennzeichen(true);
+    aktiv();
     const liste = await mitgeliefert.fuerNutzer(2);
     expect(liste).toEqual([
       expect.objectContaining({
-        id: 'entwickler-cockpit',
-        symbol: 'gauge',
+        id: 'werkstatt',
+        name: 'Werkstatt',
+        symbol: 'hammer',
         mitgeliefert: true,
-        live: { version: '1.0.0', pfad: '/apps/entwickler-cockpit/', api: null },
+        live: { version: '2.0.0', pfad: '/apps/werkstatt/', api: null },
         test: null,
       }),
     ]);
   });
 });
 
-describe('PATCH /api/rueckmeldungen/:id: Stand setzen im Cockpit', () => {
+describe('GET /api/werkstatt/ich', () => {
+  test.each([
+    [true, true],
+    [false, false],
+  ])('Kennzeichen %s -> recht %s', async (wert, recht) => {
+    kennzeichen(wert);
+    const res = await request(app()).get('/api/werkstatt/ich');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ recht });
+  });
+});
+
+describe('PATCH /api/rueckmeldungen/:id: Stand setzen in der Werkstatt', () => {
   const zeile = (ueber = {}) => ({
     id: '7',
     app_id: 'belege',
@@ -214,7 +240,7 @@ describe('PATCH /api/rueckmeldungen/:id: Stand setzen im Cockpit', () => {
     ...ueber,
   });
 
-  test('ohne Kennzeichen: 403, auch als Administrator, und nichts geändert', async () => {
+  test('ohne das Recht: 403, auch als Administrator, und nichts geändert', async () => {
     for (const wer of [MIA, CHEF]) {
       mockAngemeldet = { ...wer };
       kennzeichen(false);
@@ -281,15 +307,17 @@ describe('PATCH /api/rueckmeldungen/:id: Stand setzen im Cockpit', () => {
   });
 });
 
-describe('GET /api/entwickler/apps', () => {
-  test('ohne Kennzeichen: 403', async () => {
-    mockAngemeldet = { ...CHEF };
-    kennzeichen(false);
-    expect((await request(app()).get('/api/entwickler/apps')).status).toBe(403);
+describe('GET /api/werkstatt/apps', () => {
+  test('ohne das Recht: 403, auch als Administrator', async () => {
+    for (const wer of [MIA, CHEF]) {
+      mockAngemeldet = { ...wer };
+      kennzeichen(false);
+      expect((await request(app()).get('/api/werkstatt/apps')).status).toBe(403);
+    }
   });
 
   test('je App Test und Live, offene Meldungen, und ob Test neuer ist', async () => {
-    cockpitGebaut();
+    werkstattGebaut();
     kennzeichen(true);
     db.query
       .mockResolvedValueOnce({
@@ -337,13 +365,13 @@ describe('GET /api/entwickler/apps', () => {
       .mockResolvedValueOnce({
         rows: [
           { app_id: 'belege', offen: 3, neu: 2, umgesetzt: 1 },
-          { app_id: 'entwickler-cockpit', offen: 1, neu: 1, umgesetzt: 0 },
+          { app_id: 'werkstatt', offen: 1, neu: 1, umgesetzt: 0 },
         ],
       });
 
-    const res = await request(app()).get('/api/entwickler/apps');
+    const res = await request(app()).get('/api/werkstatt/apps');
     expect(res.status).toBe(200);
-    const [belege, probe, neu, cockpit] = res.body.data;
+    const [belege, probe, neu, werkstatt] = res.body.data;
     expect(belege).toMatchObject({
       symbol: 'receipt',
       test_neuer: true,
@@ -357,11 +385,12 @@ describe('GET /api/entwickler/apps', () => {
       letzte_schaltung: { ergebnis: 'live' },
     });
     expect(neu).toMatchObject({ test_neuer: true, live: null });
-    expect(cockpit).toMatchObject({
-      id: 'entwickler-cockpit',
+    expect(werkstatt).toMatchObject({
+      id: 'werkstatt',
+      name: 'Werkstatt',
       mitgeliefert: true,
       test_neuer: false,
-      live: { version: '1.0.0' },
+      live: { version: '2.0.0' },
       meldungen: { offen: 1 },
     });
   });

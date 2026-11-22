@@ -46,13 +46,20 @@ const AppId = z
 
 /**
  * Die Apps, die mit Arasul selbst kommen (J44, M7): seit 20.11.2026 genau eine,
- * das Entwickler-Cockpit. Ihre Kennung ist vergeben -- ein Paket mit derselben
+ * die Werkstatt (bis 22.11.2026 Entwickler-Cockpit, J52). Ihre Kennung ist vergeben -- ein Paket mit derselben
  * Kennung haette denselben Pfad `/apps/<id>/` wie die mitgelieferte App. Die
  * Kennung bleibt trotzdem eine gueltige `AppId` (Pfad, Parameter, Zugang);
  * abgewiesen wird nur ein MANIFEST, das sie nennt. Der Dienst dazu:
  * `services/app/mitgeliefert.js`.
  */
-const MITGELIEFERTE_APPS = Object.freeze(['entwickler-cockpit']);
+const MITGELIEFERTE_APPS = Object.freeze(['werkstatt']);
+
+/**
+ * Alte Kennungen mitgelieferter Apps und ihre neuen (J52). Die alte Adresse
+ * `/apps/<alt>/` leitet um (`routes/appAusliefern.js`), also ist auch die alte
+ * Kennung fuer Pakete vergeben: eine App darunter waere nie erreichbar.
+ */
+const ALTE_KENNUNGEN = Object.freeze({ 'entwickler-cockpit': 'werkstatt' });
 
 /** Der Stand, in dem eine Version laeuft. Genau zwei, wie in `app_staende`. */
 const Stand = z.enum(['test', 'live'], { error: 'Stand ist „test" oder „live"' });
@@ -424,7 +431,7 @@ const AppManifest = z
   .object({
     schema: z.literal(1, { error: 'Nur `"schema": 1` wird verstanden' }),
     id: AppId.refine(
-      v => !MITGELIEFERTE_APPS.includes(v),
+      v => !MITGELIEFERTE_APPS.includes(v) && !Object.hasOwn(ALTE_KENNUNGEN, v),
       'App-Kennung ist vergeben: unter diesem Namen kommt eine App mit Arasul selbst'
     ),
     name: z.string({ error: 'Name fehlt' }).trim().min(1, 'Name fehlt').max(120),
@@ -799,6 +806,7 @@ module.exports = {
   AppId,
   SymbolErsatzBody,
   MITGELIEFERTE_APPS,
+  ALTE_KENNUNGEN,
   ReihenfolgeBody,
   Stand,
   Version,
