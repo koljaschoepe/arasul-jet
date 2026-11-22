@@ -504,8 +504,9 @@ Aktivitätsleiste, am Handy unter „Mehr“.
 Website, Demo und Produkt folgen einer Linie (`gestaltung.md` des
 Überordners, Abschnitt „Gemeinsame Linie“). Im Produkt heißt das:
 
-- **Tiefe.** `--verlauf-rahmen` ist kräftiger: hell von Creme bis in ein
-  deutliches Blau (`--rahmen-stufe-3` `#8fb0ea`, Schein `#82a6e7`), dunkel ein
+- **Tiefe.** `--verlauf-rahmen` ist kräftiger: hell von einem hellen
+  Blau bis in ein deutliches (`#c9d8f2` bis `#86a9e8`, seit 5.12.1; in Creme
+  begonnen war er nur in einer Ecke zu sehen), dunkel ein
   tiefes Blau oben links (`#12336c`, `#133672`). Die Grenze setzt der Kontrast:
   leiser Text auf dem Glas der Leiste hält über jeder Stufe 4,5:1
   (`marken.py`, Punkt 9); hell trägt das Glas dafür 66 % Weiß, dunkel nur 3 %

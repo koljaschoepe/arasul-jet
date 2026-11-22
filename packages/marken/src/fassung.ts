@@ -307,4 +307,10 @@
  * aendert seine Bedeutung; eine App auf 5.11.1 laeuft unveraendert weiter
  * und sieht nur den neuen Grund und die groesseren Radien.
  */
-export const FASSUNG = '5.12.0';
+/*
+ * 5.12.1: der helle Verlauf des Rahmens beginnt nicht mehr in Creme, dem Ton
+ * der Flaeche, sondern in einem hellen Blau und geht in ein deutliches Blau;
+ * sonst war er nur in einer Ecke zu sehen. Die Flaeche der Ansicht wirft
+ * einen tieferen Schatten. Kein Name, keine Eigenschaft aendert sich.
+ */
+export const FASSUNG = '5.12.1';
