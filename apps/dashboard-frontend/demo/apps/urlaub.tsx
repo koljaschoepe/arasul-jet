@@ -82,7 +82,7 @@ const def: AppDef = {
     },
     { key: 'notiz', titel: t('Bemerkung', 'Note'), art: 'textlang' },
   ],
-  vorbelegung: () => ({ person: 2, art: 'urlaub', von: isoIn(21), bis: isoIn(25), vertretung: 5 }),
+  vorbelegung: () => ({ person: 16, art: 'urlaub', von: isoIn(21), bis: isoIn(25), vertretung: 8 }),
   pruefen: f => {
     const aus: Record<string, string> = {};
     if (typeof f.von === 'string' && typeof f.bis === 'string') {
@@ -114,7 +114,7 @@ const def: AppDef = {
       titel: t('Nummer', 'Number'),
       breite: '7rem',
       wert: e => e.nr,
-      zelle: e => <Mono>{e.nr}</Mono>,
+      zelle: e => e.nr,
       inKarte: false,
     },
     {
@@ -167,8 +167,9 @@ const def: AppDef = {
     const weg = liste.filter(
       e => e.stand === 'genehmigt' && tageBis(e.felder.von) <= 0 && tageBis(e.felder.bis) >= 0
     );
+    // Wer in den nächsten 14 Tagen fehlt, heute mitgezählt.
     const bald = liste.filter(
-      e => e.stand === 'genehmigt' && tageBis(e.felder.von) > 0 && tageBis(e.felder.von) <= 14
+      e => e.stand === 'genehmigt' && tageBis(e.felder.von) <= 14 && tageBis(e.felder.bis) >= 0
     );
     const genehmigt = liste.filter(e => e.stand === 'genehmigt' && e.felder.art === 'urlaub');
     const rest = PERSONEN.reduce((s, p) => s + p.urlaub, 0) / PERSONEN.length;

@@ -213,8 +213,8 @@ export const WOERTER: Record<string, string> = {
   'Prüfprotokolle (Test)': 'Inspection reports (test)',
   Urlaubsanträge: 'Leave requests',
   Werkstatt: 'Workshop',
-  'Betriebsleiterin, betreut die Apps': 'Operations manager, looks after the apps',
-  'Liegt bei Ihnen.': 'With you.',
+  Betriebsleiterin: 'Operations manager',
+  'Liegt bei Ihnen.': 'Waiting for you.',
   'Was bei Ihnen liegt, steht gleich darunter unter „Für Sie“.':
     'What is waiting for you is listed right below under “For you”.',
   'Ihr Name und Ihre Adresse auf diesem Gerät.': 'Your name and address on this server.',

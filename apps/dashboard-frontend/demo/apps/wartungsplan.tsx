@@ -129,7 +129,7 @@ const def: AppDef = {
       titel: t('Nummer', 'Number'),
       breite: '7rem',
       wert: e => e.nr,
-      zelle: e => <Mono>{e.nr}</Mono>,
+      zelle: e => e.nr,
     },
     {
       schluessel: 'maschine',

@@ -270,9 +270,12 @@ function Oben() {
         </Kachel>
         <Kachel app="pruefprotokolle">
           <Kennzahl
-            beschriftung={t('Prüfungen zur Freigabe', 'Inspections to approve')}
+            beschriftung={t('Zur Freigabe', 'For approval')}
             wert={String(pruefFreigabe.length)}
-            fussnote={t(`${nacharbeit.length} in Nacharbeit`, `${nacharbeit.length} in rework`)}
+            fussnote={t(
+              `Prüfprotokolle, ${nacharbeit.length} in Nacharbeit`,
+              `inspections, ${nacharbeit.length} in rework`
+            )}
             verlauf={proMonat(
               d.pruefprotokolle,
               e => String(e.felder.datum),
@@ -295,9 +298,9 @@ function Oben() {
         </Kachel>
         <Kachel app="werkstatt">
           <Kennzahl
-            beschriftung={t('Rückmeldungen offen', 'Open feedback')}
+            beschriftung={t('Vorschläge', 'Suggestions')}
             wert={String(meldungen.length)}
-            fussnote={t('in der Werkstatt', 'in the workshop')}
+            fussnote={t('zu den Apps, offen', 'on the apps, open')}
           />
         </Kachel>
       </div>

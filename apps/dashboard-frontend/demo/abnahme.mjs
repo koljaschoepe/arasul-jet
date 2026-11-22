@@ -167,7 +167,7 @@ async function deutscheReste(seite, wo) {
     for (const satz of liste) {
       if (
         DEUTSCH.test(satz) &&
-        !/Kerschner|Grünfelden|Yıldız|[Mm]üller|Präzision|Hagedorn|Mühlbach|Möbelwerk|Wärmetechnik|Landkreis|Eschenau/.test(
+        !/Kerschner|Grünfelden|Yıldız|[Mm]üller|Präzision|Hagedorn|Mühlbach|Möbelwerk|Wärmetechnik|Landkreis|Eschenau|Rieger|Brandl|Schulzentrum/.test(
           satz
         )
       ) {
@@ -210,6 +210,15 @@ async function rahmenVon(seite, app) {
   throw new Error(`App ${app} kommt nicht`);
 }
 
+/** Was die Abnahme einträgt: so, wie es im Betrieb stünde. */
+const TEXTE = {
+  'feld-betreff': 'Treppengeländer Rathaus, Edelstahl',
+  'feld-bauteil': 'Podest Treppe Nord',
+  'feld-aufgabe': 'Hydraulikfilter wechseln',
+  'feld-lieferschein': 'LS 48213',
+  'feld-lagerort': 'R-12',
+};
+
 /** Ein leeres Formular so füllen, dass es die Prüfung besteht. */
 async function formularFuellen(rahmen, app) {
   const heute = new Date().toISOString().slice(0, 10);
@@ -236,7 +245,7 @@ async function formularFuellen(rahmen, app) {
       id === 'feld-rabatt'
     )
       await f.fill(id === 'feld-betrag' ? '12400' : '2');
-    else await f.fill(`Abnahme ${app}`);
+    else await f.fill(TEXTE[id] ?? 'Nach Rücksprache mit dem Kunden.');
   }
 }
 
@@ -340,11 +349,17 @@ async function weg(browser, basis, sprache, breite) {
     await rahmen.getByTestId('fa-formular').waitFor();
     await rahmen
       .locator('#feld-notiz')
-      .fill(sprache === 'en' ? 'Changed during acceptance.' : 'Bei der Abnahme geändert.');
+      .fill(
+        sprache === 'en'
+          ? 'Customer asks for installation in January.'
+          : 'Kunde wünscht Montage im Januar.'
+      );
     await rahmen.getByTestId('fa-speichern').click();
     await rahmen.getByTestId('fa-formular').waitFor({ state: 'detached', timeout: 5000 });
     const geaendert = await rahmen.getByTestId('fa-blatt').innerText();
-    if (!/Bei der Abnahme geändert|Changed during acceptance/.test(geaendert))
+    if (
+      !/Kunde wünscht Montage im Januar|Customer asks for installation in January/.test(geaendert)
+    )
       rot(`${wo} ${app}: Änderung nicht im Blatt`);
     await seite.keyboard.press('Escape');
     await warte(300);

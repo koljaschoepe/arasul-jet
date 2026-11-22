@@ -79,7 +79,7 @@ export const PERSONEN: Person[] = [
     nachname: 'Kerschner',
     kuerzel: 'MK',
     abteilung: 'gf',
-    aufgabe: T('Betriebsleiterin, betreut die Apps', 'Operations manager, looks after the apps'),
+    aufgabe: T('Betriebsleiterin', 'Operations manager'),
     urlaub: 11,
   },
   {

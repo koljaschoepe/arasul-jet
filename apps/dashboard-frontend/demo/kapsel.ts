@@ -266,7 +266,7 @@ export function kapselSetzen(sprache: Sprache, zeigen: () => void): void {
     const gesetzt = Number(html.dataset.demoPlatz ?? NaN);
     // Hat der Rahmen den Wert neu gesetzt, ist er die neue Grundlage.
     const grund = jetzt === gesetzt ? Number(html.dataset.demoGrund ?? jetzt) : jetzt;
-    const ziel = grund + zeile.offsetWidth + 8;
+    const ziel = grund + zeile.offsetWidth + 12;
     if (jetzt !== ziel) {
       html.dataset.demoGrund = String(grund);
       html.dataset.demoPlatz = String(ziel);
@@ -292,7 +292,18 @@ export function kapselSetzen(sprache: Sprache, zeigen: () => void): void {
     attributeFilter: ['inert', 'class', 'style'],
   });
   window.addEventListener('resize', spaeter);
-  // Ein App-Rahmen setzt seinen Platz beim Laden; danach noch einmal messen.
-  window.setInterval(platzieren, 1500);
+  // Ein App-Rahmen setzt seinen Platz beim Laden: gleich danach messen, und
+  // in kurzen Abständen, falls er ihn später noch einmal setzt (Theme).
+  document.addEventListener(
+    'load',
+    e => {
+      if (e.target instanceof HTMLIFrameElement) {
+        window.setTimeout(platzieren, 0);
+        window.setTimeout(platzieren, 120);
+      }
+    },
+    true
+  );
+  window.setInterval(platzieren, 500);
   platzieren();
 }

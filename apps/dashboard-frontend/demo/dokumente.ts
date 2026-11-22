@@ -457,8 +457,10 @@ function pruefungPdf(e: Eintrag, sp: Sprache): Seite {
     ],
     [
       W(sp, 'Schichtdicke', 'Coating thickness'),
-      '≥ 80 µm'.replace('≥', '>='),
-      f.pruefart === 'schicht' && f.messwert !== null ? `${f.messwert} µm` : '–',
+      W(sp, 'mind. 80 µm', 'min. 80 µm'),
+      f.pruefart === 'schicht' && f.messwert !== null
+        ? `${f.messwert} µm`
+        : W(sp, 'nicht Teil dieser Prüfung', 'not part of this inspection'),
     ],
   ];
   y = tabelle(

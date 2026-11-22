@@ -11,7 +11,7 @@
  * zurückkehrt. Was der Besucher danach tut, liegt in seinem Browser
  * (IndexedDB) und nirgends sonst.
  */
-import { anfangsBestand, type AppKennung, type Bestand } from './bestand';
+import { anfangsBestand, arbeitszeit, type AppKennung, type Bestand } from './bestand';
 import { FIRMA, ICH_ID, name, person } from './firma';
 
 export type Sprache = 'de' | 'en';
@@ -85,7 +85,7 @@ export const ICH = {
 
 /** Die Zeit relativ zum Besuch: Beispieldaten altern nicht. */
 function vor(stunden: number, jetzt: number): string {
-  return new Date(jetzt - stunden * 3_600_000).toISOString();
+  return arbeitszeit(jetzt - stunden * 3_600_000, jetzt);
 }
 
 function meldung(
@@ -113,6 +113,24 @@ function meldung(
     erstellt_am: vor(stundenAlt, jetzt),
     ...extra,
   };
+}
+
+/**
+ * Ein Bildschirmfoto zu einer Meldung, als einfache Zeichnung der App: Kopf,
+ * Kennzahlen, eine Tabelle. Die markierte Stelle legt die Werkstatt darüber.
+ */
+function bildschirmfoto(titel: string, zeilen: string[]): string {
+  const reihen = zeilen
+    .map(
+      (z, i) =>
+        `<rect x="24" y="${190 + i * 34}" width="752" height="34" fill="${i % 2 ? '#fbfaf7' : '#ffffff'}"/><text x="36" y="${212 + i * 34}" font-size="13" fill="#2b2a26">${z}</text>`
+    )
+    .join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" width="800" height="420" font-family="Helvetica, Arial, sans-serif"><rect width="800" height="420" fill="#f6f3ed"/><text x="24" y="44" font-size="20" font-weight="bold" fill="#1e1b16">${titel}</text><text x="24" y="66" font-size="12" fill="#6b6250">Kerschner Metallbau GmbH</text>${[0, 1, 2, 3].map(i => `<rect x="${24 + i * 192}" y="88" width="176" height="76" rx="10" fill="#fff" stroke="#e3ded3"/><rect x="${38 + i * 192}" y="104" width="70" height="8" rx="4" fill="#d8d2c4"/><rect x="${38 + i * 192}" y="124" width="48" height="16" rx="4" fill="#2b2a26"/>`).join('')}<rect x="24" y="176" width="752" height="14" fill="#efeae0"/>${reihen}</svg>`;
+  const bytes = new TextEncoder().encode(svg);
+  let binaer = '';
+  for (const b of bytes) binaer += String.fromCharCode(b);
+  return `data:image/svg+xml;base64,${btoa(binaer)}`;
 }
 
 export function anfangsZustand(jetzt = Date.now()): DemoZustand {
@@ -240,7 +258,17 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
         'Am Handy ist die Spalte mit der Maschine abgeschnitten. In der Halle brauche ich vor allem den Standort.',
         'neu',
         20,
-        jetzt
+        jetzt,
+        {
+          bild: bildschirmfoto('Wartungsplan', [
+            'WA-26-187  KP-2 Abkantpresse 230 t   Wartung nach Herstellerplan',
+            'WA-26-186  KP-1 Abkantpresse 135 t   UVV-Prüfung',
+            'WA-26-185  LS-1 Faserlaser 6 kW   Sichtprüfung und Schmierung',
+            'WA-26-184  HK-2 Hallenkran 5 t   Kalibrierung',
+            'WA-26-183  ST-1 Gabelstapler 3 t   Filter wechseln',
+          ]),
+          markierung: { x: 0.12, y: 0.44, breite: 0.38, hoehe: 0.42 },
+        }
       ),
       meldung(
         103,
@@ -262,7 +290,17 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
         'Beim Reklamieren will ich das Foto direkt mit dem Handy machen, ohne Umweg über die Galerie.',
         'neu',
         6,
-        jetzt
+        jetzt,
+        {
+          bild: bildschirmfoto('Wareneingang', [
+            'WE-26-0354  Stahlhandel Rheintal GmbH   U-Profil 120   90 m',
+            'WE-26-0353  Stahlhandel Rheintal GmbH   Flachstahl 40 × 8',
+            'WE-26-0352  Rohrhandel Nordstern   Quadratrohr 40 × 40 × 3',
+            'WE-26-0351  Edelstahl Mertens KG   Edelstahlblech 1.4301',
+            'WE-26-0350  Aluprofile Sander GmbH   Aluprofil Handlauf oval',
+          ]),
+          markierung: { x: 0.7, y: 0.02, breite: 0.28, hoehe: 0.14 },
+        }
       ),
       meldung(
         106,
@@ -298,7 +336,17 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
         'Die Liste nach Auftrag gruppieren, dann sehe ich, was für eine Baustelle fehlt.',
         'angenommen',
         46,
-        jetzt
+        jetzt,
+        {
+          bild: bildschirmfoto('Prüfprotokolle', [
+            'PP-26-250  AU-26-049  Pfosten mit Fußplatte   Maßprüfung',
+            'PP-26-249  AU-26-048  Treppenwange rechts   Sichtprüfung',
+            'PP-26-248  AU-26-047  Kantteil Verkleidung   Schichtdicke',
+            'PP-26-247  AU-26-046  Konsole Vordach   Sichtprüfung',
+            'PP-26-246  AU-26-045  Torflügel   Abnahme vor Ort',
+          ]),
+          markierung: { x: 0.12, y: 0.44, breite: 0.2, hoehe: 0.42 },
+        }
       ),
       meldung(
         110,

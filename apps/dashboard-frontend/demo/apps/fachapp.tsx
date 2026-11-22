@@ -199,7 +199,8 @@ function FachApp({ def }: { def: AppDef }) {
 
   const ctx: Ctx = { sp: SPRACHE, fassung: fassung?.version, stand: fassung?.stand ?? 'live' };
   const eng = useEng();
-  const satz = `${def.satz(ctx)}${fassung ? ` ${t('Fassung', 'Version')} ${fassung.version}${fassung.stand === 'test' ? ' · Test' : ''}.` : ''}`;
+  // Die Fassung nennt die Seite nur in der Testfassung; im Alltag interessiert sie niemanden.
+  const satz = `${def.satz(ctx)}${fassung?.stand === 'test' ? ` ${t('Testfassung', 'Test version')} ${fassung.version}.` : ''}`;
 
   const melden = useCallback((art: NonNullable<Toast>['art'], text: string) => {
     setToast({ art, text });
@@ -413,7 +414,7 @@ function FachApp({ def }: { def: AppDef }) {
                       data-wichtig={h.wichtig ? 'ja' : undefined}
                     >
                       <span className="fa-hinweis-titel">
-                        <Mono>{h.e.nr}</Mono> {def.titelVon(h.e)}
+                        {h.e.nr} {def.titelVon(h.e)}
                       </span>
                       <span className="fa-hinweis-satz">{h.satz}</span>
                     </button>
@@ -653,7 +654,7 @@ function Einzelansicht({
             {schmal && <span className="fa-griff" aria-hidden="true" />}
             <div className="fa-blatt-kopf">
               <span className="fa-blatt-nr">
-                <Mono>{x.nr}</Mono> <StandMarke app={def.id} stand={x.stand} />
+                {x.nr} <StandMarke app={def.id} stand={x.stand} />
               </span>
               <SheetTitle className="fa-blatt-titel">{def.titelVon(x)}</SheetTitle>
               <SheetDescription className="fa-satz">{def.nebenVon(x)}</SheetDescription>
@@ -828,7 +829,12 @@ function Einzelansicht({
         )}
       </SheetContent>
       {datei && x && (
-        <Dialogform offen beiSchliessen={() => setDatei(null)} titel={datei.name} groesse="gross">
+        <Dialogform
+          offen
+          beiSchliessen={() => setDatei(null)}
+          titel={datei.name}
+          groesse={schmal ? 'ganz' : 'gross'}
+        >
           <Dokumentanzeige
             quelle={dateiAdresse(x.id, datei.id)}
             art={datei.art}
@@ -1063,4 +1069,10 @@ export function starten(def: AppDef): void {
   document.title = def.titel;
   const knoten = document.getElementById('app');
   if (knoten) createRoot(knoten).render(<FachApp def={def} />);
+  // Ändert der Rahmen den Platz der Kapsel (`--ara-kapsel-platz` am <html>),
+  // misst der Seitenkopf neu; er hört sonst nur auf Größenänderungen.
+  new MutationObserver(() => window.dispatchEvent(new Event('resize'))).observe(
+    document.documentElement,
+    { attributes: true, attributeFilter: ['style'] }
+  );
 }

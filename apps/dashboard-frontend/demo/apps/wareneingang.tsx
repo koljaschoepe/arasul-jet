@@ -143,7 +143,7 @@ const def: AppDef = {
       titel: t('Nummer', 'Number'),
       breite: '7.5rem',
       wert: e => e.nr,
-      zelle: e => <Mono>{e.nr}</Mono>,
+      zelle: e => e.nr,
     },
     {
       schluessel: 'lieferant',
@@ -223,7 +223,6 @@ const def: AppDef = {
         ),
         einheit: '%',
         fussnote: t('am erwarteten Tag oder früher', 'on the expected day or earlier'),
-        verlauf: wochen.map(w => Number(w.n)),
       },
       {
         beschriftung: t('Reklamationen', 'Complaints'),

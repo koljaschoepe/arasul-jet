@@ -82,9 +82,28 @@ export function tagRelativ(abstand: number, jetzt: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Ein Zeitpunkt relativ zu heute, Stunden in die Vergangenheit. */
+/**
+ * Ein Zeitpunkt in der Arbeitszeit: an einem Werktag zwischen 7 und 17 Uhr
+ * und nie nach jetzt. Ein Metallbauer bucht nicht sonntags um eins.
+ */
+export function arbeitszeit(ms: number, jetzt: number): string {
+  const d = new Date(ms);
+  const stunde = d.getHours();
+  if (stunde < 7 || stunde >= 17) {
+    d.setHours(7 + (Math.floor(ms / 3_600_000) % 10), Math.floor(ms / 60_000) % 60);
+  }
+  for (let i = 0; i < 10; i += 1) {
+    if (d.getDay() === 6) d.setDate(d.getDate() - 1);
+    else if (d.getDay() === 0) d.setDate(d.getDate() - 2);
+    else if (d.getTime() > jetzt) d.setDate(d.getDate() - 1);
+    else break;
+  }
+  return d.toISOString();
+}
+
+/** Ein Zeitpunkt relativ zu heute, Stunden in die Vergangenheit, in der Arbeitszeit. */
 function vor(stunden: number, jetzt: number): string {
-  return new Date(jetzt - stunden * 3_600_000).toISOString();
+  return arbeitszeit(jetzt - stunden * 3_600_000, jetzt);
 }
 
 /** Ein kleiner Zufall mit festem Samen (mulberry32). */
@@ -267,11 +286,15 @@ function angebote(jetzt: number): Eintrag[] {
 function wareneingang(jetzt: number): Eintrag[] {
   const r = zufall(42);
   const liste: Eintrag[] = [];
+  // Unregelmäßig wie im echten Betrieb: mal zwei Lieferungen am Tag, mal
+  // drei Tage keine.
+  let tag = -72;
   for (let i = 0; i < 44; i += 1) {
+    tag += r.eins([0, 1, 2, 2, 3, 3]);
     const artikel = r.eins(ARTIKEL);
     // Von 70 Tagen zurück bis 6 Tage voraus; die letzten sind erwartet.
     // Die letzten fünf: heute und in den nächsten Tagen erwartet, an jedem Wochentag.
-    const abstand = i >= 39 ? [0, 0, 0, 1, 2][i - 39]! : werktag(-70 + Math.round(i * 1.75), jetzt);
+    const abstand = i >= 39 ? [0, 0, 0, 1, 2][i - 39]! : werktag(Math.min(tag, -1), jetzt);
     const auftrag = r.z() < 0.65 ? r.eins(AUFTRAEGE) : null;
     let stand: string;
     if (abstand > 0) stand = 'erwartet';
@@ -661,7 +684,8 @@ function urlaub(jetzt: number): Eintrag[] {
   for (let i = 0; i < 40; i += 1) {
     const p = leute[(i * 7) % leute.length]!;
     const art = r.eins(URLAUB_ARTEN);
-    const beginn = werktag(-80 + i * 4 + r.ganz(0, 3), jetzt);
+    const beginn =
+      i >= 38 ? werktag(9 + (i - 38) * 13, jetzt) : werktag(-80 + i * 4 + r.ganz(0, 3), jetzt);
     const tage = art === 'urlaub' ? r.ganz(2, 10) : art === 'gleitzeit' ? 1 : r.ganz(1, 2);
     const kalender = tage + Math.floor((tage - 1) / 5) * 2;
     const vertretung =

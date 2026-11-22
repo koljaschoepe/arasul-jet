@@ -155,7 +155,7 @@ const def: AppDef = {
       titel: t('Nummer', 'Number'),
       breite: '7rem',
       wert: e => e.nr,
-      zelle: e => <Mono>{e.nr}</Mono>,
+      zelle: e => e.nr,
     },
     {
       schluessel: 'auftrag',
@@ -232,11 +232,11 @@ const def: AppDef = {
         ),
       },
       {
-        beschriftung: t('Prüfungen diesen Monat', 'Inspections this month'),
+        beschriftung: t('Diesen Monat', 'This month'),
         wert: String(monate[monate.length - 1]!.n),
         fussnote: t(
-          `${liste.filter(e => e.stand === 'nacharbeit').length} in Nacharbeit`,
-          `${liste.filter(e => e.stand === 'nacharbeit').length} in rework`
+          `Prüfungen, ${liste.filter(e => e.stand === 'nacharbeit').length} in Nacharbeit`,
+          `inspections, ${liste.filter(e => e.stand === 'nacharbeit').length} in rework`
         ),
         verlauf: monate.map(m => Number(m.n)),
       },
