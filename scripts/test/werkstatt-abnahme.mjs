@@ -177,18 +177,36 @@ pruefe(`${A} hat es nicht`, ichA.entwickler !== true && ichA.role === 'mitarbeit
 }
 
 // --- ohne Recht: melden, nur die eigenen lesen --------------------------------
-const TEXT = `Abnahme J52: eigene Meldung vom ${new Date().toLocaleString('de-DE')}`;
+// Ein zweiter Lauf nimmt die Meldung des ersten, statt eine weitere anzulegen,
+// und setzt ihren Stand über die Schnittstelle auf „neu“ zurück: der Eingang
+// zeigt in der Vorgabe nur Offenes.
+const PRAEFIX = 'Abnahme J52: eigene Meldung';
+let TEXT = `${PRAEFIX} vom ${new Date().toLocaleString('de-DE')}`;
 let eigeneId = 0;
 {
-  const neu = await mia.api.post('/rueckmeldungen', {
-    app_id: W,
-    stand: 'live',
-    seite: `/apps/${W}/`,
-    text: TEXT,
-    bild: PIXEL,
-  });
-  eigeneId = (await daten(neu))?.id ?? 0;
-  pruefe(`${A} meldet zur Werkstatt`, neu.status() === 201 && eigeneId > 0, String(neu.status()));
+  const vorhanden = ((await daten(await mia.api.get('/rueckmeldungen'))) ?? []).find(
+    m => m.app_id === W && m.text.startsWith(PRAEFIX) && m.hat_bild
+  );
+  if (vorhanden) {
+    eigeneId = vorhanden.id;
+    TEXT = vorhanden.text;
+    const zurueck = await haupt.api.patch(`/rueckmeldungen/${eigeneId}`, { stand_meldung: 'neu' });
+    pruefe(
+      `Meldung ${eigeneId} vom ersten Lauf wieder „neu“`,
+      zurueck.ok(),
+      String(zurueck.status())
+    );
+  } else {
+    const neu = await mia.api.post('/rueckmeldungen', {
+      app_id: W,
+      stand: 'live',
+      seite: `/apps/${W}/`,
+      text: TEXT,
+      bild: PIXEL,
+    });
+    eigeneId = (await daten(neu))?.id ?? 0;
+    pruefe(`${A} meldet zur Werkstatt`, neu.status() === 201 && eigeneId > 0, String(neu.status()));
+  }
 
   const alle = await roh(await haupt.api.get('/rueckmeldungen'));
   pruefe(`${ADMIN}: Sicht „alle“`, alle.sicht === 'alle');
@@ -272,6 +290,10 @@ if (OHNE_LIVE) {
   console.log('—      ARASUL_OHNE_LIVE=1: kein Live-Schalten in diesem Lauf');
 } else if (!PROBE) {
   pruefe('Die Probe-App „Probe Cockpit“ der Abnahme J44 ist am Gerät', false);
+} else if (probe.test_neuer && probe.test?.version) {
+  // Ein abgebrochener Lauf ließ eine Fassung im Test: die wird geschaltet.
+  NEU = probe.test.version;
+  console.log(`—      ${PROBE} ${NEU} wartet schon im Test (voriger Lauf), kein neues Paket`);
 } else {
   const s = await (
     await haupt.api.post('/v1/external/api-keys', {

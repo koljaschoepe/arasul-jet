@@ -233,8 +233,10 @@ Frontends) und die Regeln der Gestalt (Tokens, drei Größen).
 
 ## Abnahme am Orin
 
-Die Werkstatt: `scripts/test/werkstatt-abnahme.mjs` (J52), beide Sichten.
-Ergebnis nach dem Deploy: [`docs/plans/audits/2026-11-22-werkstatt/`](../plans/audits/2026-11-22-werkstatt/README.md).
+Die Werkstatt: `scripts/test/werkstatt-abnahme.mjs` (J52), am 22.11.2026 nach
+dem Deploy 90 von 90 grün (beide Sichten in Chromium und WebKit bei 1440 und
+390 px, alte Adresse, fremde Bilder 404, Stand setzen, Live schalten, Spalte
+unter Personen). Bericht und Bilder: [`docs/plans/audits/2026-11-22-werkstatt/`](../plans/audits/2026-11-22-werkstatt/README.md).
 
 Das Entwickler-Cockpit (J44; das Skript hieß bis 22.11.2026
 `entwickler-cockpit-abnahme.mjs` und ist in der Werkstatt-Abnahme aufgegangen),

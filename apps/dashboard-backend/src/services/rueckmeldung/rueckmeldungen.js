@@ -33,6 +33,7 @@ const path = require('path');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const appZugang = require('../app/appZugang');
+const mitgeliefert = require('../app/mitgeliefert');
 const { anzeigeName } = require('../../utils/profil');
 const { ForbiddenError, NotFoundError, ValidationError } = require('../../utils/errors');
 
@@ -172,7 +173,9 @@ function nachAussen(z) {
   return {
     id: Number(z.id),
     app_id: z.app_id,
-    app_name: z.app_name ?? null,
+    // Eine mitgelieferte App (die Werkstatt) steht nicht in `apps`; ihr Name
+    // kommt aus `mitgeliefert.js`, sonst stuende dort ihre Kennung (J52).
+    app_name: z.app_name ?? mitgeliefert.BEKANNT[z.app_id]?.name ?? null,
     stand: z.stand,
     seite: z.seite,
     text: z.text,
