@@ -11,8 +11,10 @@ import { useSchmalesFenster } from '../useSchmalesFenster';
  *
  * Am Rechner steht es als Flaeche daneben, rechts, mit 8 px Abstand zu den
  * Raendern und grossem Radius; links bleibt die Liste sichtbar, aus der es
- * kam. Unter 900 px (`useSchmalesFenster`) kommt es von unten, mit einem Griff
- * oben, und laesst sich nach unten wegwischen. Geschlossen wird es ausserdem
+ * kam. In einer App im Rahmen nennt der Rahmen den Platz seiner Kapsel oben
+ * rechts (`--ara-kapsel-platz`); dann beginnt das Blatt unter ihr. Unter
+ * 900 px (`useSchmalesFenster`) kommt es von unten, mit einem Griff oben, und
+ * laesst sich nach unten wegwischen. Geschlossen wird es ausserdem
  * mit Escape, mit einem Tipp daneben und mit dem Kreuz.
  *
  * Mechanik ist Radix' Dialog, wie bei `Sheet` und `Dialogform`: Fokusfalle,
@@ -132,7 +134,7 @@ export function Blatt({
             schmal
               ? 'inset-x-0 bottom-0 max-h-[92dvh] rounded-t-[var(--radius-blatt)] border-b-0 pb-[env(safe-area-inset-bottom)] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom'
               : cn(
-                  'top-[8px] right-[8px] bottom-[8px] w-[calc(100vw-16px)] rounded-[var(--radius-blatt)] data-[state=closed]:slide-out-to-right-[40%] data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-right-[40%] data-[state=open]:fade-in-0',
+                  'top-[calc(8px_+_min(var(--ara-kapsel-platz,0px),_40px))] right-[8px] bottom-[8px] w-[calc(100vw-16px)] rounded-[var(--radius-blatt)] data-[state=closed]:slide-out-to-right-[40%] data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-right-[40%] data-[state=open]:fade-in-0',
                   breite === 'breit' ? 'max-w-[640px]' : 'max-w-[480px]'
                 ),
             className

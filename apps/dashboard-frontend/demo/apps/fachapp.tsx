@@ -16,6 +16,7 @@ import { createRoot } from 'react-dom/client';
 import {
   Badge,
   Bestaetigung,
+  Blatt,
   Button,
   Datenliste,
   Dialogform,
@@ -28,10 +29,6 @@ import {
   Knopf,
   Kopf,
   Meldung,
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
   Werkzeug,
   useSchmalesFenster,
   type KennzahlProps,
@@ -650,24 +647,52 @@ function Einzelansicht({
   };
 
   return (
-    <Sheet open={e !== null} onOpenChange={o => !o && schliessen()}>
-      <SheetContent
-        side={schmal ? 'bottom' : 'right'}
-        className="fa-blatt"
-        data-seite={schmal ? 'unten' : 'rechts'}
-        aria-describedby={undefined}
+    <>
+      <Blatt
+        offen={e !== null}
+        beiSchliessen={schliessen}
+        oben={
+          x && (
+            <span className="fa-blatt-nr">
+              {x.nr} <StandMarke app={def.id} stand={x.stand} />
+            </span>
+          )
+        }
+        titel={x ? def.titelVon(x) : ''}
+        beschreibung={x ? def.nebenVon(x) : undefined}
+        breite="breit"
+        kennzeichen="fa-blatt-flaeche"
+        fuss={
+          x && (
+            <>
+              {def
+                .schritte(x, ctx)
+                .filter(s => !(wartet && s.nach === x.stand))
+                .map(s => (
+                  <Button
+                    key={s.nach}
+                    variant={s.haupt && !wartet ? 'solid' : 'default'}
+                    size="sm"
+                    onClick={() => schritt(x, s)}
+                  >
+                    <Icon symbol={s.symbol} />
+                    {s.text}
+                  </Button>
+                ))}
+              <Button size="sm" onClick={() => bearbeiten(x)} data-testid="fa-bearbeiten">
+                <Icon symbol={Pencil} />
+                {t('Bearbeiten', 'Edit')}
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => loeschen(x)}>
+                <Icon symbol={Trash2} />
+                {t('Löschen', 'Delete')}
+              </Button>
+            </>
+          )
+        }
       >
         {x && (
           <div className="fa-blatt-inhalt" data-testid="fa-blatt">
-            {schmal && <span className="fa-griff" aria-hidden="true" />}
-            <div className="fa-blatt-kopf">
-              <span className="fa-blatt-nr">
-                {x.nr} <StandMarke app={def.id} stand={x.stand} />
-              </span>
-              <SheetTitle className="fa-blatt-titel">{def.titelVon(x)}</SheetTitle>
-              <SheetDescription className="fa-satz">{def.nebenVon(x)}</SheetDescription>
-            </div>
-
             {wartet && (
               <div className="fa-freigabe" data-testid="fa-freigabe">
                 <Meldung
@@ -699,31 +724,6 @@ function Einzelansicht({
                 </div>
               </div>
             )}
-
-            <div className="fa-knoepfe">
-              {def
-                .schritte(x, ctx)
-                .filter(s => !(wartet && s.nach === x.stand))
-                .map(s => (
-                  <Button
-                    key={s.nach}
-                    variant={s.haupt && !wartet ? 'solid' : 'default'}
-                    size="sm"
-                    onClick={() => schritt(x, s)}
-                  >
-                    <Icon symbol={s.symbol} />
-                    {s.text}
-                  </Button>
-                ))}
-              <Button size="sm" onClick={() => bearbeiten(x)} data-testid="fa-bearbeiten">
-                <Icon symbol={Pencil} />
-                {t('Bearbeiten', 'Edit')}
-              </Button>
-              <Button size="sm" variant="destructive" onClick={() => loeschen(x)}>
-                <Icon symbol={Trash2} />
-                {t('Löschen', 'Delete')}
-              </Button>
-            </div>
 
             <dl className="fa-felder">
               {def
@@ -835,7 +835,7 @@ function Einzelansicht({
             </section>
           </div>
         )}
-      </SheetContent>
+      </Blatt>
       {datei && x && (
         <Dialogform
           offen
@@ -858,7 +858,7 @@ function Einzelansicht({
           </div>
         </Dialogform>
       )}
-    </Sheet>
+    </>
   );
 }
 
