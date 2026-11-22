@@ -47,7 +47,7 @@ Drei Regeln, die ein Wächter hält:
    `scripts/test/bausteine.py`, Punkt 7 (die Shell und jedes CSS — er rechnet
    den Farbton jedes Werts und lässt nur Blau, Rot und Grau durch).
 2. **Eine Flächenfarbe.** Die Ansicht liegt als deckende Fläche
-   (`bg-background`, Radius 14 px, feine Kante, weicher Schatten) mit 8 px
+   (`bg-background`, Radius 18 px seit 5.12.0, feine Kante, weicher Schatten) mit 8 px
    Abstand auf dem Grund des Rahmens; darin stehen die Leiste der Bereiche in
    der Verwaltung und der Inhalt durchsichtig auf `--background`. `bg-card` ist
    erhabenen Elementen darauf vorbehalten (Karten, Popover, Dialoge,
@@ -437,14 +437,14 @@ Grund ist keiner.
 **Um die Ansicht steht nur die Aktivitätsleiste** (Karte
 glas-rahmen-und-leiste, 20.11.2026; Zielbild in `gestaltung.md` des
 Überordners, Abschnitt Rahmen). Sie ist ein Stück Glas, das mit 8 px Abstand
-zum Rand auf `--verlauf-rahmen` schwebt, Radius 16 px, 52 px breit, Einträge
+zum Rand auf `--verlauf-rahmen` schwebt, Radius 18 px (seit 5.12.0), 52 px breit, Einträge
 36 px, Symbole 18 px, in drei Abschnitten mit zwei feinen Trennern: oben das
 Logo des Hauses (falls hinterlegt) und Start mit der Zahl offener Freigaben;
 in der Mitte die freigegebenen Apps, **jede genau einmal**, als Symbol mit dem
 Namen beim Überfahren (ab etwa zehn rollt dieser Teil, Ordnung durch Ziehen);
 unten Terminal (nur Entwickler), Verwaltung (nur Administrator),
 Einstellungen und das **Konto** als runde Fläche mit Name, Rolle und
-„Abmelden“. Die Ansicht liegt daneben als deckende Fläche mit Radius 14 px.
+„Abmelden“. Die Ansicht liegt daneben als deckende Fläche mit Radius 18 px.
 Es gibt keine Kopfleiste, keine Tab-Leiste, keine rechte Spalte, keine zweite
 Seitenleiste und **keine Statuszeile** mehr; Datum und Uhrzeit zeigt Arasul
 nicht, eine Störung erscheint als Meldung.
@@ -498,6 +498,37 @@ Schutz, sondern eine Sackgasse. Umgekehrt darf nichts, was jeder braucht, hinter
 einer Admin-Seite liegen — das Abmelden lag bis D1 in den Einstellungen und
 sitzt seit der Karte glas-rahmen-und-leiste im Konto unten in der
 Aktivitätsleiste, am Handy unter „Mehr“.
+
+## Gemeinsame Linie (5.12.0, J53)
+
+Website, Demo und Produkt folgen einer Linie (`gestaltung.md` des
+Überordners, Abschnitt „Gemeinsame Linie“). Im Produkt heißt das:
+
+- **Tiefe.** `--verlauf-rahmen` ist kräftiger: hell von Creme bis in ein
+  deutliches Blau (`--rahmen-stufe-3` `#8fb0ea`, Schein `#82a6e7`), dunkel ein
+  tiefes Blau oben links (`#12336c`, `#133672`). Die Grenze setzt der Kontrast:
+  leiser Text auf dem Glas der Leiste hält über jeder Stufe 4,5:1
+  (`marken.py`, Punkt 9); hell trägt das Glas dafür 66 % Weiß, dunkel nur 3 %
+  Creme, damit der Verlauf durchscheint. Fläche und Leiste haben 18 px Radius
+  (`--radius-2xl`), das Blatt 20 px (`--radius-blatt`).
+- **Fester Bildschirm.** Die Shell ist `h-dvh` und rollt nie als Ganzes; es
+  rollt nur, was in sich rollt: der Bereich, die Tabelle, das Blatt.
+  `scripts/test/gemeinsame-linie-bilder.mjs` misst es je Ansicht am Gerät.
+- **Blatt** (Muster `Blatt`): Einzelheiten und Formulare am Rechner als
+  deckende Fläche daneben (rechts, 8 px Abstand, 480 oder 640 px breit; in
+  einer App unter der Kapsel), unter 900 px von unten mit Griff, das sich
+  wegwischen lässt. Escape, ein Tipp daneben und das Kreuz schließen, der
+  Rumpf rollt in sich, die Aktionen stehen unten im Fuß. Dahinter der leichte
+  Schleier `bg-backdrop-leicht`. Genutzt für den Flow einer App und die
+  Formulare „Person anlegen“ und „Ordner anlegen“ in der Verwaltung, die
+  Anleitung „Rechner verbinden“ in den Einstellungen, die Meldungen der
+  Werkstatt und die Einzelansichten der Demo. `Dialogform` bleibt für
+  Rückfragen und kurze Eingaben, die eine Antwort verlangen.
+- **Wechsel.** Eine andere Ansicht der Leiste und ein anderer Bereich von
+  Verwaltung und Einstellungen blenden in 200 ms ein und heben sich 6 px an
+  (`hooks/useWeicherWechsel.ts`, Web Animations, nichts wird neu
+  eingehängt). Das Blatt geht in 240 ms mit Schwung auf und in 180 ms zu.
+  „Weniger Bewegung“ zeigt sofort den Endzustand.
 
 ## Wo was steht
 
