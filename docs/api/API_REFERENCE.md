@@ -414,16 +414,16 @@ herein (`POST /api/auth/login` antwortet 403 `ACCOUNT_DISABLED`), seine
 Läufe und Protokolle bleiben stehen. Der letzte aktive Administrator kann nicht
 stillgelegt werden, und niemand kann sich selbst stilllegen.
 
-| Method | Endpoint                       | Description                                                                                                                                                                 |
-| ------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/benutzer`                | Alle Benutzer: `id, username, email, role, is_active, passwort_vom_admin, created_at, last_login, vorname, nachname, funktion, kuerzel, hat_bild, entwickler`               |
-| POST   | `/api/benutzer`                | Person anlegen: `{ vorname, nachname, email, verwaltung? }`; Benutzername = E-Mail; **`startpasswort` steht einmal in der Antwort**; 409 bei E-Mail oder Lizenz             |
-| PUT    | `/api/benutzer/:id/passwort`   | Neues Startpasswort: `{ password? }` (ohne Angabe erzeugt das Gerät eins, `startpasswort` in der Antwort, einmalig); beendet alle Sitzungen; 400 für das eigene Konto       |
-| PUT    | `/api/benutzer/:id/aktiv`      | Sperren oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin, 409 Lizenz                                                                    |
-| PUT    | `/api/benutzer/:id/verwaltung` | Schalter „Verwaltung“: `{ verwaltung: true \| false }` setzt die Rolle `admin` oder `mitarbeiter`; 400, wenn es der letzte aktive Administrator wäre (auch für sich selbst) |
-| PUT    | `/api/benutzer/:id/entwickler` | Schalter „Entwickler“ (Terminal, Migration 213): `{ entwickler: true \| false }`; Standard aus; auch für das eigene Konto; die Antwort trägt `entwickler`                   |
-| GET    | `/api/benutzer/:id/bild`       | Das Bild einer Person (Bytes mit `Content-Type`), 404 ohne Bild                                                                                                             |
-| DELETE | `/api/benutzer/:id`            | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                                                                                                        |
+| Method | Endpoint                       | Description                                                                                                                                                                                                            |
+| ------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/benutzer`                | Alle Benutzer: `id, username, email, role, is_active, passwort_vom_admin, created_at, last_login, vorname, nachname, funktion, kuerzel, hat_bild, entwickler`                                                          |
+| POST   | `/api/benutzer`                | Person anlegen: `{ vorname, nachname, email, verwaltung? }`; Benutzername = E-Mail; **`startpasswort` steht einmal in der Antwort**; 409 bei E-Mail oder Lizenz                                                        |
+| PUT    | `/api/benutzer/:id/passwort`   | Neues Startpasswort: `{ password? }` (ohne Angabe erzeugt das Gerät eins, `startpasswort` in der Antwort, einmalig); beendet alle Sitzungen; 400 für das eigene Konto                                                  |
+| PUT    | `/api/benutzer/:id/aktiv`      | Sperren oder zulassen: `{ aktiv: true \| false }`; 400 für sich selbst und den letzten Admin, 409 Lizenz                                                                                                               |
+| PUT    | `/api/benutzer/:id/verwaltung` | Schalter „Verwaltung“: `{ verwaltung: true \| false }` setzt die Rolle `admin` oder `mitarbeiter`; 400, wenn es der letzte aktive Administrator wäre (auch für sich selbst)                                            |
+| PUT    | `/api/benutzer/:id/entwickler` | Schalter „Werkstatt“, das Recht in der Werkstatt samt Terminal (Migration 213, sichtbar seit J52 so benannt): `{ entwickler: true \| false }`; Standard aus; auch für das eigene Konto; die Antwort trägt `entwickler` |
+| GET    | `/api/benutzer/:id/bild`       | Das Bild einer Person (Bytes mit `Content-Type`), 404 ohne Bild                                                                                                                                                        |
+| DELETE | `/api/benutzer/:id`            | Benutzer samt Daten löschen; 400 für das eigene Konto, 404 unbekannt                                                                                                                                                   |
 
 Das **eigene Profil** (jede angemeldete Person, keine Kennung in der Adresse):
 
@@ -786,7 +786,7 @@ Bibliothek läuft, sie sieht nur nicht mehr aus wie das Gerät um sie herum.
 `standard` (J45, 20.11.2026) sagt, ob dieser Stand den **App-Standard** erfüllt:
 `{ "erfuellt": true, "ausgenommen": false, "funde": [] }`, oder mit Funden je
 `{ "code", "text" }` (Codes wie beim Ausrollen, unten). `ausgenommen` ist nur
-die mitgelieferte App (`entwickler-cockpit`). Kein Mangel: die Prüfung greift
+die mitgelieferte App (`werkstatt`, bis J52 `entwickler-cockpit`). Kein Mangel: die Prüfung greift
 beim Ausrollen, ein Stand, der vorher kam, läuft weiter. Seit J45 ersetzt
 `standard` in der Verwaltung die Warnung zur Bibliothek; eine fremde
 Hauptzahl oder eine fehlende Fassung ist einer seiner Funde. `GET /api/apps`
@@ -2874,9 +2874,9 @@ wechselt.
 
 ### Terminal (Karte terminal-im-frontend, M5, 21.10.2026)
 
-Ein Entwickler öffnet in der Oberfläche ein Terminal unter `/terminal/` und
-landet per ssh als sein eigener Linux-Nutzer `ara-<id>` am Gerät. Nur mit dem
-Schalter „Entwickler“ (`PUT /api/benutzer/:id/entwickler`) und nur, wenn das
+Wer das Recht in der Werkstatt hat, öffnet in der Oberfläche ein Terminal unter
+`/terminal/` und landet per ssh als eigener Linux-Nutzer `ara-<id>` am Gerät.
+Nur mit dem Schalter „Werkstatt“ unter Personen (`PUT /api/benutzer/:id/entwickler`) und nur, wenn das
 Gerät das Profil `terminal` fährt. Aufbau und Trennung:
 [`docs/features/TERMINAL.md`](../features/TERMINAL.md).
 
@@ -2893,43 +2893,47 @@ könnte die Kopfzeile sonst selbst schreiben.
 `GET /api/auth/me` und `/api/auth/session` tragen seit Migration 213 das Feld
 `entwickler`; die Shell zeigt danach den Eintrag Terminal.
 
-### Rückmeldungen (J42, M7, 20.11.2026)
+### Rückmeldungen (J42, M7, 20.11.2026; Sicht nach Recht seit J52, 22.11.2026)
 
 Über jeder App zeigt der Rahmen oben rechts ein Icon; ein Mitarbeiter schreibt
 dort freien Text und markiert eine Stelle auf einem Bildschirmfoto der Seite.
 Melden darf jeder, der die App in diesem Stand benutzen darf (dieselbe Prüfung
-wie vor jeder Seite der App); lesen, das Bild holen und entfernen nur, wer das
-Kennzeichen Entwickler trägt (`admin_users.entwickler`, bei jedem Aufruf frisch
-aus der Datenbank, auch beim Administrator). Vertrag:
+wie vor jeder Seite der App). **Lesen darf jeder seine eigenen** Meldungen samt
+Bild; alle Meldungen, fremde Bilder, Stand setzen und entfernen nur, wer das
+**Recht in der Werkstatt** hat (Kennzeichen `admin_users.entwickler`, bei jedem
+Aufruf frisch aus der Datenbank, auch beim Administrator). Vertrag:
 [`docs/features/RUECKMELDUNG.md`](../features/RUECKMELDUNG.md).
 
-| Method | Endpoint                       | Auth                   | Description                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ------ | ------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/api/rueckmeldungen`          | admin, mitarb.         | Body `{ app_id, stand, seite, text, bild?, markierung? }`. `seite` liegt unter `/apps/<app_id>/`, `text` 1 bis 5000 Zeichen, `bild` ein `data:image/png;base64,…` bis 6 MB, `markierung` `{ x, y, breite, hoehe }` in Anteilen 0 bis 1. 201 `{ data: { id, erstellt_am } }`; 403 ohne Zugang zur App, 400 bei Seite außerhalb der App oder anderem Bild als PNG, 429 nach 20 Meldungen je Person und Viertelstunde (eigener Zähler) |
-| GET    | `/api/rueckmeldungen`          | Kennzeichen Entwickler | Neueste zuerst, höchstens 500 (seit J44, vorher 200), `?app_id=` filtert. Je Meldung `id, app_id, app_name, stand, seite, text, hat_bild, markierung, person { id, anzeigeName } \| null, stand_meldung, grund, stand_geaendert_am, erstellt_am`. 403 ohne Kennzeichen                                                                                                                                                              |
-| PATCH  | `/api/rueckmeldungen/:id`      | Kennzeichen Entwickler | Stand setzen im Entwickler-Cockpit (J44). Body `{ stand_meldung, grund? }` wie beim Kit, `grund` Pflicht bei `abgelehnt` (400), ein neuer Stand ohne Grund löscht den alten. Antwort die Meldung wie bei GET plus `vorher`; am Gerät `stand_geaendert_durch = "person:<id>"`, im Protokoll `rueckmeldung_stand_gesetzt`. 404 ohne Meldung                                                                                           |
-| GET    | `/api/rueckmeldungen/:id/bild` | Kennzeichen Entwickler | Das Bildschirmfoto als `image/png` mit der markierten Stelle. 404 ohne Bild oder wenn die Datei am Gerät fehlt                                                                                                                                                                                                                                                                                                                      |
-| DELETE | `/api/rueckmeldungen/:id`      | Kennzeichen Entwickler | Entfernt Meldung und Bilddatei. 404, wenn es sie nicht gibt                                                                                                                                                                                                                                                                                                                                                                         |
+| Method | Endpoint                       | Auth                   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------ | ------------------------------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/rueckmeldungen`          | admin, mitarb.         | Body `{ app_id, stand, seite, text, bild?, markierung? }`. `seite` liegt unter `/apps/<app_id>/`, `text` 1 bis 5000 Zeichen, `bild` ein `data:image/png;base64,…` bis 6 MB, `markierung` `{ x, y, breite, hoehe }` in Anteilen 0 bis 1. 201 `{ data: { id, erstellt_am } }`; 403 ohne Zugang zur App, 400 bei Seite außerhalb der App oder anderem Bild als PNG, 429 nach 20 Meldungen je Person und Viertelstunde (eigener Zähler)                 |
+| GET    | `/api/rueckmeldungen`          | admin, mitarb.         | Neueste zuerst, höchstens 500 (seit J44, vorher 200), `?app_id=` filtert. Je Meldung `id, app_id, app_name, stand, seite, text, hat_bild, markierung, person { id, anzeigeName } \| null, stand_meldung, grund, stand_geaendert_am, erstellt_am`. Ohne das Recht in der Werkstatt nur die eigenen (die Abfrage grenzt auf die Person ein), mit ihm alle; `sicht` neben `data` sagt `"eigene"` oder `"alle"` (seit J52, vorher 403 ohne Kennzeichen) |
+| PATCH  | `/api/rueckmeldungen/:id`      | Recht in der Werkstatt | Stand setzen in der Werkstatt (J44). Body `{ stand_meldung, grund? }` wie beim Kit, `grund` Pflicht bei `abgelehnt` (400), ein neuer Stand ohne Grund löscht den alten. Antwort die Meldung wie bei GET plus `vorher`; am Gerät `stand_geaendert_durch = "person:<id>"`, im Protokoll `rueckmeldung_stand_gesetzt`. 404 ohne Meldung                                                                                                                |
+| GET    | `/api/rueckmeldungen/:id/bild` | admin, mitarb.         | Das Bildschirmfoto als `image/png` mit der markierten Stelle. Ohne das Recht in der Werkstatt nur zur eigenen Meldung; eine fremde antwortet 404 wie eine, die es nicht gibt. 404 ohne Bild oder wenn die Datei am Gerät fehlt                                                                                                                                                                                                                      |
+| DELETE | `/api/rueckmeldungen/:id`      | Recht in der Werkstatt | Entfernt Meldung und Bilddatei. 404, wenn es sie nicht gibt                                                                                                                                                                                                                                                                                                                                                                                         |
 
-Der Melder bekommt nach dem Absenden nur Nummer und Zeit zurück; einen Weg,
-die eigenen Meldungen wieder zu lesen, gibt es nicht (`schleife.md`, Regel 2).
+Der Melder bekommt nach dem Absenden Nummer und Zeit zurück; seine Meldungen
+mit Stand und Grund liest er danach in der Werkstatt über
+`GET /api/rueckmeldungen` (`schleife.md`, Regel 2 seit 22.11.2026).
 
-#### Für das Entwickler-Cockpit (J44, M7, 20.11.2026)
+#### Für die Werkstatt (J44, M7; seit J52 statt Entwickler-Cockpit)
 
-Das Cockpit ist die mitgelieferte App unter `/apps/entwickler-cockpit/`. Es
-hat kein Backend und ruft die Plattform mit der Sitzung des Menschen davor;
-jede Route prüft das Kennzeichen frisch. Dazu kommt ein Weg, den es sonst
-nicht gibt:
+Die Werkstatt ist die mitgelieferte App unter `/apps/werkstatt/` (die alte
+Adresse `/apps/entwickler-cockpit/…` zieht mit 301 dorthin um, vor der
+Anmeldung). Sie hat kein Backend und ruft die Plattform mit der Sitzung des
+Menschen davor; jede Route prüft das Recht frisch. Dazu kommen zwei Wege, die
+es sonst nicht gibt:
 
-| Method | Endpoint               | Auth                   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------ | ---------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/entwickler/apps` | Kennzeichen Entwickler | Über ALLE Apps des Geräts, nach Namen, die mitgelieferten am Ende. Je App `id, name, symbol, mitgeliefert, live, test` (je `{ version, eingespielt_am, aenderungstext, vorige_version }` oder `null`), `zuletzt_geaendert`, `test_neuer` (eine Fassung im Test, die nicht die des Livestands ist), `meldungen { offen, neu, umgesetzt }`, `letzte_schaltung { ergebnis, satz, nach_version, am } \| null`. 403 ohne Kennzeichen, auch für den Administrator |
+| Method | Endpoint              | Auth                   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------ | --------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/werkstatt/ich`  | admin, mitarb.         | `{ data: { recht } }`: hat diese Person das Recht in der Werkstatt (Kennzeichen `entwickler`, frisch aus der Datenbank). Die Werkstatt zeigt danach nur „Meine Meldungen“ oder Eingang, Apps und Test nach Live                                                                                                                                                                                                                                                                           |
+| GET    | `/api/werkstatt/apps` | Recht in der Werkstatt | Bis J52 `/api/entwickler/apps`. Über ALLE Apps des Geräts, nach Namen, die mitgelieferten am Ende. Je App `id, name, symbol, mitgeliefert, live, test` (je `{ version, eingespielt_am, aenderungstext, vorige_version }` oder `null`), `zuletzt_geaendert`, `test_neuer` (eine Fassung im Test, die nicht die des Livestands ist), `meldungen { offen, neu, umgesetzt }`, `letzte_schaltung { ergebnis, satz, nach_version, am } \| null`. 403 ohne das Recht, auch für den Administrator |
 
-Geschaltet wird über `POST /api/apps/:id/schalten`, das seit J44 auch ein
-Entwickler ohne Admin-Rolle rufen darf. Die Seite selbst
-(`GET /apps/entwickler-cockpit/…`) bekommt nur, wer das Kennzeichen trägt
-(403 sonst, auch für den Administrator; kein Teststand: 404), und
-`GET /api/apps/meine` nennt sie nur dann, mit `mitgeliefert: true`.
+Geschaltet wird über `POST /api/apps/:id/schalten`, das seit J44 auch eine
+Person mit dem Recht in der Werkstatt ohne Admin-Rolle rufen darf. Die Seite
+selbst (`GET /apps/werkstatt/…`) bekommt seit J52 jede aktive Person, ohne
+Freigabe (kein Teststand: 404), und `GET /api/apps/meine` nennt sie jedem,
+mit `mitgeliefert: true`.
 
 #### Für das Kit (J43, M7, 20.11.2026)
 

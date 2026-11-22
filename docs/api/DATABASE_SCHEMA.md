@@ -32,6 +32,8 @@
 > und die Tabelle `app_schaltungen`.
 > Am 20.11.2026 von Hand ergaenzt (Migration 214, J42 M7): die Tabelle
 > `rueckmeldungen`.
+> Am 22.11.2026 von Hand ergaenzt (Migration 218, J52 M7): der Index
+> `idx_rueckmeldungen_person_zeit` und die Sicht nach Recht.
 
 ## Übersicht
 
@@ -1943,8 +1945,10 @@ Normalfall.
 
 ## `rueckmeldungen`
 
-> Rückmeldungen aus dem Rahmen über jeder App (Migration 214, J42, M7). Lesen
-> nur mit `admin_users.entwickler`. Das Bild steht nicht hier, sondern als Datei
+> Rückmeldungen aus dem Rahmen über jeder App (Migration 214, J42, M7). Seit
+> J52 (Migration 218) liest jeder seine eigenen (`person_id`), alle nur mit
+> `admin_users.entwickler` (Recht in der Werkstatt). Meldungen zur alten
+> Kennung `entwickler-cockpit` hat 218 auf `werkstatt` umgezogen. Das Bild steht nicht hier, sondern als Datei
 > `<APPS_DIR>/.rueckmeldungen/<bild>` am Gerät; `bild` nennt nur den Namen.
 > `app_id` ohne Fremdschlüssel: eine Meldung überlebt die App. `person_id` mit
 > `ON DELETE SET NULL`: wird die Person gelöscht, bleibt die Meldung ohne Namen.
@@ -1986,6 +1990,7 @@ Normalfall.
 
 - `idx_rueckmeldungen_app_stand` — `CREATE INDEX idx_rueckmeldungen_app_stand ON public.rueckmeldungen USING btree (app_id, stand_meldung)` (215)
 - `idx_rueckmeldungen_app_zeit` — `CREATE INDEX idx_rueckmeldungen_app_zeit ON public.rueckmeldungen USING btree (app_id, erstellt_am DESC)`
+- `idx_rueckmeldungen_person_zeit` — `CREATE INDEX idx_rueckmeldungen_person_zeit ON public.rueckmeldungen USING btree (person_id, erstellt_am DESC)` (218, die eigene Sicht der Werkstatt)
 - `rueckmeldungen_pkey` — `CREATE UNIQUE INDEX rueckmeldungen_pkey ON public.rueckmeldungen USING btree (id)`
 
 ---
