@@ -89,6 +89,13 @@ describe('Eingang', () => {
       '/apps/belege/?ansicht=offen'
     );
 
+    // Im Blatt steht „Stand“ sichtbar über der Auswahl, ohne die Grundbreite
+    // der Filterzeile (sonst 224 px hoch, Generalprobe der Schleife).
+    const wahl = within(dialog).getByTestId('werkstatt-stand-wahl');
+    const huelle = wahl.parentElement as HTMLElement;
+    expect(within(huelle).getByText('Stand')).not.toHaveClass('sr-only');
+    expect(huelle.style.flex).toBe('');
+
     const speichern = screen.getByTestId('werkstatt-stand-speichern');
     expect(speichern).toBeDisabled();
 
@@ -121,14 +128,18 @@ describe('Test nach Live', () => {
     );
     expect(screen.getByTestId('werkstatt-wartet-belege')).toBeInTheDocument();
     expect(screen.queryByTestId('werkstatt-wartet-ruhig')).not.toBeInTheDocument();
-    expect(screen.getByTestId('werkstatt-aenderung-belege')).toHaveTextContent('Filter nach Monat.');
+    expect(screen.getByTestId('werkstatt-aenderung-belege')).toHaveTextContent(
+      'Filter nach Monat.'
+    );
 
     await nutzer.click(screen.getByTestId('werkstatt-live-schalten-belege'));
     expect(mockApi.schalten).not.toHaveBeenCalled();
     expect(await screen.findByText(/sichert zuerst die Daten von Belege/)).toBeInTheDocument();
     await nutzer.click(screen.getByRole('button', { name: 'Live schalten' }));
     await waitFor(() => expect(mockApi.schalten).toHaveBeenCalledWith('belege', 'live'));
-    expect(await screen.findByTestId('werkstatt-schalt-ausgang')).toHaveTextContent('Fassung 1.1.0');
+    expect(await screen.findByTestId('werkstatt-schalt-ausgang')).toHaveTextContent(
+      'Fassung 1.1.0'
+    );
   });
 
   it('ein Rückfall des Geräts steht als Satz da', async () => {
@@ -179,7 +190,12 @@ describe('der Rahmen', () => {
   it('ohne das Recht: nur „Meine Meldungen“, kein Eingang, keine Apps, kein Live', async () => {
     mockApi.ich.mockResolvedValue({ recht: false });
     mockApi.meldungen.mockResolvedValue([
-      meldung({ id: 3, text: 'Mein Filter fehlt', stand_meldung: 'abgelehnt', grund: 'Gibt es schon: oben rechts.' }),
+      meldung({
+        id: 3,
+        text: 'Mein Filter fehlt',
+        stand_meldung: 'abgelehnt',
+        grund: 'Gibt es schon: oben rechts.',
+      }),
     ]);
     // Auch ein Fragment, das auf eine Seite mit Recht zeigt, öffnet sie nicht.
     window.location.hash = '#live';

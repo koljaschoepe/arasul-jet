@@ -137,19 +137,34 @@ function Auswahl({
   beschriftung,
   moeglichkeiten,
   kennung,
+  imBlatt = false,
 }: {
   wert: string;
   setze: (w: string) => void;
   beschriftung: string;
   moeglichkeiten: { wert: string; name: string }[];
   kennung: string;
+  /** Im Blatt einer Meldung: eine Spalte, keine Filterzeile, die Beschriftung sichtbar. */
+  imBlatt?: boolean;
 }) {
   return (
-    // Die Beschriftung nur für Vorlesewerkzeuge: der Wert („Alle Apps“,
-    // „Offen (neu und angenommen)“) sagt es schon, und zwei verschieden lange
-    // Wörter davor rückten die Felder am Handy verschieden weit ein.
-    <div style={{ flex: '1 1 14rem', maxWidth: '18rem' }}>
-      <Label htmlFor={kennung} className="sr-only">
+    // In der Filterzeile die Beschriftung nur für Vorlesewerkzeuge: der Wert
+    // („Alle Apps“, „Offen (neu und angenommen)“) sagt es schon, und zwei
+    // verschieden lange Wörter davor rückten die Felder am Handy verschieden
+    // weit ein. Im Blatt steht sie über dem Feld wie „Grund“ darunter, und die
+    // Grundbreite der Filterzeile gilt dort nicht: in einer Spalte wurde aus
+    // `flex: 1 1 14rem` eine Höhe von 224 px, und „Grund“ rutschte unter den
+    // Fuß des Blatts (Generalprobe der Schleife, 22.11.2026).
+    <div
+      style={
+        imBlatt ? { ...spalte(1), maxWidth: '18rem' } : { flex: '1 1 14rem', maxWidth: '18rem' }
+      }
+    >
+      <Label
+        htmlFor={kennung}
+        className={imBlatt ? undefined : 'sr-only'}
+        style={imBlatt ? leise : undefined}
+      >
         {beschriftung}
       </Label>
       <Select value={wert} onValueChange={setze}>
@@ -246,6 +261,7 @@ function MeldungDialog({
           >
             <Auswahl
               kennung="werkstatt-stand-wahl"
+              imBlatt
               beschriftung="Stand"
               wert={stand}
               setze={w => setStand(w as StandMeldung)}
@@ -275,9 +291,7 @@ function MeldungDialog({
                 {setzen.error.message}
               </Hinweis>
             )}
-            <p style={leise}>
-              Wer gemeldet hat, sieht Stand und Grund in der eigenen Werkstatt.
-            </p>
+            <p style={leise}>Wer gemeldet hat, sieht Stand und Grund in der eigenen Werkstatt.</p>
           </div>
         </div>
       </Blatt>

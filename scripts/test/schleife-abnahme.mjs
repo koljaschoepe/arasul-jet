@@ -76,7 +76,9 @@ const AUSBLENDEN = (process.env.ARASUL_AUSBLENDEN ?? '').split(',').filter(Boole
 const ERGEBNIS = process.env.ARASUL_ERGEBNIS || '';
 
 if (!['vorher', 'melden', 'nachher'].includes(SCHRITT)) {
-  console.log('Aufruf: node scripts/test/schleife-abnahme.mjs vorher | melden "<text>" | nachher <nr>');
+  console.log(
+    'Aufruf: node scripts/test/schleife-abnahme.mjs vorher | melden "<text>" | nachher <nr>'
+  );
   process.exit(1);
 }
 if (!BENUTZER || !PASSWORT || BENUTZER === 'admin') {
@@ -196,7 +198,10 @@ if (SCHRITT === 'vorher') {
   const ich = (await (await api('GET', '/auth/me')).json().catch(() => ({}))).user ?? {};
   pruefe(`${BENUTZER} hat das Recht in der Werkstatt`, ich.entwickler === true);
   const meine = (await daten(await api('GET', '/apps/meine'))) ?? [];
-  pruefe('Die Werkstatt steht in den eigenen Apps', meine.some(a => a.id === 'werkstatt'));
+  pruefe(
+    'Die Werkstatt steht in den eigenen Apps',
+    meine.some(a => a.id === 'werkstatt')
+  );
   const st = await appStand();
   if (pruefe(`Die App ${APP} ist am Gerät`, Boolean(st))) {
     pruefe(
@@ -239,7 +244,8 @@ if (SCHRITT === 'vorher') {
     const l = await kit(`/apps/${APP}/rueckmeldungen?grenze=1`);
     const d = await daten(l);
     pruefe('Der Schlüssel des Kits liest die Meldungen der App', l.ok(), String(l.status()));
-    if (d) hinweis(`Bildschirmfotos an den Agenten für ${APP}: ${d.bilder_an_agenten ? 'an' : 'aus'}`);
+    if (d)
+      hinweis(`Bildschirmfotos an den Agenten für ${APP}: ${d.bilder_an_agenten ? 'an' : 'aus'}`);
   } else {
     hinweis('ohne ARASUL_SCHLUESSEL: die Sicht des Kits nicht geprüft');
   }
@@ -267,9 +273,7 @@ if (SCHRITT === 'melden') {
     (await seite.locator('[data-testid="rueckmeldung-stelle"]').count()) === 1
   );
   await bild(seite, '02-formular-mit-stelle');
-  const vorher = new Set(
-    ((await daten(await api('GET', '/rueckmeldungen'))) ?? []).map(m => m.id)
-  );
+  const vorher = new Set(((await daten(await api('GET', '/rueckmeldungen'))) ?? []).map(m => m.id));
   await seite.click('[data-testid="rueckmeldung-absenden"]');
   const ok = await seite
     .locator('[data-testid="rueckmeldung-bestaetigung"]')
