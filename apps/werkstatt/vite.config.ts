@@ -5,9 +5,9 @@
  * React gibt es damit genau einmal, das des Geräts.
  *
  * Aufruf aus dem Wurzelordner des Repos:
- *   npx vite build --config apps/entwickler-cockpit/vite.config.ts
- * Ergebnis: `apps/entwickler-cockpit/dist/` mit `app.json` und `frontend/`,
- * so wie das Backend es unter `mitgeliefert/entwickler-cockpit/` erwartet
+ *   npx vite build --config apps/werkstatt/vite.config.ts
+ * Ergebnis: `apps/werkstatt/dist/` mit `app.json` und `frontend/`,
+ * so wie das Backend es unter `mitgeliefert/werkstatt/` erwartet
  * (`apps/dashboard-backend/Dockerfile`, Stufe `cockpit`).
  */
 import { copyFileSync, mkdirSync } from 'node:fs';

@@ -309,7 +309,7 @@ REGELN = [
 # mehr, also gibt es keinen Grund mehr, die Regel dort auszusetzen.
 # Seit J44 dazu das Entwickler-Cockpit, die mitgelieferte App: es steht neben
 # der Shell im selben Rahmen und haelt dieselben Regeln.
-WURZELN = ['apps/dashboard-frontend/src', 'apps/entwickler-cockpit/src']
+WURZELN = ['apps/dashboard-frontend/src', 'apps/werkstatt/src']
 
 AUSGENOMMENE_ORDNER = ()
 
@@ -333,7 +333,7 @@ AUSGENOMMENE_ORDNER = ()
 # (340 bis 20 Grad) liegt, ist gruen, orange, gelb, violett -- und faellt.
 # Farbworte (`white`, `black`, `transparent`, `currentColor`) sind keine
 # Palette und werden nicht gelesen.
-CSS_WURZELN = ['apps/dashboard-frontend/src', 'packages/marken/src', 'apps/entwickler-cockpit/src']
+CSS_WURZELN = ['apps/dashboard-frontend/src', 'packages/marken/src', 'apps/werkstatt/src']
 FARBQUELLE = 'packages/marken/src/theme.css'
 HEX = re.compile(r'#([0-9A-Fa-f]{3,8})\b')
 RGB = re.compile(r'\brgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)')
@@ -581,7 +581,7 @@ def navigation_doppelt(wurzel: Path) -> list[str]:
 # Die zehnte Regel: Symbole nur ueber die Bibliothek (20.11.2026)
 # --------------------------------------------------------------------------
 LUCIDE_IMPORT = re.compile(r"""(?:from\s+|import\(\s*)['"]lucide-react(?:/[^'"]*)?['"]""")
-LUCIDE_ORDNER = ['apps/dashboard-frontend/src', 'apps/dashboard-frontend/demo', 'apps/entwickler-cockpit/src']
+LUCIDE_ORDNER = ['apps/dashboard-frontend/src', 'apps/dashboard-frontend/demo', 'apps/werkstatt/src']
 # Dateien, die Lucide noch selbst holen duerfen, und warum. Die Ratsche: wer
 # eine umstellt, nimmt sie hier heraus; eine neue kommt nicht dazu.
 # Leer seit J50 (Bibliothek 5.9.0): das Cockpit bindet `@marken/symbole` an

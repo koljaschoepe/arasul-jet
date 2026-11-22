@@ -48,7 +48,7 @@ describe('logik des Cockpits', () => {
         test_neuer: true,
         test: { version: '3', eingespielt_am: '2026-11-20T00:00:00Z', aenderungstext: null },
       }),
-      app({ id: 'entwickler-cockpit', mitgeliefert: true, test_neuer: true }),
+      app({ id: 'werkstatt', mitgeliefert: true, test_neuer: true }),
     ];
     expect(wartetAufLive(apps).map(a => a.id)).toEqual(['c', 'a']);
   });

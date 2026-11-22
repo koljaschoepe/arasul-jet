@@ -16,7 +16,7 @@ on:
     branches: [main]
     paths:
       - 'apps/dashboard-frontend/**'
-      - 'apps/entwickler-cockpit/**'
+      - 'apps/werkstatt/**'
       - 'packages/marken/**'
       - '.github/workflows/demo.yml'
   workflow_dispatch:

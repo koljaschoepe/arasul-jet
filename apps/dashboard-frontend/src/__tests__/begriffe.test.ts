@@ -25,7 +25,7 @@ import { BEGRIFFE } from '../begriffe';
 const SRC = join(__dirname, '..');
 const MARKEN = join(SRC, '..', '..', '..', 'packages', 'marken', 'src');
 // Das Entwickler-Cockpit (J44), die mitgelieferte App, spricht dieselbe Sprache.
-const COCKPIT = join(SRC, '..', '..', 'entwickler-cockpit', 'src');
+const COCKPIT = join(SRC, '..', '..', 'werkstatt', 'src');
 
 function dateien(wurzel: string): string[] {
   const aus: string[] = [];
