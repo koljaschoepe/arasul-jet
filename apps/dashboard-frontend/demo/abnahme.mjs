@@ -138,7 +138,9 @@ async function deutscheReste(seite, wo) {
   for (const rahmen of seite.frames()) {
     const pfad = new URL(rahmen.url()).pathname;
     // Die Fach-Apps sind selbst zweisprachig; Daten wie Namen bleiben.
-    if (/^\/apps\/(angebote|wareneingang|wartungsplan|pruefprotokolle|urlaub)\//.test(pfad))
+    if (
+      /^\/apps\/(angebote|wareneingang|wartungsplan|pruefprotokolle|urlaub|stammdaten)\//.test(pfad)
+    )
       continue;
     const liste = await rahmen
       .evaluate(() => {
@@ -439,6 +441,42 @@ async function weg(browser, basis, sprache, breite) {
       `${wo} ${app}: Reiter, Auswertung ${teile} Teile, Auswahl, Liste ${zeilen}, angelegt, geändert, Datei und PDF`
     );
   }
+
+  // Stammdaten (J55): Kunde mit Vorgängen, vom Vorgang in seine App und zurück.
+  await geheZu(seite, '/workspace/app/stammdaten');
+  const stamm = await rahmenVon(seite, 'stammdaten');
+  await stamm.locator('[data-testid^="st-zeile-kunden-"]').first().waitFor();
+  const kunden = await stamm.locator('[data-testid^="st-zeile-kunden-"]').count();
+  if (kunden < 20) rot(`${wo} Stammdaten: nur ${kunden} Kunden`);
+  await ueberlaufApp(seite, stamm, `${wo} Stammdaten`);
+  await bild(seite, `${wo.replace(' ', '-')}-2-stammdaten`);
+  await stamm.getByTestId('st-zeile-kunden-2').click();
+  await stamm.getByTestId('st-blatt').waitFor();
+  const vorgang = stamm.locator('[data-testid^="st-vorgang-AN-"]').first();
+  if (!(await vorgang.count())) rot(`${wo} Stammdaten: Kunde ohne Angebote`);
+  await warte(400);
+  await bild(seite, `${wo.replace(' ', '-')}-3-stammdaten-kunde`);
+  const nr = (await vorgang.getAttribute('data-testid')).replace('st-vorgang-', '');
+  await vorgang.click();
+  const angebote = await rahmenVon(seite, 'angebote');
+  const blattDa = await angebote
+    .getByTestId('fa-blatt')
+    .waitFor({ timeout: 6000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!blattDa || !(await angebote.getByTestId('fa-blatt').innerText()).includes(nr))
+    rot(`${wo} Stammdaten: ${nr} öffnet nicht in Angebote`);
+  await angebote.getByTestId('fa-stamm-kunde').click();
+  await warte(800);
+  const zurueck = await rahmenVon(seite, 'stammdaten');
+  const kundeWieder = await zurueck
+    .getByTestId('st-blatt')
+    .waitFor({ timeout: 6000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!kundeWieder) rot(`${wo} Stammdaten: vom Angebot nicht zurück zum Kunden`);
+  else gruen(`${wo} Stammdaten: ${kunden} Kunden, Kunde zu ${nr} und zurück`);
+  await seite.keyboard.press('Escape');
 
   // Werkstatt: alle Meldungen, Test nach Live
   await geheZu(seite, '/workspace/app/werkstatt');

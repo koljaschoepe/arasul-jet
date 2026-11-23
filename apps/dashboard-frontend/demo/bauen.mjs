@@ -74,7 +74,14 @@ const vomGeraet = {
   '@marken/symbole': MARKEN + 'symbole.js',
 };
 const apps = path.join(demo, 'apps');
-const FACH_APPS = ['angebote', 'wareneingang', 'wartungsplan', 'pruefprotokolle', 'urlaub'];
+const FACH_APPS = [
+  'angebote',
+  'wareneingang',
+  'wartungsplan',
+  'pruefprotokolle',
+  'urlaub',
+  'stammdaten',
+];
 await esbuild({
   entryPoints: FACH_APPS.map(id => path.join(apps, `${id}.tsx`)),
   outdir: path.join(ziel, 'demo-apps'),

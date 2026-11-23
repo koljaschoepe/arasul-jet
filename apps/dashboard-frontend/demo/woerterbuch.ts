@@ -308,6 +308,8 @@ export const MUSTER: Array<[RegExp, (...teile: string[]) => string]> = [
   [/^Start, (\d+) offen$/, (_, n) => `Home, ${n} open`],
   [/^(\d+) Freigaben offen$/, (_, n) => `${n} approvals open`],
   [/^(\d+) Freigaben?$/, (_, n) => `${n} approval${n === '1' ? '' : 's'}`],
+  [/^1 Freigabe, liegt bei Ihnen$/, () => '1 approval, waiting for you'],
+  [/^(\d+) Freigaben, alle liegen bei Ihnen$/, (_, n) => `${n} approvals, all waiting for you`],
   [/^Eine Freigabe wartet auf Sie$/, () => 'One approval is waiting for you'],
   [
     /^(\S+) Freigaben warten auf Sie$/,

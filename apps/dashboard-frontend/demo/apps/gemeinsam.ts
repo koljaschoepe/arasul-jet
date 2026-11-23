@@ -8,7 +8,7 @@
  * (`bauen.mjs`, esbuild) legt sie nicht ins Bündel.
  */
 import type { Eintrag, Wert } from '../bestand';
-import type { Text } from '../firma';
+import { stammUebernehmen, type Stamm, type Text } from '../firma';
 
 export type Sprache = 'de' | 'en';
 
@@ -333,3 +333,33 @@ export function csvMehrteilig(
 }
 
 export const pdfAdresse = (id: number) => `api/eintraege/${id}/pdf`;
+
+/**
+ * Kunden, Lieferanten und Maschinen im Stand der Stammdaten übernehmen
+ * (J55): vor dem ersten Bild und nach jeder Änderung dort.
+ */
+export async function stammLaden(): Promise<void> {
+  try {
+    const r = await fetch('/apps/stammdaten/api/stamm', {
+      headers: { accept: 'application/json' },
+    });
+    if (!r.ok) return;
+    const j = (await r.json()) as { data?: Stamm };
+    stammUebernehmen(j.data);
+  } catch {
+    /* dann gilt der Anfang aus firma.ts */
+  }
+}
+
+/** In einer anderen App einen neuen Eintrag beginnen, mit Feldern vorbelegt. */
+export function neuIn(app: string, felder: Record<string, Wert>): void {
+  try {
+    window.localStorage.setItem(
+      'arasul-demo-auftrag',
+      JSON.stringify({ app, aktion: 'neu', felder, am: Date.now() })
+    );
+  } catch {
+    /* dann öffnet sie nur die App */
+  }
+  geheZu(`/workspace/app/${app}`);
+}

@@ -956,3 +956,34 @@
 .fa-eng .fa-reiter [data-slot='tabs-trigger'] svg {
   display: none;
 }
+
+/* ── Stammdaten (J55) ───────────────────────────────────────────────────── */
+
+.st-leise {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.st-gruppe + .st-gruppe {
+  margin-top: 10px;
+}
+.st-gruppe-titel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 2px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.st-vorgang-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.st-drei {
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)) !important;
+}
+.st-satz {
+  margin: 0;
+}

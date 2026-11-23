@@ -73,8 +73,8 @@ describe('gespielte Antworten', () => {
       z,
       frage('GET', '/api/apps/meine')
     );
-    expect(apps.json.data.map(a => a.id)).toEqual([...FACH_APPS, 'werkstatt']);
-    expect(new Set(apps.json.data.map(a => a.symbol)).size).toBe(6);
+    expect(apps.json.data.map(a => a.id)).toEqual([...FACH_APPS, 'stammdaten', 'werkstatt']);
+    expect(new Set(apps.json.data.map(a => a.symbol)).size).toBe(7);
   });
 
   it('anlegen, bearbeiten, Stand ändern, löschen bleibt im Zustand', () => {
@@ -205,5 +205,67 @@ describe('gespielte Antworten', () => {
     const r = daten<{ error: { message: string } }>(z, frage('GET', '/api/verwaltung/personen'));
     expect(r.status).toBe(404);
     expect(r.json.error.message).toMatch(/Demo/);
+  });
+
+  it('jeder Vorgang hat ein PDF (J55)', () => {
+    const z = anfangsZustand();
+    for (const app of FACH_APPS) {
+      const e = z.bestand[app][0]!;
+      const r = daten(z, frage('GET', `/apps/${app}/api/eintraege/${e.id}/pdf`));
+      expect(r.status).toBe(200);
+      expect(r.antwort.typ).toBe('application/pdf');
+      expect(r.antwort.dateiname).toBe(`${e.nr}.pdf`);
+    }
+  });
+
+  it('Stammdaten: Kunde anlegen und ändern, die Fach-Apps sehen ihn (J55)', () => {
+    let z = anfangsZustand();
+    const neu = daten<{ data: { id: number } }>(
+      z,
+      frage('POST', '/apps/stammdaten/api/stamm/kunden', {
+        felder: { name: 'Gemeinde Talgrund, Bauhof', art: 'Gemeinde', ort: 'Talgrund' },
+      })
+    );
+    expect(neu.status).toBe(201);
+    expect(neu.json.data.id).toBe(26);
+    z = neu.nachher;
+    expect(z.stamm.kunden).toHaveLength(26);
+
+    const geaendert = daten(
+      z,
+      frage('PATCH', '/apps/stammdaten/api/stamm/kunden/26', {
+        felder: { ort: 'Talgrund-Süd', art: 'Gemeinde' },
+      })
+    );
+    expect(geaendert.status).toBe(200);
+    z = geaendert.nachher;
+    expect(z.stamm.kunden.find(k => k.id === 26)?.ort).toBe('Talgrund-Süd');
+
+    // Ohne Namen kein Kunde; eine Maschine braucht eine Kennung.
+    expect(
+      daten(z, frage('POST', '/apps/stammdaten/api/stamm/kunden', { felder: { ort: 'X' } })).status
+    ).toBe(400);
+    expect(
+      daten(
+        z,
+        frage('POST', '/apps/stammdaten/api/stamm/maschinen', {
+          felder: { id: 'LS-1', name: 'Laser', ort: 'Halle 1' },
+        })
+      ).status
+    ).toBe(409);
+
+    // Ein Angebot für den neuen Kunden trägt seinen Namen ins PDF.
+    const an = daten<{ data: Eintrag }>(
+      z,
+      frage('POST', '/apps/angebote/api/eintraege', {
+        felder: { kunde: 26, betreff: 'Geländer Bauhof', betrag: 4200, bearbeiter: 3 },
+        stand: 'entwurf',
+      })
+    );
+    const pdf = daten(
+      an.nachher,
+      frage('GET', `/apps/angebote/api/eintraege/${an.json.data.id}/pdf`)
+    );
+    expect(new TextDecoder('latin1').decode(pdf.antwort.bytes)).toContain('Gemeinde Talgrund');
   });
 });

@@ -68,6 +68,7 @@ import {
   dateiAdresse,
   pdfAdresse,
   SPRACHE,
+  stammLaden,
   stammOeffnen,
   t,
   tx,
@@ -218,14 +219,14 @@ export const Mono = ({ children }: { children: ReactNode }) => <span style={MONO
 /** Ein Auftrag aus der Startseite: „neu anlegen" (Schnellzugriff). */
 const AUFTRAG = 'arasul-demo-auftrag';
 
-function auftragLesen(app: AppKennung): string | null {
+function auftragLesen(app: AppKennung): { felder?: Record<string, Wert> } | null {
   try {
     const roh = window.localStorage.getItem(AUFTRAG);
     if (!roh) return null;
-    const a = JSON.parse(roh) as { app?: string; aktion?: string };
-    if (a.app !== app) return null;
+    const a = JSON.parse(roh) as { app?: string; aktion?: string; felder?: Record<string, Wert> };
+    if (a.app !== app || a.aktion !== 'neu') return null;
     window.localStorage.removeItem(AUFTRAG);
-    return a.aktion ?? null;
+    return { felder: a.felder };
   } catch {
     return null;
   }
@@ -273,7 +274,10 @@ function FachApp({ def }: { def: AppDef }) {
   const [filter, setFilter] = useState<string>('alle');
   const [gewaehlt, setGewaehlt] = useState<number | null>(null);
   const [markiert, setMarkiert] = useState<Set<number>>(() => new Set());
-  const [formular, setFormular] = useState<{ e: Eintrag | null } | null>(null);
+  const [formular, setFormular] = useState<{
+    e: Eintrag | null;
+    vorbelegt?: Record<string, Wert>;
+  } | null>(null);
   const [loeschen, setLoeschen] = useState<Eintrag[] | null>(null);
   const [grund, setGrund] = useState<{ e: Eintrag; schritt: Schritt | 'ablehnen' } | null>(null);
   const [druck, setDruck] = useState<Eintrag[] | null>(null);
@@ -299,6 +303,7 @@ function FachApp({ def }: { def: AppDef }) {
   }, []);
 
   const laden = useCallback(async () => {
+    await stammLaden();
     const d = await api.daten();
     setListe(d.eintraege);
     return d.eintraege;
@@ -313,10 +318,14 @@ function FachApp({ def }: { def: AppDef }) {
       // Aus „Für Sie" auf der Startseite oder aus den Stammdaten: die App öffnet beim Vorgang.
       const vorgang = Number(new URLSearchParams(window.location.search).get('freigabe'));
       if (vorgang && eintraege.some(e => e.id === vorgang)) setGewaehlt(vorgang);
-      if (auftragLesen(def.id) === 'neu') setFormular({ e: null });
+      const auftrag = auftragLesen(def.id);
+      if (auftrag) setFormular({ e: null, vorbelegt: auftrag.felder });
     });
     const beiSpeicher = (ev: StorageEvent) => {
-      if (ev.key === AUFTRAG && auftragLesen(def.id) === 'neu') setFormular({ e: null });
+      if (ev.key === AUFTRAG) {
+        const auftrag = auftragLesen(def.id);
+        if (auftrag) setFormular({ e: null, vorbelegt: auftrag.felder });
+      }
       if (ev.key === 'arasul-demo-neu') void laden();
     };
     window.addEventListener('storage', beiSpeicher);
@@ -837,6 +846,7 @@ function FachApp({ def }: { def: AppDef }) {
           def={def}
           ctx={ctx}
           e={formular.e}
+          vorbelegt={formular.vorbelegt}
           schliessen={() => setFormular(null)}
           gespeichert={(e, neu) => {
             uebernehmen(e);
@@ -1287,18 +1297,20 @@ function Eingabe({
   def,
   ctx,
   e,
+  vorbelegt,
   schliessen,
   gespeichert,
 }: {
   def: AppDef;
   ctx: Ctx;
   e: Eintrag | null;
+  vorbelegt?: Record<string, Wert>;
   schliessen: () => void;
   gespeichert: (e: Eintrag, neu: boolean) => void;
 }) {
   const felder = def.felder(ctx).filter(f => !f.nurAnzeige);
   const [werte, setWerte] = useState<Record<string, string>>(() => {
-    const quelle = e ? e.felder : def.vorbelegung(ctx);
+    const quelle = e ? e.felder : { ...def.vorbelegung(ctx), ...(vorbelegt ?? {}) };
     const aus: Record<string, string> = {};
     for (const f of felder) {
       const w = quelle[f.key];
@@ -1495,7 +1507,9 @@ function GrundDialog({
 export function starten(def: AppDef): void {
   document.title = def.titel;
   const knoten = document.getElementById('app');
-  if (knoten) createRoot(knoten).render(<FachApp def={def} />);
+  // Erst die Stammdaten, dann das erste Bild: ein eben angelegter Kunde
+  // steht sonst als „Kunde 26" in der Liste.
+  if (knoten) void stammLaden().then(() => createRoot(knoten).render(<FachApp def={def} />));
   // Ändert der Rahmen den Platz der Kapsel (`--ara-kapsel-platz` am <html>),
   // misst der Seitenkopf neu; er hört sonst nur auf Größenänderungen.
   new MutationObserver(() => window.dispatchEvent(new Event('resize'))).observe(
