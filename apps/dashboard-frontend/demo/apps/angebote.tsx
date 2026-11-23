@@ -6,8 +6,22 @@
 import { Check, CircleX, Send, ShieldCheck, Undo2 } from '@marken/symbole';
 import type { Eintrag } from '../bestand';
 import { KUNDEN, PERSONEN, ansprech, kunde, name } from '../firma';
-import { starten, Mono, type AppDef, type Ctx } from './fachapp';
-import { datum, euro, isoIn, mindestens, proMonat, relativTag, t, tageBis, tx } from './gemeinsam';
+import { starten, Mono, StammLink, type AppDef, type Ctx } from './fachapp';
+import {
+  datum,
+  euro,
+  imZeitraum,
+  isoIn,
+  mindestens,
+  proMonat,
+  prozent,
+  relativTag,
+  stammOeffnen,
+  t,
+  tageBis,
+  tausend,
+  tx,
+} from './gemeinsam';
 
 const FREIGABE_AB = 20000;
 const mitRabatt = (ctx: Ctx) => mindestens(ctx.fassung, '1.5.0');
@@ -36,7 +50,11 @@ const def: AppDef = {
       art: 'auswahl',
       pflicht: true,
       optionen: KUNDEN.map(k => [String(k.id), k.name]),
-      anzeigen: w => `${kunde(Number(w)).name}, ${kunde(Number(w)).ort}`,
+      anzeigen: w => (
+        <StammLink art="kunde" id={Number(w)}>
+          {kunde(Number(w)).name}, {kunde(Number(w)).ort}
+        </StammLink>
+      ),
     },
     {
       key: 'betreff',
@@ -83,7 +101,11 @@ const def: AppDef = {
         String(p.id),
         `${p.vorname} ${p.nachname}`,
       ]),
-      anzeigen: w => name(Number(w)),
+      anzeigen: w => (
+        <StammLink art="person" id={Number(w)}>
+          {name(Number(w))}
+        </StammLink>
+      ),
     },
     {
       key: 'datum',
@@ -272,6 +294,170 @@ const def: AppDef = {
       default:
         return [];
     }
+  },
+  auswertung: {
+    rechnen: (alle, ctx, z, oeffnen) => {
+      const liste = alle.filter(e => imZeitraum(z, String(e.felder.datum)));
+      const an = liste.filter(e => e.stand === 'angenommen');
+      const entschieden = liste.filter(e => ['angenommen', 'abgelehnt'].includes(e.stand));
+      const summe = (l: Eintrag[]) => l.reduce((s, e) => s + netto(e, ctx), 0);
+      const jeKunde = new Map<number, Eintrag[]>();
+      for (const e of liste) {
+        const k = Number(e.felder.kunde);
+        jeKunde.set(k, [...(jeKunde.get(k) ?? []), e]);
+      }
+      const kundenRang = [...jeKunde.entries()]
+        .map(([k, l]) => ({ k, l, wert: summe(l.filter(e => e.stand === 'angenommen')) }))
+        .sort((a, b) => b.wert - a.wert || summe(b.l) - summe(a.l))
+        .slice(0, 8);
+      const bearbeiter = PERSONEN.filter(p =>
+        liste.some(e => Number(e.felder.bearbeiter) === p.id)
+      );
+      const arten = new Map<string, Eintrag[]>();
+      for (const e of liste) {
+        const art = tx(kunde(Number(e.felder.kunde)).art);
+        arten.set(art, [...(arten.get(art) ?? []), e]);
+      }
+      const monate = proMonat(liste, e => String(e.felder.datum), z.monate, {
+        angeboten: e => netto(e, ctx),
+        angenommen: e => (e.stand === 'angenommen' ? netto(e, ctx) : 0),
+        an: e => (e.stand === 'angenommen' ? 1 : 0),
+        ent: e => (['angenommen', 'abgelehnt'].includes(e.stand) ? 1 : 0),
+      });
+      return {
+        kennzahlen: [
+          {
+            beschriftung: t('Angeboten', 'Quoted'),
+            wert: euro(summe(liste)),
+            fussnote: t(`${liste.length} Angebote, netto`, `${liste.length} quotes, net`),
+            verlauf: monate.map(m => Number(m.angeboten)),
+          },
+          {
+            beschriftung: t('Gewonnen', 'Won'),
+            wert: euro(summe(an)),
+            fussnote: t(`${an.length} Aufträge`, `${an.length} orders`),
+            verlauf: monate.map(m => Number(m.angenommen)),
+          },
+          {
+            beschriftung: t('Annahmequote', 'Win rate'),
+            wert: String(prozent(an.length, entschieden.length)),
+            einheit: '%',
+            fussnote: t(
+              `von ${entschieden.length} entschiedenen`,
+              `of ${entschieden.length} decided`
+            ),
+          },
+          {
+            beschriftung: t('Durchschnitt je Angebot', 'Average per quote'),
+            wert: euro(liste.length ? summe(liste) / liste.length : 0),
+            fussnote: t('netto', 'net'),
+          },
+        ],
+        teile: [
+          {
+            art: 'diagramm',
+            breit: true,
+            monatlich: true,
+            titel: t('Angeboten und gewonnen je Monat', 'Quoted and won per month'),
+            d: {
+              titel: t('Angeboten und gewonnen je Monat', 'Quoted and won per month'),
+              satz: t(`Netto in Euro, ${z.text}.`, `Net in euros, ${z.text}.`),
+              art: 'balken',
+              data: monate,
+              series: [
+                { key: 'angeboten', name: t('Angeboten', 'Quoted'), unit: ' €' },
+                { key: 'angenommen', name: t('Gewonnen', 'Won'), unit: ' €' },
+              ],
+              formatY: tausend,
+            },
+          },
+          {
+            art: 'rangliste',
+            titel: t('Umsatz nach Kunde', 'Revenue by customer'),
+            satz: t(
+              'Gewonnen, netto. Ein Klick öffnet den Kunden.',
+              'Won, net. Click to open the customer.'
+            ),
+            zeilen: kundenRang.map(({ k, l, wert }) => ({
+              name: kunde(k).name,
+              wert,
+              text: euro(wert),
+              neben: t(
+                `${l.length} ${l.length === 1 ? 'Angebot' : 'Angebote'}, ${l.filter(e => e.stand === 'angenommen').length} gewonnen`,
+                `${l.length} ${l.length === 1 ? 'quote' : 'quotes'}, ${l.filter(e => e.stand === 'angenommen').length} won`
+              ),
+              aufKlick: () => stammOeffnen('kunde', k),
+            })),
+          },
+          {
+            art: 'tabelle',
+            titel: t('Nach Art des Kunden', 'By customer type'),
+            kopf: [
+              t('Art', 'Type'),
+              t('Angebote', 'Quotes'),
+              t('Angeboten', 'Quoted'),
+              t('Gewonnen', 'Won'),
+              t('Quote', 'Win rate'),
+            ],
+            rechts: [1, 2, 3, 4],
+            zeilen: [...arten.entries()]
+              .sort((a, b) => summe(b[1]) - summe(a[1]))
+              .map(([art, l]) => {
+                const g = l.filter(e => e.stand === 'angenommen');
+                const ent = l.filter(e => ['angenommen', 'abgelehnt'].includes(e.stand));
+                return [
+                  art,
+                  String(l.length),
+                  euro(summe(l)),
+                  euro(summe(g)),
+                  `${prozent(g.length, ent.length)} %`,
+                ];
+              }),
+          },
+          {
+            art: 'rangliste',
+            titel: t('Nach Bearbeiter', 'By person'),
+            satz: t('Angeboten, netto, mit Annahmequote.', 'Quoted, net, with win rate.'),
+            zeilen: bearbeiter
+              .map(p => {
+                const l = liste.filter(e => Number(e.felder.bearbeiter) === p.id);
+                const ent = l.filter(e => ['angenommen', 'abgelehnt'].includes(e.stand));
+                return {
+                  name: `${p.vorname} ${p.nachname}`,
+                  wert: summe(l),
+                  text: euro(summe(l)),
+                  neben: t(
+                    `${l.length} Angebote · Quote ${prozent(l.filter(e => e.stand === 'angenommen').length, ent.length)} %`,
+                    `${l.length} quotes · win rate ${prozent(l.filter(e => e.stand === 'angenommen').length, ent.length)}%`
+                  ),
+                  aufKlick: () => stammOeffnen('person', p.id),
+                };
+              })
+              .sort((a, b) => b.wert - a.wert),
+          },
+          {
+            art: 'rangliste',
+            titel: t('Größte offene Angebote', 'Largest open quotes'),
+            satz: t(
+              'Noch nicht entschieden. Ein Klick öffnet das Angebot.',
+              'Not yet decided. Click to open the quote.'
+            ),
+            leer: t('Kein offenes Angebot im Zeitraum.', 'No open quote in this period.'),
+            zeilen: liste
+              .filter(offen)
+              .sort((a, b) => netto(b, ctx) - netto(a, ctx))
+              .slice(0, 6)
+              .map(e => ({
+                name: `${e.nr} ${kunde(Number(e.felder.kunde)).name}`,
+                wert: netto(e, ctx),
+                text: euro(netto(e, ctx)),
+                neben: `${tx(e.felder.betreff)} · ${t('gültig bis', 'valid until')} ${datum(e.felder.gueltig)}`,
+                aufKlick: () => oeffnen(e.id),
+              })),
+          },
+        ],
+      };
+    },
   },
   csv: e => ({
     [t('Nummer', 'Number')]: e.nr,

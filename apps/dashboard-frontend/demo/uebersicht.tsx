@@ -27,7 +27,16 @@ import {
 } from '@marken/symbole';
 import './uebersicht.css';
 import { txt, type AppKennung, type Eintrag } from './bestand';
-import { FIRMA, kunde, lieferant, maschine, name, ARTIKEL } from './firma';
+import {
+  FIRMA,
+  kunde,
+  lieferant,
+  maschine,
+  name,
+  stammUebernehmen,
+  ARTIKEL,
+  type Stamm,
+} from './firma';
 import type { Sprache } from './daten';
 
 type Daten = Record<AppKennung, Eintrag[]> & { meldungen: { stand_meldung: string }[] };
@@ -90,6 +99,11 @@ async function laden(): Promise<void> {
     'pruefprotokolle',
     'urlaub',
   ];
+  // Kunden, Lieferanten, Maschinen im Stand der Stammdaten (J55).
+  await fetch('/apps/stammdaten/api/stamm')
+    .then(r => r.json() as Promise<{ data: Stamm }>)
+    .then(j => stammUebernehmen(j.data))
+    .catch(() => undefined);
   const [listen, meldungen] = await Promise.all([
     Promise.all(
       apps.map(a =>

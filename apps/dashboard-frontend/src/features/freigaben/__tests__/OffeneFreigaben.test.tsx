@@ -212,8 +212,9 @@ describe('OffeneFreigaben: Stufen, übernehmen, weitergeben (M5)', () => {
     apiMock.post.mockResolvedValue({ data: { id: 7, titel: EINE.titel, liegt_bei: 'bernd' } });
     render(<OffeneFreigaben />, { wrapper: huelle() });
     expect(await screen.findByText('Beispielapp · Stufe Prüfung')).toBeInTheDocument();
-    expect(screen.getByTestId('freigabe-7-zustaendig')).toHaveTextContent('Liegt bei Ihnen.');
-    expect(screen.getByTestId('fuer-sie-zahl')).toHaveTextContent('1 Freigabe');
+    // Liegt alles bei mir, steht es einmal über der Liste, nicht je Zeile (J55).
+    expect(screen.getByTestId('freigabe-7-zustaendig')).not.toHaveTextContent('Liegt bei Ihnen.');
+    expect(screen.getByTestId('fuer-sie-zahl')).toHaveTextContent('1 Freigabe, liegt bei Ihnen');
 
     fireEvent.click(screen.getByTestId('freigabe-7-weitergeben'));
     // Nur der Kreis ohne mich steht zur Wahl.
@@ -225,6 +226,23 @@ describe('OffeneFreigaben: Stufen, übernehmen, weitergeben (M5)', () => {
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('liegt jetzt bei bernd'))
     );
+  });
+
+  it('nennt bei gemischter Liste je Zeile, bei wem sie liegt (J55)', async () => {
+    angemeldet({ role: 'mitarbeiter', username: 'clara' });
+    listen([
+      { ...EINE, liegt_bei: 'clara', kreis: ['clara'] },
+      { ...EINE, id: 9, liegt_bei: null, kreis: ['clara', 'bernd'] },
+    ]);
+    render(<OffeneFreigaben />, { wrapper: huelle() });
+    expect(await screen.findByTestId('freigabe-7-zustaendig')).toHaveTextContent(
+      'Liegt bei Ihnen.'
+    );
+    expect(screen.getByTestId('freigabe-9-zustaendig')).toHaveTextContent(
+      'Liegt bei allen im Kreis: clara, bernd.'
+    );
+    expect(screen.getByTestId('fuer-sie-zahl')).toHaveTextContent('2 Freigaben');
+    expect(screen.getByTestId('fuer-sie-zahl')).not.toHaveTextContent('liegen bei Ihnen');
   });
 
   it('sagt dem Admin, dass keine Standardperson gesetzt ist', async () => {
@@ -245,8 +263,8 @@ describe('OffeneFreigaben: Stufen, übernehmen, weitergeben (M5)', () => {
     render(<OffeneFreigaben />, { wrapper: huelle() });
     // Die App hat den Kreis auf clara gezogen: dann liegt sie bei ihr, nicht
     // „bei allen mit Zugang" (Handtest 06.10.2026, B3).
-    expect(await screen.findByTestId('freigabe-7-zustaendig')).toHaveTextContent(
-      'Liegt bei Ihnen.'
+    expect(await screen.findByTestId('fuer-sie-zahl')).toHaveTextContent(
+      '1 Freigabe, liegt bei Ihnen'
     );
     expect(screen.queryByTestId('freigabe-7-hinweis')).not.toBeInTheDocument();
     // Niemand sonst im Kreis: nichts zum Weitergeben.

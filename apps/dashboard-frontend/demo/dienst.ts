@@ -79,7 +79,7 @@ async function holeZustand(): Promise<DemoZustand> {
   if (zustand) return zustand;
   const gelesen = await lesen<DemoZustand>('zustand');
   sprache = (await lesen<Sprache>('sprache')) ?? 'de';
-  zustand = gelesen?.fassung === 2 ? gelesen : anfangsZustand();
+  zustand = gelesen?.fassung === 3 ? gelesen : anfangsZustand();
   return zustand;
 }
 

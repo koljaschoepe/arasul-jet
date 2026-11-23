@@ -240,6 +240,10 @@ export interface Kunde {
   art: Text;
   ort: string;
   ansprechpartner: string;
+  /** Gepflegt in den Stammdaten (J55); ohne Angabe aus der Kennung abgeleitet. */
+  telefon?: string;
+  zahlungsziel?: number;
+  notiz?: string;
 }
 
 export const KUNDEN: Kunde[] = [
@@ -433,6 +437,9 @@ export interface Lieferant {
   name: string;
   was: Text;
   ort: string;
+  telefon?: string;
+  ansprechpartner?: string;
+  notiz?: string;
 }
 
 export const LIEFERANTEN: Lieferant[] = [
@@ -536,6 +543,7 @@ export interface Maschine {
   name: Text;
   ort: Text;
   baujahr: number;
+  notiz?: string;
 }
 
 export const MASCHINEN: Maschine[] = [
@@ -897,3 +905,47 @@ export const AUFTRAEGE: Auftrag[] = [
 ];
 
 export const auftrag = (nr: string): Auftrag | undefined => AUFTRAEGE.find(a => a.nr === nr);
+
+// ── Stammdaten (J55) ─────────────────────────────────────────────────────────
+
+/**
+ * Kunden, Lieferanten und Maschinen lassen sich in der App „Stammdaten"
+ * anlegen und ändern. Der Stand liegt im Zustand der Demo (Service Worker),
+ * und jede App, die Startseite und der Schreiber der PDF übernehmen ihn vor
+ * dem ersten Bild (`stammUebernehmen`): `kunde(3)` heißt dann überall
+ * dasselbe, auch nach einer Änderung.
+ */
+export interface Stamm {
+  kunden: Kunde[];
+  lieferanten: Lieferant[];
+  maschinen: Maschine[];
+}
+
+export function stammAnfang(): Stamm {
+  return {
+    kunden: KUNDEN_ANFANG.map(k => ({ ...k })),
+    lieferanten: LIEFERANTEN_ANFANG.map(l => ({ ...l })),
+    maschinen: MASCHINEN_ANFANG.map(m => ({ ...m })),
+  };
+}
+
+/** Die Listen an Ort und Stelle ersetzen: wer `KUNDEN` hält, sieht den neuen Stand. */
+export function stammUebernehmen(s: Stamm | undefined): void {
+  if (!s) return;
+  KUNDEN.splice(0, KUNDEN.length, ...s.kunden);
+  LIEFERANTEN.splice(0, LIEFERANTEN.length, ...s.lieferanten);
+  MASCHINEN.splice(0, MASCHINEN.length, ...s.maschinen);
+}
+
+const KUNDEN_ANFANG = KUNDEN.map(k => ({ ...k }));
+const LIEFERANTEN_ANFANG = LIEFERANTEN.map(l => ({ ...l }));
+const MASCHINEN_ANFANG = MASCHINEN.map(m => ({ ...m }));
+
+/** Erfundene Rufnummern im Ortsnetz der Firma, aus der Kennung abgeleitet. */
+const rufnummer = (n: number) => `0761 000 ${String(1000 + ((n * 7919) % 9000)).slice(0, 4)}`;
+
+export const kundenNr = (k: Kunde) => `K-${10000 + k.id * 7}`;
+export const kundeTelefon = (k: Kunde) => k.telefon ?? rufnummer(k.id * 3 + 11);
+export const kundeZiel = (k: Kunde) => k.zahlungsziel ?? ([1, 5, 12, 18].includes(k.id) ? 14 : 30);
+export const lieferantNr = (l: Lieferant) => `L-${70000 + l.id * 11}`;
+export const lieferantTelefon = (l: Lieferant) => l.telefon ?? rufnummer(l.id * 5 + 2);

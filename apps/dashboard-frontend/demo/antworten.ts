@@ -27,7 +27,7 @@ import {
 } from './bestand';
 import { dateiErzeugen } from './dokumente';
 import { ICH, FIRMA, type DemoApp, type DemoZustand, type Sprache } from './daten';
-import { kunde, name, person } from './firma';
+import { kunde, name, person, stammUebernehmen, type Text } from './firma';
 
 export interface Anfrage {
   methode: string;
@@ -85,7 +85,7 @@ function meineApps(z: DemoZustand, sprache: Sprache) {
     name: a.name[sprache],
     beschreibung: a.beschreibung[sprache],
     symbol: a.symbol,
-    zeigt_freigaben: Boolean(FREIGABE_STAND[a.id]),
+    zeigt_freigaben: a.id !== 'stammdaten' && Boolean(FREIGABE_STAND[a.id]),
     live: { version: a.live.version, pfad: `/apps/${a.id}/`, api: `/apps/${a.id}/api/` },
     test: a.test
       ? { version: a.test.version, pfad: `/apps/${a.id}/test/`, api: `/apps/${a.id}/test/api/` }
@@ -290,6 +290,117 @@ function standFelder(
   return f;
 }
 
+// ── Stammdaten (J55) ────────────────────────────────────────────────────────
+
+type StammListe = 'kunden' | 'lieferanten' | 'maschinen';
+const STAMM_LISTEN: StammListe[] = ['kunden', 'lieferanten', 'maschinen'];
+
+/** Welche Felder ein Stammsatz annimmt, und welche davon zweisprachig sind. */
+const STAMM_FELDER: Record<StammListe, { text: string[]; zweisprachig: string[]; zahl: string[] }> =
+  {
+    kunden: {
+      text: ['name', 'ort', 'ansprechpartner', 'telefon', 'notiz'],
+      zweisprachig: ['art'],
+      zahl: ['zahlungsziel'],
+    },
+    lieferanten: {
+      text: ['name', 'ort', 'ansprechpartner', 'telefon', 'notiz'],
+      zweisprachig: ['was'],
+      zahl: [],
+    },
+    maschinen: { text: ['notiz'], zweisprachig: ['name', 'ort'], zahl: ['baujahr'] },
+  };
+
+function stammFelder(
+  liste: StammListe,
+  roh: unknown,
+  vorher: Record<string, unknown> | null
+): Record<string, unknown> | string {
+  const f = (roh ?? {}) as Record<string, unknown>;
+  const regeln = STAMM_FELDER[liste];
+  const aus: Record<string, unknown> = {};
+  for (const k of regeln.text) {
+    if (typeof f[k] === 'string') aus[k] = (f[k] as string).trim().slice(0, 200) || undefined;
+  }
+  for (const k of regeln.zweisprachig) {
+    if (typeof f[k] !== 'string') continue;
+    const v = (f[k] as string).trim().slice(0, 120);
+    const alt = vorher?.[k] as Text | undefined;
+    // Unverändert gelassen: der Text bleibt in beiden Sprachen.
+    aus[k] = alt && (alt.de === v || alt.en === v) ? alt : { de: v, en: v };
+  }
+  for (const k of regeln.zahl) {
+    if (f[k] === undefined || f[k] === null || f[k] === '') continue;
+    const n = Number(f[k]);
+    if (!Number.isFinite(n) || n < 0) return `${k} ist keine Zahl.`;
+    aus[k] = n;
+  }
+  const name = liste === 'maschinen' ? (aus.name as Text | undefined)?.de : aus.name;
+  if (!vorher && !name) return 'Ein Name ist nötig.';
+  if (vorher && 'name' in aus && !name) return 'Ein Name ist nötig.';
+  return aus;
+}
+
+function stammApi(a: Anfrage, z: DemoZustand, rest: string): [Antwort, DemoZustand] {
+  const koerper = (a.koerper ?? {}) as Record<string, unknown>;
+  if (a.methode === 'GET' && rest === 'daten') {
+    return [ok({ stamm: z.stamm, bestand: z.bestand, ich: ICH.id }), z];
+  }
+  if (a.methode === 'GET' && rest === 'stamm') return [ok(z.stamm), z];
+
+  const weg = rest.match(/^stamm\/([a-z]+)(?:\/([A-Za-z0-9-]+))?$/);
+  const liste = weg?.[1] as StammListe | undefined;
+  if (!weg || !liste || !STAMM_LISTEN.includes(liste)) {
+    return [fehler(404, 'NOT_FOUND', 'Diesen Weg kennt die App nicht.'), z];
+  }
+  const saetze = z.stamm[liste] as unknown as Record<string, unknown>[];
+
+  if (a.methode === 'POST' && !weg[2]) {
+    const felder = stammFelder(liste, koerper.felder, null);
+    if (typeof felder === 'string') return [fehler(400, 'VALIDATION_ERROR', felder), z];
+    let id: string | number;
+    if (liste === 'maschinen') {
+      id = String((koerper.felder as Record<string, unknown>)?.id ?? '')
+        .trim()
+        .toUpperCase();
+      if (!/^[A-Z]{1,3}-\d{1,2}$/.test(id))
+        return [fehler(400, 'VALIDATION_ERROR', 'Die Kennung lautet etwa „SB-3".'), z];
+      if (saetze.some(x => x.id === id))
+        return [fehler(409, 'CONFLICT', 'Diese Kennung gibt es schon.'), z];
+    } else {
+      id = saetze.reduce((m, x) => Math.max(m, Number(x.id)), 0) + 1;
+    }
+    const neu = { ...felder, id };
+    return [ok(neu, 201), { ...z, stamm: { ...z.stamm, [liste]: [...saetze, neu] } }];
+  }
+
+  if (a.methode === 'PATCH' && weg[2]) {
+    const id = liste === 'maschinen' ? weg[2] : Number(weg[2]);
+    const alt = saetze.find(x => x.id === id);
+    if (!alt) return [fehler(404, 'NOT_FOUND', 'Diesen Satz gibt es nicht.'), z];
+    const felder = stammFelder(liste, koerper.felder, alt);
+    if (typeof felder === 'string') return [fehler(400, 'VALIDATION_ERROR', felder), z];
+    const neu = { ...alt, ...felder, id };
+    return [
+      ok(neu),
+      {
+        ...z,
+        stamm: { ...z.stamm, [liste]: saetze.map(x => (x.id === id ? neu : x)) },
+      },
+    ];
+  }
+
+  return [fehler(404, 'NOT_FOUND', 'Diesen Weg kennt die App nicht.'), z];
+}
+
+const HAUPTVORLAGE: Record<AppKennung, string> = {
+  angebote: 'angebot',
+  wareneingang: 'lieferschein',
+  wartungsplan: 'wartung',
+  pruefprotokolle: 'pruefung',
+  urlaub: 'antrag',
+};
+
 function fachApp(
   a: Anfrage,
   z: DemoZustand,
@@ -429,6 +540,13 @@ function fachApp(
       geaendert_am: jetzt(),
     };
     return [ok(neu, 201), ersetzen(neu)];
+  }
+
+  // Der Vorgang als PDF (J55): die Hauptvorlage der App, frisch aus dem Eintrag.
+  if (unten === 'pdf' && a.methode === 'GET') {
+    const erzeugt = dateiErzeugen(app, e, HAUPTVORLAGE[app], sprache);
+    if (!erzeugt) return [fehler(404, 'NOT_FOUND', 'Zu diesem Vorgang gibt es kein PDF.'), z];
+    return [{ status: 200, bytes: erzeugt.bytes, typ: erzeugt.typ, dateiname: `${e.nr}.pdf` }, z];
   }
 
   const dateiWeg = unten.match(/^dateien\/([a-z0-9-]+)$/);
@@ -604,6 +722,8 @@ export function antworte(
 ): [Antwort, DemoZustand] {
   const { methode, pfad } = a;
   const koerper = (a.koerper ?? {}) as Record<string, unknown>;
+  // Kunden, Lieferanten, Maschinen im Stand dieses Besuchs, auch für die PDF.
+  stammUebernehmen(z.stamm);
 
   // Die Schnittstelle einer App: Fassung, und bei den Fach-Apps ihre Einträge.
   const appApi = pfad.match(/^\/apps\/([a-z0-9-]+)\/(test\/)?api\/(.+)$/);
@@ -614,6 +734,7 @@ export function antworte(
       const fassung = appApi[2] ? (app.test ?? app.live) : app.live;
       return [ok({ app: app.id, stand: appApi[2] ? 'test' : 'live', version: fassung.version }), z];
     }
+    if (app.id === 'stammdaten') return stammApi(a, z, appApi[3]!);
     return fachApp(a, z, app.id, appApi[3]!, sprache);
   }
 

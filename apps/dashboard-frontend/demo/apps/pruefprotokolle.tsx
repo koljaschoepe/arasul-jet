@@ -6,8 +6,19 @@
 import { RotateCcw, ShieldCheck, Wrench } from '@marken/symbole';
 import type { Eintrag } from '../bestand';
 import { AUFTRAEGE, PERSONEN, auftrag, kunde, name } from '../firma';
-import { starten, Mono, type AppDef, type Ctx } from './fachapp';
-import { datum, isoIn, mindestens, proWoche, proMonat, t, tx } from './gemeinsam';
+import { starten, Mono, StammLink, type AppDef, type Ctx } from './fachapp';
+import {
+  datum,
+  imZeitraum,
+  isoIn,
+  mindestens,
+  proWoche,
+  proMonat,
+  prozent,
+  stammOeffnen,
+  t,
+  tx,
+} from './gemeinsam';
 
 const PRUEFARTEN: [string, string][] = [
   ['sicht', t('Sichtprüfung Schweißnähte', 'Visual weld inspection')],
@@ -51,7 +62,13 @@ const def: AppDef = {
       optionen: AUFTRAEGE.map(a => [a.nr, `${a.nr} ${kunde(a.kunde).name}`]),
       anzeigen: w => {
         const a = auftrag(String(w));
-        return a ? `${a.nr} · ${kunde(a.kunde).name}, ${tx(a.gegenstand)}` : String(w);
+        return a ? (
+          <StammLink art="kunde" id={a.kunde}>
+            {a.nr} · {kunde(a.kunde).name}, {tx(a.gegenstand)}
+          </StammLink>
+        ) : (
+          String(w)
+        );
       },
     },
     {
@@ -77,7 +94,11 @@ const def: AppDef = {
       optionen: PERSONEN.filter(p => ['qs', 'schweiss'].includes(p.abteilung) && p.id !== 14).map(
         p => [String(p.id), `${p.vorname} ${p.nachname}`]
       ),
-      anzeigen: w => name(Number(w)),
+      anzeigen: w => (
+        <StammLink art="person" id={Number(w)}>
+          {name(Number(w))}
+        </StammLink>
+      ),
     },
     {
       key: 'datum',
@@ -312,6 +333,148 @@ const def: AppDef = {
       default:
         return [];
     }
+  },
+  auswertung: {
+    rechnen: (alle, _ctx, z) => {
+      const liste = alle.filter(e => imZeitraum(z, String(e.felder.datum)));
+      const mit = liste.filter(e => e.felder.ergebnis);
+      const io = mit.filter(e => e.felder.ergebnis === 'io');
+      const auflage = mit.filter(e => e.felder.ergebnis === 'auflage');
+      const nio = mit.filter(e => e.felder.ergebnis === 'nio');
+      const nacharbeit = liste.filter(
+        e => e.stand === 'nacharbeit' || e.verlauf.some(s => /Nacharbeit|rework/i.test(tx(s.text)))
+      );
+      const monate = proMonat(mit, e => String(e.felder.datum), z.monate, {
+        io: e => (e.felder.ergebnis === 'io' ? 1 : 0),
+        auflage: e => (e.felder.ergebnis === 'auflage' ? 1 : 0),
+        nio: e => (e.felder.ergebnis === 'nio' ? 1 : 0),
+      });
+      const auftraege = AUFTRAEGE.map(a => {
+        const l = liste.filter(e => e.felder.auftrag === a.nr);
+        return { a, l, nio: l.filter(e => e.felder.ergebnis === 'nio').length };
+      })
+        .filter(x => x.l.length)
+        .sort((a, b) => b.l.length - a.l.length);
+      const pruefer = PERSONEN.map(p => ({
+        p,
+        l: liste.filter(e => Number(e.felder.pruefer) === p.id),
+      }))
+        .filter(x => x.l.length)
+        .sort((a, b) => b.l.length - a.l.length);
+      return {
+        kennzahlen: [
+          {
+            beschriftung: t('Prüfungen', 'Inspections'),
+            wert: String(liste.length),
+            fussnote: t(
+              `${liste.length - mit.length} ohne Ergebnis`,
+              `${liste.length - mit.length} without result`
+            ),
+            verlauf: monate.map(m => Number(m.io) + Number(m.auflage) + Number(m.nio)),
+          },
+          {
+            beschriftung: t('In Ordnung', 'Passed'),
+            wert: String(prozent(io.length, mit.length)),
+            einheit: '%',
+            fussnote: t(`${auflage.length} mit Auflage`, `${auflage.length} with condition`),
+            verlauf: monate.map(m =>
+              prozent(Number(m.io), Number(m.io) + Number(m.auflage) + Number(m.nio))
+            ),
+          },
+          {
+            beschriftung: t('Nicht in Ordnung', 'Failed'),
+            wert: String(nio.length),
+            fussnote: t(
+              `${prozent(nio.length, mit.length)} % der Prüfungen`,
+              `${prozent(nio.length, mit.length)}% of inspections`
+            ),
+            verlauf: monate.map(m => Number(m.nio)),
+          },
+          {
+            beschriftung: t('Nacharbeit', 'Rework'),
+            wert: String(nacharbeit.length),
+            fussnote: t(
+              `${liste.filter(e => e.stand === 'nacharbeit').length} noch offen`,
+              `${liste.filter(e => e.stand === 'nacharbeit').length} still open`
+            ),
+          },
+        ],
+        teile: [
+          {
+            art: 'diagramm',
+            breit: true,
+            monatlich: true,
+            titel: t('Ergebnisse je Monat', 'Results per month'),
+            d: {
+              titel: t('Ergebnisse je Monat', 'Results per month'),
+              satz: t(
+                `Prüfungen mit Ergebnis, ${z.text}.`,
+                `Inspections with a result, ${z.text}.`
+              ),
+              art: 'balken',
+              data: monate,
+              series: [
+                { key: 'io', name: t('In Ordnung', 'Passed') },
+                { key: 'auflage', name: t('Mit Auflage', 'With condition') },
+                { key: 'nio', name: t('Nicht in Ordnung', 'Failed') },
+              ],
+            },
+          },
+          {
+            art: 'tabelle',
+            titel: t('Nach Prüfart', 'By inspection type'),
+            kopf: [
+              t('Prüfung', 'Inspection'),
+              t('Anzahl', 'Count'),
+              t('In Ordnung', 'Passed'),
+              t('Nicht i. O.', 'Failed'),
+            ],
+            rechts: [1, 2, 3],
+            zeilen: PRUEFARTEN.map(([k, text]) => {
+              const l = mit.filter(e => e.felder.pruefart === k);
+              return [
+                text,
+                String(liste.filter(e => e.felder.pruefart === k).length),
+                `${prozent(l.filter(e => e.felder.ergebnis === 'io').length, l.length)} %`,
+                String(l.filter(e => e.felder.ergebnis === 'nio').length),
+              ];
+            }),
+          },
+          {
+            art: 'rangliste',
+            titel: t('Nach Prüfer', 'By inspector'),
+            zeilen: pruefer.map(x => ({
+              name: `${x.p.vorname} ${x.p.nachname}`,
+              wert: x.l.length,
+              text: String(x.l.length),
+              neben: tx(x.p.aufgabe),
+              aufKlick: () => stammOeffnen('person', x.p.id),
+            })),
+          },
+          {
+            art: 'rangliste',
+            breit: true,
+            titel: t('Prüfungen je Auftrag', 'Inspections per order'),
+            satz: t(
+              'Ein Klick öffnet den Kunden des Auftrags.',
+              'Click to open the order’s customer.'
+            ),
+            zeilen: auftraege.slice(0, 10).map(x => ({
+              name: `${x.a.nr} ${kunde(x.a.kunde).name}`,
+              wert: x.l.length,
+              text: String(x.l.length),
+              neben: x.nio
+                ? t(
+                    `${tx(x.a.gegenstand)} · ${x.nio} nicht i. O.`,
+                    `${tx(x.a.gegenstand)} · ${x.nio} failed`
+                  )
+                : tx(x.a.gegenstand),
+              aufKlick: () => stammOeffnen('kunde', x.a.kunde),
+            })),
+          },
+        ],
+      };
+    },
   },
   csv: e => ({
     [t('Nummer', 'Number')]: e.nr,

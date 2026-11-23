@@ -165,9 +165,11 @@ function Eingereicht() {
  * Dort stand „Liegt bei allen mit Zugang.", obwohl ein Kollege mit Zugang die
  * Freigabe gar nicht sah. Der Satz nennt deshalb den Kreis, wie er ist.
  */
+const BEI_IHNEN = 'Liegt bei Ihnen.';
+
 function liegtBeiSatz(f: OffeneFreigabe, ich: string): string {
   const kreis = f.kreis ?? [];
-  if (f.liegt_bei || (kreis.length === 1 && kreis[0] === ich)) return 'Liegt bei Ihnen.';
+  if (f.liegt_bei || (kreis.length === 1 && kreis[0] === ich)) return BEI_IHNEN;
   if (kreis.length > 0) return `Liegt bei allen im Kreis: ${kreis.join(', ')}.`;
   return 'Liegt bei allen mit Zugang.';
 }
@@ -183,10 +185,16 @@ function Zustaendigkeit({
   f,
   ich,
   istAdmin,
+  ohneSatz = false,
 }: {
   f: OffeneFreigabe;
   ich: string;
   istAdmin: boolean;
+  /**
+   * Liegen alle Freigaben bei mir, steht das einmal über der Liste (J55):
+   * „Liegt bei Ihnen." in jeder Zeile war dieselbe Auskunft sieben Mal.
+   */
+  ohneSatz?: boolean;
 }) {
   const verlegen = useFreigabeVerlegen();
   const toast = useToast();
@@ -205,10 +213,12 @@ function Zustaendigkeit({
       className="flex flex-wrap items-center gap-x-3 gap-y-1 px-ui-3 pb-ui-2 text-xs text-muted-foreground empty:hidden"
       data-testid={`freigabe-${f.id}-zustaendig`}
     >
-      <span className="flex items-center gap-1">
-        <UserRound className="size-3.5 shrink-0" aria-hidden="true" />
-        {liegtBeiSatz(f, ich)}
-      </span>
+      {!ohneSatz && (
+        <span className="flex items-center gap-1">
+          <UserRound className="size-3.5 shrink-0" aria-hidden="true" />
+          {liegtBeiSatz(f, ich)}
+        </span>
+      )}
       {!f.liegt_bei && istAdmin && (
         <span data-testid={`freigabe-${f.id}-hinweis`}>
           Keine Standardperson{stufe ? ` für die Stufe ${stufe}` : ''}: setzen unter Verwaltung,
@@ -319,10 +329,12 @@ function Zeile({
   ich,
   istAdmin,
   imGeraet,
+  ohneSatz,
 }: {
   f: OffeneFreigabe;
   ich: string;
   istAdmin: boolean;
+  ohneSatz: boolean;
   /** Öffnet die Freigabe in Arasul statt in der App (Rückfall). */
   imGeraet: (id: number) => void;
 }) {
@@ -358,7 +370,7 @@ function Zeile({
           {wartetSeit(f.liegt_seit ?? f.angefragt_am)}
         </span>
       </button>
-      <Zustaendigkeit f={f} ich={ich} istAdmin={istAdmin} />
+      <Zustaendigkeit f={f} ich={ich} istAdmin={istAdmin} ohneSatz={ohneSatz} />
     </li>
   );
 }
@@ -440,6 +452,8 @@ export function OffeneFreigaben() {
     );
   }
 
+  const alleBeiMir = data.every(f => liegtBeiSatz(f, ich) === BEI_IHNEN);
+
   // Die Einzelansicht im Gerät: der Baustein mit den Freigaben, die die App
   // nicht selbst zeigt. Nach der Entscheidung ruft er `beiWahl(null)`, und die
   // Liste steht wieder da; ist die Anfrage inzwischen weg (ein anderer war
@@ -480,12 +494,22 @@ export function OffeneFreigaben() {
         <ClipboardCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         Für Sie
         <span className="font-normal text-muted-foreground" data-testid="fuer-sie-zahl">
-          {data.length === 1 ? '1 Freigabe' : `${data.length} Freigaben`}
+          {/* Ein Text, nicht zwei: eine Übersetzung im DOM arbeitet je Textknoten. */}
+          {`${data.length === 1 ? '1 Freigabe' : `${data.length} Freigaben`}${
+            alleBeiMir ? (data.length === 1 ? ', liegt bei Ihnen' : ', alle liegen bei Ihnen') : ''
+          }`}
         </span>
       </h2>
       <ul className="flex flex-col rounded-md border border-border" data-testid="fuer-sie">
         {data.map(f => (
-          <Zeile key={f.id} f={f} ich={ich} istAdmin={istAdmin} imGeraet={setGewaehlt} />
+          <Zeile
+            key={f.id}
+            f={f}
+            ich={ich}
+            istAdmin={istAdmin}
+            imGeraet={setGewaehlt}
+            ohneSatz={alleBeiMir}
+          />
         ))}
       </ul>
       <BeiAnderen />

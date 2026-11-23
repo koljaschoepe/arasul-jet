@@ -12,7 +12,7 @@
  * (IndexedDB) und nirgends sonst.
  */
 import { anfangsBestand, arbeitszeit, type AppKennung, type Bestand } from './bestand';
-import { FIRMA, ICH_ID, name, person } from './firma';
+import { FIRMA, ICH_ID, name, person, stammAnfang, type Stamm } from './firma';
 
 export type Sprache = 'de' | 'en';
 
@@ -22,8 +22,11 @@ export interface DemoFassung {
   aenderungstext: string | null;
 }
 
+/** Die Apps der Demo: fünf Fach-Apps mit Einträgen und die Stammdaten (J55). */
+export type DemoAppId = AppKennung | 'stammdaten';
+
 export interface DemoApp {
-  id: AppKennung;
+  id: DemoAppId;
   name: { de: string; en: string };
   beschreibung: { de: string; en: string };
   symbol: string;
@@ -57,7 +60,8 @@ export interface DemoSchaltung {
 }
 
 export interface DemoZustand {
-  fassung: 2;
+  /** 3 seit J55 (Stammdaten); ein älterer Stand im Browser fängt neu an. */
+  fassung: 3;
   theme: 'light' | 'dark' | 'system';
   reihenfolge: string[];
   apps: DemoApp[];
@@ -68,6 +72,8 @@ export interface DemoZustand {
   bestand: Bestand;
   /** Die nächste Kennung eines neuen Eintrags, über alle Apps. */
   naechsterEintrag: number;
+  /** Kunden, Lieferanten, Maschinen, wie die Stammdaten sie führen (J55). */
+  stamm: Stamm;
 }
 
 export { FIRMA };
@@ -135,8 +141,9 @@ function bildschirmfoto(titel: string, zeilen: string[]): string {
 
 export function anfangsZustand(jetzt = Date.now()): DemoZustand {
   return {
-    fassung: 2,
+    fassung: 3,
     theme: 'light',
+    stamm: stammAnfang(),
     reihenfolge: [],
     naechsteId: 130,
     naechsterEintrag: 9000,
@@ -230,6 +237,22 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
         },
         test: null,
         vorige_version: '1.1.0',
+      },
+      {
+        id: 'stammdaten',
+        name: { de: 'Stammdaten', en: 'Master data' },
+        beschreibung: {
+          de: 'Kunden, Lieferanten, Maschinen und Personen, jeweils mit allen Vorgängen.',
+          en: 'Customers, suppliers, machines and people, each with all its records.',
+        },
+        symbol: 'book-user',
+        live: {
+          version: '1.0.3',
+          eingespielt_am: vor(24 * 9, jetzt),
+          aenderungstext: 'Lieferanten mit Liefertreue und Reklamationen.',
+        },
+        test: null,
+        vorige_version: '1.0.2',
       },
     ],
     meldungen: [

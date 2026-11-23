@@ -6,8 +6,20 @@
 import { CalendarClock, Check, Play } from '@marken/symbole';
 import type { Eintrag } from '../bestand';
 import { LIEFERANTEN, MASCHINEN, PERSONEN, lieferant, maschine, name } from '../firma';
-import { starten, Mono, type AppDef } from './fachapp';
-import { datum, isoIn, proMonat, relativTag, t, tageBis, tx } from './gemeinsam';
+import { starten, Mono, StammLink, type AppDef } from './fachapp';
+import {
+  datum,
+  imZeitraum,
+  isoIn,
+  proMonat,
+  prozent,
+  relativTag,
+  stammOeffnen,
+  t,
+  tageBis,
+  tx,
+  zahl,
+} from './gemeinsam';
 
 const ARTEN: [string, string][] = [
   ['wartung', t('Wartung', 'Service')],
@@ -54,7 +66,11 @@ const def: AppDef = {
       optionen: MASCHINEN.map(m => [m.id, `${m.id} ${tx(m.name)}`]),
       anzeigen: w => {
         const m = maschine(String(w));
-        return `${m.id} · ${tx(m.name)} · ${tx(m.ort)}, ${t('Baujahr', 'built')} ${m.baujahr}`;
+        return (
+          <StammLink art="maschine" id={m.id}>
+            {m.id} · {tx(m.name)} · {tx(m.ort)}, {t('Baujahr', 'built')} {m.baujahr}
+          </StammLink>
+        );
       },
     },
     {
@@ -97,7 +113,11 @@ const def: AppDef = {
         String(p.id),
         `${p.vorname} ${p.nachname}`,
       ]),
-      anzeigen: w => name(Number(w)),
+      anzeigen: w => (
+        <StammLink art="person" id={Number(w)}>
+          {name(Number(w))}
+        </StammLink>
+      ),
     },
     {
       key: 'extern',
@@ -107,7 +127,11 @@ const def: AppDef = {
         String(l.id),
         l.name,
       ]),
-      anzeigen: w => lieferant(Number(w)).name,
+      anzeigen: w => (
+        <StammLink art="lieferant" id={Number(w)}>
+          {lieferant(Number(w)).name}
+        </StammLink>
+      ),
     },
     {
       key: 'dauer',
@@ -272,6 +296,177 @@ const def: AppDef = {
       default:
         return [];
     }
+  },
+  kalender: {
+    satz: t(
+      'Fällige und erledigte Wartungen. Rot ist überfällig, ein Klick öffnet die Wartung.',
+      'Due and completed maintenance. Red is overdue; click to open.'
+    ),
+    termine: liste =>
+      liste.map(e => {
+        const tag = String(e.stand === 'erledigt' ? e.felder.erledigt_am : e.felder.faellig);
+        return {
+          e,
+          von: tag,
+          bis: tag,
+          text: `${String(e.felder.maschine)} ${artText(e.felder.art)}`,
+          ton:
+            e.stand === 'erledigt'
+              ? ('erledigt' as const)
+              : ueberfaellig(e)
+                ? ('warnung' as const)
+                : e.stand === 'in_arbeit'
+                  ? ('offen' as const)
+                  : ('fest' as const),
+        };
+      }),
+    legende: [
+      ['fest', t('Geplant', 'Planned')],
+      ['offen', t('In Arbeit', 'In progress')],
+      ['warnung', t('Überfällig', 'Overdue')],
+      ['erledigt', t('Erledigt', 'Done')],
+    ],
+    tagSatz: l =>
+      l.length === 1 ? t('1 Wartung', '1 task') : t(`${l.length} Wartungen`, `${l.length} tasks`),
+  },
+  auswertung: {
+    voraus: 90,
+    rechnen: (alle, _ctx, z) => {
+      const liste = alle.filter(e =>
+        imZeitraum(z, String(e.stand === 'erledigt' ? e.felder.erledigt_am : e.felder.faellig))
+      );
+      const erledigt = liste.filter(e => e.stand === 'erledigt');
+      const puenktlich = erledigt.filter(
+        e => String(e.felder.erledigt_am) <= String(e.felder.faellig)
+      );
+      const stunden = (l: Eintrag[]) => l.reduce((s, e) => s + (Number(e.felder.dauer) || 0), 0);
+      const extern = erledigt.filter(e => e.felder.extern);
+      const geplant = liste.filter(e => e.stand !== 'erledigt');
+      const monate = proMonat(erledigt, e => String(e.felder.erledigt_am), z.monate, {
+        eigen: e => (e.felder.extern ? 0 : Number(e.felder.dauer) || 0),
+        extern: e => (e.felder.extern ? Number(e.felder.dauer) || 0 : 0),
+      });
+      const jeMaschine = MASCHINEN.map(m => {
+        const l = erledigt.filter(e => e.felder.maschine === m.id);
+        return { m, l, h: stunden(l) };
+      })
+        .filter(x => x.l.length)
+        .sort((a, b) => b.h - a.h);
+      const dienstleister = LIEFERANTEN.map(l => {
+        const von = erledigt.filter(e => Number(e.felder.extern) === l.id);
+        return { l, von, h: stunden(von) };
+      })
+        .filter(x => x.von.length)
+        .sort((a, b) => b.h - a.h);
+      return {
+        kennzahlen: [
+          {
+            beschriftung: t('Erledigt', 'Completed'),
+            wert: String(erledigt.length),
+            fussnote: t(`${zahl(stunden(erledigt))} Stunden`, `${zahl(stunden(erledigt))} hours`),
+            verlauf: monate.map(m => Number(m.eigen) + Number(m.extern)),
+          },
+          {
+            beschriftung: t('Termintreue', 'On schedule'),
+            wert: String(prozent(puenktlich.length, erledigt.length)),
+            einheit: '%',
+            fussnote: t('bis zum Fälligkeitstag', 'by the due date'),
+          },
+          {
+            beschriftung: t('Anteil Dienstleister', 'Share of providers'),
+            wert: String(prozent(stunden(extern), stunden(erledigt))),
+            einheit: '%',
+            fussnote: t(`${extern.length} Einsätze`, `${extern.length} jobs`),
+          },
+          {
+            beschriftung: t('Noch offen', 'Still open'),
+            wert: String(geplant.length),
+            fussnote: t(
+              `bis ${datum(z.bis)}, ${geplant.filter(ueberfaellig).length} überfällig`,
+              `until ${datum(z.bis)}, ${geplant.filter(ueberfaellig).length} overdue`
+            ),
+          },
+        ],
+        teile: [
+          {
+            art: 'diagramm',
+            breit: true,
+            monatlich: true,
+            titel: t('Stunden je Monat', 'Hours per month'),
+            d: {
+              titel: t('Stunden je Monat', 'Hours per month'),
+              satz: t(
+                `Erledigte Wartungen, eigene Leute und Dienstleister, ${z.text}.`,
+                `Completed maintenance, own staff and providers, ${z.text}.`
+              ),
+              art: 'balken',
+              data: monate,
+              series: [
+                { key: 'eigen', name: t('Instandhaltung', 'Own staff'), unit: ' h' },
+                { key: 'extern', name: t('Dienstleister', 'Service providers'), unit: ' h' },
+              ],
+            },
+          },
+          {
+            art: 'rangliste',
+            titel: t('Stunden nach Maschine', 'Hours by machine'),
+            satz: t('Ein Klick öffnet die Maschine.', 'Click to open the machine.'),
+            zeilen: jeMaschine.slice(0, 8).map(x => ({
+              name: `${x.m.id} ${tx(x.m.name)}`,
+              wert: x.h,
+              text: `${zahl(x.h)} h`,
+              neben: t(
+                `${x.l.length} Wartungen · ${tx(x.m.ort)}`,
+                `${x.l.length} tasks · ${tx(x.m.ort)}`
+              ),
+              aufKlick: () => stammOeffnen('maschine', x.m.id),
+            })),
+          },
+          {
+            art: 'tabelle',
+            titel: t('Nach Art', 'By type'),
+            kopf: [
+              t('Art', 'Type'),
+              t('Anzahl', 'Count'),
+              t('Stunden', 'Hours'),
+              t('Pünktlich', 'On time'),
+            ],
+            rechts: [1, 2, 3],
+            zeilen: ARTEN.map(([k, text]) => {
+              const l = erledigt.filter(e => e.felder.art === k);
+              return { text, l };
+            })
+              .filter(x => x.l.length)
+              .map(x => [
+                x.text,
+                String(x.l.length),
+                zahl(stunden(x.l)),
+                `${prozent(x.l.filter(e => String(e.felder.erledigt_am) <= String(e.felder.faellig)).length, x.l.length)} %`,
+              ]),
+          },
+          {
+            art: 'rangliste',
+            breit: true,
+            titel: t('Dienstleister', 'Service providers'),
+            satz: t(
+              'Stunden je Dienstleister, mit Zahl der Einsätze.',
+              'Hours per provider, with number of jobs.'
+            ),
+            leer: t('Kein Dienstleister im Zeitraum.', 'No provider in this period.'),
+            zeilen: dienstleister.map(x => ({
+              name: x.l.name,
+              wert: x.h,
+              text: `${zahl(x.h)} h`,
+              neben: t(
+                `${x.von.length} Einsätze · ${tx(x.l.was)}`,
+                `${x.von.length} jobs · ${tx(x.l.was)}`
+              ),
+              aufKlick: () => stammOeffnen('lieferant', x.l.id),
+            })),
+          },
+        ],
+      };
+    },
   },
   csv: e => ({
     [t('Nummer', 'Number')]: e.nr,

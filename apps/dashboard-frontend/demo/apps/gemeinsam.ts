@@ -8,7 +8,7 @@
  * (`bauen.mjs`, esbuild) legt sie nicht ins Bündel.
  */
 import type { Eintrag, Wert } from '../bestand';
-import type { Text } from '../firma';
+import { stammUebernehmen, type Stamm, type Text } from '../firma';
 
 export type Sprache = 'de' | 'en';
 
@@ -107,10 +107,12 @@ export function proMonat(
   liste: Eintrag[],
   tagVon: (e: Eintrag) => string | null,
   n: number,
-  reihen: Record<string, (e: Eintrag) => number>
+  reihen: Record<string, (e: Eintrag) => number>,
+  /** Monate nach dem laufenden, für Pläne. */
+  voraus = 0
 ): { x: number; name: string; [reihe: string]: number | string }[] {
   const jetzt = new Date();
-  const aus = Array.from({ length: n }, (_, i) => {
+  const aus = Array.from({ length: n + voraus }, (_, i) => {
     const d = new Date(jetzt.getFullYear(), jetzt.getMonth() - (n - 1 - i), 1);
     const zeile: { x: number; name: string; [reihe: string]: number | string } = {
       x: i,
@@ -228,4 +230,136 @@ export function csvLaden(dateiname: string, kopf: string[], zeilen: string[][]):
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// ── Zeitraum der Auswertung (J55) ───────────────────────────────────────────
+
+export type ZeitraumKennung = '3m' | '6m' | '12m' | 'jahr';
+
+export interface Zeitraum {
+  kennung: ZeitraumKennung;
+  /** Erster Tag, `JJJJ-MM-TT`. */
+  von: string;
+  /** Letzter Tag, `JJJJ-MM-TT`; bei Plänen auch in der Zukunft. */
+  bis: string;
+  /** Wie viele Monate die Diagramme zeigen. */
+  monate: number;
+  text: string;
+}
+
+export const ZEITRAEUME: [ZeitraumKennung, string][] = [
+  ['3m', t('3 Monate', '3 months')],
+  ['6m', t('6 Monate', '6 months')],
+  ['12m', t('12 Monate', '12 months')],
+  ['jahr', t('Dieses Jahr', 'This year')],
+];
+
+const iso = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Der Zeitraum bis heute (oder `voraus` Tage darüber hinaus), ab dem ersten des Monats. */
+export function zeitraum(kennung: ZeitraumKennung, voraus = 0): Zeitraum {
+  const jetzt = new Date();
+  const monate =
+    kennung === '3m' ? 3 : kennung === '6m' ? 6 : kennung === '12m' ? 12 : jetzt.getMonth() + 1;
+  const von = new Date(jetzt.getFullYear(), jetzt.getMonth() - (monate - 1), 1, 12);
+  const text = ZEITRAEUME.find(([k]) => k === kennung)![1];
+  return { kennung, von: iso(von), bis: isoIn(voraus), monate, text };
+}
+
+export const imZeitraum = (z: Zeitraum, tag: string | null | undefined): boolean =>
+  !!tag && tag.slice(0, 10) >= z.von && tag.slice(0, 10) <= z.bis;
+
+export const prozent = (teil: number, ganz: number): number =>
+  ganz ? Math.round((teil / ganz) * 100) : 0;
+
+export const tausend = (n: number): string =>
+  n >= 1000 ? t(`${zahl(Math.round(n / 1000))} Tsd.`, `${zahl(Math.round(n / 1000))}k`) : zahl(n);
+
+// ── Wege zwischen den Apps (J55) ────────────────────────────────────────────
+
+/**
+ * In der Shell zu einer Adresse gehen, wie ein Klick in der Leiste. Die App
+ * läuft im Rahmen derselben Herkunft; die Shell hört auf `popstate`.
+ */
+function geheZu(pfad: string): void {
+  const oben = window.top ?? window;
+  oben.history.pushState(null, '', pfad);
+  const Ereignis = (oben as unknown as { PopStateEvent: typeof PopStateEvent }).PopStateEvent;
+  oben.dispatchEvent(new Ereignis('popstate'));
+}
+
+/** Einen Vorgang in seiner App öffnen. */
+export function vorgangOeffnen(app: string, id: number): void {
+  geheZu(`/workspace/app/${app}?freigabe=${id}`);
+}
+
+export type StammArt = 'kunde' | 'lieferant' | 'maschine' | 'person';
+
+/**
+ * Einen Stammsatz in den Stammdaten öffnen. Die Shell trägt nur die Nummer
+ * einer Freigabe in die Adresse der App; der Stammsatz geht deshalb über den
+ * Speicher des Browsers, wie „neu anlegen" von der Startseite.
+ */
+export function stammOeffnen(art: StammArt, id: number | string): void {
+  try {
+    window.localStorage.setItem(
+      'arasul-demo-stamm',
+      JSON.stringify({ art, id: String(id), am: Date.now() })
+    );
+  } catch {
+    /* dann öffnet sie nur die Stammdaten */
+  }
+  geheZu('/workspace/app/stammdaten');
+}
+
+/** Mehrere Tabellen in eine CSV, je mit ihrem Titel darüber. */
+export function csvMehrteilig(
+  dateiname: string,
+  teile: { titel: string; kopf: string[]; zeilen: string[][] }[]
+): void {
+  const zelle = (s: string) => (/[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+  const text = teile
+    .map(tl => [[tl.titel], tl.kopf, ...tl.zeilen].map(z => z.map(zelle).join(';')).join('\r\n'))
+    .join('\r\n\r\n');
+  const blob = new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = dateiname;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+export const pdfAdresse = (id: number) => `api/eintraege/${id}/pdf`;
+
+/**
+ * Kunden, Lieferanten und Maschinen im Stand der Stammdaten übernehmen
+ * (J55): vor dem ersten Bild und nach jeder Änderung dort.
+ */
+export async function stammLaden(): Promise<void> {
+  try {
+    const r = await fetch('/apps/stammdaten/api/stamm', {
+      headers: { accept: 'application/json' },
+    });
+    if (!r.ok) return;
+    const j = (await r.json()) as { data?: Stamm };
+    stammUebernehmen(j.data);
+  } catch {
+    /* dann gilt der Anfang aus firma.ts */
+  }
+}
+
+/** In einer anderen App einen neuen Eintrag beginnen, mit Feldern vorbelegt. */
+export function neuIn(app: string, felder: Record<string, Wert>): void {
+  try {
+    window.localStorage.setItem(
+      'arasul-demo-auftrag',
+      JSON.stringify({ app, aktion: 'neu', felder, am: Date.now() })
+    );
+  } catch {
+    /* dann öffnet sie nur die App */
+  }
+  geheZu(`/workspace/app/${app}`);
 }
