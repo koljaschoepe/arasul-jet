@@ -1,6 +1,6 @@
 # Demo ohne Gerät
 
-> Stand: 22.11.2026, J46, J51 und J54 (M7). Das echte Frontend dieses Repos als
+> Stand: 23.11.2026, J46, J51, J54 und J55 (M7). Das echte Frontend dieses Repos als
 > statischer Bau mit gespielten Antworten statt Backend, kostenlos gehostet.
 > Einstieg für Fremde ohne Gerät, verlinkt von der Website.
 > Adresse: <https://arasul-demo.vercel.app> (Vercel-Projekt `arasul-demo`,
@@ -21,24 +21,46 @@ Startseite ihr Name.
 der Kapsel, dann ist alles englisch (Shell und Werkstatt über das Wörterbuch,
 die Fach-Apps und Dateien selbst zweisprachig).
 
-**Sechs Apps**, jede mit eigenem Symbol: Angebote (`file-text`),
+**Sieben Apps**, jede mit eigenem Symbol: Angebote (`file-text`),
 Wareneingang (`package-check`), Wartungsplan (`wrench`), Prüfprotokolle
-(`clipboard-check`), Urlaubsanträge (`calendar-days`) und die Werkstatt
-(`hammer`). Die fünf Fach-Apps haben dieselbe Form: Seitenkopf mit „… anlegen"
-und CSV-Export, vier Kennzahlen mit Verlauf, eine Auswertung als Diagramm, was
-als Nächstes ansteht, die Liste mit rund 40 Einträgen, Suche, Filter nach
-Stand und Sortierung, je Zeile die nächste Aktion, Bearbeiten und Löschen.
-Ein Klick öffnet die Einzelansicht als Blatt (am Rechner daneben, am Handy von
-unten) mit Feldern, Dateien und Verlauf: bearbeiten, Stand ändern, freigeben
-oder ablehnen (mit Satz), Notiz, Datei anhängen, löschen mit Rückfrage. Das
-Formular prüft Pflichtfelder und fachliche Regeln (gültig bis nach dem Datum,
-Resturlaub, Bestellnummer).
+(`clipboard-check`), Urlaubsanträge (`calendar-days`), Stammdaten
+(`book-user`, J55) und die Werkstatt (`hammer`).
+
+Die fünf Fach-Apps haben dieselbe Form (J55): Seitenkopf mit „… anlegen" und
+CSV-Export, darunter **Reiter**. _Übersicht_: vier Kennzahlen mit Verlauf, ein
+Diagramm, was als Nächstes ansteht, die Verteilung nach Stand (ein Klick
+filtert die Liste) und was zuletzt geändert wurde. _Liste_: rund 40 Einträge,
+Filter nach Stand, Suche, Sortierung, je Zeile die nächste Aktion, Bearbeiten
+und Löschen, dazu **Mehrfachauswahl** mit Sammelaktion (der Schritt, den alle
+gewählten gemeinsam haben, „Alle freigeben", Drucken, CSV, Löschen).
+_Kalender_ (nur Urlaub und Wartung): der Monat als Raster, am Handy als Liste
+der Tage. _Auswertung_: Zeitraum (3, 6, 12 Monate, dieses Jahr), Kennzahlen
+dafür, ein Diagramm je Monat, Ranglisten und Tabellen, Export aller Teile als
+eine CSV und Drucken; leere Monate am Anfang fallen weg („Erfasst seit …,
+als die App eingeführt wurde"). Ein Klick auf eine Zeile öffnet die
+Einzelansicht als Blatt (am Rechner daneben, am Handy von unten) mit **PDF**
+und **Drucken**, Feldern, Dateien und Verlauf: bearbeiten, Stand ändern,
+freigeben oder ablehnen (mit Satz), Notiz, Datei anhängen, löschen mit
+Rückfrage. Das Formular prüft Pflichtfelder und fachliche Regeln (gültig bis
+nach dem Datum, Resturlaub, Bestellnummer).
+
+**Stammdaten** (J55): Kunden, Lieferanten, Maschinen und Personen als Reiter,
+je Liste mit Suche und Sortierung, je Satz eine Einzelansicht mit drei
+Kennzahlen (beim Kunden Umsatz, offene Angebote, Annahmequote), Feldern und
+allen Vorgängen aus den fünf Fach-Apps. Kunde, Lieferant, Maschine und Person
+in einem Vorgang sind Verweise dorthin; ein Vorgang in den Stammdaten öffnet
+sich in seiner App; „Angebot anlegen" (Lieferung, Wartung, Urlaub) beginnt
+dort mit dem Satz vorbelegt. Kunden, Lieferanten und Maschinen lassen sich
+anlegen und ändern, alle Apps, die Startseite und die PDF übernehmen den
+Stand (`stammUebernehmen` in `firma.ts`). Personen pflegt die Verwaltung.
 
 **Beispieldateien**: an den Vorgängen hängen Angebot, Lieferschein,
 Wartungs- und Prüfprotokoll, Urlaubsantrag als PDF und Zeichnung oder Foto als
 einfache Zeichnung. Der Service Worker erzeugt sie beim Öffnen aus dem Eintrag
 (`dokumente.ts`), mit dem Namen der Firma und dem Satz, dass alles erfunden ist.
 Sie passen damit auch zu einem eben angelegten oder geänderten Eintrag.
+Jeder Vorgang hat dazu sein Haupt-PDF unter `eintraege/<id>/pdf` (Angebot,
+Lieferschein, Wartungs- und Prüfprotokoll, Antrag).
 
 **Die Startseite** ist die des Produkts (Gruß, „Für Sie" mit den Freigaben,
 eine Kachel je App). Die Demo setzt zwei Teile dazu (`uebersicht.tsx`): unter
@@ -75,20 +97,20 @@ antwortet mit 404 und dem Satz „In der Demo nicht verfügbar".
 Alles liegt in `apps/dashboard-frontend/demo/`. Das Produkt weiß nichts davon:
 kein Schalter in `src/`, kein Zweig im Code.
 
-| Datei                                | Was                                                                                                                                                                                       |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.html`, `start.ts`             | Eingang. Meldet den Service Worker an, wartet, bis er die Seite steuert, setzt Kapsel, Übersicht und Weg, lädt dann `src/index.tsx` unverändert                                           |
-| `dienst.ts`                          | Service Worker, die **eine Schicht gespielter Antworten**. Fängt jede Anfrage an `/api/…` und an `/apps/<id>/(test/)api/…` ab, auch aus den iframes und von `<img>`. Zustand in IndexedDB |
-| `antworten.ts`                       | Die Antworten als reine Funktion: die Plattform in den Formen des Backends, die Fach-Apps mit Einträgen, Stand, Freigabe, Dateien                                                         |
-| `firma.ts`, `bestand.ts`, `daten.ts` | Die Firma (Personen, Kunden, Lieferanten, Maschinen, Artikel, Aufträge), die Einträge der fünf Apps, der Zustand mit Rückmeldungen und Fassungen                                          |
-| `dokumente.ts`                       | PDF (kleiner Schreiber, Standardschriften) und SVG-Zeichnungen aus dem Eintrag                                                                                                            |
-| `kapsel.ts`, `kapsel.css`            | Die Demo-Zeile in der Kapsel und die Gestalt des Wegs; Farben nur aus Tokens                                                                                                              |
-| `uebersicht.tsx`, `uebersicht.css`   | Die Übersicht des Betriebs auf der Startseite                                                                                                                                             |
-| `fuehrung.ts`                        | Der geführte Weg                                                                                                                                                                          |
-| `uebersetzung.ts`, `woerterbuch.ts`  | Englisch ohne Sprachschicht im Produkt: ersetzt sichtbare Sätze im DOM nach Wörterbuch, in der Shell und in der Werkstatt                                                                 |
-| `apps/`                              | Die fünf Fach-Apps: `fachapp.tsx` (die gemeinsame Form), je App eine Beschreibung ihrer Fachlichkeit, gebaut wie eine App aus dem Kit (React und `@marken` zur Laufzeit von `/marken/5/`) |
-| `vite.config.ts`, `bauen.mjs`        | Der Bau nach `dist-demo/`; die Fach-Apps baut esbuild mit `/marken/5/` als außen                                                                                                          |
-| `abnahme.mjs`                        | Die Abnahme mit Playwright                                                                                                                                                                |
+| Datei                                | Was                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.html`, `start.ts`             | Eingang. Meldet den Service Worker an, wartet, bis er die Seite steuert, setzt Kapsel, Übersicht und Weg, lädt dann `src/index.tsx` unverändert                                                                                                                                                                   |
+| `dienst.ts`                          | Service Worker, die **eine Schicht gespielter Antworten**. Fängt jede Anfrage an `/api/…` und an `/apps/<id>/(test/)api/…` ab, auch aus den iframes und von `<img>`. Zustand in IndexedDB                                                                                                                         |
+| `antworten.ts`                       | Die Antworten als reine Funktion: die Plattform in den Formen des Backends, die Fach-Apps mit Einträgen, Stand, Freigabe, Dateien                                                                                                                                                                                 |
+| `firma.ts`, `bestand.ts`, `daten.ts` | Die Firma (Personen, Kunden, Lieferanten, Maschinen, Artikel, Aufträge), die Einträge der fünf Apps, der Zustand mit Rückmeldungen und Fassungen                                                                                                                                                                  |
+| `dokumente.ts`                       | PDF (kleiner Schreiber, Standardschriften) und SVG-Zeichnungen aus dem Eintrag                                                                                                                                                                                                                                    |
+| `kapsel.ts`, `kapsel.css`            | Die Demo-Zeile in der Kapsel und die Gestalt des Wegs; Farben nur aus Tokens                                                                                                                                                                                                                                      |
+| `uebersicht.tsx`, `uebersicht.css`   | Die Übersicht des Betriebs auf der Startseite                                                                                                                                                                                                                                                                     |
+| `fuehrung.ts`                        | Der geführte Weg                                                                                                                                                                                                                                                                                                  |
+| `uebersetzung.ts`, `woerterbuch.ts`  | Englisch ohne Sprachschicht im Produkt: ersetzt sichtbare Sätze im DOM nach Wörterbuch, in der Shell und in der Werkstatt                                                                                                                                                                                         |
+| `apps/`                              | Die fünf Fach-Apps und die Stammdaten: `fachapp.tsx` (die gemeinsame Form mit Reitern, Auswahl, Einzelansicht), `auswertung.tsx`, `kalender.tsx`, `druck.tsx`, je App eine Beschreibung ihrer Fachlichkeit, `stammdaten.tsx`; gebaut wie eine App aus dem Kit (React und `@marken` zur Laufzeit von `/marken/5/`) |
+| `vite.config.ts`, `bauen.mjs`        | Der Bau nach `dist-demo/`; die Fach-Apps baut esbuild mit `/marken/5/` als außen                                                                                                                                                                                                                                  |
+| `abnahme.mjs`                        | Die Abnahme mit Playwright                                                                                                                                                                                                                                                                                        |
 
 Warum ein Service Worker und kein ausgetauschtes `fetch`: er erreicht auch
 Bilder (`/api/rueckmeldungen/<id>/bild`) und die Apps im iframe, darunter die
@@ -106,8 +128,10 @@ ARASUL_DEMO_URL=https://arasul-demo.vercel.app node demo/abnahme.mjs   # gegen d
 ```
 
 Die Abnahme geht je Sprache bei 360, 390, 768 und 1440 px durch die
-Startseite, jede Fach-App (ein Eintrag angelegt, einer geändert, eine Datei
-geöffnet), die Werkstatt, die Einstellungen, den geführten Weg und
+Startseite, jede Fach-App (Übersicht, Auswertung mit mindestens drei Teilen,
+Kalender, Mehrfachauswahl, ein Eintrag angelegt, einer geändert, eine Datei
+und das PDF geöffnet), die Stammdaten (Kunde mit Vorgängen, zum Angebot und
+zurück), die Werkstatt, die Einstellungen, den geführten Weg und
 „Zurücksetzen". Sie ist rot bei waagrechtem Überlauf, einer fremden Herkunft
 im Netzwerk, einer Anfrage an `/api/…`, die den Server erreicht, einem Fehler
 in der Konsole, einem Band, „Sample" oder „Beispiel-Mitarbeiter", einem Weg,

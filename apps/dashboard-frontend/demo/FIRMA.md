@@ -1,6 +1,6 @@
 # Die Firma der Demo: Kerschner Metallbau GmbH
 
-> Stand: 22.11.2026, J54 (M7). Alles erfunden: Firma, Ort, Personen,
+> Stand: 23.11.2026, J54 und J55 (M7). Alles erfunden: Firma, Ort, Personen,
 > Kunden, Lieferanten, Zahlen. Keine Marke, kein Hersteller. Die Daten
 > selbst stehen in `firma.ts` (Stammdaten) und `bestand.ts` (Einträge der
 > Apps); diese Seite sagt, wer die Firma ist, damit neue Daten dazu passen.
@@ -56,3 +56,11 @@ Urlaubsanträge. Die Startseite rechnet aus denselben Einträgen.
 Die Zeit läuft mit: jeder Eintrag steht relativ zum Tag des Besuchs, die
 Daten altern nicht. Der Zufall hat einen festen Samen, jeder Besuch sieht
 denselben Betrieb.
+
+Kunden, Lieferanten und Maschinen sind seit J55 Stammdaten mit Nummer
+(`K-10007`, `L-70011`), erfundener Rufnummer im Ortsnetz und Zahlungsziel
+(Stammkunden 14, sonst 30 Tage). Der Umsatz eines Kunden ist die Summe seiner
+angenommenen Angebote, die Liefertreue eines Lieferanten der Anteil der
+Lieferungen am erwarteten Tag oder früher; Stammdaten, Auswertungen und
+Startseite rechnen dasselbe aus denselben Einträgen. Von den 62 Leuten
+arbeiten 18 mit Arasul; nur sie stehen unter Personen.
