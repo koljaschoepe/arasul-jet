@@ -81,7 +81,7 @@ const wann = (iso: string) => {
   const min = Math.round((Date.now() - Date.parse(iso)) / 60_000);
   if (min < 1) return t('gerade eben', 'just now');
   if (min < 60) return t(`vor ${min} Min.`, `${min} min ago`);
-  const std = Math.round(min / 60);
+  const std = Math.floor(min / 60);
   if (std < 24) return t(`vor ${std} Std.`, `${std} h ago`);
   // Abgerundet wie „wartet seit …" in „Für Sie": sonst stünde dort 2, hier 3.
   const d = Math.floor(std / 24);

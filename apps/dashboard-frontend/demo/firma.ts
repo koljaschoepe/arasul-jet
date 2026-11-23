@@ -73,7 +73,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'TK',
     abteilung: 'gf',
     aufgabe: T('Geschäftsführer', 'Managing director'),
-    urlaub: 14,
+    urlaub: 7,
   },
   {
     id: 2,
@@ -82,7 +82,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'MK',
     abteilung: 'gf',
     aufgabe: T('Betriebsleiterin', 'Operations manager'),
-    urlaub: 11,
+    urlaub: 5,
   },
   {
     id: 3,
@@ -91,7 +91,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'JA',
     abteilung: 'vertrieb',
     aufgabe: T('Kalkulation und Innendienst', 'Estimating and inside sales'),
-    urlaub: 17,
+    urlaub: 9,
   },
   {
     id: 4,
@@ -100,7 +100,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'SR',
     abteilung: 'vertrieb',
     aufgabe: T('Außendienst und Projektleitung', 'Field sales and project lead'),
-    urlaub: 9,
+    urlaub: 4,
   },
   {
     id: 5,
@@ -109,7 +109,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'DO',
     abteilung: 'av',
     aufgabe: T('Arbeitsvorbereitung', 'Production planning'),
-    urlaub: 21,
+    urlaub: 6,
   },
   {
     id: 6,
@@ -118,7 +118,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'PH',
     abteilung: 'einkauf',
     aufgabe: T('Einkauf', 'Purchasing'),
-    urlaub: 12,
+    urlaub: 8,
   },
   {
     id: 7,
@@ -127,7 +127,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'MY',
     abteilung: 'einkauf',
     aufgabe: T('Lager und Wareneingang', 'Stores and goods receipt'),
-    urlaub: 15,
+    urlaub: 10,
   },
   {
     id: 8,
@@ -136,7 +136,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'FW',
     abteilung: 'schweiss',
     aufgabe: T('Meister Schweißerei', 'Welding shop foreman'),
-    urlaub: 8,
+    urlaub: 3,
   },
   {
     id: 9,
@@ -145,7 +145,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'KN',
     abteilung: 'laser',
     aufgabe: T('Meisterin Laser und Kanten', 'Laser and bending forewoman'),
-    urlaub: 19,
+    urlaub: 11,
   },
   {
     id: 10,
@@ -154,7 +154,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'LB',
     abteilung: 'montage',
     aufgabe: T('Montageleiter', 'Installation lead'),
-    urlaub: 6,
+    urlaub: 2,
   },
   {
     id: 11,
@@ -163,7 +163,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'EF',
     abteilung: 'qs',
     aufgabe: T('Qualitätssicherung, Schweißaufsicht', 'Quality assurance, welding supervisor'),
-    urlaub: 13,
+    urlaub: 6,
   },
   {
     id: 12,
@@ -172,7 +172,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'RG',
     abteilung: 'ih',
     aufgabe: T('Instandhaltung', 'Maintenance'),
-    urlaub: 10,
+    urlaub: 5,
   },
   {
     id: 13,
@@ -181,7 +181,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'AK',
     abteilung: 'verwaltung',
     aufgabe: T('Personal und Lohn', 'HR and payroll'),
-    urlaub: 16,
+    urlaub: 8,
   },
   {
     id: 14,
@@ -190,7 +190,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'TS',
     abteilung: 'schweiss',
     aufgabe: T('Auszubildender Metallbauer', 'Apprentice metalworker'),
-    urlaub: 22,
+    urlaub: 7,
   },
   {
     id: 15,
@@ -199,7 +199,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'NV',
     abteilung: 'verwaltung',
     aufgabe: T('Buchhaltung', 'Accounting'),
-    urlaub: 18,
+    urlaub: 9,
   },
   {
     id: 16,
@@ -208,7 +208,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'MS',
     abteilung: 'schweiss',
     aufgabe: T('Schweißer', 'Welder'),
-    urlaub: 12,
+    urlaub: 8,
   },
   {
     id: 17,
@@ -217,7 +217,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'BR',
     abteilung: 'laser',
     aufgabe: T('Laserbediener', 'Laser operator'),
-    urlaub: 20,
+    urlaub: 12,
   },
   {
     id: 18,
@@ -226,7 +226,7 @@ export const PERSONEN: Person[] = [
     kuerzel: 'YP',
     abteilung: 'montage',
     aufgabe: T('Monteurin', 'Installer'),
-    urlaub: 7,
+    urlaub: 4,
   },
 ];
 
@@ -342,7 +342,7 @@ const AUFGABE_JE: Record<string, Text[]> = {
         kuerzel: `${vorname[0]}${nachname[0]}`,
         abteilung: a.id,
         aufgabe: aufgaben[n % aufgaben.length]!,
-        urlaub: 6 + ((n * 5) % 19),
+        urlaub: 2 + ((n * 5) % 11),
         konto: false,
       });
       id += 1;
@@ -546,6 +546,99 @@ export const KUNDEN: Kunde[] = [
     ansprechpartner: 'Frau Zellner',
   },
 ];
+
+/**
+ * Die übrigen Kunden (J55): ein Betrieb mit 320 Angeboten im Jahr hat mehr als
+ * 25 Kunden. Erfunden aus Namen der Gegend und Branchen; ohne Marke.
+ */
+{
+  const namen = [
+    'Brenner',
+    'Dietrich',
+    'Eberle',
+    'Fink',
+    'Gebhardt',
+    'Haas',
+    'Imhof',
+    'Jost',
+    'Kaltenbach',
+    'Lutz',
+    'Merkle',
+    'Nagel',
+    'Ott',
+    'Pfeiffer',
+    'Rapp',
+    'Sauter',
+    'Thoma',
+    'Ulrich',
+    'Vetter',
+    'Wild',
+    'Zeller',
+    'Benz',
+    'Dörr',
+    'Eckert',
+    'Frey',
+    'Graf',
+    'Heller',
+    'Kunz',
+    'Mack',
+    'Reich',
+    'Sommer',
+    'Bader',
+    'Gruber',
+    'Hauser',
+    'Kern',
+  ];
+  const orte = [
+    'Grünfelden',
+    'Halbrück',
+    'Eschenau',
+    'Obertal',
+    'Weilerbach am See',
+    'Nordhagen',
+    'Talgrund',
+  ];
+  const muster: [(n: string) => string, Text][] = [
+    [n => `${n} Maschinenbau GmbH`, T('Maschinenbau', 'Machine building')],
+    [n => `${n} Antriebstechnik GmbH`, T('Maschinenbau', 'Machine building')],
+    [n => `${n} Hochbau GmbH & Co. KG`, T('Bauunternehmen', 'Builder')],
+    [n => `${n} Immobilien GmbH`, T('Bauträger', 'Developer')],
+    [n => `Autohaus ${n}`, T('Gewerbe', 'Business')],
+    [n => `Spedition ${n} GmbH`, T('Logistik', 'Logistics')],
+    [n => `${n} Kunststofftechnik GmbH`, T('Industrie', 'Industry')],
+    [n => `Bauunternehmung ${n}`, T('Bauunternehmen', 'Builder')],
+    [n => `Schreinerei ${n}`, T('Gewerbe', 'Business')],
+    [n => `Familie ${n}`, T('Privat', 'Private')],
+    [n => `${n} Fördersysteme GmbH`, T('Anlagenbau', 'Plant engineering')],
+    [n => `Gasthaus ${n}`, T('Gastronomie', 'Hospitality')],
+  ];
+  const kommunen: [string, string][] = [
+    ['Gemeinde Nordhagen, Bauamt', 'Nordhagen'],
+    ['Stadt Halbrück, Hochbau', 'Halbrück'],
+    ['Zweckverband Wasser Talgrund', 'Talgrund'],
+    ['Gemeinde Obertal', 'Obertal'],
+  ];
+  let id = KUNDEN.length + 1;
+  kommunen.forEach(([name, ort], i) => {
+    KUNDEN.push({
+      id: id++,
+      name,
+      art: T('Kommune', 'Municipality'),
+      ort,
+      ansprechpartner: i % 2 ? `Frau ${namen[i + 20]}` : `Herr ${namen[i + 24]}`,
+    });
+  });
+  namen.forEach((n, i) => {
+    const [name, art] = muster[(i * 5) % muster.length]!;
+    KUNDEN.push({
+      id: id++,
+      name: name(n),
+      art,
+      ort: orte[(i * 3) % orte.length]!,
+      ansprechpartner: `${i % 3 === 1 ? 'Frau' : 'Herr'} ${namen[(i * 7 + 3) % namen.length]}`,
+    });
+  });
+}
 
 export const kunde = (id: number): Kunde => KUNDEN.find(k => k.id === id) ?? KUNDEN[0]!;
 

@@ -222,6 +222,19 @@ const ANGEBOT_GEGENSTAENDE: [Text, number, number][] = [
   ],
 ];
 
+/** Wer was bestellt (J55): Teile nach Zeichnung kauft die Industrie, große Bauvorhaben der Bau. */
+const TEILE = /nach Zeichnung|Maschinenverkleidung|Schweißbaugruppe/;
+const BAU =
+  /Bauträger|Bauunternehmen|Wohnungsbau|Öffentlicher Bau|Kommune|Architekturbüro|Planer|Klinik/;
+const INDUSTRIE = /Maschinenbau|Industrie|Anlagenbau|Logistik|Versorger/;
+const KLEIN = /Privat|Verein|Gastronomie|Landwirtschaft|Gewerbe|Handel/;
+
+function passt(art: string, [g, , max]: [Text, number, number]): boolean {
+  if (INDUSTRIE.test(art)) return TEILE.test(g.de) || /Bühne|Halle|Stahlstützen|Absturz/.test(g.de);
+  if (KLEIN.test(art)) return !TEILE.test(g.de) && max <= 52000;
+  return !TEILE.test(g.de);
+}
+
 /** Wo gebaut wird: damit nicht drei Angebote „Vordach Eingang" heißen. */
 const OBJEKTE: Text[] = [
   T('Kita Halbrück', 'Halbrück nursery'),
@@ -264,6 +277,14 @@ function jahresNummern(daten: string[], praefix: string, takt: number, stellen: 
   return aus;
 }
 
+/**
+ * Nummern ab der Einführung der App: die erste Prüfung in Arasul ist PP-26-001
+ * (J55). So passen Nummer und Länge der Liste zusammen; davor lag es auf Papier.
+ */
+function seitEinfuehrung(daten: string[], praefix: string): string[] {
+  return daten.map((d, i) => `${praefix}-${d.slice(2, 4)}-${String(i + 1).padStart(3, '0')}`);
+}
+
 /** Die Spanne des Betrags zu einem Gegenstand, nach dem ersten Wort. */
 function spanneZu(gegenstand: Text): [number, number] {
   const wort = gegenstand.de.split(/[ ,]/)[0]!.toLowerCase();
@@ -288,10 +309,17 @@ function angebote(jetzt: number): Eintrag[] {
 
   const liste: Eintrag[] = alter.map((alt, i) => {
     const nr = nummern[i]!;
-    const [grund, min, max] = r.eins(ANGEBOT_GEGENSTAENDE);
-    const objekt = r.z() < 0.55 ? r.eins(OBJEKTE) : null;
+    const k = r.eins(KUNDEN);
+    const kunde = k.id;
+    const [grund, min, max] = r.eins(ANGEBOT_GEGENSTAENDE.filter(g => passt(k.art.de, g)));
+    const objekt =
+      BAU.test(k.art.de) &&
+      !TEILE.test(grund.de) &&
+      !/Halle|Parkhaus/.test(grund.de) &&
+      r.z() < 0.55
+        ? r.eins(OBJEKTE)
+        : null;
     const gegenstand = objekt ? T(`${grund.de}, ${objekt.de}`, `${grund.en}, ${objekt.en}`) : grund;
-    const kunde = r.eins(KUNDEN).id;
     const betrag = Math.round((min + r.z() * (max - min)) / 10) * 10;
     let stand: string;
     // Ein gutes Drittel wird gewonnen; was nach sechs Wochen nicht
@@ -327,9 +355,11 @@ function angebote(jetzt: number): Eintrag[] {
 
   // Zwei große Angebote warten auf die Freigabe der Betriebsleitung: zwei
   // der jüngsten Entwürfe und Versendeten, ohne Auftrag.
+  // Zwei Werktage alt oder mehr: der Verlauf steht dann sicher in der richtigen Folge.
+  const reif = alter.map((a, i) => [a, i] as const).filter(([a]) => a >= 2 && a <= 8);
   const freigabe = new Map<number, [number, number, Text]>([
     [
-      liste.length - 3,
+      reif[reif.length - 2]![1],
       [
         48600,
         16,
@@ -337,7 +367,7 @@ function angebote(jetzt: number): Eintrag[] {
       ],
     ],
     [
-      liste.length - 1,
+      reif[reif.length - 1]![1],
       [31250, 6, T('Bühnen und Treppen Kesselhaus', 'Platforms and stairs, boiler house')],
     ],
   ]);
@@ -683,11 +713,9 @@ function wartungsplan(jetzt: number): Eintrag[] {
   const abstaende = Array.from({ length: 40 }, (_, i) =>
     werktag(-120 + i * 4 + ((i * 7) % 4), jetzt)
   );
-  const nummern = jahresNummern(
+  const nummern = seitEinfuehrung(
     abstaende.map(a => tagRelativ(a, jetzt)),
-    'WA',
-    120,
-    3
+    'WA'
   );
   for (let i = 0; i < 40; i += 1) {
     const maschine = MASCHINEN[i % MASCHINEN.length]!;
@@ -831,11 +859,9 @@ function pruefprotokolle(jetzt: number): Eintrag[] {
   const abstaende = Array.from({ length: PRUEFUNGEN }, (_, i) =>
     werktag(beginn + Math.round((i * -beginn) / PRUEFUNGEN), jetzt)
   );
-  const nummern = jahresNummern(
+  const nummern = seitEinfuehrung(
     abstaende.map(a => tagRelativ(a, jetzt)),
-    'PP',
-    380,
-    3
+    'PP'
   );
   for (let i = 0; i < PRUEFUNGEN; i += 1) {
     const abstand = abstaende[i]!;
@@ -987,11 +1013,9 @@ function urlaub(jetzt: number): Eintrag[] {
   const r = zufall(5);
   const liste: Eintrag[] = [];
   const leute = PERSONEN.filter(p => p.id !== ICH_ID);
-  const nummern = jahresNummern(
+  const nummern = seitEinfuehrung(
     Array.from({ length: 40 }, (_, i) => tagRelativ(-80 + i * 4, jetzt)),
-    'UA',
-    130,
-    3
+    'UA'
   );
   for (let i = 0; i < 40; i += 1) {
     const p = leute[(i * 7) % leute.length]!;
@@ -1094,13 +1118,26 @@ function urlaub(jetzt: number): Eintrag[] {
 }
 
 export function anfangsBestand(jetzt = Date.now()): Bestand {
-  return {
+  const b: Bestand = {
     angebote: angebote(jetzt),
     wareneingang: wareneingang(jetzt),
     wartungsplan: wartungsplan(jetzt),
     pruefprotokolle: pruefprotokolle(jetzt),
     urlaub: urlaub(jetzt),
   };
+  // Der Verlauf läuft vorwärts (J55): die Arbeitszeit schiebt Nacht und
+  // Wochenende zurück, und danach stand ein Schritt mal vor seinem Vorgänger.
+  for (const liste of Object.values(b))
+    for (const e of liste) {
+      for (let i = 1; i < e.verlauf.length; i += 1) {
+        const vorher = Date.parse(e.verlauf[i - 1]!.am);
+        if (Date.parse(e.verlauf[i]!.am) <= vorher)
+          e.verlauf[i]!.am = new Date(Math.min(vorher + 17 * 60_000, jetzt)).toISOString();
+      }
+      e.angelegt_am = e.verlauf[0]?.am ?? e.angelegt_am;
+      e.geaendert_am = e.verlauf[e.verlauf.length - 1]?.am ?? e.geaendert_am;
+    }
+  return b;
 }
 
 /** Ein Text der Daten in der Sprache des Besuchers. */

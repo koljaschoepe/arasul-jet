@@ -15,6 +15,7 @@ import {
   auftrag,
   kunde,
   kundeAnschrift,
+  kundeZiel,
   lieferant,
   maschine,
   name,
@@ -245,51 +246,49 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
     10
   );
   const betrag = Number(f.betrag) || 0;
-  const anteile: [string, string, number][] = [
+  // Positionen mit Menge und Einheitspreis (J55): Stunden, Kilogramm,
+  // Quadratmeter; die letzte gleicht auf den Betrag des Angebots aus.
+  const oberflaeche = /edelstahl|stainless/i.test(txt(f.betreff, 'de'))
+    ? W(sp, 'Oberfläche: Edelstahl geschliffen, Korn 240', 'Finish: stainless, ground, grit 240')
+    : /verzinkt|galvani/i.test(txt(f.betreff, 'de')) || e.id % 2
+      ? W(sp, 'Oberfläche: feuerverzinkt', 'Finish: hot-dip galvanised')
+      : W(sp, 'Oberfläche: pulverbeschichtet RAL 7016', 'Finish: powder-coated RAL 7016');
+  const posten: [string, number, string, number][] = [
+    [W(sp, 'Konstruktion und Werkstattzeichnungen', 'Design and shop drawings'), 0.12, 'h', 86],
     [
-      W(sp, 'Konstruktion und Werkstattzeichnungen', 'Design and shop drawings'),
-      W(sp, '1 psch.', '1 lot'),
-      0.12,
-    ],
-    [
-      W(sp, 'Material und Fertigung im Werk', 'Material and fabrication'),
-      W(sp, '1 psch.', '1 lot'),
+      W(sp, 'Material S235 und Fertigung im Werk', 'Material S235 and fabrication'),
       0.53,
+      'kg',
+      4.6,
     ],
-    [
-      // Edelstahl wird geschliffen, nicht beschichtet (Prüfer J55).
-      /edelstahl|stainless/i.test(txt(f.betreff, 'de'))
-        ? W(
-            sp,
-            'Oberfläche: Edelstahl geschliffen, Korn 240',
-            'Finish: stainless, ground, grit 240'
-          )
-        : /verzinkt|galvani/i.test(txt(f.betreff, 'de')) || e.id % 2
-          ? W(sp, 'Oberfläche: feuerverzinkt', 'Finish: hot-dip galvanised')
-          : W(sp, 'Oberfläche: pulverbeschichtet RAL 7016', 'Finish: powder-coated RAL 7016'),
-      W(sp, '1 psch.', '1 lot'),
-      0.13,
-    ],
-    [
-      W(sp, 'Lieferung und Montage vor Ort', 'Delivery and installation on site'),
-      W(sp, '1 psch.', '1 lot'),
-      0.22,
-    ],
+    [oberflaeche, 0.13, 'm²', 38],
+    [W(sp, 'Lieferung und Montage vor Ort', 'Delivery and installation on site'), 0.22, 'h', 68],
   ];
+  const zeilen = posten.map(([was, anteil, einheit, preis]) => {
+    const menge = Math.max(1, Math.round((betrag * anteil) / preis));
+    return { was, einheit, preis, menge, wert: menge * preis };
+  });
+  const letzte = zeilen[zeilen.length - 1]!;
+  letzte.wert = betrag - zeilen.slice(0, -1).reduce((x, z) => x + z.wert, 0);
+  const zahlText = (n: number, stellen = 0) =>
+    n.toLocaleString(sp === 'en' ? 'en-GB' : 'de-DE', {
+      minimumFractionDigits: stellen,
+      maximumFractionDigits: stellen,
+    });
   let y = tabelle(
     s,
     600,
     [
       { titel: W(sp, 'Pos.', 'Item'), x: L + 6 },
       { titel: W(sp, 'Leistung', 'Description'), x: L + 40 },
-      { titel: W(sp, 'Menge', 'Qty'), x: 380 },
+      { titel: W(sp, 'Menge', 'Qty'), x: 340 },
       { titel: W(sp, 'Betrag', 'Amount'), x: R - 6, rechts: true },
     ],
-    anteile.map(([was, menge, anteil], i) => [
+    zeilen.map((z, i) => [
       String(i + 1),
-      was,
-      menge,
-      euro(Math.round(betrag * anteil), sp),
+      z.was,
+      `${zahlText(z.menge)} ${z.einheit} × ${zahlText(z.preis, 2)} €`,
+      euro(z.wert, sp),
     ])
   );
   const rabatt = Number(f.rabatt) || 0;
@@ -316,8 +315,8 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
     ),
     W(
       sp,
-      'Ausführung nach EN 1090, Ausführungsklasse EXC2. Zahlung 14 Tage netto.',
-      'Execution to EN 1090, execution class EXC2. Payment 14 days net.'
+      `Ausführung nach EN 1090, Ausführungsklasse EXC2. Zahlung ${kundeZiel(k)} Tage netto.`,
+      `Execution to EN 1090, execution class EXC2. Payment ${kundeZiel(k)} days net.`
     ),
     W(sp, 'Wir freuen uns auf Ihren Auftrag.', 'We look forward to your order.'),
   ]) {

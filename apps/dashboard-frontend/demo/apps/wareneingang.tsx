@@ -350,6 +350,8 @@ const def: AppDef = {
     }
   },
   auswertung: {
+    // Was in den nächsten zwei Wochen kommt, zählt als „noch erwartet" mit.
+    voraus: 14,
     rechnen: (alle, _ctx, z) => {
       const liste = alle.filter(e => imZeitraum(z, String(e.felder.eingang ?? e.felder.erwartet)));
       const da = liste.filter(e => e.felder.eingang);

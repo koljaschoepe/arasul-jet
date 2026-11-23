@@ -467,7 +467,10 @@ function FachApp({ def }: { def: AppDef }) {
       titel: t('Aktionen', 'Actions'),
       breite: '7rem',
       ausrichtung: 'rechts',
-      kartenText: e => <ZeilenAktionen e={e} />,
+      // Am Handy keine Knöpfe in der Karte: ein Tipp öffnet das Blatt mit
+      // allen Aktionen, und „31.250 € ·" mit Symbolen dahinter las sich wie
+      // ein abgebrochener Satz (Prüfer J55).
+      inKarte: false,
       zelle: e => <ZeilenAktionen e={e} />,
     },
   ];

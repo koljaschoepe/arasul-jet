@@ -294,7 +294,8 @@ function auftraegeAus(b: Bestand): AuftragZeile[] {
         nr: String(e.felder.auftrag),
         kunde: Number(e.felder.kunde),
         gegenstand: tx(e.felder.betreff),
-        wert: Number(e.felder.betrag) * (1 - (Number(e.felder.rabatt) || 0) / 100),
+        // Wie im Angebot angezeigt: der Betrag netto (Rabatt erst ab Angebote 1.5.0).
+        wert: Number(e.felder.betrag),
         seit: (an?.am ?? String(e.felder.datum)).slice(0, 10),
         laufend: laufend.has(String(e.felder.auftrag)),
         angebot: e,
