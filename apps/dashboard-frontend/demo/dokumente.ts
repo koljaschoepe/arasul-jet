@@ -268,8 +268,11 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
     const menge = Math.max(1, Math.round((betrag * anteil) / preis));
     return { was, einheit, preis, menge, wert: menge * preis };
   });
+  // Die Montage ist pauschal: sie nimmt, was bis zum Betrag fehlt, und
+  // Menge mal Preis stimmt in jeder Zeile auf den Cent (Prüfer J55).
   const letzte = zeilen[zeilen.length - 1]!;
   letzte.wert = betrag - zeilen.slice(0, -1).reduce((x, z) => x + z.wert, 0);
+  letzte.einheit = 'psch';
   const zahlText = (n: number, stellen = 0) =>
     n.toLocaleString(sp === 'en' ? 'en-GB' : 'de-DE', {
       minimumFractionDigits: stellen,
@@ -287,7 +290,9 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
     zeilen.map((z, i) => [
       String(i + 1),
       z.was,
-      `${zahlText(z.menge)} ${z.einheit} × ${zahlText(z.preis, 2)} €`,
+      z.einheit === 'psch'
+        ? W(sp, '1 pauschal', '1 lump sum')
+        : `${zahlText(z.menge)} ${z.einheit} × ${zahlText(z.preis, 2)} €`,
       euro(z.wert, sp),
     ])
   );

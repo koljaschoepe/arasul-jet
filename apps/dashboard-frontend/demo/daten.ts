@@ -60,8 +60,8 @@ export interface DemoSchaltung {
 }
 
 export interface DemoZustand {
-  /** 3 seit J55 (Stammdaten); ein älterer Stand im Browser fängt neu an. */
-  fassung: 3;
+  /** 4 seit J55 (Stammdaten, Aufträge, Bestand eines Jahres); ein älterer Stand im Browser fängt neu an. */
+  fassung: 4;
   theme: 'light' | 'dark' | 'system';
   reihenfolge: string[];
   apps: DemoApp[];
@@ -140,14 +140,16 @@ function bildschirmfoto(titel: string, zeilen: string[]): string {
 }
 
 export function anfangsZustand(jetzt = Date.now()): DemoZustand {
+  const bestand = anfangsBestand(jetzt);
   return {
-    fassung: 3,
+    fassung: 4,
     theme: 'light',
-    stamm: stammAnfang(),
     reihenfolge: [],
     naechsteId: 130,
     naechsterEintrag: 9000,
-    bestand: anfangsBestand(jetzt),
+    bestand,
+    // Nach dem Bestand: er gibt den laufenden Aufträgen ihre Nummern.
+    stamm: stammAnfang(),
     apps: [
       {
         id: 'angebote',
@@ -362,11 +364,11 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
         jetzt,
         {
           bild: bildschirmfoto('Prüfprotokolle', [
-            'PP-26-344  AU-26-105  Pfosten mit Fußplatte   Maßprüfung',
-            'PP-26-343  AU-26-104  Treppenwange rechts   Sichtprüfung',
-            'PP-26-342  AU-26-103  Kantteil Verkleidung   Schichtdicke',
-            'PP-26-341  AU-26-102  Konsole Vordach   Sichtprüfung',
-            'PP-26-340  AU-26-101  Torflügel   Abnahme vor Ort',
+            'PP-26-089  AU-26-084  Pfosten mit Fußplatte   Maßprüfung',
+            'PP-26-088  AU-26-083  Treppenwange rechts   Sichtprüfung',
+            'PP-26-087  AU-26-082  Kantteil Verkleidung   Schichtdicke',
+            'PP-26-086  AU-26-080  Konsole Vordach   Sichtprüfung',
+            'PP-26-085  AU-26-081  Torflügel   Abnahme vor Ort',
           ]),
           markierung: { x: 0.12, y: 0.44, breite: 0.2, hoehe: 0.42 },
         }

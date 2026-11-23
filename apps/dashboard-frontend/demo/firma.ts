@@ -1137,6 +1137,8 @@ export interface Stamm {
   kunden: Kunde[];
   lieferanten: Lieferant[];
   maschinen: Maschine[];
+  /** Die laufenden Aufträge mit ihren Nummern aus dem Bestand (J55). */
+  auftraege?: Auftrag[];
 }
 
 export function stammAnfang(): Stamm {
@@ -1144,6 +1146,7 @@ export function stammAnfang(): Stamm {
     kunden: KUNDEN_ANFANG.map(k => ({ ...k })),
     lieferanten: LIEFERANTEN_ANFANG.map(l => ({ ...l })),
     maschinen: MASCHINEN_ANFANG.map(m => ({ ...m })),
+    auftraege: AUFTRAEGE.map(a => ({ ...a })),
   };
 }
 
@@ -1153,6 +1156,7 @@ export function stammUebernehmen(s: Stamm | undefined): void {
   KUNDEN.splice(0, KUNDEN.length, ...s.kunden);
   LIEFERANTEN.splice(0, LIEFERANTEN.length, ...s.lieferanten);
   MASCHINEN.splice(0, MASCHINEN.length, ...s.maschinen);
+  if (s.auftraege) AUFTRAEGE.splice(0, AUFTRAEGE.length, ...s.auftraege);
 }
 
 const KUNDEN_ANFANG = KUNDEN.map(k => ({ ...k }));

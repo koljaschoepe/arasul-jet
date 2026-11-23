@@ -308,6 +308,7 @@ const def: AppDef = {
         return [];
     }
   },
+  zusatzFilter: [{ key: 'abgelaufen', text: t('Abgelaufen', 'Expired'), pruefe: abgelaufen }],
   auswertung: {
     rechnen: (alle, ctx, z, oeffnen) => {
       const liste = alle.filter(e => imZeitraum(z, String(e.felder.datum)));

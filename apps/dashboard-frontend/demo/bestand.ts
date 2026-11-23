@@ -383,8 +383,15 @@ function angebote(jetzt: number): Eintrag[] {
     .map((e, i) => ({ e, i }))
     .filter(x => x.e.stand === 'angenommen' && !freigabe.has(x.i));
   const juengste = gewonnen.slice(-AUFTRAEGE.length);
+  // Die Nummern laufen im Jahr ab 001 (J55): die zwölf laufenden schließen an
+  // die älteren gewonnenen dieses Jahres an.
+  const diesesJahr = String(new Date(jetzt).getFullYear()).slice(2);
+  const imJahr = gewonnen
+    .slice(0, -AUFTRAEGE.length)
+    .filter(x => String(x.e.felder.datum).slice(2, 4) === diesesJahr);
   juengste.forEach(({ e }, n) => {
     const a = AUFTRAEGE[n]!;
+    a.nr = `AU-${diesesJahr}-${String(imJahr.length + 1 + n).padStart(3, '0')}`;
     const [min, max] = spanneZu(a.gegenstand);
     a.angebot = e.nr;
     // Angenommen neun Tage nach dem Angebot (siehe Verlauf unten).
@@ -398,24 +405,20 @@ function angebote(jetzt: number): Eintrag[] {
     });
   });
 
-  // Die älteren gewonnenen bekommen ihre Auftragsnummer rückwärts vor den
-  // zwölf laufenden: AU-26-096, -095 …; im Vorjahr AU-25-… vom Jahresende.
-  const aelter = gewonnen.slice(0, -AUFTRAEGE.length).reverse();
-  const ersteNr = Number(AUFTRAEGE[0]!.nr.slice(-3));
-  let nrJahr = ersteNr;
-  let vorjahr = 0;
-  const diesesJahr = AUFTRAEGE[0]!.nr.slice(3, 5);
-  for (const { e } of aelter) {
-    const jahr = String(e.felder.datum).slice(2, 4);
-    let nr: string;
-    if (jahr === diesesJahr && nrJahr > 1) {
-      nrJahr -= 1;
-      nr = `AU-${jahr}-${String(nrJahr).padStart(3, '0')}`;
-    } else {
-      vorjahr += 1;
-      nr = `AU-${String(Number(diesesJahr) - 1).padStart(2, '0')}-${String(116 - vorjahr).padStart(3, '0')}`;
-    }
-    e.felder.auftrag = nr;
+  // Die älteren gewonnenen: im laufenden Jahr ab AU-26-001 nach Datum, im
+  // Vorjahr bis zum Jahresende hin gezählt.
+  let nrJahr = 0;
+  const vorjahr = gewonnen
+    .slice(0, -AUFTRAEGE.length)
+    .filter(x => String(x.e.felder.datum).slice(2, 4) !== diesesJahr);
+  vorjahr.forEach(({ e }, n) => {
+    e.felder.auftrag = `AU-${String(Number(diesesJahr) - 1).padStart(2, '0')}-${String(
+      118 - vorjahr.length + n
+    ).padStart(3, '0')}`;
+  });
+  for (const { e } of imJahr) {
+    nrJahr += 1;
+    e.felder.auftrag = `AU-${diesesJahr}-${String(nrJahr).padStart(3, '0')}`;
   }
 
   for (let i = 0; i < liste.length; i += 1) {
@@ -694,6 +697,16 @@ function wareneingang(jetzt: number): Eintrag[] {
       geaendert_am: verlauf[verlauf.length - 1]!.am,
     });
   }
+  // Jeder laufende Auftrag hat sein Material (J55): fehlt es, trägt die
+  // erste passende Lieferung ohne Auftrag nach seinem Start die Nummer.
+  for (const a of AUFTRAEGE) {
+    if (liste.some(e => e.felder.auftrag === a.nr)) continue;
+    const frei = liste.find(
+      e =>
+        !e.felder.auftrag && String(e.felder.erwartet) >= tagRelativ(-(a.seitTagen ?? 0) + 2, jetzt)
+    );
+    if (frei) frei.felder.auftrag = a.nr;
+  }
   return liste.reverse();
 }
 
@@ -812,11 +825,11 @@ function wartungsplan(jetzt: number): Eintrag[] {
 
 /** Welche Bauteile zu welchem Auftrag gehören, nach Wörtern im Gegenstand (J55). */
 const BAUTEILE_JE: [RegExp, number[]][] = [
-  [/Wendeltreppe/, [2, 4]],
-  [/[Tt]reppe/, [0, 1, 2, 3]],
-  [/Geländer/, [3, 4]],
-  [/Rahmen/, [5]],
-  [/Vordach/, [6, 9, 4]],
+  [/wendeltreppe/i, [2, 4]],
+  [/geländer|handlauf/i, [3, 4]],
+  [/treppe/i, [0, 1, 2, 3]],
+  [/rahmen|schweißbaugruppe/i, [5]],
+  [/vordach|überdachung/i, [6, 9, 4]],
   [/[Tt]or\b|Schiebetor/, [7, 4]],
   [/Laserteile|Kantteil|Verkleidung/, [8]],
   [/Bühne|Regalbühne/, [2, 9, 3]],
@@ -970,7 +983,8 @@ function pruefprotokolle(jetzt: number): Eintrag[] {
     });
   }
   // Drei warten auf die Freigabe.
-  for (const k of [38, 39, 40]) {
+  const letzte = PRUEFUNGEN - 3;
+  for (const k of [letzte, letzte + 1, letzte + 2]) {
     const e = liste[k]!;
     if (e.stand === 'freigabe') continue;
     e.stand = 'freigabe';
@@ -978,13 +992,13 @@ function pruefprotokolle(jetzt: number): Eintrag[] {
     e.verlauf = [
       e.verlauf[0]!,
       schritt(
-        20 - (k - 38) * 6,
+        20 - (k - letzte) * 6,
         11,
         T('Geprüft und Messwerte erfasst', 'Inspected and measurements recorded'),
         jetzt
       ),
       schritt(
-        19 - (k - 38) * 6,
+        19 - (k - letzte) * 6,
         11,
         T('Zur Freigabe an Miriam Kerschner', 'Sent to Miriam Kerschner for approval'),
         jetzt
