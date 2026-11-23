@@ -14,6 +14,7 @@ import {
   ansprech,
   auftrag,
   kunde,
+  kundeAnschrift,
   lieferant,
   maschine,
   name,
@@ -207,7 +208,9 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
   briefkopf(s, FIRMA.name, zeile());
   s.text(L, 735, k.name, 10.5);
   s.text(L, 720, W(sp, `z. Hd. ${k.ansprechpartner}`, `Attn. ${ansprech(k, sp)}`), 10);
-  s.text(L, 705, k.ort, 10);
+  const [strasse, ort] = kundeAnschrift(k).split(', ');
+  s.text(L, 705, strasse ?? '', 10);
+  s.text(L, 691, ort ?? k.ort, 10);
   angaben(
     s,
     735,
@@ -244,9 +247,16 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
       0.53,
     ],
     [
-      e.id % 2
-        ? W(sp, 'Oberfläche: feuerverzinkt', 'Finish: hot-dip galvanised')
-        : W(sp, 'Oberfläche: pulverbeschichtet RAL 7016', 'Finish: powder-coated RAL 7016'),
+      // Edelstahl wird geschliffen, nicht beschichtet (Prüfer J55).
+      /edelstahl|stainless/i.test(txt(f.betreff, 'de'))
+        ? W(
+            sp,
+            'Oberfläche: Edelstahl geschliffen, Korn 240',
+            'Finish: stainless, ground, grit 240'
+          )
+        : /verzinkt|galvani/i.test(txt(f.betreff, 'de')) || e.id % 2
+          ? W(sp, 'Oberfläche: feuerverzinkt', 'Finish: hot-dip galvanised')
+          : W(sp, 'Oberfläche: pulverbeschichtet RAL 7016', 'Finish: powder-coated RAL 7016'),
       W(sp, '1 psch.', '1 lot'),
       0.13,
     ],
@@ -441,6 +451,14 @@ function pruefungPdf(e: Eintrag, sp: Sprache): Seite {
       [W(sp, 'Prüfung', 'Inspection'), pruefartText(String(f.pruefart), sp)],
       [W(sp, 'Datum', 'Date'), datum(String(f.datum), sp)],
       [W(sp, 'Prüfer', 'Inspector'), name(Number(f.pruefer))],
+      ...(f.naht
+        ? [
+            [
+              W(sp, 'Naht, Schweißer', 'Weld, welder'),
+              `${String(f.naht)} · ${f.schweisser ? name(Number(f.schweisser)) : '–'} · ${String(f.wps ?? '')}`,
+            ] as [string, string],
+          ]
+        : []),
     ],
     L,
     100
@@ -453,7 +471,11 @@ function pruefungPdf(e: Eintrag, sp: Sprache): Seite {
     ],
     [
       W(sp, 'Schweißnähte Sichtprüfung', 'Visual weld check'),
-      W(sp, 'Bewertungsgruppe C', 'Quality level C'),
+      W(
+        sp,
+        `Bewertungsgruppe ${f.bewertungsgruppe ?? 'C'}, EN ISO 5817`,
+        `Quality level ${f.bewertungsgruppe ?? 'C'}, EN ISO 5817`
+      ),
       f.ergebnis === 'nio' ? W(sp, 'n. i. O.', 'fail') : W(sp, 'i. O.', 'OK'),
     ],
     [

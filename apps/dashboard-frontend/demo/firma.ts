@@ -819,8 +819,10 @@ export interface Auftrag {
   nr: string;
   kunde: number;
   gegenstand: Text;
-  /** Woraus er entstand: die Nummer des Angebots. */
+  /** Woraus er entstand: die Nummer des Angebots (gesetzt aus dem Bestand). */
   angebot: string;
+  /** Seit wie vielen Tagen er läuft (gesetzt aus dem Bestand, J55). */
+  seitTagen?: number;
 }
 
 export const AUFTRAEGE: Auftrag[] = [
@@ -949,3 +951,28 @@ export const kundeTelefon = (k: Kunde) => k.telefon ?? rufnummer(k.id * 3 + 11);
 export const kundeZiel = (k: Kunde) => k.zahlungsziel ?? ([1, 5, 12, 18].includes(k.id) ? 14 : 30);
 export const lieferantNr = (l: Lieferant) => `L-${70000 + l.id * 11}`;
 export const lieferantTelefon = (l: Lieferant) => l.telefon ?? rufnummer(l.id * 5 + 2);
+
+/** Erfundene Anschriften in den Orten der Gegend (J55); Postleitzahlen der Firma nahe. */
+const PLZ: Record<string, string> = {
+  Grünfelden: '79999',
+  Halbrück: '79994',
+  Eschenau: '79992',
+  Obertal: '79996',
+  'Weilerbach am See': '79991',
+  Nordhagen: '79995',
+  Talgrund: '79993',
+};
+const STRASSEN = [
+  'Industriestraße',
+  'Am Kanal',
+  'Gewerbepark',
+  'Mühlweg',
+  'Bahnhofstraße',
+  'Lindenallee',
+  'Im Brühl',
+  'Schulstraße',
+  'Hauptstraße',
+  'Ziegeleiweg',
+];
+export const kundeAnschrift = (k: Kunde): string =>
+  `${STRASSEN[k.id % STRASSEN.length]} ${((k.id * 7) % 48) + 2}, ${PLZ[k.ort.split(/[ -]/)[0]!] ?? PLZ[k.ort] ?? '79990'} ${k.ort}`;

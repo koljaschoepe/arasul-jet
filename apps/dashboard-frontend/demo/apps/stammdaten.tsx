@@ -48,7 +48,7 @@ import {
   Wrench,
   type LucideIcon,
 } from '@marken/symbole';
-import type { AppKennung, Bestand, Eintrag } from '../bestand';
+import { angebotOffen, type AppKennung, type Bestand, type Eintrag } from '../bestand';
 import {
   ABTEILUNGEN,
   ARTIKEL,
@@ -58,6 +58,7 @@ import {
   LIEFERANTEN,
   MASCHINEN,
   PERSONEN,
+  kundeAnschrift,
   kundeTelefon,
   kundeZiel,
   kundenNr,
@@ -205,9 +206,7 @@ function kundeZahlen(b: Bestand, k: Kunde) {
   const l = b.angebote.filter(e => Number(e.felder.kunde) === k.id);
   const an = l.filter(e => e.stand === 'angenommen');
   const ent = l.filter(e => ['angenommen', 'abgelehnt'].includes(e.stand));
-  const offen = l.filter(e =>
-    ['entwurf', 'freigabe', 'freigegeben', 'versendet'].includes(e.stand)
-  );
+  const offen = l.filter(e => angebotOffen(e, heuteIso()));
   const umsatz = an.reduce((s, e) => s + Number(e.felder.betrag), 0);
   const letzt = [...l].sort((x, y) =>
     String(y.felder.datum).localeCompare(String(x.felder.datum))
@@ -857,7 +856,7 @@ function Einzelansicht({
             : k.ansprechpartner,
         ],
         [t('Telefon', 'Phone'), <Mono key="t">{kundeTelefon(k)}</Mono>],
-        [t('Ort', 'Town'), k.ort],
+        [t('Anschrift', 'Address'), kundeAnschrift(k)],
         [
           t('Zahlungsziel', 'Payment terms'),
           t(`${kundeZiel(k)} Tage netto`, `${kundeZiel(k)} days net`),

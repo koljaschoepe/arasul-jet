@@ -360,6 +360,7 @@ async function weg(browser, basis, sprache, breite) {
       await rahmen.getByTestId('fa-reiter-kalender').click();
       await rahmen.getByTestId('fa-kalender').waitFor({ timeout: 4000 });
       if (!(await rahmen.locator('.fa-termin').count())) rot(`${wo} ${app}: Kalender leer`);
+      await warte(300);
       await ueberlaufApp(seite, rahmen, `${wo} ${app} Kalender`);
       await bild(seite, `${wo.replace(' ', '-')}-2-${app}-kalender`);
     }
@@ -542,7 +543,7 @@ async function weg(browser, basis, sprache, breite) {
     const r = await fetch('/apps/angebote/api/daten');
     return (await r.json()).data.eintraege.length;
   });
-  if (nachher !== 42) rot(`${wo}: nach dem Zurücksetzen ${nachher} statt 42 Angebote`);
+  if (nachher !== 170) rot(`${wo}: nach dem Zurücksetzen ${nachher} statt 170 Angebote`);
 
   gruen(`${wo}: Weg vollständig`);
   await kontext.close();

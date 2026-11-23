@@ -376,11 +376,12 @@ const def: AppDef = {
         const angekommen = von.filter(e => e.felder.eingang);
         const treu = prozent(angekommen.filter(puenktlich).length, angekommen.length);
         const r = rekl.filter(e => Number(e.felder.lieferant) === l.id).length;
+        const quote = prozent(r, angekommen.length);
         const note = !angekommen.length
           ? '–'
-          : treu >= 90 && !r
+          : treu >= 90 && quote <= 2
             ? 'A'
-            : treu >= 75 && r <= 1
+            : treu >= 80 && quote <= 5
               ? 'B'
               : 'C';
         return { l, von, angekommen, treu, r, note };
@@ -446,8 +447,8 @@ const def: AppDef = {
             breit: true,
             titel: t('Lieferantenbewertung', 'Supplier rating'),
             satz: t(
-              'A: mindestens 90 % pünktlich und keine Reklamation. B: mindestens 75 % und höchstens eine. Sonst C.',
-              'A: at least 90% on time and no complaint. B: at least 75% and at most one. Otherwise C.'
+              'A: mindestens 90 % pünktlich, höchstens 2 % reklamiert. B: mindestens 80 % und höchstens 5 %. Sonst C.',
+              'A: at least 90% on time, at most 2% complaints. B: at least 80% and at most 5%. Otherwise C.'
             ),
             kopf: [
               t('Lieferant', 'Supplier'),

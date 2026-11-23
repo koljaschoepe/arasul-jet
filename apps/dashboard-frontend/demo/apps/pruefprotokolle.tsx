@@ -79,6 +79,46 @@ const def: AppDef = {
       hinweis: t('Etwa „Treppenwange links".', 'E.g. “Left stair stringer”.'),
     },
     {
+      key: 'naht',
+      titel: t('Naht', 'Weld'),
+      art: 'text',
+      hinweis: t(
+        'Nummer der Naht laut Zeichnung, etwa „N4".',
+        'Weld number on the drawing, e.g. “N4”.'
+      ),
+      anzeigen: w => <Mono>{String(w)}</Mono>,
+    },
+    {
+      key: 'schweisser',
+      titel: t('Schweißer', 'Welder'),
+      art: 'auswahl',
+      optionen: PERSONEN.filter(p => p.abteilung === 'schweiss' && p.id !== 14).map(p => [
+        String(p.id),
+        `${p.vorname} ${p.nachname}`,
+      ]),
+      anzeigen: w => (
+        <StammLink art="person" id={Number(w)}>
+          {name(Number(w))}
+        </StammLink>
+      ),
+    },
+    {
+      key: 'wps',
+      titel: t('Schweißanweisung (WPS)', 'Welding procedure (WPS)'),
+      art: 'text',
+      anzeigen: w => <Mono>{String(w)}</Mono>,
+    },
+    {
+      key: 'bewertungsgruppe',
+      titel: t('Bewertungsgruppe', 'Quality level'),
+      art: 'auswahl',
+      optionen: [
+        ['B', t('B nach EN ISO 5817', 'B to EN ISO 5817')],
+        ['C', t('C nach EN ISO 5817', 'C to EN ISO 5817')],
+        ['D', t('D nach EN ISO 5817', 'D to EN ISO 5817')],
+      ],
+    },
+    {
       key: 'pruefart',
       titel: t('Prüfung', 'Inspection'),
       art: 'auswahl',
@@ -150,7 +190,14 @@ const def: AppDef = {
       : []),
     { key: 'notiz', titel: t('Befund', 'Finding'), art: 'textlang' },
   ],
-  vorbelegung: () => ({ datum: isoIn(0), pruefer: 11, pruefart: 'sicht' }),
+  vorbelegung: () => ({
+    datum: isoIn(0),
+    pruefer: 11,
+    pruefart: 'sicht',
+    schweisser: 16,
+    bewertungsgruppe: 'C',
+    wps: 'WPS-135-03',
+  }),
   pruefen: f => {
     const aus: Record<string, string> = {};
     if (f.ergebnis === 'nio' && !f.notiz)

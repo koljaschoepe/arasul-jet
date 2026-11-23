@@ -273,9 +273,6 @@ export const imZeitraum = (z: Zeitraum, tag: string | null | undefined): boolean
 export const prozent = (teil: number, ganz: number): number =>
   ganz ? Math.round((teil / ganz) * 100) : 0;
 
-export const tausend = (n: number): string =>
-  n >= 1000 ? t(`${zahl(Math.round(n / 1000))} Tsd.`, `${zahl(Math.round(n / 1000))}k`) : zahl(n);
-
 // ── Wege zwischen den Apps (J55) ────────────────────────────────────────────
 
 /**

@@ -418,9 +418,13 @@ function fachApp(
   if (rest === 'eintraege' && a.methode === 'POST') {
     const felder = felderAusKoerper(koerper.felder);
     const stand = typeof koerper.stand === 'string' && koerper.stand ? koerper.stand : 'neu';
-    const hoechste = liste.reduce((m, e) => Math.max(m, Number(e.nr.split('-').pop()) || 0), 0);
+    // Die Nummer zählt im laufenden Jahr weiter (AN-26-…); ein Beleg aus dem
+    // Vorjahr mit höherer Nummer zählt nicht mit.
+    const praefix = `${PRAEFIX[app].split('-')[0]}-${String(new Date().getFullYear()).slice(2)}-`;
+    const imJahr = liste.filter(e => e.nr.startsWith(praefix));
+    const hoechste = imJahr.reduce((m, e) => Math.max(m, Number(e.nr.split('-').pop()) || 0), 0);
     const breite = (liste[0]?.nr.split('-').pop() ?? '000').length;
-    const nr = `${PRAEFIX[app]}${String(hoechste + 1).padStart(breite, '0')}`;
+    const nr = `${praefix}${String(hoechste + 1).padStart(breite, '0')}`;
     let e: Eintrag = {
       id: z.naechsterEintrag,
       nr,

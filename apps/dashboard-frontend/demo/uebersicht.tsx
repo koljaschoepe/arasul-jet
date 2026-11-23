@@ -27,7 +27,7 @@ import {
   type LucideIcon,
 } from '@marken/symbole';
 import './uebersicht.css';
-import { txt, type AppKennung, type Eintrag } from './bestand';
+import { angebotOffen, txt, type AppKennung, type Eintrag } from './bestand';
 import {
   FIRMA,
   kunde,
@@ -220,14 +220,14 @@ function Oben() {
 
   let kacheln: ReactNode = <div className="demo-kacheln-platz" />;
   if (d) {
-    const offen = d.angebote.filter(e =>
-      ['entwurf', 'freigabe', 'freigegeben', 'versendet'].includes(e.stand)
-    );
+    const offen = d.angebote.filter(e => angebotOffen(e, heute()));
     // Am Wochenende zählt der nächste Werktag als „heute" für das Tor.
     const bisWerktag = [1, 0, 0, 0, 0, 0, 2][new Date().getDay()]!;
+    // Wie die Woche darunter: alles mit diesem Tag, schon da oder erwartet.
     const heuteErwartet = d.wareneingang.filter(
-      e => e.stand === 'erwartet' && tage(e.felder.erwartet) <= bisWerktag
+      e => tage(e.felder.eingang ?? e.felder.erwartet) === bisWerktag
     );
+    const schonDa = heuteErwartet.filter(e => e.felder.eingang);
     const zuPruefen = d.wareneingang.filter(e => e.stand === 'eingegangen');
     const faellig = d.wartungsplan.filter(
       e => e.stand !== 'erledigt' && tage(e.felder.faellig) <= 7
@@ -265,8 +265,8 @@ function Oben() {
             }
             wert={String(heuteErwartet.length)}
             fussnote={t(
-              `${zuPruefen.length} ${zuPruefen.length === 1 ? 'wartet' : 'warten'} auf Prüfung`,
-              `${zuPruefen.length} awaiting check`
+              `${schonDa.length} da, ${zuPruefen.length} ${zuPruefen.length === 1 ? 'wartet' : 'warten'} auf Prüfung`,
+              `${schonDa.length} in, ${zuPruefen.length} awaiting check`
             )}
             verlauf={proWoche(d.wareneingang, e =>
               e.felder.eingang ? String(e.felder.eingang) : null
@@ -373,15 +373,16 @@ const KURZ: Record<AppKennung, [string, string]> = {
 /** Was in einer App offen ist, und was davon dringt (bei Ihnen oder überfällig). */
 function offenJeApp(d: Daten) {
   const offen: Record<AppKennung, (e: Eintrag) => boolean> = {
-    angebote: e => ['entwurf', 'freigabe', 'freigegeben', 'versendet'].includes(e.stand),
+    angebote: e => angebotOffen(e, heute()),
     wareneingang: e => ['erwartet', 'eingegangen', 'geprueft', 'reklamiert'].includes(e.stand),
-    wartungsplan: e => e.stand !== 'erledigt' && tage(e.felder.faellig) <= 30,
+    // Wie die Kachel „Wartungen fällig": in den nächsten sieben Tagen.
+    wartungsplan: e => e.stand !== 'erledigt' && tage(e.felder.faellig) <= 7,
     pruefprotokolle: e => ['offen', 'freigabe', 'nacharbeit'].includes(e.stand),
     urlaub: e => e.stand === 'beantragt',
   };
   const dringend: Record<AppKennung, (e: Eintrag) => boolean> = {
     angebote: e =>
-      e.stand === 'freigabe' || (e.stand === 'versendet' && tage(e.felder.gueltig) < 0),
+      e.stand === 'freigabe' || (e.stand === 'versendet' && tage(e.felder.gueltig) <= 3),
     wareneingang: e =>
       e.stand === 'reklamiert' || (e.stand === 'erwartet' && tage(e.felder.erwartet) < 0),
     wartungsplan: e => e.stand !== 'erledigt' && tage(e.felder.faellig) < 0,
@@ -523,8 +524,8 @@ function Mitte({ d }: { d: Daten }) {
         <h2 id="demo-offen">{t('Offen je App', 'Open per app')}</h2>
         <p className="demo-leise demo-satz">
           {t(
-            'Was gerade offen ist, und was davon dringt: bei Ihnen zur Freigabe oder überfällig.',
-            'What is open right now, and what is pressing: waiting for your approval or overdue.'
+            'Was gerade offen ist, und was davon dringt: bei Ihnen zur Freigabe, überfällig oder kurz vor Ablauf.',
+            'What is open right now, and what is pressing: waiting for your approval, overdue or about to expire.'
           )}
         </p>
         <Chart
