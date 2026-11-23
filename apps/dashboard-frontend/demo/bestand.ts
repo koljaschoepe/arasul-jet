@@ -199,6 +199,43 @@ const ANGEBOT_GEGENSTAENDE: [Text, number, number][] = [
   [T('Regalbühne Lager', 'Warehouse mezzanine'), 24000, 52000],
   [T('Absturzsicherung Flachdach', 'Fall protection, flat roof'), 4800, 9900],
   [T('Fahrradüberdachung, 3 Felder', 'Bicycle shelter, 3 bays'), 7600, 12400],
+  // Die großen (J55): ohne sie käme ein Betrieb mit 60 Leuten nicht auf seinen Umsatz.
+  [
+    T('Stahlbau Hallenerweiterung, 24 × 18 m', 'Steel frame, hall extension, 24 × 18 m'),
+    120000,
+    260000,
+  ],
+  [T('Treppenanlage Parkhaus, 4 Ebenen', 'Stair system, car park, 4 levels'), 85000, 160000],
+  [
+    T(
+      'Schweißbaugruppen nach Zeichnung, Jahresbedarf',
+      'Welded assemblies to drawing, annual demand'
+    ),
+    90000,
+    240000,
+  ],
+  [T('Balkonanlage, 12 Balkone', 'Balcony system, 12 balconies'), 95000, 180000],
+  [
+    T('Laserteile nach Zeichnung, Rahmenvertrag', 'Laser parts to drawing, framework contract'),
+    40000,
+    110000,
+  ],
+];
+
+/** Wo gebaut wird: damit nicht drei Angebote „Vordach Eingang" heißen. */
+const OBJEKTE: Text[] = [
+  T('Kita Halbrück', 'Halbrück nursery'),
+  T('Halle 3', 'Hall 3'),
+  T('Haus B', 'Block B'),
+  T('Bauabschnitt 2', 'Phase 2'),
+  T('Erweiterung Nord', 'North extension'),
+  T('Lager Ost', 'East warehouse'),
+  T('Verwaltungsgebäude', 'Office building'),
+  T('Schule Eschenau', 'Eschenau school'),
+  T('Wohnanlage Lindenhof', 'Lindenhof housing'),
+  T('Sporthalle', 'Sports hall'),
+  T('Rathaus Obertal', 'Obertal town hall'),
+  T('Werk 2', 'Plant 2'),
 ];
 
 /**
@@ -234,8 +271,8 @@ function spanneZu(gegenstand: Text): [number, number] {
   return treffer ? [treffer[1], treffer[2]] : [9000, 28000];
 }
 
-/** Rund 170 Angebote im Jahr, gut drei je Woche: so viel schreibt ein Betrieb mit 60 Leuten. */
-const ANGEBOTE_IM_JAHR = 170;
+/** Rund 320 Angebote im Jahr, gut sechs je Woche: so viel schreibt ein Betrieb mit 60 Leuten. */
+const ANGEBOTE_IM_JAHR = 320;
 
 function angebote(jetzt: number): Eintrag[] {
   const r = zufall(87);
@@ -251,13 +288,15 @@ function angebote(jetzt: number): Eintrag[] {
 
   const liste: Eintrag[] = alter.map((alt, i) => {
     const nr = nummern[i]!;
-    const [gegenstand, min, max] = r.eins(ANGEBOT_GEGENSTAENDE);
+    const [grund, min, max] = r.eins(ANGEBOT_GEGENSTAENDE);
+    const objekt = r.z() < 0.55 ? r.eins(OBJEKTE) : null;
+    const gegenstand = objekt ? T(`${grund.de}, ${objekt.de}`, `${grund.en}, ${objekt.en}`) : grund;
     const kunde = r.eins(KUNDEN).id;
     const betrag = Math.round((min + r.z() * (max - min)) / 10) * 10;
     let stand: string;
     // Ein gutes Drittel wird gewonnen; was nach sechs Wochen nicht
     // angenommen ist, ist vergeben.
-    if (alt > 45) stand = r.z() < 0.34 ? 'angenommen' : 'abgelehnt';
+    if (alt > 45) stand = r.z() < 0.35 ? 'angenommen' : 'abgelehnt';
     else if (alt > 14)
       stand = r.eins(['versendet', 'versendet', 'versendet', 'angenommen', 'abgelehnt']);
     else if (alt > 4) stand = r.eins(['versendet', 'versendet', 'entwurf']);
@@ -329,6 +368,26 @@ function angebote(jetzt: number): Eintrag[] {
     });
   });
 
+  // Die älteren gewonnenen bekommen ihre Auftragsnummer rückwärts vor den
+  // zwölf laufenden: AU-26-096, -095 …; im Vorjahr AU-25-… vom Jahresende.
+  const aelter = gewonnen.slice(0, -AUFTRAEGE.length).reverse();
+  const ersteNr = Number(AUFTRAEGE[0]!.nr.slice(-3));
+  let nrJahr = ersteNr;
+  let vorjahr = 0;
+  const diesesJahr = AUFTRAEGE[0]!.nr.slice(3, 5);
+  for (const { e } of aelter) {
+    const jahr = String(e.felder.datum).slice(2, 4);
+    let nr: string;
+    if (jahr === diesesJahr && nrJahr > 1) {
+      nrJahr -= 1;
+      nr = `AU-${jahr}-${String(nrJahr).padStart(3, '0')}`;
+    } else {
+      vorjahr += 1;
+      nr = `AU-${String(Number(diesesJahr) - 1).padStart(2, '0')}-${String(116 - vorjahr).padStart(3, '0')}`;
+    }
+    e.felder.auftrag = nr;
+  }
+
   for (let i = 0; i < liste.length; i += 1) {
     const e = liste[i]!;
     const alt = alter[i]!;
@@ -349,6 +408,19 @@ function angebote(jetzt: number): Eintrag[] {
         )
       );
     } else if (e.stand !== 'entwurf') {
+      if (Number(e.felder.betrag) >= 20000)
+        verlauf.push(
+          schritt(
+            alt * 24 + 3,
+            wer,
+            T(
+              'Zur Freigabe an Miriam Kerschner (über 20.000 €)',
+              'Sent to Miriam Kerschner for approval (over €20,000)'
+            ),
+            jetzt
+          ),
+          schritt(alt * 24, ICH_ID, T('Freigegeben', 'Approved'), jetzt)
+        );
       verlauf.push(
         schritt(
           alt * 24 - 2,
@@ -710,6 +782,23 @@ function wartungsplan(jetzt: number): Eintrag[] {
 
 // ── Prüfprotokolle ──────────────────────────────────────────────────────────
 
+/** Welche Bauteile zu welchem Auftrag gehören, nach Wörtern im Gegenstand (J55). */
+const BAUTEILE_JE: [RegExp, number[]][] = [
+  [/Wendeltreppe/, [2, 4]],
+  [/[Tt]reppe/, [0, 1, 2, 3]],
+  [/Geländer/, [3, 4]],
+  [/Rahmen/, [5]],
+  [/Vordach/, [6, 9, 4]],
+  [/[Tt]or\b|Schiebetor/, [7, 4]],
+  [/Laserteile|Kantteil|Verkleidung/, [8]],
+  [/Bühne|Regalbühne/, [2, 9, 3]],
+];
+
+function bauteilZu(gegenstand: Text, r: { eins: <X>(l: readonly X[]) => X }): Text {
+  const treffer = BAUTEILE_JE.find(([muster]) => muster.test(gegenstand.de));
+  return BAUTEILE[r.eins(treffer ? treffer[1] : [9, 4])]!;
+}
+
 const BAUTEILE: Text[] = [
   T('Treppenwange links', 'Left stair stringer'),
   T('Treppenwange rechts', 'Right stair stringer'),
@@ -730,22 +819,25 @@ const PRUEFARTEN: [string, Text][] = [
   ['abnahme', T('Abnahme vor Ort', 'On-site acceptance')],
 ];
 
+/** Je laufendem Auftrag sieben bis acht Prüfungen: Sicht, Maß, Schicht, Abnahme. */
+const PRUEFUNGEN = 92;
+
 function pruefprotokolle(jetzt: number): Eintrag[] {
   const r = zufall(11);
   const liste: Eintrag[] = [];
   // Geprüft wird erst, wenn ein Auftrag läuft: vom ältesten laufenden
   // Auftrag an bis heute (J55).
   const beginn = -Math.min(90, Math.max(...AUFTRAEGE.map(a => a.seitTagen ?? 90)) - 5);
-  const abstaende = Array.from({ length: 41 }, (_, i) =>
-    werktag(beginn + Math.round((i * -beginn) / 41), jetzt)
+  const abstaende = Array.from({ length: PRUEFUNGEN }, (_, i) =>
+    werktag(beginn + Math.round((i * -beginn) / PRUEFUNGEN), jetzt)
   );
   const nummern = jahresNummern(
     abstaende.map(a => tagRelativ(a, jetzt)),
     'PP',
-    170,
+    380,
     3
   );
-  for (let i = 0; i < 41; i += 1) {
+  for (let i = 0; i < PRUEFUNGEN; i += 1) {
     const abstand = abstaende[i]!;
     const laufend = AUFTRAEGE.filter(a => (a.seitTagen ?? 0) >= -abstand + 3);
     const auftrag = (laufend.length ? laufend : AUFTRAEGE.slice(0, 1))[
@@ -765,7 +857,7 @@ function pruefprotokolle(jetzt: number): Eintrag[] {
       schweisser: r.z() < 0.7 ? 16 : 8,
       bewertungsgruppe: 'C',
       wps: r.eins(['WPS-135-01', 'WPS-135-03', 'WPS-141-02']),
-      bauteil: r.eins(BAUTEILE),
+      bauteil: bauteilZu(auftrag.gegenstand, r),
       pruefart,
       pruefer,
       datum: tagRelativ(abstand, jetzt),

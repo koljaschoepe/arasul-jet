@@ -128,7 +128,11 @@ const def: AppDef = {
       titel: t('Auftrag', 'Order'),
       art: 'text',
       nurAnzeige: true,
-      anzeigen: w => <Mono>{String(w)}</Mono>,
+      anzeigen: w => (
+        <StammLink art="auftrag" id={String(w)}>
+          {String(w)}
+        </StammLink>
+      ),
     },
     { key: 'notiz', titel: t('Notiz', 'Note'), art: 'textlang' },
   ],
@@ -266,8 +270,8 @@ const def: AppDef = {
                     `expired ${relativTag(e.felder.gueltig)}, follow up`
                   )
                 : t(
-                    `gültig bis ${datum(e.felder.gueltig)}, ${kunde(Number(e.felder.kunde)).ansprechpartner} anrufen`,
-                    `valid until ${datum(e.felder.gueltig)}, call ${ansprech(kunde(Number(e.felder.kunde)), 'en')}`
+                    `gültig bis ${datum(e.felder.gueltig)}, ${kunde(Number(e.felder.kunde)).ansprechpartner || 'den Kunden'} anrufen`,
+                    `valid until ${datum(e.felder.gueltig)}, call ${ansprech(kunde(Number(e.felder.kunde)), 'en') || 'the customer'}`
                   ),
           wichtig: e.stand !== 'freigabe' && tageBis(e.felder.gueltig) < 3,
           freigabe: e.stand === 'freigabe',

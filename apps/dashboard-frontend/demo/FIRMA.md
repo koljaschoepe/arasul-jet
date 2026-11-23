@@ -47,7 +47,7 @@ Nordhagen, Talgrund.
 
 ## Wie die Zahlen zusammenhängen
 
-Zwölf Aufträge (`AU-26-041` bis `AU-26-052`) sind aus angenommenen
+Zwölf laufende Aufträge (`AU-26-097` bis `AU-26-108`) sind aus angenommenen
 Angeboten entstanden. Dieselbe Nummer steht im Angebot, beim Material im
 Wareneingang („für Auftrag") und im Prüfprotokoll. Freigaben liegen immer
 bei Miriam Kerschner: Angebote ab 20.000 €, Prüfprotokolle mit Ergebnis,

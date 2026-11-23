@@ -58,6 +58,8 @@ export interface Person {
   aufgabe: Text;
   /** Resturlaub in Tagen zum Anfang der Demo. */
   urlaub: number;
+  /** Arbeitet mit Arasul (hat ein Konto); ohne Angabe ja (J55). */
+  konto?: boolean;
 }
 
 /** Die angemeldete Person: Betriebsleiterin, mit dem Recht in der Werkstatt. */
@@ -228,6 +230,127 @@ export const PERSONEN: Person[] = [
   },
 ];
 
+/**
+ * Die übrigen 44 Leute der Firma (J55): ohne Konto in Arasul, aber mit
+ * Stammsatz, Abteilung und Urlaub. Erfunden aus häufigen Vor- und
+ * Nachnamen; so hat jede Abteilung ihre Kopfzahl aus `ABTEILUNGEN`.
+ */
+const VORNAMEN = [
+  'Stefan',
+  'Andreas',
+  'Michael',
+  'Sven',
+  'Jan',
+  'Kevin',
+  'Dennis',
+  'Patrick',
+  'Sebastian',
+  'Christian',
+  'Tobias',
+  'Markus',
+  'Florian',
+  'Daniel',
+  'Alexander',
+  'Matthias',
+  'Niklas',
+  'Simon',
+  'Julian',
+  'Leon',
+  'Sandra',
+  'Julia',
+  'Lisa',
+  'Katrin',
+  'Nicole',
+  'Sarah',
+  'Mehmet',
+  'Ivan',
+  'Piotr',
+  'Dragan',
+  'Emre',
+  'Andrei',
+];
+const NACHNAMEN = [
+  'Bauer',
+  'Wagner',
+  'Becker',
+  'Hoffmann',
+  'Koch',
+  'Richter',
+  'Klein',
+  'Wolf',
+  'Neumann',
+  'Schwarz',
+  'Zimmermann',
+  'Braun',
+  'Krüger',
+  'Hartmann',
+  'Lange',
+  'Werner',
+  'Krause',
+  'Lehmann',
+  'Köhler',
+  'Maier',
+  'Walter',
+  'Huber',
+  'Kaiser',
+  'Fuchs',
+  'Peters',
+  'Lang',
+  'Scholz',
+  'Möller',
+  'Weiß',
+  'Jung',
+  'Hahn',
+  'Keller',
+  'Vogt',
+  'Roth',
+  'Beck',
+  'Lorenz',
+  'Baumann',
+  'Franke',
+  'Albers',
+  'Kraus',
+  'Böhm',
+  'Simon',
+  'Kovač',
+  'Demir',
+];
+const AUFGABE_JE: Record<string, Text[]> = {
+  vertrieb: [T('Kalkulation', 'Estimating'), T('Innendienst', 'Inside sales')],
+  av: [T('Arbeitsvorbereitung', 'Production planning'), T('Konstruktion', 'Design office')],
+  einkauf: [T('Lager', 'Stores'), T('Einkauf', 'Purchasing')],
+  laser: [T('Laserschneiden', 'Laser cutting'), T('Abkanten', 'Press brake')],
+  schweiss: [T('Schweißen', 'Welding'), T('Schlosserei', 'Fitting')],
+  montage: [T('Montage', 'Installation'), T('Montage und Kran', 'Installation and crane')],
+  qs: [T('Prüfung Qualitätssicherung', 'QA inspection')],
+  ih: [T('Elektrik Instandhaltung', 'Maintenance electrics')],
+  verwaltung: [T('Sachbearbeitung', 'Administration'), T('Empfang', 'Reception')],
+};
+{
+  let id = PERSONEN.length + 1;
+  let n = 0;
+  for (const a of ABTEILUNGEN) {
+    const da = PERSONEN.filter(p => p.abteilung === a.id).length;
+    for (let i = da; i < a.leute; i += 1) {
+      const vorname = VORNAMEN[(n * 7) % VORNAMEN.length]!;
+      const nachname = NACHNAMEN[n % NACHNAMEN.length]!;
+      const aufgaben = AUFGABE_JE[a.id] ?? [T('Mitarbeit', 'Staff')];
+      PERSONEN.push({
+        id,
+        vorname,
+        nachname,
+        kuerzel: `${vorname[0]}${nachname[0]}`,
+        abteilung: a.id,
+        aufgabe: aufgaben[n % aufgaben.length]!,
+        urlaub: 6 + ((n * 5) % 19),
+        konto: false,
+      });
+      id += 1;
+      n += 1;
+    }
+  }
+}
+
 export const person = (id: number): Person => PERSONEN.find(p => p.id === id) ?? PERSONEN[0]!;
 export const name = (id: number): string => {
   const p = person(id);
@@ -354,7 +477,7 @@ export const KUNDEN: Kunde[] = [
   },
   {
     id: 16,
-    name: 'Landkreis, Schulzentrum Grünfelden',
+    name: 'Landkreis Grünfelden, Hochbauamt',
     art: T('Öffentlicher Bau', 'Public building'),
     ort: 'Grünfelden',
     ansprechpartner: 'Frau Wolff',
@@ -429,7 +552,7 @@ export const kunde = (id: number): Kunde => KUNDEN.find(k => k.id === id) ?? KUN
 /** „Herr Lorenz" auf Englisch „Mr Lorenz". */
 export const ansprech = (k: Kunde, sp: 'de' | 'en'): string =>
   sp === 'en'
-    ? k.ansprechpartner.replace(/^Herr /, 'Mr ').replace(/^Frau /, 'Ms ')
+    ? (k.ansprechpartner ?? '').replace(/^Herr /, 'Mr ').replace(/^Frau /, 'Ms ')
     : k.ansprechpartner;
 
 export interface Lieferant {
@@ -827,19 +950,19 @@ export interface Auftrag {
 
 export const AUFTRAEGE: Auftrag[] = [
   {
-    nr: 'AU-26-041',
+    nr: 'AU-26-097',
     kunde: 1,
     gegenstand: T('Außentreppe verzinkt, 14 Stufen', 'External stair, galvanised, 14 steps'),
     angebot: 'AN-26-087',
   },
   {
-    nr: 'AU-26-042',
+    nr: 'AU-26-098',
     kunde: 2,
     gegenstand: T('Schweißbaugruppe Rahmen RF-200, 40 Stück', 'Welded frame RF-200, 40 pcs'),
     angebot: 'AN-26-089',
   },
   {
-    nr: 'AU-26-043',
+    nr: 'AU-26-099',
     kunde: 5,
     gegenstand: T(
       'Balkongeländer Edelstahl mit Glas, Haus C',
@@ -848,19 +971,19 @@ export const AUFTRAEGE: Auftrag[] = [
     angebot: 'AN-26-091',
   },
   {
-    nr: 'AU-26-044',
+    nr: 'AU-26-100',
     kunde: 16,
     gegenstand: T('Fluchttreppe Schulzentrum, Bauteil B', 'Escape stair, school centre, section B'),
     angebot: 'AN-26-093',
   },
   {
-    nr: 'AU-26-045',
+    nr: 'AU-26-101',
     kunde: 7,
     gegenstand: T('Vordach Showroom, 9 × 3 m', 'Showroom canopy, 9 × 3 m'),
     angebot: 'AN-26-096',
   },
   {
-    nr: 'AU-26-046',
+    nr: 'AU-26-102',
     kunde: 10,
     gegenstand: T(
       'Maschinenverkleidung, Kantteile, 120 Stück',
@@ -869,37 +992,37 @@ export const AUFTRAEGE: Auftrag[] = [
     angebot: 'AN-26-098',
   },
   {
-    nr: 'AU-26-047',
+    nr: 'AU-26-103',
     kunde: 11,
     gegenstand: T('Bühne mit Gitterrost, Pumpwerk Nord', 'Grating platform, north pumping station'),
     angebot: 'AN-26-101',
   },
   {
-    nr: 'AU-26-048',
+    nr: 'AU-26-104',
     kunde: 9,
     gegenstand: T('Treppe und Podest Sudhaus', 'Stair and landing, brewhouse'),
     angebot: 'AN-26-103',
   },
   {
-    nr: 'AU-26-049',
+    nr: 'AU-26-105',
     kunde: 25,
     gegenstand: T('Laserteile nach Zeichnung, Serie 3', 'Laser parts to drawing, batch 3'),
     angebot: 'AN-26-106',
   },
   {
-    nr: 'AU-26-050',
+    nr: 'AU-26-106',
     kunde: 21,
     gegenstand: T('Schiebetor Gerätehaus, 6 m', 'Sliding gate, fire station, 6 m'),
     angebot: 'AN-26-108',
   },
   {
-    nr: 'AU-26-051',
+    nr: 'AU-26-107',
     kunde: 14,
     gegenstand: T('Regalbühne Lager, 120 m²', 'Mezzanine floor, warehouse, 120 m²'),
     angebot: 'AN-26-111',
   },
   {
-    nr: 'AU-26-052',
+    nr: 'AU-26-108',
     kunde: 18,
     gegenstand: T('Wendeltreppe Garten, feuerverzinkt', 'Garden spiral stair, hot-dip galvanised'),
     angebot: 'AN-26-114',
@@ -946,10 +1069,10 @@ const MASCHINEN_ANFANG = MASCHINEN.map(m => ({ ...m }));
 /** Erfundene Rufnummern im Ortsnetz der Firma, aus der Kennung abgeleitet. */
 const rufnummer = (n: number) => `0761 000 ${String(1000 + ((n * 7919) % 9000)).slice(0, 4)}`;
 
-export const kundenNr = (k: Kunde) => `K-${10000 + k.id * 7}`;
+export const kundenNr = (k: Kunde) => `K-${10000 + ((k.id * 3571) % 8999)}`;
 export const kundeTelefon = (k: Kunde) => k.telefon ?? rufnummer(k.id * 3 + 11);
 export const kundeZiel = (k: Kunde) => k.zahlungsziel ?? ([1, 5, 12, 18].includes(k.id) ? 14 : 30);
-export const lieferantNr = (l: Lieferant) => `L-${70000 + l.id * 11}`;
+export const lieferantNr = (l: Lieferant) => `L-${70000 + ((l.id * 6151) % 9973)}`;
 export const lieferantTelefon = (l: Lieferant) => l.telefon ?? rufnummer(l.id * 5 + 2);
 
 /** Erfundene Anschriften in den Orten der Gegend (J55); Postleitzahlen der Firma nahe. */

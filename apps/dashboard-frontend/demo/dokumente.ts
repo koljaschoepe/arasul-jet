@@ -201,13 +201,23 @@ const datum = (iso: string | null | undefined, sp: Sprache) =>
 const zeile = () => `${FIRMA.strasse} · ${FIRMA.plz} ${FIRMA.ort} · Tel. ${FIRMA.telefon}`;
 const W = (sp: Sprache, de: string, en: string) => (sp === 'en' ? en : de);
 
+/** „Sehr geehrter Herr Lorenz" aus „Herr Lorenz"; ohne Anrede die allgemeine. */
+function anrede(wer: string | undefined, sp: Sprache): string {
+  if (!wer) return sp === 'en' ? 'Dear Sir or Madam' : 'Sehr geehrte Damen und Herren';
+  if (sp === 'en') return /^(Mr|Ms) /.test(wer) ? `Dear ${wer}` : 'Dear Sir or Madam';
+  if (wer.startsWith('Herr ')) return `Sehr geehrter ${wer}`;
+  if (wer.startsWith('Frau ')) return `Sehr geehrte ${wer}`;
+  return 'Sehr geehrte Damen und Herren';
+}
+
 function angebotPdf(e: Eintrag, sp: Sprache): Seite {
   const s = new Seite();
   const f = e.felder;
   const k = kunde(Number(f.kunde));
   briefkopf(s, FIRMA.name, zeile());
   s.text(L, 735, k.name, 10.5);
-  s.text(L, 720, W(sp, `z. Hd. ${k.ansprechpartner}`, `Attn. ${ansprech(k, sp)}`), 10);
+  if (k.ansprechpartner)
+    s.text(L, 720, W(sp, `z. Hd. ${k.ansprechpartner}`, `Attn. ${ansprech(k, sp)}`), 10);
   const [strasse, ort] = kundeAnschrift(k).split(', ');
   s.text(L, 705, strasse ?? '', 10);
   s.text(L, 691, ort ?? k.ort, 10);
@@ -229,8 +239,8 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
     630,
     W(
       sp,
-      'Sehr geehrte Damen und Herren, gern bieten wir Ihnen wie folgt an:',
-      'Dear Sir or Madam, we are pleased to quote as follows:'
+      `${anrede(k.ansprechpartner, 'de')}, gern bieten wir Ihnen wie folgt an:`,
+      `${anrede(ansprech(k, 'en'), 'en')}, we are pleased to quote as follows:`
     ),
     10
   );

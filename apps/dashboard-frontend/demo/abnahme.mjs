@@ -111,6 +111,14 @@ function server() {
 }
 
 // ── Hilfen ──────────────────────────────────────────────────────────────────
+/** Der Pfad eines Rahmens; während er lädt, ist seine Adresse leer. */
+const pfadVon = u => {
+  try {
+    return new URL(u).pathname;
+  } catch {
+    return '';
+  }
+};
 const warte = ms => new Promise(r => setTimeout(r, ms));
 
 async function ueberlauf(seite, wo) {
@@ -124,7 +132,7 @@ async function ueberlauf(seite, wo) {
     const r = await rahmen
       .evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
       .catch(() => 0);
-    if (r > 1) rot(`${wo}: App ${new URL(rahmen.url()).pathname} ${r} px zu breit`);
+    if (r > 1) rot(`${wo}: App ${pfadVon(rahmen.url())} ${r} px zu breit`);
   }
 }
 
@@ -136,7 +144,7 @@ const saetze = new Set();
 async function deutscheReste(seite, wo) {
   const funde = [];
   for (const rahmen of seite.frames()) {
-    const pfad = new URL(rahmen.url()).pathname;
+    const pfad = pfadVon(rahmen.url());
     // Die Fach-Apps sind selbst zweisprachig; Daten wie Namen bleiben.
     if (
       /^\/apps\/(angebote|wareneingang|wartungsplan|pruefprotokolle|urlaub|stammdaten)\//.test(pfad)
@@ -169,7 +177,7 @@ async function deutscheReste(seite, wo) {
     for (const satz of liste) {
       if (
         DEUTSCH.test(satz) &&
-        !/Kerschner|Grünfelden|Yıldız|[Mm]üller|Präzision|Hagedorn|Mühlbach|Möbelwerk|Wärmetechnik|Landkreis|Eschenau|Rieger|Brandl|Schulzentrum/.test(
+        !/Kerschner|Grünfelden|Yıldız|[Mm]üller|Präzision|Hagedorn|Mühlbach|Möbelwerk|Wärmetechnik|Landkreis|Eschenau|Rieger|Brandl|Schulzentrum|Krüger|Köhler|Möller|Weiß|Böhm|Hochbauamt/.test(
           satz
         )
       ) {
@@ -198,7 +206,7 @@ async function geheZu(seite, pfad) {
 
 async function rahmenVon(seite, app) {
   for (let i = 0; i < 60; i += 1) {
-    const f = seite.frames().find(x => new URL(x.url()).pathname.startsWith(`/apps/${app}/`));
+    const f = seite.frames().find(x => pfadVon(x.url()).startsWith(`/apps/${app}/`));
     if (f) {
       const da = await f
         .locator('[data-testid^="fa-zeile-"], [data-testid="werkstatt-seite"], main, h1')
@@ -543,7 +551,7 @@ async function weg(browser, basis, sprache, breite) {
     const r = await fetch('/apps/angebote/api/daten');
     return (await r.json()).data.eintraege.length;
   });
-  if (nachher !== 170) rot(`${wo}: nach dem Zurücksetzen ${nachher} statt 170 Angebote`);
+  if (nachher !== 320) rot(`${wo}: nach dem Zurücksetzen ${nachher} statt 320 Angebote`);
 
   gruen(`${wo}: Weg vollständig`);
   await kontext.close();

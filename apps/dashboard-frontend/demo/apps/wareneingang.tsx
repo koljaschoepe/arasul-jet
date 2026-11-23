@@ -101,7 +101,7 @@ const def: AppDef = {
       anzeigen: w => {
         const a = auftrag(String(w));
         return a ? (
-          <StammLink art="kunde" id={a.kunde}>
+          <StammLink art="auftrag" id={a.nr}>
             {a.nr} · {kunde(a.kunde).name}, {tx(a.gegenstand)}
           </StammLink>
         ) : (

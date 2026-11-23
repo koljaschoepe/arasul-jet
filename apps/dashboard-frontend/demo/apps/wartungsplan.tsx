@@ -309,7 +309,8 @@ const def: AppDef = {
           e,
           von: tag,
           bis: tag,
-          text: `${String(e.felder.maschine)} ${artText(e.felder.art)}`,
+          // Wie auf der Startseite: die Aufgabe, nicht nur die Art.
+          text: `${String(e.felder.maschine)} ${tx(e.felder.aufgabe) || artText(e.felder.art)}`,
           ton:
             e.stand === 'erledigt'
               ? ('erledigt' as const)

@@ -83,7 +83,8 @@ const wann = (iso: string) => {
   if (min < 60) return t(`vor ${min} Min.`, `${min} min ago`);
   const std = Math.round(min / 60);
   if (std < 24) return t(`vor ${std} Std.`, `${std} h ago`);
-  const d = Math.round(std / 24);
+  // Abgerundet wie „wartet seit …" in „Für Sie": sonst stünde dort 2, hier 3.
+  const d = Math.floor(std / 24);
   return d === 1 ? t('gestern', 'yesterday') : t(`vor ${d} Tagen`, `${d} days ago`);
 };
 
@@ -228,7 +229,6 @@ function Oben() {
       e => tage(e.felder.eingang ?? e.felder.erwartet) === bisWerktag
     );
     const schonDa = heuteErwartet.filter(e => e.felder.eingang);
-    const zuPruefen = d.wareneingang.filter(e => e.stand === 'eingegangen');
     const faellig = d.wartungsplan.filter(
       e => e.stand !== 'erledigt' && tage(e.felder.faellig) <= 7
     );
@@ -265,8 +265,8 @@ function Oben() {
             }
             wert={String(heuteErwartet.length)}
             fussnote={t(
-              `${schonDa.length} da, ${zuPruefen.length} ${zuPruefen.length === 1 ? 'wartet' : 'warten'} auf Prüfung`,
-              `${schonDa.length} in, ${zuPruefen.length} awaiting check`
+              `${schonDa.length} da, ${heuteErwartet.length - schonDa.length} erwartet`,
+              `${schonDa.length} in, ${heuteErwartet.length - schonDa.length} expected`
             )}
             verlauf={proWoche(d.wareneingang, e =>
               e.felder.eingang ? String(e.felder.eingang) : null

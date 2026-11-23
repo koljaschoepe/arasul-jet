@@ -362,11 +362,11 @@ export function anfangsZustand(jetzt = Date.now()): DemoZustand {
         jetzt,
         {
           bild: bildschirmfoto('Prüfprotokolle', [
-            'PP-26-250  AU-26-049  Pfosten mit Fußplatte   Maßprüfung',
-            'PP-26-249  AU-26-048  Treppenwange rechts   Sichtprüfung',
-            'PP-26-248  AU-26-047  Kantteil Verkleidung   Schichtdicke',
-            'PP-26-247  AU-26-046  Konsole Vordach   Sichtprüfung',
-            'PP-26-246  AU-26-045  Torflügel   Abnahme vor Ort',
+            'PP-26-344  AU-26-105  Pfosten mit Fußplatte   Maßprüfung',
+            'PP-26-343  AU-26-104  Treppenwange rechts   Sichtprüfung',
+            'PP-26-342  AU-26-103  Kantteil Verkleidung   Schichtdicke',
+            'PP-26-341  AU-26-102  Konsole Vordach   Sichtprüfung',
+            'PP-26-340  AU-26-101  Torflügel   Abnahme vor Ort',
           ]),
           markierung: { x: 0.12, y: 0.44, breite: 0.2, hoehe: 0.42 },
         }

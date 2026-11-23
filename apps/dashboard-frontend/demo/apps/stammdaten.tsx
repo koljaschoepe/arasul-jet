@@ -35,6 +35,7 @@ import {
 } from '@marken';
 import {
   Building2,
+  ClipboardList,
   CalendarDays,
   ClipboardCheck,
   Download,
@@ -53,7 +54,6 @@ import {
   ABTEILUNGEN,
   ARTIKEL,
   AUFTRAEGE,
-  FIRMA,
   KUNDEN,
   LIEFERANTEN,
   MASCHINEN,
@@ -83,12 +83,16 @@ import {
   SPRACHE,
   t,
   tageBis,
+  stammOeffnen,
   tx,
   vorgangOeffnen,
   zahl,
 } from './gemeinsam';
 
-type Art = 'kunden' | 'lieferanten' | 'maschinen' | 'personen';
+type Art = 'kunden' | 'lieferanten' | 'maschinen' | 'personen' | 'auftraege';
+/** Was sich hier anlegen und ändern lässt. */
+type Pflegbar = 'kunden' | 'lieferanten' | 'maschinen';
+const pflegbar = (a: Art): a is Pflegbar => a !== 'personen' && a !== 'auftraege';
 type Gewaehlt = { art: Art; id: string } | null;
 
 const SYMBOL: Record<AppKennung, LucideIcon> = {
@@ -177,9 +181,17 @@ function vorgaenge(b: Bestand, g: NonNullable<Gewaehlt>): Vorgang[] {
   const mit = (app: AppKennung, pruefe: (e: Eintrag) => boolean) => {
     for (const e of b[app]) if (pruefe(e)) aus.push(vorgangVon(app, e));
   };
-  if (g.art === 'kunden') {
+  if (g.art === 'auftraege') {
+    mit('angebote', e => e.felder.auftrag === g.id);
+    mit('wareneingang', e => e.felder.auftrag === g.id);
+    mit('pruefprotokolle', e => e.felder.auftrag === g.id);
+  } else if (g.art === 'kunden') {
     const id = Number(g.id);
-    const auftraege = new Set(AUFTRAEGE.filter(a => a.kunde === id).map(a => a.nr));
+    const auftraege = new Set(
+      b.angebote
+        .filter(e => Number(e.felder.kunde) === id && e.felder.auftrag)
+        .map(e => String(e.felder.auftrag))
+    );
     mit('angebote', e => Number(e.felder.kunde) === id);
     mit('wareneingang', e => auftraege.has(String(e.felder.auftrag)));
     mit('pruefprotokolle', e => auftraege.has(String(e.felder.auftrag)));
@@ -256,6 +268,41 @@ function personZahlen(b: Bestand, p: Person) {
   return { weg, geplant };
 }
 
+// ── Aufträge ────────────────────────────────────────────────────────────────
+
+interface AuftragZeile {
+  nr: string;
+  kunde: number;
+  gegenstand: string;
+  wert: number;
+  seit: string;
+  /** In Fertigung: einer der zwölf laufenden Aufträge. */
+  laufend: boolean;
+  angebot: Eintrag;
+}
+
+const kundeName = (id: number) => KUNDEN.find(k => k.id === id)?.name ?? '–';
+
+/** Jedes gewonnene Angebot ist ein Auftrag; die zwölf jüngsten laufen noch. */
+function auftraegeAus(b: Bestand): AuftragZeile[] {
+  const laufend = new Set(AUFTRAEGE.map(a => a.nr));
+  return b.angebote
+    .filter(e => e.stand === 'angenommen' && e.felder.auftrag)
+    .map(e => {
+      const an = e.verlauf.find(s => /^(Angenommen|Accepted)/.test(tx(s.text)));
+      return {
+        nr: String(e.felder.auftrag),
+        kunde: Number(e.felder.kunde),
+        gegenstand: tx(e.felder.betreff),
+        wert: Number(e.felder.betrag) * (1 - (Number(e.felder.rabatt) || 0) / 100),
+        seit: (an?.am ?? String(e.felder.datum)).slice(0, 10),
+        laufend: laufend.has(String(e.felder.auftrag)),
+        angebot: e,
+      };
+    })
+    .sort((x, y) => y.seit.localeCompare(x.seit) || y.nr.localeCompare(x.nr));
+}
+
 // ── Die App ─────────────────────────────────────────────────────────────────
 
 interface Daten {
@@ -289,6 +336,7 @@ function stammAuftragLesen(): { art: string; id: string } | null {
   }
 }
 const AUS_ART: Record<string, Art> = {
+  auftrag: 'auftraege',
   kunde: 'kunden',
   lieferant: 'lieferanten',
   maschine: 'maschinen',
@@ -305,7 +353,7 @@ function useEng(): boolean {
   return eng;
 }
 
-const NEU_TEXT: Record<Exclude<Art, 'personen'>, string> = {
+const NEU_TEXT: Record<Pflegbar, string> = {
   kunden: t('Kunde anlegen', 'New customer'),
   lieferanten: t('Lieferant anlegen', 'New supplier'),
   maschinen: t('Maschine anlegen', 'New machine'),
@@ -315,9 +363,7 @@ function StammApp() {
   const [daten, setDaten] = useState<Daten | null>(null);
   const [reiter, setReiter] = useState<Art>('kunden');
   const [gewaehlt, setGewaehlt] = useState<Gewaehlt>(null);
-  const [formular, setFormular] = useState<{ art: Exclude<Art, 'personen'>; satz: unknown } | null>(
-    null
-  );
+  const [formular, setFormular] = useState<{ art: Pflegbar; satz: unknown } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const eng = useEng();
 
@@ -520,7 +566,75 @@ function StammApp() {
     },
   ];
 
+  const auftraege = useMemo(() => (b ? auftraegeAus(b) : []), [b]);
+  const auftragSpalten: Spalte<AuftragZeile>[] = [
+    {
+      schluessel: 'nr',
+      titel: t('Auftrag', 'Order'),
+      breite: '7rem',
+      wert: a => a.nr,
+      zelle: a => <Mono>{a.nr}</Mono>,
+    },
+    {
+      schluessel: 'kunde',
+      titel: t('Kunde', 'Customer'),
+      breite: '26%',
+      kuerzen: true,
+      wert: a => kundeName(a.kunde),
+      zelle: a => kundeName(a.kunde),
+    },
+    {
+      schluessel: 'gegenstand',
+      titel: t('Gegenstand', 'Subject'),
+      kuerzen: true,
+      wert: a => a.gegenstand,
+      zelle: a => a.gegenstand,
+    },
+    {
+      schluessel: 'wert',
+      titel: t('Wert', 'Value'),
+      ausrichtung: 'rechts',
+      breite: '8rem',
+      wert: a => a.wert,
+      zelle: a => <Mono>{euro(a.wert)}</Mono>,
+    },
+    {
+      schluessel: 'seit',
+      titel: t('Seit', 'Since'),
+      breite: '6.5rem',
+      wert: a => a.seit,
+      zelle: a => <Mono>{datum(a.seit)}</Mono>,
+      inKarte: false,
+    },
+    {
+      schluessel: 'stand',
+      titel: t('Stand', 'Status'),
+      breite: '8rem',
+      wert: a => (a.laufend ? 0 : 1),
+      zelle: a =>
+        a.laufend ? (
+          <Badge variant="warning">{t('in Fertigung', 'in production')}</Badge>
+        ) : (
+          <Badge variant="success">{t('abgeschlossen', 'completed')}</Badge>
+        ),
+      inKarteOben: true,
+    },
+  ];
+
   const personenSpalten: Spalte<Person>[] = [
+    {
+      schluessel: 'konto',
+      titel: 'Arasul',
+      breite: '5.5rem',
+      wert: p => (p.konto === false ? 0 : 1),
+      zelle: p =>
+        p.konto === false ? (
+          <span className="st-leise">–</span>
+        ) : (
+          <Badge variant="outline">{t('Konto', 'Account')}</Badge>
+        ),
+      inKarte: false,
+    },
     {
       schluessel: 'name',
       titel: t('Name', 'Name'),
@@ -574,6 +688,7 @@ function StammApp() {
     lieferanten: LIEFERANTEN.length,
     maschinen: MASCHINEN.length,
     personen: PERSONEN.length,
+    auftraege: auftraege.length,
   };
 
   const exportieren = () => {
@@ -652,17 +767,16 @@ function StammApp() {
     />
   );
 
-  const neuKnopf =
-    reiter !== 'personen' ? (
-      eng ? (
-        <Werkzeug
-          symbol={<Icon symbol={Plus} />}
-          beschriftung={NEU_TEXT[reiter]}
-          onClick={() => setFormular({ art: reiter, satz: null })}
-          data-testid="st-neu"
-        />
-      ) : null
-    ) : null;
+  const neuKnopf = pflegbar(reiter) ? (
+    eng ? (
+      <Werkzeug
+        symbol={<Icon symbol={Plus} />}
+        beschriftung={NEU_TEXT[reiter]}
+        onClick={() => setFormular({ art: reiter, satz: null })}
+        data-testid="st-neu"
+      />
+    ) : null
+  ) : null;
 
   return (
     <div className={eng ? 'fa-seite fa-eng' : 'fa-seite'}>
@@ -672,8 +786,8 @@ function StammApp() {
           eng
             ? undefined
             : t(
-                `Kunden, Lieferanten, Maschinen und Personen der Firma, jeweils mit allen Vorgängen aus den Apps.`,
-                `The company’s customers, suppliers, machines and people, each with all its records from the apps.`
+                `Kunden, Aufträge, Lieferanten, Maschinen und Personen der Firma, jeweils mit allen Vorgängen aus den Apps.`,
+                `The company’s customers, orders, suppliers, machines and people, each with all its records from the apps.`
               )
         }
         werkzeuge={
@@ -687,7 +801,7 @@ function StammApp() {
           </>
         }
         aktionen={
-          !eng && reiter !== 'personen' ? (
+          !eng && pflegbar(reiter) ? (
             <Button
               variant="solid"
               onClick={() => setFormular({ art: reiter, satz: null })}
@@ -713,6 +827,7 @@ function StammApp() {
           {(
             [
               ['kunden', t('Kunden', 'Customers'), Building2],
+              ['auftraege', t('Aufträge', 'Orders'), ClipboardList],
               ['lieferanten', t('Lieferanten', 'Suppliers'), Truck],
               ['maschinen', t('Maschinen', 'Machines'), Factory],
               ['personen', t('Personen', 'People'), Users],
@@ -728,6 +843,9 @@ function StammApp() {
         <TabsContent value="kunden" className="fa-tab">
           {liste('kunden', KUNDEN, kundenSpalten, k => String(k.id))}
         </TabsContent>
+        <TabsContent value="auftraege" className="fa-tab">
+          {liste('auftraege', auftraege, auftragSpalten, a => a.nr)}
+        </TabsContent>
         <TabsContent value="lieferanten" className="fa-tab">
           {liste('lieferanten', LIEFERANTEN, lieferantenSpalten, l => String(l.id))}
         </TabsContent>
@@ -737,8 +855,8 @@ function StammApp() {
         <TabsContent value="personen" className="fa-tab">
           <p className="fa-satz st-satz">
             {t(
-              `${PERSONEN.length} von ${FIRMA.leute} Leuten arbeiten mit Arasul und stehen hier. Konten und Rechte pflegt die Verwaltung.`,
-              `${PERSONEN.length} of ${FIRMA.leute} people work with Arasul and are listed here. Accounts and rights are managed in Administration.`
+              `Alle ${PERSONEN.length} Leute der Firma; ${PERSONEN.filter(p => p.konto !== false).length} davon arbeiten mit Arasul. Konten und Rechte pflegt die Verwaltung.`,
+              `All ${PERSONEN.length} people of the company; ${PERSONEN.filter(p => p.konto !== false).length} of them work with Arasul. Accounts and rights are managed in Administration.`
             )}
           </p>
           {liste('personen', PERSONEN, personenSpalten, p => String(p.id))}
@@ -807,7 +925,7 @@ function Einzelansicht({
   b: Bestand | undefined;
   g: Gewaehlt;
   schliessen: () => void;
-  bearbeiten: (art: Exclude<Art, 'personen'>, satz: unknown) => void;
+  bearbeiten: (art: Pflegbar, satz: unknown) => void;
 }) {
   const [letzt, setLetzt] = useState<Gewaehlt>(g);
   useEffect(() => {
@@ -852,7 +970,7 @@ function Einzelansicht({
         [
           t('Ansprechpartner', 'Contact'),
           SPRACHE === 'en'
-            ? k.ansprechpartner.replace(/^Herr /, 'Mr ').replace(/^Frau /, 'Ms ')
+            ? (k.ansprechpartner ?? '').replace(/^Herr /, 'Mr ').replace(/^Frau /, 'Ms ')
             : k.ansprechpartner,
         ],
         [t('Telefon', 'Phone'), <Mono key="t">{kundeTelefon(k)}</Mono>],
@@ -995,6 +1113,94 @@ function Einzelansicht({
         </>
       );
     }
+  } else if (b && x?.art === 'auftraege') {
+    const a = auftraegeAus(b).find(y => y.nr === x.id);
+    if (a) {
+      const we = b.wareneingang.filter(e => e.felder.auftrag === a.nr);
+      const pp = b.pruefprotokolle.filter(e => e.felder.auftrag === a.nr);
+      const mitErgebnis = pp.filter(e => e.felder.ergebnis);
+      oben = (
+        <>
+          <Mono>{a.nr}</Mono>{' '}
+          {a.laufend ? (
+            <Badge variant="warning">{t('in Fertigung', 'in production')}</Badge>
+          ) : (
+            <Badge variant="success">{t('abgeschlossen', 'completed')}</Badge>
+          )}
+        </>
+      );
+      titel = a.gegenstand;
+      neben = `${kundeName(a.kunde)} · ${t('seit', 'since')} ${datum(a.seit)}`;
+      zahlen = [
+        {
+          beschriftung: t('Auftragswert', 'Order value'),
+          wert: euro(a.wert),
+          fussnote: t('netto, aus dem Angebot', 'net, from the quote'),
+        },
+        {
+          beschriftung: t('Material', 'Material'),
+          wert: String(we.length),
+          fussnote: t(
+            `Lieferungen, ${we.filter(e => !e.felder.eingang).length} erwartet`,
+            `deliveries, ${we.filter(e => !e.felder.eingang).length} expected`
+          ),
+        },
+        {
+          beschriftung: t('Prüfungen', 'Inspections'),
+          wert: String(pp.length),
+          fussnote: mitErgebnis.length
+            ? t(
+                `${prozent(mitErgebnis.filter(e => e.felder.ergebnis === 'io').length, mitErgebnis.length)} % in Ordnung`,
+                `${prozent(mitErgebnis.filter(e => e.felder.ergebnis === 'io').length, mitErgebnis.length)}% passed`
+              )
+            : t('noch keine', 'none yet'),
+        },
+      ];
+      felder = [
+        [
+          t('Kunde', 'Customer'),
+          <button
+            key="k"
+            type="button"
+            className="fa-stammlink"
+            onClick={() => stammOeffnen('kunde', a.kunde)}
+          >
+            {kundeName(a.kunde)}
+          </button>,
+        ],
+        [
+          t('Aus Angebot', 'From quote'),
+          <button
+            key="a"
+            type="button"
+            className="fa-stammlink"
+            onClick={() => vorgangOeffnen('angebote', a.angebot.id)}
+          >
+            {a.angebot.nr}
+          </button>,
+        ],
+        [t('Gegenstand', 'Subject'), a.gegenstand],
+        [t('Auftragswert', 'Order value'), <Mono key="w">{euro(a.wert)}</Mono>],
+        [t('Angenommen am', 'Accepted on'), datum(a.seit)],
+        [t('Ausführung', 'Execution'), t('EN 1090, EXC2', 'EN 1090, EXC2')],
+      ];
+      fuss = a.laufend ? (
+        <>
+          <Button
+            variant="solid"
+            size="sm"
+            onClick={() => neuIn('pruefprotokolle', { auftrag: a.nr })}
+          >
+            <Icon symbol={Plus} />
+            {t('Prüfung erfassen', 'Record inspection')}
+          </Button>
+          <Button size="sm" onClick={() => neuIn('wareneingang', { auftrag: a.nr })}>
+            <Icon symbol={Plus} />
+            {t('Material erfassen', 'Record material')}
+          </Button>
+        </>
+      ) : null;
+    }
   } else if (b && x?.art === 'personen') {
     const p = PERSONEN.find(y => String(y.id) === x.id);
     if (p) {
@@ -1122,7 +1328,7 @@ interface FeldBeschreibung {
   aus: (satz: Record<string, unknown>) => string;
 }
 
-const FORMULARE: Record<Exclude<Art, 'personen'>, FeldBeschreibung[]> = {
+const FORMULARE: Record<Pflegbar, FeldBeschreibung[]> = {
   kunden: [
     { key: 'name', titel: t('Name', 'Name'), pflicht: true, aus: s => String(s.name ?? '') },
     {
@@ -1197,7 +1403,7 @@ function StammFormular({
   schliessen,
   gespeichert,
 }: {
-  art: Exclude<Art, 'personen'>;
+  art: Pflegbar;
   satz: unknown;
   schliessen: () => void;
   gespeichert: (id: string, neu: boolean) => void;

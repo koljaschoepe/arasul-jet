@@ -291,7 +291,7 @@ export function vorgangOeffnen(app: string, id: number): void {
   geheZu(`/workspace/app/${app}?freigabe=${id}`);
 }
 
-export type StammArt = 'kunde' | 'lieferant' | 'maschine' | 'person';
+export type StammArt = 'kunde' | 'lieferant' | 'maschine' | 'person' | 'auftrag';
 
 /**
  * Einen Stammsatz in den Stammdaten öffnen. Die Shell trägt nur die Nummer
