@@ -383,9 +383,11 @@ async function weg(browser, basis, sprache, breite) {
       rot(`${wo} ${app}: keine Sammelleiste nach zwei gewählten`);
     await rahmen.getByTestId('fa-wahl-alle').click();
     await rahmen.getByTestId('fa-wahl-alle').click();
-    // Fokus und Zeiger weg, sonst sieht das leere Kästchen im Bild gewählt aus.
+    // Fokus und Zeiger weg und den Farbübergang der Kästchen abwarten, sonst
+    // sieht ein leeres Kästchen im Bild gewählt aus (Prüfer J55).
     await rahmen.evaluate(() => document.activeElement?.blur());
     await seite.mouse.move(0, 0);
+    await warte(400);
     const zeilen = await rahmen.locator('[data-testid^="fa-zeile-"]').count();
     if (zeilen < 30) rot(`${wo} ${app}: nur ${zeilen} Zeilen`);
     await ueberlaufApp(seite, rahmen, `${wo} ${app}`);

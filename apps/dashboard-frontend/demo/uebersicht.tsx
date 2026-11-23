@@ -321,7 +321,7 @@ function Oben() {
           <Kennzahl
             beschriftung={t('Meldungen', 'Feedback')}
             wert={String(meldungen.length)}
-            fussnote={t('Rückmeldungen zu den Apps, offen', 'feedback on the apps, open')}
+            fussnote={t('Rückmeldungen zu den Apps, offen', 'on the apps, still open')}
           />
         </Kachel>
       </div>
