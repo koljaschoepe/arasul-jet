@@ -1142,8 +1142,8 @@ function Einzelansicht({
           beschriftung: t('Material', 'Material'),
           wert: String(we.length),
           fussnote: t(
-            `Lieferungen, ${we.filter(e => !e.felder.eingang).length} erwartet`,
-            `deliveries, ${we.filter(e => !e.felder.eingang).length} expected`
+            `${we.length === 1 ? 'Lieferung' : 'Lieferungen'}, ${we.filter(e => !e.felder.eingang).length} erwartet`,
+            `${we.length === 1 ? 'delivery' : 'deliveries'}, ${we.filter(e => !e.felder.eingang).length} expected`
           ),
         },
         {

@@ -377,10 +377,13 @@ const def: AppDef = {
             beschriftung: t('Anteil Dienstleister', 'Share of providers'),
             wert: String(prozent(stunden(extern), stunden(erledigt))),
             einheit: '%',
-            fussnote: t(`${extern.length} Einsätze`, `${extern.length} jobs`),
+            fussnote: t(
+              `der Stunden, ${extern.length} Einsätze`,
+              `of hours, ${extern.length} jobs`
+            ),
           },
           {
-            beschriftung: t('Noch offen', 'Still open'),
+            beschriftung: t('Geplant', 'Planned'),
             wert: String(geplant.length),
             fussnote: t(
               `bis ${datum(z.bis)}, ${geplant.filter(ueberfaellig).length} überfällig`,

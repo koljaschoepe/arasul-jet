@@ -232,8 +232,45 @@ const KLEIN = /Privat|Verein|Gastronomie|Landwirtschaft|Gewerbe|Handel/;
 function passt(art: string, [g, , max]: [Text, number, number]): boolean {
   if (INDUSTRIE.test(art)) return TEILE.test(g.de) || /Bühne|Halle|Stahlstützen|Absturz/.test(g.de);
   if (KLEIN.test(art)) return !TEILE.test(g.de) && max <= 52000;
+  if (/Halle/.test(g.de)) return /Bauunternehmen|Kommune/.test(art);
+  if (/Parkhaus/.test(g.de)) return /Bauunternehmen|Kommune|Bauträger|Öffentlicher Bau/.test(art);
   return !TEILE.test(g.de);
 }
+
+/** Maße und Mengen im Betreff wechseln, damit nicht drei Angebote gleich heißen (J55). */
+function abwandeln(g: Text, r: { eins: <X>(l: readonly X[]) => X }): Text {
+  const tausch: [RegExp, string[]][] = [
+    [/24 × 18 m/, ['24 × 18 m', '30 × 20 m', '36 × 24 m', '18 × 12 m']],
+    [/3 Felder|3 bays/, ['3', '4', '6']],
+    [/14 Stufen|14 steps/, ['11', '14', '16', '18']],
+    [/48 m/, ['36 m', '48 m', '64 m', '90 m']],
+    [/4 × 2 m/, ['3 × 1,5 m', '4 × 2 m', '6 × 2,5 m']],
+    [/, 6 m/, [', 5 m', ', 6 m', ', 8 m']],
+    [/12 Balkone|12 balconies/, ['8', '12', '16', '24']],
+    [/4 Ebenen|4 levels/, ['3', '4', '5']],
+  ];
+  for (const [muster, werte] of tausch) {
+    if (!muster.test(g.de)) continue;
+    const w = r.eins(werte);
+    if (/^\d+$/.test(w)) {
+      const ersetzen = (t: string) =>
+        t.replace(/\d+(?= (Felder|bays|Stufen|steps|Balkone|balconies|Ebenen|levels))/, w);
+      return T(ersetzen(g.de), ersetzen(g.en));
+    }
+    return T(g.de.replace(muster, w), g.en.replace(muster, w.replace(',', '.')));
+  }
+  return g;
+}
+
+/** Wo in einem Werk gebaut wird. */
+const LINIEN: Text[] = [
+  T('Linie 4', 'line 4'),
+  T('Montagehalle', 'assembly hall'),
+  T('Werk 2', 'plant 2'),
+  T('Versand', 'dispatch'),
+  T('Lackiererei', 'paint shop'),
+  T('Prüffeld', 'test bay'),
+];
 
 /** Wo gebaut wird: damit nicht drei Angebote „Vordach Eingang" heißen. */
 const OBJEKTE: Text[] = [
@@ -319,7 +356,19 @@ function angebote(jetzt: number): Eintrag[] {
       r.z() < 0.55
         ? r.eins(OBJEKTE)
         : null;
-    const gegenstand = objekt ? T(`${grund.de}, ${objekt.de}`, `${grund.en}, ${objekt.en}`) : grund;
+    const art_ = abwandeln(grund, r);
+    // Die Industrie bestellt nach Zeichnung oder für eine Linie (J55).
+    const zusatz =
+      objekt ??
+      (INDUSTRIE.test(k.art.de)
+        ? TEILE.test(grund.de)
+          ? (() => {
+              const z = `Z-${r.ganz(2100, 4899)}`;
+              return T(`Zeichnung ${z}`, `drawing ${z}`);
+            })()
+          : r.eins(LINIEN)
+        : null);
+    const gegenstand = zusatz ? T(`${art_.de}, ${zusatz.de}`, `${art_.en}, ${zusatz.en}`) : art_;
     const betrag = Math.round((min + r.z() * (max - min)) / 10) * 10;
     let stand: string;
     // Ein gutes Drittel wird gewonnen; was nach sechs Wochen nicht
@@ -426,7 +475,8 @@ function angebote(jetzt: number): Eintrag[] {
     const alt = alter[i]!;
     const wer = Number(e.felder.bearbeiter);
     const verlauf: Schritt[] = [
-      schritt(alt * 24 + 6, wer, T('Angebot angelegt', 'Quote created'), jetzt),
+      // Heute angelegt heißt: vor einer Stunde, nicht am Freitag (Prüfer J55).
+      schritt(alt === 0 ? 1 : alt * 24 + 6, wer, T('Angebot angelegt', 'Quote created'), jetzt),
     ];
     if (e.stand === 'freigabe') {
       verlauf.push(
@@ -732,7 +782,12 @@ function wartungsplan(jetzt: number): Eintrag[] {
   );
   for (let i = 0; i < 40; i += 1) {
     const maschine = MASCHINEN[i % MASCHINEN.length]!;
-    const [art, was, intervall] = r.eins(WARTUNG_ARTEN);
+    // Kalibriert werden Maschinen, die messen oder Maß halten; ein Kompressor nicht.
+    const gezogen = r.eins(WARTUNG_ARTEN);
+    const [art, was, intervall] =
+      gezogen[0] === 'kalibrierung' && !/^(LS|KP|SG|RB)/.test(maschine.id)
+        ? WARTUNG_ARTEN[1]!
+        : gezogen;
     const abstand = abstaende[i]!;
     let stand: string;
     if (abstand < -6) stand = 'erledigt';
