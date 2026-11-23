@@ -207,8 +207,8 @@ const def: AppDef = {
         wert: euro(offene.reduce((s, e) => s + netto(e, ctx), 0)),
         fussnote: liste.some(abgelaufen)
           ? t(
-              `${offene.length} offen, ${liste.filter(abgelaufen).length} abgelaufen`,
-              `${offene.length} open, ${liste.filter(abgelaufen).length} expired`
+              `${offene.length} offen, dazu ${liste.filter(abgelaufen).length} abgelaufen`,
+              `${offene.length} open, plus ${liste.filter(abgelaufen).length} expired`
             )
           : t(`${offene.length} Angebote offen`, `${offene.length} quotes open`),
         verlauf: monate.map(m => Number(m.wert)),

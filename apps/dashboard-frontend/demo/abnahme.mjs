@@ -222,7 +222,8 @@ async function rahmenVon(seite, app) {
 
 /** Was die Abnahme einträgt: so, wie es im Betrieb stünde. */
 const TEXTE = {
-  'feld-betreff': 'Treppengeländer Rathaus, Edelstahl',
+  'feld-betreff': 'Treppengeländer Treppenhaus Nord, Edelstahl',
+  'feld-naht': 'N7',
   'feld-bauteil': 'Podest Treppe Nord',
   'feld-aufgabe': 'Hydraulikfilter wechseln',
   'feld-lieferschein': 'LS 48213',
@@ -382,6 +383,9 @@ async function weg(browser, basis, sprache, breite) {
       rot(`${wo} ${app}: keine Sammelleiste nach zwei gewählten`);
     await rahmen.getByTestId('fa-wahl-alle').click();
     await rahmen.getByTestId('fa-wahl-alle').click();
+    // Fokus und Zeiger weg, sonst sieht das leere Kästchen im Bild gewählt aus.
+    await rahmen.evaluate(() => document.activeElement?.blur());
+    await seite.mouse.move(0, 0);
     const zeilen = await rahmen.locator('[data-testid^="fa-zeile-"]').count();
     if (zeilen < 30) rot(`${wo} ${app}: nur ${zeilen} Zeilen`);
     await ueberlaufApp(seite, rahmen, `${wo} ${app}`);

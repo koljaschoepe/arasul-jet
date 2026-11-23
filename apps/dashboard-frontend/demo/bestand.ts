@@ -915,6 +915,9 @@ const PRUEFARTEN: [string, Text][] = [
   ['abnahme', T('Abnahme vor Ort', 'On-site acceptance')],
 ];
 
+/** Folge der Prüfungen an einem Auftrag; nach der Abnahme nur noch Nachprüfungen. */
+const FOLGE = ['sicht', 'mass', 'sicht', 'mass', 'schicht', 'sicht', 'schicht', 'abnahme'];
+
 /** Je laufendem Auftrag sieben bis acht Prüfungen: Sicht, Maß, Schicht, Abnahme. */
 const PRUEFUNGEN = 92;
 
@@ -931,13 +934,20 @@ function pruefprotokolle(jetzt: number): Eintrag[] {
     abstaende.map(a => tagRelativ(a, jetzt)),
     'PP'
   );
+  const jeAuftrag = new Map<string, number>();
   for (let i = 0; i < PRUEFUNGEN; i += 1) {
     const abstand = abstaende[i]!;
     const laufend = AUFTRAEGE.filter(a => (a.seitTagen ?? 0) >= -abstand + 3);
     const auftrag = (laufend.length ? laufend : AUFTRAEGE.slice(0, 1))[
       i % Math.max(1, laufend.length)
     ]!;
-    const [pruefart, pruefartText] = r.eins(PRUEFARTEN);
+    // Je Auftrag in der Reihenfolge der Fertigung: erst Naht und Maß in der
+    // Werkstatt, dann die Schicht, zuletzt die Abnahme vor Ort (Prüfer J55).
+    const k = (jeAuftrag.get(auftrag.nr) ?? 0) + 1;
+    jeAuftrag.set(auftrag.nr, k);
+    const [pruefart, pruefartText] = PRUEFARTEN.find(
+      ([art]) => art === (FOLGE[k - 1] ?? 'sicht')
+    )!;
     const ergebnis = r.z() < 0.12 ? 'nio' : r.z() < 0.12 ? 'auflage' : 'io';
     let stand: string;
     if (abstand > -2) stand = 'offen';

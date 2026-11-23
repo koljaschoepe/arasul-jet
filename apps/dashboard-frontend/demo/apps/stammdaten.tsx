@@ -953,7 +953,10 @@ function Einzelansicht({
         {
           beschriftung: t('Umsatz', 'Revenue'),
           wert: euro(z.umsatz),
-          fussnote: t(`${z.an.length} Aufträge, netto`, `${z.an.length} orders, net`),
+          fussnote: t(
+            `${z.an.length} ${z.an.length === 1 ? 'Auftrag' : 'Aufträge'}, netto`,
+            `${z.an.length} ${z.an.length === 1 ? 'order' : 'orders'}, net`
+          ),
         },
         {
           beschriftung: t('Offene Angebote', 'Open quotes'),

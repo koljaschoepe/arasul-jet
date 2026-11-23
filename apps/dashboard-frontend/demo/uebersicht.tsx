@@ -321,7 +321,7 @@ function Oben() {
           <Kennzahl
             beschriftung={t('Meldungen', 'Feedback')}
             wert={String(meldungen.length)}
-            fussnote={t('zu den Apps, noch offen', 'on the apps, still open')}
+            fussnote={t('Rückmeldungen zu den Apps, offen', 'feedback on the apps, open')}
           />
         </Kachel>
       </div>
@@ -546,8 +546,8 @@ function Mitte({ d }: { d: Daten }) {
         <h2 id="demo-bewegung">{t('Bewegung je Woche', 'Activity per week')}</h2>
         <p className="demo-leise demo-satz">
           {t(
-            'Vorgänge angelegt und abgeschlossen, alle fünf Apps, die letzten acht vollen Wochen.',
-            'Records created and closed, all five apps, the last eight full weeks.'
+            'Vorgänge angelegt und abgeschlossen, alle fünf Fach-Apps, die letzten acht vollen Wochen.',
+            'Records created and closed, all five business apps, the last eight full weeks.'
           )}
         </p>
         <Chart

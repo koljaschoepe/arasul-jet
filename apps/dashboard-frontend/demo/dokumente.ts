@@ -248,7 +248,8 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
   const betrag = Number(f.betrag) || 0;
   // Positionen mit Menge und Einheitspreis (J55): Stunden, Kilogramm,
   // Quadratmeter; die letzte gleicht auf den Betrag des Angebots aus.
-  const oberflaeche = /edelstahl|stainless/i.test(txt(f.betreff, 'de'))
+  const edel = /edelstahl|stainless/i.test(txt(f.betreff, 'de'));
+  const oberflaeche = edel
     ? W(sp, 'Oberfläche: Edelstahl geschliffen, Korn 240', 'Finish: stainless, ground, grit 240')
     : /verzinkt|galvani/i.test(txt(f.betreff, 'de')) || e.id % 2
       ? W(sp, 'Oberfläche: feuerverzinkt', 'Finish: hot-dip galvanised')
@@ -256,7 +257,9 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
   const posten: [string, number, string, number][] = [
     [W(sp, 'Konstruktion und Werkstattzeichnungen', 'Design and shop drawings'), 0.12, 'h', 86],
     [
-      W(sp, 'Material S235 und Fertigung im Werk', 'Material S235 and fabrication'),
+      edel
+        ? W(sp, 'Material 1.4301 und Fertigung im Werk', 'Material 1.4301 and fabrication')
+        : W(sp, 'Material S235 und Fertigung im Werk', 'Material S235 and fabrication'),
       0.53,
       'kg',
       4.6,
