@@ -290,6 +290,14 @@ function standFelder(
   return f;
 }
 
+const HAUPTVORLAGE: Record<AppKennung, string> = {
+  angebote: 'angebot',
+  wareneingang: 'lieferschein',
+  wartungsplan: 'wartung',
+  pruefprotokolle: 'pruefung',
+  urlaub: 'antrag',
+};
+
 function fachApp(
   a: Anfrage,
   z: DemoZustand,
@@ -429,6 +437,13 @@ function fachApp(
       geaendert_am: jetzt(),
     };
     return [ok(neu, 201), ersetzen(neu)];
+  }
+
+  // Der Vorgang als PDF (J55): die Hauptvorlage der App, frisch aus dem Eintrag.
+  if (unten === 'pdf' && a.methode === 'GET') {
+    const erzeugt = dateiErzeugen(app, e, HAUPTVORLAGE[app], sprache);
+    if (!erzeugt) return [fehler(404, 'NOT_FOUND', 'Zu diesem Vorgang gibt es kein PDF.'), z];
+    return [{ status: 200, bytes: erzeugt.bytes, typ: erzeugt.typ, dateiname: `${e.nr}.pdf` }, z];
   }
 
   const dateiWeg = unten.match(/^dateien\/([a-z0-9-]+)$/);

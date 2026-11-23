@@ -334,6 +334,36 @@ async function weg(browser, basis, sprache, breite) {
     await geheZu(seite, `/workspace/app/${app}`);
     const rahmen = await rahmenVon(seite, app);
     await warte(500);
+    // Reiter (J55): Übersicht, Auswertung, Kalender, dann die Liste.
+    await ueberlaufApp(seite, rahmen, `${wo} ${app} Übersicht`);
+    await bild(seite, `${wo.replace(' ', '-')}-2-${app}-uebersicht`);
+    await rahmen.getByTestId('fa-reiter-auswertung').click();
+    const teile = await rahmen
+      .locator('[data-testid="fa-auswertung"] .fa-flaeche')
+      .count()
+      .catch(() => 0);
+    if (teile < 3) rot(`${wo} ${app}: Auswertung mit nur ${teile} Teilen`);
+    await rahmen.getByTestId('fa-zeitraum-3m').click();
+    await warte(300);
+    await ueberlaufApp(seite, rahmen, `${wo} ${app} Auswertung`);
+    await bild(seite, `${wo.replace(' ', '-')}-2-${app}-auswertung`);
+    if (await rahmen.getByTestId('fa-reiter-kalender').count()) {
+      await rahmen.getByTestId('fa-reiter-kalender').click();
+      await rahmen.getByTestId('fa-kalender').waitFor({ timeout: 4000 });
+      if (!(await rahmen.locator('.fa-termin').count())) rot(`${wo} ${app}: Kalender leer`);
+      await ueberlaufApp(seite, rahmen, `${wo} ${app} Kalender`);
+      await bild(seite, `${wo.replace(' ', '-')}-2-${app}-kalender`);
+    }
+    await rahmen.getByTestId('fa-reiter-liste').click();
+    await rahmen.locator('[data-testid^="fa-zeile-"]').first().waitFor();
+    // Mehrfachauswahl: zwei wählen, die Sammelleiste erscheint, aufheben.
+    const wahl = rahmen.locator('[data-testid^="fa-wahl-"]:not([data-testid="fa-wahl-alle"])');
+    await wahl.nth(0).click();
+    await wahl.nth(1).click();
+    if (!(await rahmen.locator('[data-testid="fa-sammel"][data-aktiv]').count()))
+      rot(`${wo} ${app}: keine Sammelleiste nach zwei gewählten`);
+    await rahmen.getByTestId('fa-wahl-alle').click();
+    await rahmen.getByTestId('fa-wahl-alle').click();
     const zeilen = await rahmen.locator('[data-testid^="fa-zeile-"]').count();
     if (zeilen < 30) rot(`${wo} ${app}: nur ${zeilen} Zeilen`);
     await ueberlaufApp(seite, rahmen, `${wo} ${app}`);
@@ -392,9 +422,22 @@ async function weg(browser, basis, sprache, breite) {
     await bild(seite, `${wo.replace(' ', '-')}-4-${app}-datei`);
     await seite.keyboard.press('Escape');
     await warte(250);
+    // Der Vorgang als PDF.
+    await rahmen.getByTestId('fa-pdf').click();
+    const pdf = await rahmen
+      .locator('[data-testid="fa-dokument"] canvas')
+      .first()
+      .waitFor({ timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!pdf) rot(`${wo} ${app}: PDF des Vorgangs zeigt nichts`);
+    await seite.keyboard.press('Escape');
+    await warte(250);
     await seite.keyboard.press('Escape');
     await rahmen.locator('input[type="search"], input[placeholder]').first().fill('');
-    gruen(`${wo} ${app}: Liste ${zeilen}, angelegt, geändert, Datei geöffnet`);
+    gruen(
+      `${wo} ${app}: Reiter, Auswertung ${teile} Teile, Auswahl, Liste ${zeilen}, angelegt, geändert, Datei und PDF`
+    );
   }
 
   // Werkstatt: alle Meldungen, Test nach Live

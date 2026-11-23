@@ -6,8 +6,19 @@
 import { Undo2 } from '@marken/symbole';
 import type { Eintrag } from '../bestand';
 import { ABTEILUNGEN, PERSONEN, person, name } from '../firma';
-import { starten, Mono, type AppDef } from './fachapp';
-import { datum, datumKurz, heuteIso, kalenderwoche, tagAus, t, tageBis, tx } from './gemeinsam';
+import { starten, Mono, StammLink, type AppDef } from './fachapp';
+import {
+  datum,
+  datumKurz,
+  heuteIso,
+  imZeitraum,
+  kalenderwoche,
+  proMonat,
+  tagAus,
+  t,
+  tageBis,
+  tx,
+} from './gemeinsam';
 
 const ARTEN: [string, string][] = [
   ['urlaub', t('Urlaub', 'Leave')],
@@ -90,7 +101,11 @@ const def: AppDef = {
       art: 'auswahl',
       pflicht: true,
       optionen: PERSONEN.map(p => [String(p.id), `${p.vorname} ${p.nachname}`]),
-      anzeigen: w => `${name(Number(w))}, ${tx(person(Number(w)).aufgabe)}`,
+      anzeigen: w => (
+        <StammLink art="person" id={Number(w)}>
+          {name(Number(w))}, {tx(person(Number(w)).aufgabe)}
+        </StammLink>
+      ),
     },
     {
       key: 'art',
@@ -115,7 +130,11 @@ const def: AppDef = {
       art: 'auswahl',
       pflicht: true,
       optionen: PERSONEN.map(p => [String(p.id), `${p.vorname} ${p.nachname}`]),
-      anzeigen: w => name(Number(w)),
+      anzeigen: w => (
+        <StammLink art="person" id={Number(w)}>
+          {name(Number(w))}
+        </StammLink>
+      ),
     },
     { key: 'notiz', titel: t('Bemerkung', 'Note'), art: 'textlang' },
   ],
@@ -283,6 +302,188 @@ const def: AppDef = {
     e.stand === 'abgelehnt'
       ? [{ nach: 'beantragt', text: t('Neu beantragen', 'Request again'), symbol: Undo2 }]
       : [],
+  kalender: {
+    satz: t(
+      'Wer wann fehlt. Genehmigt ist blau, beantragt umrandet; ein Klick öffnet den Antrag.',
+      'Who is away when. Approved is blue, requested outlined; click to open the request.'
+    ),
+    termine: liste =>
+      liste
+        .filter(e => e.stand === 'genehmigt' || e.stand === 'beantragt')
+        .map(e => ({
+          e,
+          von: String(e.felder.von),
+          bis: String(e.felder.bis),
+          text: `${person(Number(e.felder.person)).vorname} ${person(Number(e.felder.person)).nachname.slice(0, 1)}.`,
+          ton: e.stand === 'genehmigt' ? ('fest' as const) : ('offen' as const),
+        })),
+    legende: [
+      ['fest', t('Genehmigt', 'Approved')],
+      ['offen', t('Beantragt, wartet auf Sie', 'Requested, waiting for you')],
+    ],
+    tagSatz: l => t(`${l.length} abwesend`, `${l.length} away`),
+  },
+  auswertung: {
+    voraus: 180,
+    rechnen: (alle, _ctx, z) => {
+      const liste = alle.filter(e => imZeitraum(z, String(e.felder.von)));
+      const gen = liste.filter(e => e.stand === 'genehmigt');
+      const tage = (l: Eintrag[]) => l.reduce((s, e) => s + (Number(e.felder.tage) || 0), 0);
+      const monate = proMonat(
+        liste,
+        e => String(e.felder.von),
+        z.monate,
+        {
+          genehmigt: e => (e.stand === 'genehmigt' ? Number(e.felder.tage) || 0 : 0),
+          beantragt: e => (e.stand === 'beantragt' ? Number(e.felder.tage) || 0 : 0),
+        },
+        3
+      );
+      // Bearbeitungszeit: vom Antrag bis zur Entscheidung, aus dem Verlauf.
+      const dauer = alle
+        .filter(e => e.stand !== 'beantragt' && e.verlauf.length > 1)
+        .map(
+          e =>
+            (Date.parse(e.verlauf[e.verlauf.length - 1]!.am) - Date.parse(e.verlauf[0]!.am)) /
+            86_400_000
+        )
+        .filter(n => n >= 0 && n < 60);
+      const heute = heuteIso();
+      const zukunft = (p: number, stand: string) =>
+        alle
+          .filter(
+            e =>
+              Number(e.felder.person) === p &&
+              e.stand === stand &&
+              e.felder.art === 'urlaub' &&
+              String(e.felder.von) > heute
+          )
+          .reduce((s, e) => s + (Number(e.felder.tage) || 0), 0);
+      return {
+        kennzahlen: [
+          {
+            beschriftung: t('Abwesenheitstage', 'Days away'),
+            wert: String(tage(gen)),
+            fussnote: t(`genehmigt, ${gen.length} Anträge`, `approved, ${gen.length} requests`),
+            verlauf: monate.map(m => Number(m.genehmigt)),
+          },
+          {
+            beschriftung: t('Beantragt', 'Requested'),
+            wert: String(tage(liste.filter(e => e.stand === 'beantragt'))),
+            einheit: t('Tage', 'days'),
+            fussnote: t('warten auf Ihre Freigabe', 'waiting for your approval'),
+          },
+          {
+            beschriftung: t('Entschieden nach', 'Decided after'),
+            wert: (dauer.length
+              ? dauer.reduce((s, n) => s + n, 0) / dauer.length
+              : 0
+            ).toLocaleString(t('de-DE', 'en-GB'), { maximumFractionDigits: 1 }),
+            einheit: t('Tagen', 'days'),
+            fussnote: t('im Schnitt vom Antrag an', 'on average from the request'),
+          },
+          {
+            beschriftung: t('Quote je Kopf', 'Per head'),
+            wert: (tage(gen) / PERSONEN.length).toLocaleString(t('de-DE', 'en-GB'), {
+              maximumFractionDigits: 1,
+            }),
+            einheit: t('Tage', 'days'),
+            fussnote: t(
+              `bei ${PERSONEN.length} Personen im System`,
+              `across ${PERSONEN.length} people`
+            ),
+          },
+        ],
+        teile: [
+          {
+            art: 'diagramm',
+            breit: true,
+            monatlich: true,
+            titel: t('Abwesenheit je Monat', 'Absence per month'),
+            d: {
+              titel: t('Abwesenheit je Monat', 'Absence per month'),
+              satz: t(
+                `Arbeitstage nach Beginn des Urlaubs, ${z.text} und was schon geplant ist.`,
+                `Working days by start of leave, ${z.text} and what is already planned.`
+              ),
+              art: 'balken',
+              data: monate,
+              series: [
+                { key: 'genehmigt', name: t('Genehmigt', 'Approved'), unit: t(' Tage', ' days') },
+                { key: 'beantragt', name: t('Beantragt', 'Requested'), unit: t(' Tage', ' days') },
+              ],
+            },
+          },
+          {
+            art: 'rangliste',
+            titel: t('Nach Abteilung', 'By department'),
+            satz: t('Genehmigte Arbeitstage im Zeitraum.', 'Approved working days in the period.'),
+            zeilen: ABTEILUNGEN.map(a => {
+              const l = gen.filter(e => person(Number(e.felder.person)).abteilung === a.id);
+              return {
+                name: tx(a.name),
+                wert: tage(l),
+                text: t(`${tage(l)} Tage`, `${tage(l)} days`),
+                neben: t(`${a.leute} Leute`, `${a.leute} people`),
+              };
+            })
+              .filter(x => x.wert > 0)
+              .sort((a, b) => b.wert - a.wert),
+          },
+          {
+            art: 'tabelle',
+            titel: t('Nach Art', 'By type'),
+            kopf: [
+              t('Art', 'Type'),
+              t('Anträge', 'Requests'),
+              t('Tage', 'Days'),
+              t('Abgelehnt', 'Declined'),
+            ],
+            rechts: [1, 2, 3],
+            zeilen: ARTEN.map(([k, text]) => {
+              const l = liste.filter(e => e.felder.art === k);
+              return [
+                text,
+                String(l.length),
+                String(tage(l.filter(e => e.stand === 'genehmigt'))),
+                String(l.filter(e => e.stand === 'abgelehnt').length),
+              ];
+            }),
+          },
+          {
+            art: 'tabelle',
+            breit: true,
+            titel: t('Resturlaub je Person', 'Leave left per person'),
+            satz: t(
+              'Rest laut Personalakte, davon schon genehmigt oder beantragt; was frei bleibt, ist noch zu planen.',
+              'Remaining per personnel file, of which approved or requested; what is left still needs planning.'
+            ),
+            kopf: [
+              t('Person', 'Person'),
+              t('Abteilung', 'Department'),
+              t('Rest', 'Left'),
+              t('Genehmigt', 'Approved'),
+              t('Beantragt', 'Requested'),
+              t('Frei', 'Free'),
+            ],
+            rechts: [2, 3, 4, 5],
+            zeilen: PERSONEN.map(p => {
+              const g = zukunft(p.id, 'genehmigt');
+              const b = zukunft(p.id, 'beantragt');
+              return [
+                `${p.vorname} ${p.nachname}`,
+                tx(ABTEILUNGEN.find(a => a.id === p.abteilung)?.name),
+                String(p.urlaub),
+                String(g),
+                String(b),
+                String(Math.max(0, p.urlaub - g - b)),
+              ];
+            }),
+          },
+        ],
+      };
+    },
+  },
   csv: e => ({
     [t('Nummer', 'Number')]: e.nr,
     [t('Person', 'Person')]: name(Number(e.felder.person)),

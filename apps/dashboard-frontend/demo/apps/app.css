@@ -6,7 +6,10 @@
 .fa-seite {
   box-sizing: border-box;
   max-width: 100rem;
-  padding: 10px clamp(16px, 4vw, 24px) 32px;
+  /* Rechts endet der Inhalt dort, wo die Kapsel des Rahmens endet (8 px vom
+     Rand der Ansicht): Tabellen und Flächen hörten sonst 16 px vor der
+     rechten Kante der Kopfknöpfe auf (J55). */
+  padding: 10px 8px 32px clamp(16px, 4vw, 24px);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
@@ -385,4 +388,571 @@
   .fa-toast {
     animation: none;
   }
+}
+
+/* ── Reiter (J55): Übersicht, Liste, Kalender, Auswertung ──────────────── */
+
+.fa-reiter {
+  gap: 16px;
+}
+.fa-tab {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+.fa-tab[hidden] {
+  display: none;
+}
+.fa-reiter-zahl {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+.fa-reihe-gleich {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+@media (max-width: 860px) {
+  .fa-reihe-gleich {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Rangliste: Name, Wert, ein Balken in Blau; darunter ein leiser Satz. */
+.fa-rangliste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.fa-rangliste li > button,
+.fa-rangliste li > div {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  row-gap: 4px;
+  padding: 6px 6px;
+  border-radius: 8px;
+}
+.fa-rangliste li > button {
+  cursor: pointer;
+}
+.fa-rangliste li > button:hover {
+  background: var(--accent);
+}
+.fa-rangliste li > button:focus-visible {
+  outline: 2px solid var(--ring);
+}
+.fa-rang-name {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fa-rang-wert {
+  font-size: 13px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.fa-rang-balken {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--muted);
+  overflow: hidden;
+}
+.fa-rang-balken span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--primary);
+}
+.fa-rang-neben {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+/* ── Mehrfachauswahl ────────────────────────────────────────────────────── */
+
+.fa-wahl {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  margin: -4px;
+}
+.fa-sammel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 32px;
+  padding: 0 4px;
+}
+.fa-sammel[data-aktiv] {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+  box-shadow: var(--shadow-sm);
+}
+@media (max-width: 639px) {
+  .fa-sammel[data-aktiv] {
+    top: 52px;
+  }
+}
+.fa-sammel-alle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted-foreground);
+}
+.fa-sammel[data-aktiv] @media (max-width: 639px) {
+  .fa-sammel[data-aktiv] {
+    top: 52px;
+  }
+}
+.fa-sammel-alle {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+/* Ein Stammsatz im Feld einer Einzelansicht: ein Verweis, kein Knopf. */
+.fa-stammlink {
+  all: unset;
+  cursor: pointer;
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.fa-stammlink:hover {
+  text-decoration-color: currentColor;
+}
+.fa-stammlink:focus-visible {
+  outline: 2px solid var(--ring);
+  border-radius: 4px;
+}
+.fa-vorgang-knoepfe {
+  margin-top: -6px;
+}
+
+/* ── Auswertung ─────────────────────────────────────────────────────────── */
+
+.fa-auswertung {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.fa-auswertung-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fa-druck-titel {
+  display: none;
+}
+.fa-teile {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.fa-teile .fa-breit {
+  grid-column: 1 / -1;
+}
+@media (max-width: 860px) {
+  .fa-teile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.fa-zahl {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Kalender ───────────────────────────────────────────────────────────── */
+
+.fa-kalender {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.fa-kalender-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.fa-kalender-titel {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+.fa-raster {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.fa-raster-zeile {
+  display: grid;
+  grid-template-columns: 2.25rem repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, 0.6fr));
+}
+.fa-raster-zeile + .fa-raster-zeile {
+  border-top: 1px solid var(--border);
+}
+.fa-raster-kopf span {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  padding: 6px 8px;
+}
+.fa-kw {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  padding: 6px 4px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  background: var(--muted);
+}
+.fa-tag {
+  min-height: 92px;
+  min-width: 0;
+  padding: 4px 4px 6px;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fa-tag[data-wochenende] {
+  background: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+.fa-tag[data-fremd] .fa-tag-zahl {
+  opacity: 0.45;
+}
+.fa-tag-zahl {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px 2px;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+.fa-tag[data-heute] .fa-tag-zahl {
+  color: var(--primary);
+  font-weight: 500;
+}
+.fa-tag[data-heute] {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 45%, transparent);
+}
+.fa-tag-frei {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fa-tag-mehr {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  padding: 0 4px;
+}
+.fa-termin {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  font-size: 11.5px;
+  line-height: 18px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.fa-termin:focus-visible {
+  outline: 2px solid var(--ring);
+}
+.fa-termin[data-ton='fest'] {
+  background: color-mix(in srgb, var(--primary) 16%, var(--card));
+  color: var(--primary);
+}
+.fa-termin[data-ton='offen'] {
+  background: var(--card);
+  border: 1px dashed var(--primary);
+  color: var(--primary);
+}
+.fa-termin[data-ton='warnung'] {
+  background: color-mix(in srgb, var(--destructive) 12%, var(--card));
+  color: var(--destructive);
+}
+.fa-termin[data-ton='erledigt'] {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.fa-termin[data-weiter] {
+  border-radius: 0 5px 5px 0;
+  margin-left: -5px;
+}
+.fa-termin:hover {
+  filter: brightness(0.96);
+}
+.fa-legende {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.fa-legende li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fa-termin-punkt {
+  width: 12px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+}
+.fa-termin-punkt[data-ton='fest'] {
+  background: color-mix(in srgb, var(--primary) 30%, var(--card));
+}
+.fa-termin-punkt[data-ton='offen'] {
+  border: 1px dashed var(--primary);
+}
+.fa-termin-punkt[data-ton='warnung'] {
+  background: color-mix(in srgb, var(--destructive) 30%, var(--card));
+}
+.fa-termin-punkt[data-ton='erledigt'] {
+  background: var(--muted-foreground);
+  opacity: 0.4;
+}
+.fa-agenda {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+}
+.fa-agenda li {
+  display: grid;
+  gap: 4px;
+  padding: 8px 0;
+}
+.fa-agenda li + li {
+  border-top: 1px solid var(--border);
+}
+.fa-agenda li[data-heute] .fa-agenda-tag {
+  color: var(--primary);
+}
+.fa-agenda-tag {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 500;
+}
+.fa-agenda-satz {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.fa-agenda-termine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.fa-agenda-termine .fa-termin {
+  height: 28px;
+  line-height: 26px;
+  font-size: 12px;
+  padding: 0 8px;
+}
+
+/* ── Drucken ────────────────────────────────────────────────────────────── */
+
+.fa-druck {
+  display: none;
+}
+@media print {
+  html,
+  body {
+    background: var(--background) !important;
+  }
+  /* Ein Vorgang: nur seine Blätter. */
+  html[data-druck='vorgang'] body > *:not(.fa-druck) {
+    display: none !important;
+  }
+  html[data-druck='vorgang'] .fa-druck {
+    display: block;
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 10.5pt;
+  }
+  .fa-druck-blatt {
+    break-after: page;
+    padding: 0 4mm;
+  }
+  .fa-druck-blatt:last-child {
+    break-after: auto;
+  }
+  .fa-druck-kopf {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1.5pt solid var(--primary);
+    padding-bottom: 4pt;
+    margin-bottom: 14pt;
+    font-size: 9pt;
+  }
+  .fa-druck-kopf strong {
+    font-size: 13pt;
+  }
+  .fa-druck-art {
+    margin: 0;
+    font-size: 9pt;
+    color: var(--muted-foreground);
+  }
+  .fa-druck h1 {
+    margin: 2pt 0;
+    font-size: 16pt;
+    font-weight: 600;
+  }
+  .fa-druck h2 {
+    font-size: 11pt;
+    margin: 14pt 0 4pt;
+  }
+  .fa-druck-neben {
+    margin: 0 0 10pt;
+    color: var(--muted-foreground);
+  }
+  .fa-druck dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6pt 18pt;
+    margin: 0;
+  }
+  .fa-druck dt {
+    font-size: 8.5pt;
+    color: var(--muted-foreground);
+  }
+  .fa-druck dd {
+    margin: 0;
+  }
+  .fa-druck .fa-stammlink {
+    color: inherit;
+    text-decoration: none;
+  }
+  .fa-druck ul,
+  .fa-druck ol {
+    margin: 0;
+    padding-left: 14pt;
+  }
+  .fa-druck footer {
+    margin-top: 18pt;
+    padding-top: 4pt;
+    border-top: 0.5pt solid var(--border);
+    font-size: 8pt;
+    color: var(--muted-foreground);
+  }
+  /* Eine Seite (Auswertung): ohne Bedienung. */
+  html[data-druck='seite'] .fa-nicht-drucken,
+  html[data-druck='seite'] .ara-kopf,
+  html[data-druck='seite'] .fa-auswertung-kopf .fa-filter {
+    display: none !important;
+  }
+  html[data-druck='seite'] .fa-druck-titel {
+    display: block;
+    font-size: 12pt;
+    color: var(--foreground);
+  }
+  html[data-druck='seite'] .fa-flaeche {
+    break-inside: avoid;
+  }
+}
+
+/* ── Tabelle der Auswertung ─────────────────────────────────────────────── */
+
+.fa-tabelle-kasten {
+  overflow-x: auto;
+  margin: 0 -4px;
+}
+.fa-tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.fa-tabelle th,
+.fa-tabelle td {
+  padding: 7px 6px;
+  text-align: left;
+  white-space: nowrap;
+}
+.fa-tabelle td:first-child {
+  white-space: normal;
+}
+.fa-tabelle th[data-rechts],
+.fa-tabelle td[data-rechts] {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.fa-tabelle th {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-sans);
+}
+.fa-tabelle th[data-rechts] {
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+.fa-tabelle th button {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.fa-tabelle th button:focus-visible {
+  outline: 2px solid var(--ring);
+  border-radius: 4px;
+}
+.fa-tabelle tbody tr + tr td {
+  border-top: 1px solid var(--border);
+}
+.fa-unsichtbar {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.fa-seit {
+  margin: -8px 0 0;
+}
+
+/* Am Handy tragen die Reiter keine Symbole: vier Namen passen sonst nicht. */
+.fa-eng .fa-reiter [data-slot='tabs-trigger'] svg {
+  display: none;
 }
