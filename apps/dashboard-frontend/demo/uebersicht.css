@@ -176,3 +176,127 @@
 .demo-punkte button[data-wichtig] .demo-punkt-neben {
   color: var(--destructive);
 }
+
+/* ── Diagramme und die Woche (J55) ──────────────────────────────────────── */
+
+.demo-satz {
+  margin: -2px 4px 6px;
+}
+.demo-diagramm {
+  padding-bottom: 12px;
+}
+.demo-woche {
+  grid-column: 1 / -1;
+}
+.demo-woche-kasten {
+  overflow-x: auto;
+}
+.demo-woche-tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 520px;
+}
+.demo-woche-tabelle th,
+.demo-woche-tabelle td {
+  padding: 6px 8px;
+  text-align: center;
+  font-weight: 400;
+}
+.demo-woche-tabelle thead th {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
+}
+.demo-woche-tabelle tbody th {
+  text-align: left;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.demo-woche-tabelle tbody th button {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--foreground);
+  font-size: 13px;
+}
+.demo-woche-tabelle tbody th button:hover {
+  color: var(--primary);
+}
+.demo-woche-tabelle tbody th button:focus-visible {
+  outline: 2px solid var(--ring);
+  border-radius: 4px;
+}
+.demo-woche-tabelle tbody tr + tr > * {
+  border-top: 1px solid var(--border);
+}
+.demo-woche-tabelle [data-heute] {
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+.demo-woche-tabelle thead [data-heute] {
+  color: var(--primary);
+  font-weight: 500;
+}
+.demo-woche-tabelle td[data-null] {
+  color: var(--muted-foreground);
+}
+.demo-zahl {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.demo-woche-last td {
+  vertical-align: bottom;
+}
+.demo-last {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 44px;
+  margin-bottom: 4px;
+}
+.demo-last span {
+  display: block;
+  width: 22px;
+  border-radius: 4px 4px 0 0;
+  background: var(--primary);
+}
+.demo-unsichtbar {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.demo-woche-liste {
+  display: none;
+  list-style: none;
+  margin: 0 4px 8px;
+  padding: 0;
+}
+.demo-woche-liste li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+  font-size: 13px;
+}
+.demo-woche-liste li + li {
+  border-top: 1px solid var(--border);
+}
+.demo-woche-liste li[data-heute] .demo-woche-tag {
+  color: var(--primary);
+}
+.demo-woche-tag {
+  font-weight: 500;
+}
+@media (max-width: 599px) {
+  .demo-woche-kasten {
+    display: none;
+  }
+  .demo-woche-liste {
+    display: block;
+  }
+}

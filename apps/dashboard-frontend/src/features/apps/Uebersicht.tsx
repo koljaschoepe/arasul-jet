@@ -64,7 +64,7 @@ function StartKopf({ name, offen }: { name: string; offen?: number }) {
         offen === undefined ? (
           'Ihre Apps und was auf Sie wartet.'
         ) : offen > 0 ? (
-          'Was bei Ihnen liegt, steht gleich darunter unter „Für Sie“.'
+          'Was bei Ihnen liegt, steht direkt darunter bei „Für Sie“.'
         ) : (
           <span className="inline-flex items-center gap-1.5" data-testid="startband-erledigt">
             <Check className="size-3.5 text-primary" aria-hidden="true" />

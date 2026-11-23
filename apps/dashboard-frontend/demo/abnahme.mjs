@@ -111,6 +111,14 @@ function server() {
 }
 
 // ── Hilfen ──────────────────────────────────────────────────────────────────
+/** Der Pfad eines Rahmens; während er lädt, ist seine Adresse leer. */
+const pfadVon = u => {
+  try {
+    return new URL(u).pathname;
+  } catch {
+    return '';
+  }
+};
 const warte = ms => new Promise(r => setTimeout(r, ms));
 
 async function ueberlauf(seite, wo) {
@@ -124,7 +132,7 @@ async function ueberlauf(seite, wo) {
     const r = await rahmen
       .evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
       .catch(() => 0);
-    if (r > 1) rot(`${wo}: App ${new URL(rahmen.url()).pathname} ${r} px zu breit`);
+    if (r > 1) rot(`${wo}: App ${pfadVon(rahmen.url())} ${r} px zu breit`);
   }
 }
 
@@ -136,7 +144,7 @@ const saetze = new Set();
 async function deutscheReste(seite, wo) {
   const funde = [];
   for (const rahmen of seite.frames()) {
-    const pfad = new URL(rahmen.url()).pathname;
+    const pfad = pfadVon(rahmen.url());
     // Die Fach-Apps sind selbst zweisprachig; Daten wie Namen bleiben.
     if (
       /^\/apps\/(angebote|wareneingang|wartungsplan|pruefprotokolle|urlaub|stammdaten)\//.test(pfad)
@@ -169,7 +177,7 @@ async function deutscheReste(seite, wo) {
     for (const satz of liste) {
       if (
         DEUTSCH.test(satz) &&
-        !/Kerschner|Grünfelden|Yıldız|[Mm]üller|Präzision|Hagedorn|Mühlbach|Möbelwerk|Wärmetechnik|Landkreis|Eschenau|Rieger|Brandl|Schulzentrum/.test(
+        !/Kerschner|Grünfelden|Yıldız|[Mm]üller|Präzision|Hagedorn|Mühlbach|Möbelwerk|Wärmetechnik|Landkreis|Eschenau|Rieger|Brandl|Schulzentrum|Krüger|Köhler|Möller|Weiß|Böhm|Hochbauamt/.test(
           satz
         )
       ) {
@@ -198,7 +206,7 @@ async function geheZu(seite, pfad) {
 
 async function rahmenVon(seite, app) {
   for (let i = 0; i < 60; i += 1) {
-    const f = seite.frames().find(x => new URL(x.url()).pathname.startsWith(`/apps/${app}/`));
+    const f = seite.frames().find(x => pfadVon(x.url()).startsWith(`/apps/${app}/`));
     if (f) {
       const da = await f
         .locator('[data-testid^="fa-zeile-"], [data-testid="werkstatt-seite"], main, h1')
@@ -214,7 +222,8 @@ async function rahmenVon(seite, app) {
 
 /** Was die Abnahme einträgt: so, wie es im Betrieb stünde. */
 const TEXTE = {
-  'feld-betreff': 'Treppengeländer Rathaus, Edelstahl',
+  'feld-betreff': 'Treppengeländer Treppenhaus Nord, Edelstahl',
+  'feld-naht': 'N7',
   'feld-bauteil': 'Podest Treppe Nord',
   'feld-aufgabe': 'Hydraulikfilter wechseln',
   'feld-lieferschein': 'LS 48213',
@@ -326,6 +335,13 @@ async function weg(browser, basis, sprache, breite) {
   if (start.lang !== sprache) rot(`${wo}: Sprache ${start.lang} statt ${sprache}`);
   if (start.weg) rot(`${wo}: der geführte Weg beginnt von selbst`);
   if (!(await seite.locator('#fuer-sie').count())) rot(`${wo}: „Für Sie" fehlt`);
+  // J55: zwei Diagramme über alle Apps und die Auslastung der Woche.
+  await seite
+    .getByTestId('demo-woche')
+    .waitFor({ timeout: 8000 })
+    .catch(() => rot(`${wo}: Auslastung der Woche fehlt`));
+  const diagramme = await seite.locator('.demo-diagramm .recharts-surface').count();
+  if (diagramme < 2) rot(`${wo}: ${diagramme} statt zwei Diagramme auf der Startseite`);
   await ueberlauf(seite, `${wo} Start`);
   if (sprache === 'en') await deutscheReste(seite, `${wo} Start`);
   await bild(seite, `${wo.replace(' ', '-')}-1-start`);
@@ -353,6 +369,7 @@ async function weg(browser, basis, sprache, breite) {
       await rahmen.getByTestId('fa-reiter-kalender').click();
       await rahmen.getByTestId('fa-kalender').waitFor({ timeout: 4000 });
       if (!(await rahmen.locator('.fa-termin').count())) rot(`${wo} ${app}: Kalender leer`);
+      await warte(300);
       await ueberlaufApp(seite, rahmen, `${wo} ${app} Kalender`);
       await bild(seite, `${wo.replace(' ', '-')}-2-${app}-kalender`);
     }
@@ -366,6 +383,11 @@ async function weg(browser, basis, sprache, breite) {
       rot(`${wo} ${app}: keine Sammelleiste nach zwei gewählten`);
     await rahmen.getByTestId('fa-wahl-alle').click();
     await rahmen.getByTestId('fa-wahl-alle').click();
+    // Fokus und Zeiger weg und den Farbübergang der Kästchen abwarten, sonst
+    // sieht ein leeres Kästchen im Bild gewählt aus (Prüfer J55).
+    await rahmen.evaluate(() => document.activeElement?.blur());
+    await seite.mouse.move(0, 0);
+    await warte(400);
     const zeilen = await rahmen.locator('[data-testid^="fa-zeile-"]').count();
     if (zeilen < 30) rot(`${wo} ${app}: nur ${zeilen} Zeilen`);
     await ueberlaufApp(seite, rahmen, `${wo} ${app}`);
@@ -535,7 +557,7 @@ async function weg(browser, basis, sprache, breite) {
     const r = await fetch('/apps/angebote/api/daten');
     return (await r.json()).data.eintraege.length;
   });
-  if (nachher !== 42) rot(`${wo}: nach dem Zurücksetzen ${nachher} statt 42 Angebote`);
+  if (nachher !== 320) rot(`${wo}: nach dem Zurücksetzen ${nachher} statt 320 Angebote`);
 
   gruen(`${wo}: Weg vollständig`);
   await kontext.close();

@@ -152,6 +152,8 @@ export interface AppDef {
   ordnen?: (a: Eintrag, b: Eintrag) => number;
   /** Der Reiter „Auswertung" (J55): Zeitraum, Kennzahlen, Diagramme, Tabellen. */
   auswertung: AuswertungDef;
+  /** Filter neben den Ständen, etwa „Abgelaufen" (J55). */
+  zusatzFilter?: { key: string; text: string; pruefe: (e: Eintrag) => boolean }[];
   /** Der Reiter „Kalender" (J55), nur wo Termine das Wesentliche sind. */
   kalender?: KalenderDef;
 }
@@ -352,10 +354,11 @@ function FachApp({ def }: { def: AppDef }) {
     () => (liste && def.ordnen ? [...liste].sort(def.ordnen) : (liste ?? [])),
     [liste, def]
   );
-  const gezeigt = useMemo(
-    () => (filter === 'alle' ? eintraege : eintraege.filter(e => e.stand === filter)),
-    [eintraege, filter]
-  );
+  const gezeigt = useMemo(() => {
+    if (filter === 'alle') return eintraege;
+    const zusatz = def.zusatzFilter?.find(z => z.key === filter);
+    return eintraege.filter(e => (zusatz ? zusatz.pruefe(e) : e.stand === filter));
+  }, [eintraege, filter, def]);
   const auswahl = eintraege.find(e => e.id === gewaehlt) ?? null;
   const gewaehlte = eintraege.filter(e => markiert.has(e.id));
 
@@ -467,7 +470,10 @@ function FachApp({ def }: { def: AppDef }) {
       titel: t('Aktionen', 'Actions'),
       breite: '7rem',
       ausrichtung: 'rechts',
-      kartenText: e => <ZeilenAktionen e={e} />,
+      // Am Handy keine Knöpfe in der Karte: ein Tipp öffnet das Blatt mit
+      // allen Aktionen, und „31.250 € ·" mit Symbolen dahinter las sich wie
+      // ein abgebrochener Satz (Prüfer J55).
+      inKarte: false,
       zelle: e => <ZeilenAktionen e={e} />,
     },
   ];
@@ -696,6 +702,17 @@ function FachApp({ def }: { def: AppDef }) {
                   data-treffer-selbst=""
                 >
                   {text[SPRACHE]} <span>{zaehler(k)}</span>
+                </button>
+              ))}
+              {def.zusatzFilter?.map(z => (
+                <button
+                  key={z.key}
+                  type="button"
+                  aria-pressed={filter === z.key}
+                  onClick={() => setFilter(filter === z.key ? 'alle' : z.key)}
+                  data-treffer-selbst=""
+                >
+                  {z.text} <span>{eintraege.filter(z.pruefe).length}</span>
                 </button>
               ))}
             </div>

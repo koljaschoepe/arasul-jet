@@ -14,6 +14,8 @@ import {
   ansprech,
   auftrag,
   kunde,
+  kundeAnschrift,
+  kundeZiel,
   lieferant,
   maschine,
   name,
@@ -200,14 +202,26 @@ const datum = (iso: string | null | undefined, sp: Sprache) =>
 const zeile = () => `${FIRMA.strasse} · ${FIRMA.plz} ${FIRMA.ort} · Tel. ${FIRMA.telefon}`;
 const W = (sp: Sprache, de: string, en: string) => (sp === 'en' ? en : de);
 
+/** „Sehr geehrter Herr Lorenz" aus „Herr Lorenz"; ohne Anrede die allgemeine. */
+function anrede(wer: string | undefined, sp: Sprache): string {
+  if (!wer) return sp === 'en' ? 'Dear Sir or Madam' : 'Sehr geehrte Damen und Herren';
+  if (sp === 'en') return /^(Mr|Ms) /.test(wer) ? `Dear ${wer}` : 'Dear Sir or Madam';
+  if (wer.startsWith('Herr ')) return `Sehr geehrter ${wer}`;
+  if (wer.startsWith('Frau ')) return `Sehr geehrte ${wer}`;
+  return 'Sehr geehrte Damen und Herren';
+}
+
 function angebotPdf(e: Eintrag, sp: Sprache): Seite {
   const s = new Seite();
   const f = e.felder;
   const k = kunde(Number(f.kunde));
   briefkopf(s, FIRMA.name, zeile());
   s.text(L, 735, k.name, 10.5);
-  s.text(L, 720, W(sp, `z. Hd. ${k.ansprechpartner}`, `Attn. ${ansprech(k, sp)}`), 10);
-  s.text(L, 705, k.ort, 10);
+  if (k.ansprechpartner)
+    s.text(L, 720, W(sp, `z. Hd. ${k.ansprechpartner}`, `Attn. ${ansprech(k, sp)}`), 10);
+  const [strasse, ort] = kundeAnschrift(k).split(', ');
+  s.text(L, 705, strasse ?? '', 10);
+  s.text(L, 691, ort ?? k.ort, 10);
   angaben(
     s,
     735,
@@ -226,50 +240,63 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
     630,
     W(
       sp,
-      'Sehr geehrte Damen und Herren, gern bieten wir Ihnen wie folgt an:',
-      'Dear Sir or Madam, we are pleased to quote as follows:'
+      `${anrede(k.ansprechpartner, 'de')}, gern bieten wir Ihnen wie folgt an:`,
+      `${anrede(ansprech(k, 'en'), 'en')}, we are pleased to quote as follows:`
     ),
     10
   );
   const betrag = Number(f.betrag) || 0;
-  const anteile: [string, string, number][] = [
+  // Positionen mit Menge und Einheitspreis (J55): Stunden, Kilogramm,
+  // Quadratmeter; die letzte gleicht auf den Betrag des Angebots aus.
+  const edel = /edelstahl|stainless/i.test(txt(f.betreff, 'de'));
+  const oberflaeche = edel
+    ? W(sp, 'Oberfläche: Edelstahl geschliffen, Korn 240', 'Finish: stainless, ground, grit 240')
+    : /verzinkt|galvani/i.test(txt(f.betreff, 'de')) || e.id % 2
+      ? W(sp, 'Oberfläche: feuerverzinkt', 'Finish: hot-dip galvanised')
+      : W(sp, 'Oberfläche: pulverbeschichtet RAL 7016', 'Finish: powder-coated RAL 7016');
+  const posten: [string, number, string, number][] = [
+    [W(sp, 'Konstruktion und Werkstattzeichnungen', 'Design and shop drawings'), 0.12, 'h', 86],
     [
-      W(sp, 'Konstruktion und Werkstattzeichnungen', 'Design and shop drawings'),
-      W(sp, '1 psch.', '1 lot'),
-      0.12,
-    ],
-    [
-      W(sp, 'Material und Fertigung im Werk', 'Material and fabrication'),
-      W(sp, '1 psch.', '1 lot'),
+      edel
+        ? W(sp, 'Material 1.4301 und Fertigung im Werk', 'Material 1.4301 and fabrication')
+        : W(sp, 'Material S235 und Fertigung im Werk', 'Material S235 and fabrication'),
       0.53,
+      'kg',
+      4.6,
     ],
-    [
-      e.id % 2
-        ? W(sp, 'Oberfläche: feuerverzinkt', 'Finish: hot-dip galvanised')
-        : W(sp, 'Oberfläche: pulverbeschichtet RAL 7016', 'Finish: powder-coated RAL 7016'),
-      W(sp, '1 psch.', '1 lot'),
-      0.13,
-    ],
-    [
-      W(sp, 'Lieferung und Montage vor Ort', 'Delivery and installation on site'),
-      W(sp, '1 psch.', '1 lot'),
-      0.22,
-    ],
+    [oberflaeche, 0.13, 'm²', 38],
+    [W(sp, 'Lieferung und Montage vor Ort', 'Delivery and installation on site'), 0.22, 'h', 68],
   ];
+  const zeilen = posten.map(([was, anteil, einheit, preis]) => {
+    const menge = Math.max(1, Math.round((betrag * anteil) / preis));
+    return { was, einheit, preis, menge, wert: menge * preis };
+  });
+  // Die Montage ist pauschal: sie nimmt, was bis zum Betrag fehlt, und
+  // Menge mal Preis stimmt in jeder Zeile auf den Cent (Prüfer J55).
+  const letzte = zeilen[zeilen.length - 1]!;
+  letzte.wert = betrag - zeilen.slice(0, -1).reduce((x, z) => x + z.wert, 0);
+  letzte.einheit = 'psch';
+  const zahlText = (n: number, stellen = 0) =>
+    n.toLocaleString(sp === 'en' ? 'en-GB' : 'de-DE', {
+      minimumFractionDigits: stellen,
+      maximumFractionDigits: stellen,
+    });
   let y = tabelle(
     s,
     600,
     [
       { titel: W(sp, 'Pos.', 'Item'), x: L + 6 },
       { titel: W(sp, 'Leistung', 'Description'), x: L + 40 },
-      { titel: W(sp, 'Menge', 'Qty'), x: 380 },
+      { titel: W(sp, 'Menge', 'Qty'), x: 340 },
       { titel: W(sp, 'Betrag', 'Amount'), x: R - 6, rechts: true },
     ],
-    anteile.map(([was, menge, anteil], i) => [
+    zeilen.map((z, i) => [
       String(i + 1),
-      was,
-      menge,
-      euro(Math.round(betrag * anteil), sp),
+      z.was,
+      z.einheit === 'psch'
+        ? W(sp, '1 pauschal', '1 lump sum')
+        : `${zahlText(z.menge)} ${z.einheit} × ${zahlText(z.preis, 2)} €`,
+      euro(z.wert, sp),
     ])
   );
   const rabatt = Number(f.rabatt) || 0;
@@ -296,8 +323,8 @@ function angebotPdf(e: Eintrag, sp: Sprache): Seite {
     ),
     W(
       sp,
-      'Ausführung nach EN 1090, Ausführungsklasse EXC2. Zahlung 14 Tage netto.',
-      'Execution to EN 1090, execution class EXC2. Payment 14 days net.'
+      `Ausführung nach EN 1090, Ausführungsklasse EXC2. Zahlung ${kundeZiel(k)} Tage netto.`,
+      `Execution to EN 1090, execution class EXC2. Payment ${kundeZiel(k)} days net.`
     ),
     W(sp, 'Wir freuen uns auf Ihren Auftrag.', 'We look forward to your order.'),
   ]) {
@@ -441,6 +468,14 @@ function pruefungPdf(e: Eintrag, sp: Sprache): Seite {
       [W(sp, 'Prüfung', 'Inspection'), pruefartText(String(f.pruefart), sp)],
       [W(sp, 'Datum', 'Date'), datum(String(f.datum), sp)],
       [W(sp, 'Prüfer', 'Inspector'), name(Number(f.pruefer))],
+      ...(f.naht
+        ? [
+            [
+              W(sp, 'Naht, Schweißer', 'Weld, welder'),
+              `${String(f.naht)} · ${f.schweisser ? name(Number(f.schweisser)) : '–'} · ${String(f.wps ?? '')}`,
+            ] as [string, string],
+          ]
+        : []),
     ],
     L,
     100
@@ -453,7 +488,11 @@ function pruefungPdf(e: Eintrag, sp: Sprache): Seite {
     ],
     [
       W(sp, 'Schweißnähte Sichtprüfung', 'Visual weld check'),
-      W(sp, 'Bewertungsgruppe C', 'Quality level C'),
+      W(
+        sp,
+        `Bewertungsgruppe ${f.bewertungsgruppe ?? 'C'}, EN ISO 5817`,
+        `Quality level ${f.bewertungsgruppe ?? 'C'}, EN ISO 5817`
+      ),
       f.ergebnis === 'nio' ? W(sp, 'n. i. O.', 'fail') : W(sp, 'i. O.', 'OK'),
     ],
     [

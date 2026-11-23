@@ -4,12 +4,13 @@
  * Rabatt; das ist die Änderung, die in der Werkstatt live geschaltet wird.
  */
 import { Check, CircleX, Send, ShieldCheck, Undo2 } from '@marken/symbole';
-import type { Eintrag } from '../bestand';
+import { angebotOffen, type Eintrag } from '../bestand';
 import { KUNDEN, PERSONEN, ansprech, kunde, name } from '../firma';
 import { starten, Mono, StammLink, type AppDef, type Ctx } from './fachapp';
 import {
   datum,
   euro,
+  heuteIso,
   imZeitraum,
   isoIn,
   mindestens,
@@ -19,7 +20,7 @@ import {
   stammOeffnen,
   t,
   tageBis,
-  tausend,
+  zahl,
   tx,
 } from './gemeinsam';
 
@@ -27,7 +28,8 @@ const FREIGABE_AB = 20000;
 const mitRabatt = (ctx: Ctx) => mindestens(ctx.fassung, '1.5.0');
 const netto = (e: Eintrag, ctx: Ctx) =>
   Number(e.felder.betrag) * (1 - (mitRabatt(ctx) ? Number(e.felder.rabatt) || 0 : 0) / 100);
-const offen = (e: Eintrag) => ['entwurf', 'freigabe', 'freigegeben', 'versendet'].includes(e.stand);
+const offen = (e: Eintrag) => angebotOffen(e, heuteIso());
+const abgelaufen = (e: Eintrag) => e.stand === 'versendet' && tageBis(e.felder.gueltig) < 0;
 
 const def: AppDef = {
   id: 'angebote',
@@ -126,7 +128,11 @@ const def: AppDef = {
       titel: t('Auftrag', 'Order'),
       art: 'text',
       nurAnzeige: true,
-      anzeigen: w => <Mono>{String(w)}</Mono>,
+      anzeigen: w => (
+        <StammLink art="auftrag" id={String(w)}>
+          {String(w)}
+        </StammLink>
+      ),
     },
     { key: 'notiz', titel: t('Notiz', 'Note'), art: 'textlang' },
   ],
@@ -199,7 +205,12 @@ const def: AppDef = {
       {
         beschriftung: t('Offenes Volumen', 'Open volume'),
         wert: euro(offene.reduce((s, e) => s + netto(e, ctx), 0)),
-        fussnote: t(`${offene.length} Angebote offen`, `${offene.length} quotes open`),
+        fussnote: liste.some(abgelaufen)
+          ? t(
+              `${offene.length} offen, dazu ${liste.filter(abgelaufen).length} abgelaufen`,
+              `${offene.length} open, plus ${liste.filter(abgelaufen).length} expired`
+            )
+          : t(`${offene.length} Angebote offen`, `${offene.length} quotes open`),
         verlauf: monate.map(m => Number(m.wert)),
       },
       {
@@ -226,7 +237,10 @@ const def: AppDef = {
   },
   diagramm: (liste, ctx) => ({
     titel: t('Angebote und Aufträge je Monat', 'Quotes and orders per month'),
-    satz: t('Netto in Euro, die letzten zwölf Monate.', 'Net in euros, the last twelve months.'),
+    satz: t(
+      'Netto in Tausend Euro, die letzten zwölf Monate.',
+      'Net in thousand euros, the last twelve months.'
+    ),
     art: 'balken',
     data: proMonat(liste, e => String(e.felder.datum), 12, {
       angeboten: e => netto(e, ctx),
@@ -236,8 +250,7 @@ const def: AppDef = {
       { key: 'angeboten', name: t('Angeboten', 'Quoted'), unit: ' €' },
       { key: 'angenommen', name: t('Angenommen', 'Accepted'), unit: ' €' },
     ],
-    formatY: n =>
-      n >= 1000 ? t(`${Math.round(n / 1000)} Tsd.`, `${Math.round(n / 1000)}k`) : String(n),
+    formatY: n => zahl(Math.round(n / 1000)),
   }),
   naechstes: {
     titel: t('Nachfassen', 'Follow up'),
@@ -257,8 +270,8 @@ const def: AppDef = {
                     `expired ${relativTag(e.felder.gueltig)}, follow up`
                   )
                 : t(
-                    `gültig bis ${datum(e.felder.gueltig)}, ${kunde(Number(e.felder.kunde)).ansprechpartner} anrufen`,
-                    `valid until ${datum(e.felder.gueltig)}, call ${ansprech(kunde(Number(e.felder.kunde)), 'en')}`
+                    `gültig bis ${datum(e.felder.gueltig)}, ${kunde(Number(e.felder.kunde)).ansprechpartner || 'den Kunden'} anrufen`,
+                    `valid until ${datum(e.felder.gueltig)}, call ${ansprech(kunde(Number(e.felder.kunde)), 'en') || 'the customer'}`
                   ),
           wichtig: e.stand !== 'freigabe' && tageBis(e.felder.gueltig) < 3,
           freigabe: e.stand === 'freigabe',
@@ -295,6 +308,9 @@ const def: AppDef = {
         return [];
     }
   },
+  zusatzFilter: [
+    { key: 'abgelaufen', text: t('davon abgelaufen', 'of which expired'), pruefe: abgelaufen },
+  ],
   auswertung: {
     rechnen: (alle, ctx, z, oeffnen) => {
       const liste = alle.filter(e => imZeitraum(z, String(e.felder.datum)));
@@ -361,14 +377,14 @@ const def: AppDef = {
             titel: t('Angeboten und gewonnen je Monat', 'Quoted and won per month'),
             d: {
               titel: t('Angeboten und gewonnen je Monat', 'Quoted and won per month'),
-              satz: t(`Netto in Euro, ${z.text}.`, `Net in euros, ${z.text}.`),
+              satz: t(`Netto in Tausend Euro, ${z.text}.`, `Net in thousand euros, ${z.text}.`),
               art: 'balken',
               data: monate,
               series: [
                 { key: 'angeboten', name: t('Angeboten', 'Quoted'), unit: ' €' },
                 { key: 'angenommen', name: t('Gewonnen', 'Won'), unit: ' €' },
               ],
-              formatY: tausend,
+              formatY: n => zahl(Math.round(n / 1000)),
             },
           },
           {

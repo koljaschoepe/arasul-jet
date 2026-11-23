@@ -63,7 +63,7 @@ const def: AppDef = {
       anzeigen: w => {
         const a = auftrag(String(w));
         return a ? (
-          <StammLink art="kunde" id={a.kunde}>
+          <StammLink art="auftrag" id={a.nr}>
             {a.nr} · {kunde(a.kunde).name}, {tx(a.gegenstand)}
           </StammLink>
         ) : (
@@ -77,6 +77,46 @@ const def: AppDef = {
       art: 'text',
       pflicht: true,
       hinweis: t('Etwa „Treppenwange links".', 'E.g. “Left stair stringer”.'),
+    },
+    {
+      key: 'naht',
+      titel: t('Naht', 'Weld'),
+      art: 'text',
+      hinweis: t(
+        'Nummer der Naht laut Zeichnung, etwa „N4".',
+        'Weld number on the drawing, e.g. “N4”.'
+      ),
+      anzeigen: w => <Mono>{String(w)}</Mono>,
+    },
+    {
+      key: 'schweisser',
+      titel: t('Schweißer', 'Welder'),
+      art: 'auswahl',
+      optionen: PERSONEN.filter(p => p.abteilung === 'schweiss' && p.id !== 14).map(p => [
+        String(p.id),
+        `${p.vorname} ${p.nachname}`,
+      ]),
+      anzeigen: w => (
+        <StammLink art="person" id={Number(w)}>
+          {name(Number(w))}
+        </StammLink>
+      ),
+    },
+    {
+      key: 'wps',
+      titel: t('Schweißanweisung (WPS)', 'Welding procedure (WPS)'),
+      art: 'text',
+      anzeigen: w => <Mono>{String(w)}</Mono>,
+    },
+    {
+      key: 'bewertungsgruppe',
+      titel: t('Bewertungsgruppe', 'Quality level'),
+      art: 'auswahl',
+      optionen: [
+        ['B', t('B nach EN ISO 5817', 'B to EN ISO 5817')],
+        ['C', t('C nach EN ISO 5817', 'C to EN ISO 5817')],
+        ['D', t('D nach EN ISO 5817', 'D to EN ISO 5817')],
+      ],
     },
     {
       key: 'pruefart',
@@ -150,7 +190,14 @@ const def: AppDef = {
       : []),
     { key: 'notiz', titel: t('Befund', 'Finding'), art: 'textlang' },
   ],
-  vorbelegung: () => ({ datum: isoIn(0), pruefer: 11, pruefart: 'sicht' }),
+  vorbelegung: () => ({
+    datum: isoIn(0),
+    pruefer: 11,
+    pruefart: 'sicht',
+    schweisser: 16,
+    bewertungsgruppe: 'C',
+    wps: 'WPS-135-03',
+  }),
   pruefen: f => {
     const aus: Record<string, string> = {};
     if (f.ergebnis === 'nio' && !f.notiz)
@@ -263,22 +310,43 @@ const def: AppDef = {
       },
     ];
   },
-  diagramm: liste => ({
-    titel: t('Ergebnisse je Woche', 'Results per week'),
-    satz: t(
-      'Geprüfte Bauteile der letzten zwölf Wochen.',
-      'Parts inspected in the last twelve weeks.'
-    ),
-    art: 'balken',
-    data: proWoche(liste, e => (e.felder.ergebnis ? String(e.felder.datum) : null), 11, 0, {
-      io: e => (e.felder.ergebnis === 'io' || e.felder.ergebnis === 'auflage' ? 1 : 0),
-      nio: e => (e.felder.ergebnis === 'nio' ? 1 : 0),
-    }),
-    series: [
-      { key: 'io', name: t('In Ordnung', 'Passed') },
-      { key: 'nio', name: t('Nicht in Ordnung', 'Failed') },
-    ],
-  }),
+  diagramm: liste => {
+    const wochen = proWoche(
+      liste,
+      e => (e.felder.ergebnis ? String(e.felder.datum) : null),
+      11,
+      0,
+      {
+        io: e => (e.felder.ergebnis === 'io' || e.felder.ergebnis === 'auflage' ? 1 : 0),
+        nio: e => (e.felder.ergebnis === 'nio' ? 1 : 0),
+      }
+    );
+    // Erst ab der Woche, in der die App eingeführt wurde (J55): leere Wochen
+    // davor sähen aus wie verlorene Protokolle.
+    const ab = Math.max(
+      0,
+      wochen.findIndex(w => Number(w.io) + Number(w.nio) > 0)
+    );
+    const data = wochen.slice(ab).map((w, x) => ({ ...w, x }));
+    return {
+      titel: t('Ergebnisse je Woche', 'Results per week'),
+      satz: ab
+        ? t(
+            `Geprüfte Bauteile seit Einführung der App in ${data[0]!.name}; davor auf Papier.`,
+            `Parts inspected since the app was introduced in ${data[0]!.name}; before that on paper.`
+          )
+        : t(
+            'Geprüfte Bauteile der letzten zwölf Wochen.',
+            'Parts inspected in the last twelve weeks.'
+          ),
+      art: 'balken',
+      data,
+      series: [
+        { key: 'io', name: t('In Ordnung', 'Passed') },
+        { key: 'nio', name: t('Nicht in Ordnung', 'Failed') },
+      ],
+    };
+  },
   naechstes: {
     titel: t('Wartet auf Sie', 'Waiting for you'),
     leer: t('Kein Protokoll wartet.', 'No report is waiting.'),

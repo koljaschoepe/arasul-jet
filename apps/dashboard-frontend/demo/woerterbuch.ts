@@ -215,7 +215,7 @@ export const WOERTER: Record<string, string> = {
   Werkstatt: 'Workshop',
   Betriebsleiterin: 'Operations manager',
   'Liegt bei Ihnen.': 'Waiting for you.',
-  'Was bei Ihnen liegt, steht gleich darunter unter „Für Sie“.':
+  'Was bei Ihnen liegt, steht direkt darunter bei „Für Sie“.':
     'What is waiting for you is listed right below under “For you”.',
   'Ihr Name und Ihre Adresse auf diesem Gerät.': 'Your name and address on this server.',
   'Die Telefonnummer des Servicetechnikers direkt in der Zeile wäre praktisch.':

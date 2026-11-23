@@ -24,7 +24,7 @@ function daten<T>(z: DemoZustand, a: Anfrage, sprache: 'de' | 'en' = 'de') {
 describe('die Firma', () => {
   it('hat Personen, Kunden, Lieferanten und Aufträge im verlangten Umfang', () => {
     expect(PERSONEN.length).toBeGreaterThanOrEqual(15);
-    expect(KUNDEN).toHaveLength(25);
+    expect(KUNDEN).toHaveLength(64);
     expect(LIEFERANTEN).toHaveLength(15);
     expect(AUFTRAEGE.length).toBeGreaterThan(8);
   });
@@ -227,19 +227,19 @@ describe('gespielte Antworten', () => {
       })
     );
     expect(neu.status).toBe(201);
-    expect(neu.json.data.id).toBe(26);
+    expect(neu.json.data.id).toBe(65);
     z = neu.nachher;
-    expect(z.stamm.kunden).toHaveLength(26);
+    expect(z.stamm.kunden).toHaveLength(65);
 
     const geaendert = daten(
       z,
-      frage('PATCH', '/apps/stammdaten/api/stamm/kunden/26', {
+      frage('PATCH', '/apps/stammdaten/api/stamm/kunden/65', {
         felder: { ort: 'Talgrund-Süd', art: 'Gemeinde' },
       })
     );
     expect(geaendert.status).toBe(200);
     z = geaendert.nachher;
-    expect(z.stamm.kunden.find(k => k.id === 26)?.ort).toBe('Talgrund-Süd');
+    expect(z.stamm.kunden.find(k => k.id === 65)?.ort).toBe('Talgrund-Süd');
 
     // Ohne Namen kein Kunde; eine Maschine braucht eine Kennung.
     expect(
@@ -258,7 +258,7 @@ describe('gespielte Antworten', () => {
     const an = daten<{ data: Eintrag }>(
       z,
       frage('POST', '/apps/angebote/api/eintraege', {
-        felder: { kunde: 26, betreff: 'Geländer Bauhof', betrag: 4200, bearbeiter: 3 },
+        felder: { kunde: 65, betreff: 'Geländer Bauhof', betrag: 4200, bearbeiter: 3 },
         stand: 'entwurf',
       })
     );

@@ -65,7 +65,12 @@ Lieferschein, Wartungs- und Prüfprotokoll, Antrag).
 **Die Startseite** ist die des Produkts (Gruß, „Für Sie" mit den Freigaben,
 eine Kachel je App). Die Demo setzt zwei Teile dazu (`uebersicht.tsx`): unter
 den Gruß Firma, Datum, Schnellzugriffe und sechs Kennzahlen über alle Apps mit
-Verlauf; vor die Kacheln „Heute steht an" und „Zuletzt geändert". Freigaben
+Verlauf; nach „Für Sie" zwei Diagramme über alle fünf Fach-Apps („Offen je
+App" mit dem dringenden Teil, „Bewegung je Woche" über acht volle Wochen) und
+die Auslastung der laufenden Woche (Termine, im Haus, Lieferungen, Wartungen,
+Prüfungen, auslaufende Angebote je Tag, darunter wer abwesend ist); vor die
+Kacheln „Heute steht an" und „Zuletzt geändert". Alle Zahlen kommen aus
+demselben Bestand wie die Listen. Freigaben
 in „Für Sie" öffnen den Vorgang in seiner App (`zeigt_freigaben`).
 
 **Die Werkstatt** zeigt alle Rückmeldungen (14 aus der Firma), Angebote 1.5.0

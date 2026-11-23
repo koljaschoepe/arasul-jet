@@ -55,6 +55,15 @@ export interface Eintrag {
 
 export type Bestand = Record<AppKennung, Eintrag[]>;
 
+/**
+ * Offen ist ein Angebot, solange es entschieden werden kann: Entwurf,
+ * Freigabe, oder versendet und noch gültig. Ein abgelaufenes Angebot zählt
+ * nicht mehr zum offenen Volumen, es steht unter „Nachfassen" (J55).
+ */
+export const angebotOffen = (e: Eintrag, heute: string): boolean =>
+  ['entwurf', 'freigabe', 'freigegeben'].includes(e.stand) ||
+  (e.stand === 'versendet' && String(e.felder.gueltig) >= heute);
+
 export const PRAEFIX: Record<AppKennung, string> = {
   angebote: 'AN-26-',
   wareneingang: 'WE-26-',
@@ -139,6 +148,34 @@ function werktag(abstand: number, jetzt: number): number {
   return abstand;
 }
 
+/** Der letzte Arbeitstag, wenn ab `beginn` `tage` Arbeitstage gezählt werden. */
+function letzterArbeitstag(beginn: number, tage: number, jetzt: number): number {
+  let a = beginn;
+  let n = 0;
+  for (let x = beginn; n < tage && x < beginn + 60; x += 1) {
+    const d = new Date(jetzt + x * TAG).getDay();
+    if (d !== 0 && d !== 6) {
+      n += 1;
+      a = x;
+    }
+  }
+  return a;
+}
+
+/** Wie `werktag`, aber rückwärts: nie in die Zukunft. */
+function werktagVorher(abstand: number, jetzt: number): number {
+  for (let a = abstand; a > abstand - 10; a -= 1) {
+    const d = new Date(jetzt + a * TAG);
+    const frei =
+      d.getDay() === 0 ||
+      d.getDay() === 6 ||
+      (d.getMonth() === 11 && [24, 25, 26, 31].includes(d.getDate())) ||
+      (d.getMonth() === 0 && d.getDate() === 1);
+    if (!frei) return a;
+  }
+  return abstand;
+}
+
 function schritt(stunden: number, wer: number, text: Text | string, jetzt: number): Schritt {
   return { am: vor(stunden, jetzt), wer, text };
 }
@@ -162,129 +199,368 @@ const ANGEBOT_GEGENSTAENDE: [Text, number, number][] = [
   [T('Regalbühne Lager', 'Warehouse mezzanine'), 24000, 52000],
   [T('Absturzsicherung Flachdach', 'Fall protection, flat roof'), 4800, 9900],
   [T('Fahrradüberdachung, 3 Felder', 'Bicycle shelter, 3 bays'), 7600, 12400],
+  // Die großen (J55): ohne sie käme ein Betrieb mit 60 Leuten nicht auf seinen Umsatz.
+  [
+    T('Stahlbau Hallenerweiterung, 24 × 18 m', 'Steel frame, hall extension, 24 × 18 m'),
+    120000,
+    260000,
+  ],
+  [T('Treppenanlage Parkhaus, 4 Ebenen', 'Stair system, car park, 4 levels'), 85000, 160000],
+  [
+    T(
+      'Schweißbaugruppen nach Zeichnung, Jahresbedarf',
+      'Welded assemblies to drawing, annual demand'
+    ),
+    90000,
+    240000,
+  ],
+  [T('Balkonanlage, 12 Balkone', 'Balcony system, 12 balconies'), 95000, 180000],
+  [
+    T('Laserteile nach Zeichnung, Rahmenvertrag', 'Laser parts to drawing, framework contract'),
+    40000,
+    110000,
+  ],
 ];
+
+/** Wer was bestellt (J55): Teile nach Zeichnung kauft die Industrie, große Bauvorhaben der Bau. */
+const TEILE = /nach Zeichnung|Maschinenverkleidung|Schweißbaugruppe/;
+const BAU =
+  /Bauträger|Bauunternehmen|Wohnungsbau|Öffentlicher Bau|Kommune|Architekturbüro|Planer|Klinik/;
+const INDUSTRIE = /Maschinenbau|Industrie|Anlagenbau|Logistik|Versorger/;
+const KLEIN = /Privat|Verein|Gastronomie|Landwirtschaft|Gewerbe|Handel/;
+
+function passt(art: string, [g, , max]: [Text, number, number]): boolean {
+  if (INDUSTRIE.test(art)) return TEILE.test(g.de) || /Bühne|Halle|Stahlstützen|Absturz/.test(g.de);
+  if (KLEIN.test(art)) return !TEILE.test(g.de) && max <= 52000;
+  if (/Halle/.test(g.de)) return /Bauunternehmen|Kommune/.test(art);
+  if (/Parkhaus/.test(g.de)) return /Bauunternehmen|Kommune|Bauträger|Öffentlicher Bau/.test(art);
+  return !TEILE.test(g.de);
+}
+
+/** Maße und Mengen im Betreff wechseln, damit nicht drei Angebote gleich heißen (J55). */
+function abwandeln(g: Text, r: { eins: <X>(l: readonly X[]) => X }): Text {
+  const tausch: [RegExp, string[]][] = [
+    [/24 × 18 m/, ['24 × 18 m', '30 × 20 m', '36 × 24 m', '18 × 12 m']],
+    [/3 Felder|3 bays/, ['3', '4', '6']],
+    [/14 Stufen|14 steps/, ['11', '14', '16', '18']],
+    [/48 m/, ['36 m', '48 m', '64 m', '90 m']],
+    [/4 × 2 m/, ['3 × 1,5 m', '4 × 2 m', '6 × 2,5 m']],
+    [/, 6 m/, [', 5 m', ', 6 m', ', 8 m']],
+    [/12 Balkone|12 balconies/, ['8', '12', '16', '24']],
+    [/4 Ebenen|4 levels/, ['3', '4', '5']],
+  ];
+  for (const [muster, werte] of tausch) {
+    if (!muster.test(g.de)) continue;
+    const w = r.eins(werte);
+    if (/^\d+$/.test(w)) {
+      const ersetzen = (t: string) =>
+        t.replace(/\d+(?= (Felder|bays|Stufen|steps|Balkone|balconies|Ebenen|levels))/, w);
+      return T(ersetzen(g.de), ersetzen(g.en));
+    }
+    return T(g.de.replace(muster, w), g.en.replace(muster, w.replace(',', '.')));
+  }
+  return g;
+}
+
+/** Wo in einem Werk gebaut wird. */
+const LINIEN: Text[] = [
+  T('Linie 4', 'line 4'),
+  T('Montagehalle', 'assembly hall'),
+  T('Werk 2', 'plant 2'),
+  T('Versand', 'dispatch'),
+  T('Lackiererei', 'paint shop'),
+  T('Prüffeld', 'test bay'),
+];
+
+/** Wo gebaut wird: damit nicht drei Angebote „Vordach Eingang" heißen. */
+const OBJEKTE: Text[] = [
+  T('Kita Halbrück', 'Halbrück nursery'),
+  T('Halle 3', 'Hall 3'),
+  T('Haus B', 'Block B'),
+  T('Bauabschnitt 2', 'Phase 2'),
+  T('Erweiterung Nord', 'North extension'),
+  T('Lager Ost', 'East warehouse'),
+  T('Verwaltungsgebäude', 'Office building'),
+  T('Schule Eschenau', 'Eschenau school'),
+  T('Wohnanlage Lindenhof', 'Lindenhof housing'),
+  T('Sporthalle', 'Sports hall'),
+  T('Rathaus Obertal', 'Obertal town hall'),
+  T('Werk 2', 'Plant 2'),
+];
+
+/**
+ * Die laufende Nummer eines Belegs im Jahr seines Datums, als ob seit dem
+ * ersten Januar im selben Takt nummeriert würde (J55): ein Angebot vom
+ * 5. Januar heißt AN-26-002, nicht AN-26-074. `takt` ist die Zahl der
+ * Belege im Jahr.
+ */
+function jahresNummern(daten: string[], praefix: string, takt: number, stellen: number): string[] {
+  const erstes = new Map<string, { tag: number; n: number }>();
+  const aus: string[] = [];
+  daten.forEach(d => {
+    const jahr = d.slice(0, 4);
+    const tagImJahr = Math.floor(
+      (Date.parse(`${d}T12:00:00`) - Date.parse(`${jahr}-01-01T12:00:00`)) / TAG
+    );
+    let st = erstes.get(jahr);
+    if (!st) {
+      // Vor dem ersten Beleg dieses Bestands lagen schon so viele im Jahr.
+      st = { tag: tagImJahr, n: Math.max(0, Math.round((tagImJahr * takt) / 365)) };
+      erstes.set(jahr, st);
+    }
+    st.n += 1;
+    aus.push(`${praefix}-${jahr.slice(2)}-${String(st.n).padStart(stellen, '0')}`);
+  });
+  return aus;
+}
+
+/**
+ * Nummern ab der Einführung der App: die erste Prüfung in Arasul ist PP-26-001
+ * (J55). So passen Nummer und Länge der Liste zusammen; davor lag es auf Papier.
+ */
+function seitEinfuehrung(daten: string[], praefix: string): string[] {
+  return daten.map((d, i) => `${praefix}-${d.slice(2, 4)}-${String(i + 1).padStart(3, '0')}`);
+}
+
+/** Die Spanne des Betrags zu einem Gegenstand, nach dem ersten Wort. */
+function spanneZu(gegenstand: Text): [number, number] {
+  const wort = gegenstand.de.split(/[ ,]/)[0]!.toLowerCase();
+  const treffer = ANGEBOT_GEGENSTAENDE.find(([g]) => g.de.toLowerCase().includes(wort));
+  return treffer ? [treffer[1], treffer[2]] : [9000, 28000];
+}
+
+/** Rund 320 Angebote im Jahr, gut sechs je Woche: so viel schreibt ein Betrieb mit 60 Leuten. */
+const ANGEBOTE_IM_JAHR = 320;
 
 function angebote(jetzt: number): Eintrag[] {
   const r = zufall(87);
-  const liste: Eintrag[] = [];
-  // Die Aufträge zuerst: aus genau diesen Angeboten entstanden sie.
-  const ausAuftrag = new Map(AUFTRAEGE.map(a => [a.angebot, a]));
-  for (let i = 0; i < 42; i += 1) {
-    const nummer = 74 + i;
-    const nr = `AN-26-${String(nummer).padStart(3, '0')}`;
-    const auftrag = ausAuftrag.get(nr);
-    const alter = Math.round((41 - i) * 8.6) + r.ganz(0, 4); // Tage, älteste zuerst
-    const [gegenstand, min, max] = r.eins(ANGEBOT_GEGENSTAENDE);
-    const kunde = auftrag ? auftrag.kunde : r.eins(KUNDEN).id;
+  // Erst die Tage, ältestes zuerst, nur Werktage; die letzten Tage dichter.
+  const alter: number[] = [];
+  for (let i = 0; i < ANGEBOTE_IM_JAHR; i += 1) {
+    const a = Math.round(((ANGEBOTE_IM_JAHR - 1 - i) * 362) / ANGEBOTE_IM_JAHR) + r.ganz(0, 1);
+    alter.push(-werktagVorher(-a, jetzt));
+  }
+  alter.sort((x, y) => y - x);
+  const tage = alter.map(a => tagRelativ(-a, jetzt));
+  const nummern = jahresNummern(tage, 'AN', ANGEBOTE_IM_JAHR, 3);
+
+  const liste: Eintrag[] = alter.map((alt, i) => {
+    const nr = nummern[i]!;
+    const k = r.eins(KUNDEN);
+    const kunde = k.id;
+    const [grund, min, max] = r.eins(ANGEBOT_GEGENSTAENDE.filter(g => passt(k.art.de, g)));
+    const objekt =
+      BAU.test(k.art.de) &&
+      !TEILE.test(grund.de) &&
+      !/Halle|Parkhaus/.test(grund.de) &&
+      r.z() < 0.55
+        ? r.eins(OBJEKTE)
+        : null;
+    const art_ = abwandeln(grund, r);
+    // Die Industrie bestellt nach Zeichnung oder für eine Linie (J55).
+    const zusatz =
+      objekt ??
+      (INDUSTRIE.test(k.art.de)
+        ? TEILE.test(grund.de)
+          ? (() => {
+              const z = `Z-${r.ganz(2100, 4899)}`;
+              return T(`Zeichnung ${z}`, `drawing ${z}`);
+            })()
+          : r.eins(LINIEN)
+        : null);
+    const gegenstand = zusatz ? T(`${art_.de}, ${zusatz.de}`, `${art_.en}, ${zusatz.en}`) : art_;
     const betrag = Math.round((min + r.z() * (max - min)) / 10) * 10;
     let stand: string;
-    if (auftrag) stand = 'angenommen';
-    else if (alter > 60) stand = r.z() < 0.55 ? 'angenommen' : 'abgelehnt';
-    else if (alter > 14) stand = r.eins(['versendet', 'versendet', 'angenommen', 'abgelehnt']);
-    else if (alter > 4) stand = r.eins(['versendet', 'versendet', 'entwurf']);
+    // Ein gutes Drittel wird gewonnen; was nach sechs Wochen nicht
+    // angenommen ist, ist vergeben.
+    if (alt > 45) stand = r.z() < 0.35 ? 'angenommen' : 'abgelehnt';
+    else if (alt > 14)
+      stand = r.eins(['versendet', 'versendet', 'versendet', 'angenommen', 'abgelehnt']);
+    else if (alt > 4) stand = r.eins(['versendet', 'versendet', 'entwurf']);
     else stand = 'entwurf';
     const wer = r.z() < 0.6 ? 3 : 4;
-    const datum = tagRelativ(werktag(-alter, jetzt), jetzt);
     const felder: Record<string, Wert> = {
       kunde,
-      betreff: auftrag ? auftrag.gegenstand : gegenstand,
+      betreff: gegenstand,
       bearbeiter: wer,
       betrag,
       rabatt: [1, 5, 12, 18].includes(kunde) ? 3 : 0,
-      datum,
-      gueltig: tagRelativ(-alter + 30, jetzt),
-      auftrag: auftrag?.nr ?? null,
+      datum: tage[i]!,
+      gueltig: tagRelativ(-alt + 30, jetzt),
+      auftrag: null,
       notiz: null,
     };
+    return {
+      id: 1000 + i,
+      nr,
+      stand,
+      felder,
+      dateien: [],
+      verlauf: [],
+      angelegt_am: '',
+      geaendert_am: '',
+    };
+  });
+
+  // Zwei große Angebote warten auf die Freigabe der Betriebsleitung: zwei
+  // der jüngsten Entwürfe und Versendeten, ohne Auftrag.
+  // Zwei Werktage alt oder mehr: der Verlauf steht dann sicher in der richtigen Folge.
+  const reif = alter.map((a, i) => [a, i] as const).filter(([a]) => a >= 2 && a <= 8);
+  const freigabe = new Map<number, [number, number, Text]>([
+    [
+      reif[reif.length - 2]![1],
+      [
+        48600,
+        16,
+        T('Fluchttreppe Schulzentrum, Bauteil C', 'Escape stair, school centre, section C'),
+      ],
+    ],
+    [
+      reif[reif.length - 1]![1],
+      [31250, 6, T('Bühnen und Treppen Kesselhaus', 'Platforms and stairs, boiler house')],
+    ],
+  ]);
+  for (const [k, [betrag, kunde, gegenstand]] of freigabe) {
+    const e = liste[k]!;
+    e.stand = 'freigabe';
+    Object.assign(e.felder, { betrag, kunde, betreff: gegenstand, rabatt: 0 });
+  }
+
+  // Die zwölf jüngsten gewonnenen Angebote sind die zwölf laufenden Aufträge:
+  // Kunde und Gegenstand kommen vom Auftrag, die Nummer steht in beiden.
+  const gewonnen = liste
+    .map((e, i) => ({ e, i }))
+    .filter(x => x.e.stand === 'angenommen' && !freigabe.has(x.i));
+  const juengste = gewonnen.slice(-AUFTRAEGE.length);
+  // Die Nummern laufen im Jahr ab 001 (J55): die zwölf laufenden schließen an
+  // die älteren gewonnenen dieses Jahres an.
+  const diesesJahr = String(new Date(jetzt).getFullYear()).slice(2);
+  const imJahr = gewonnen
+    .slice(0, -AUFTRAEGE.length)
+    .filter(x => String(x.e.felder.datum).slice(2, 4) === diesesJahr);
+  juengste.forEach(({ e }, n) => {
+    const a = AUFTRAEGE[n]!;
+    a.nr = `AU-${diesesJahr}-${String(imJahr.length + 1 + n).padStart(3, '0')}`;
+    const [min, max] = spanneZu(a.gegenstand);
+    a.angebot = e.nr;
+    // Angenommen neun Tage nach dem Angebot (siehe Verlauf unten).
+    a.seitTagen = Math.max(1, alter[liste.indexOf(e)]! - 9);
+    Object.assign(e.felder, {
+      kunde: a.kunde,
+      betreff: a.gegenstand,
+      auftrag: a.nr,
+      betrag: Math.round((min + r.z() * (max - min)) / 10) * 10,
+      rabatt: [1, 5, 12, 18].includes(a.kunde) ? 3 : 0,
+    });
+  });
+
+  // Die älteren gewonnenen: im laufenden Jahr ab AU-26-001 nach Datum, im
+  // Vorjahr bis zum Jahresende hin gezählt.
+  let nrJahr = 0;
+  const vorjahr = gewonnen
+    .slice(0, -AUFTRAEGE.length)
+    .filter(x => String(x.e.felder.datum).slice(2, 4) !== diesesJahr);
+  vorjahr.forEach(({ e }, n) => {
+    e.felder.auftrag = `AU-${String(Number(diesesJahr) - 1).padStart(2, '0')}-${String(
+      118 - vorjahr.length + n
+    ).padStart(3, '0')}`;
+  });
+  for (const { e } of imJahr) {
+    nrJahr += 1;
+    e.felder.auftrag = `AU-${diesesJahr}-${String(nrJahr).padStart(3, '0')}`;
+  }
+
+  for (let i = 0; i < liste.length; i += 1) {
+    const e = liste[i]!;
+    const alt = alter[i]!;
+    const wer = Number(e.felder.bearbeiter);
     const verlauf: Schritt[] = [
-      schritt(alter * 24 + 6, wer, T('Angebot angelegt', 'Quote created'), jetzt),
+      // Heute angelegt heißt: vor einer Stunde, nicht am Freitag (Prüfer J55).
+      schritt(alt === 0 ? 1 : alt * 24 + 6, wer, T('Angebot angelegt', 'Quote created'), jetzt),
     ];
-    if (stand !== 'entwurf') {
+    if (e.stand === 'freigabe') {
       verlauf.push(
         schritt(
-          alter * 24 - 2,
+          Math.max(1, alt * 24 - 2),
+          wer,
+          T(
+            'Zur Freigabe an Miriam Kerschner (über 20.000 €)',
+            'Sent to Miriam Kerschner for approval (over €20,000)'
+          ),
+          jetzt
+        )
+      );
+    } else if (e.stand !== 'entwurf') {
+      if (Number(e.felder.betrag) >= 20000)
+        verlauf.push(
+          schritt(
+            alt * 24 + 3,
+            wer,
+            T(
+              'Zur Freigabe an Miriam Kerschner (über 20.000 €)',
+              'Sent to Miriam Kerschner for approval (over €20,000)'
+            ),
+            jetzt
+          ),
+          schritt(alt * 24, ICH_ID, T('Freigegeben', 'Approved'), jetzt)
+        );
+      verlauf.push(
+        schritt(
+          alt * 24 - 2,
           wer,
           T('Als PDF an den Kunden versendet', 'Sent to the customer as PDF'),
           jetzt
         )
       );
     }
-    if (stand === 'angenommen') {
+    if (e.stand === 'angenommen') {
+      const auftrag = e.felder.auftrag ? String(e.felder.auftrag) : null;
       verlauf.push(
         schritt(
-          Math.max(1, alter - 9) * 24,
+          Math.max(1, alt - 9) * 24,
           wer,
           auftrag
-            ? T(
-                `Angenommen, Auftrag ${auftrag.nr} angelegt`,
-                `Accepted, order ${auftrag.nr} created`
-              )
+            ? T(`Angenommen, Auftrag ${auftrag} angelegt`, `Accepted, order ${auftrag} created`)
             : T('Vom Kunden angenommen', 'Accepted by the customer'),
           jetzt
         )
       );
     }
-    if (stand === 'abgelehnt') {
+    if (e.stand === 'abgelehnt') {
       verlauf.push(
         schritt(
-          Math.max(1, alter - 12) * 24,
+          Math.max(1, alt - 12) * 24,
           wer,
-          T('Abgelehnt: Kunde hat anders vergeben', 'Declined: customer chose another supplier'),
+          r.z() < 0.6
+            ? T('Abgelehnt: Kunde hat anders vergeben', 'Declined: customer chose another supplier')
+            : T('Abgelehnt: Vorhaben verschoben', 'Declined: project postponed'),
           jetzt
         )
       );
     }
-    const dateien: Datei[] = [
-      { id: 'angebot', name: `${nr}.pdf`, art: 'pdf', vorlage: 'angebot', am: verlauf[0]!.am, wer },
+    e.verlauf = verlauf;
+    e.dateien = [
+      {
+        id: 'angebot',
+        name: `${e.nr}.pdf`,
+        art: 'pdf',
+        vorlage: 'angebot',
+        am: verlauf[0]!.am,
+        wer,
+      },
     ];
     if (i % 3 === 0) {
-      dateien.push({
+      e.dateien.push({
         id: 'zeichnung',
-        name: T(`Skizze-${nr}.svg`, `Sketch-${nr}.svg`),
+        name: T(`Skizze-${e.nr}.svg`, `Sketch-${e.nr}.svg`),
         art: 'bild',
         vorlage: 'zeichnung',
         am: verlauf[0]!.am,
         wer,
       });
     }
-    liste.push({
-      id: 1000 + i,
-      nr,
-      stand,
-      felder,
-      dateien,
-      verlauf,
-      angelegt_am: verlauf[0]!.am,
-      geaendert_am: verlauf[verlauf.length - 1]!.am,
-    });
-  }
-  // Zwei große Angebote warten auf die Freigabe der Betriebsleitung.
-  for (const [k, betrag, kunde, gegenstand] of [
-    [
-      40,
-      48600,
-      16,
-      T('Fluchttreppe Schulzentrum, Bauteil C', 'Escape stair, school centre, section C'),
-    ],
-    [41, 31250, 6, T('Bühnen und Treppen Kesselhaus', 'Platforms and stairs, boiler house')],
-  ] as const) {
-    const e = liste[k]!;
-    e.stand = 'freigabe';
-    e.felder.betrag = betrag;
-    e.felder.kunde = kunde;
-    e.felder.betreff = gegenstand;
-    e.verlauf.push(
-      schritt(
-        5 - (k - 40) * 3,
-        3,
-        T(
-          'Zur Freigabe an Miriam Kerschner (über 20.000 €)',
-          'Sent to Miriam Kerschner for approval (over €20,000)'
-        ),
-        jetzt
-      )
-    );
-    e.geaendert_am = e.verlauf[e.verlauf.length - 1]!.am;
+    e.angelegt_am = verlauf[0]!.am;
+    e.geaendert_am = verlauf[verlauf.length - 1]!.am;
   }
   return liste.reverse();
 }
@@ -295,27 +571,46 @@ function wareneingang(jetzt: number): Eintrag[] {
   const r = zufall(42);
   const liste: Eintrag[] = [];
   // Unregelmäßig wie im echten Betrieb: mal zwei Lieferungen am Tag, mal
-  // drei Tage keine.
-  let tag = -72;
-  for (let i = 0; i < 44; i += 1) {
-    tag += r.eins([0, 1, 2, 2, 3, 3]);
+  // drei Tage keine; ein Jahr zurück (J55), rund 230 Lieferungen.
+  const abstaende: number[] = [];
+  for (let tag = -365; ;) {
+    tag += r.eins([0, 1, 1, 2, 2, 3]);
+    if (tag >= -1) break;
+    abstaende.push(werktagVorher(tag, jetzt));
+  }
+  // Die letzten fünf: heute und in den nächsten Tagen erwartet, an jedem
+  // Wochentag. Heute erwartet nur an einem Werktag; am Wochenende rückt es
+  // auf Montag. Die dritte ist heute schon angekommen.
+  const letzter = [-2, 0, 0, 0, 0, 0, -1][new Date(jetzt).getDay()]!;
+  const vorne = abstaende.length;
+  abstaende.push(
+    werktag(0, jetzt),
+    werktag(0, jetzt),
+    letzter,
+    werktag(1, jetzt),
+    werktag(2, jetzt)
+  );
+  const nummern = jahresNummern(
+    abstaende.map(a => tagRelativ(a, jetzt)),
+    'WE',
+    240,
+    4
+  );
+  for (let i = 0; i < abstaende.length; i += 1) {
+    const abstand = abstaende[i]!;
+    const heuteDa = i === vorne + 2;
     const artikel = r.eins(ARTIKEL);
-    // Von 70 Tagen zurück bis 6 Tage voraus; die letzten sind erwartet.
-    // Die letzten fünf: heute und in den nächsten Tagen erwartet, an jedem Wochentag.
-    // Heute erwartet nur an einem Werktag; am Wochenende rückt es auf Montag.
-    const letzter = [-2, 0, 0, 0, 0, 0, -1][new Date(jetzt).getDay()]!;
-    const abstand =
-      i >= 39
-        ? i === 41
-          ? letzter
-          : werktag([0, 0, 0, 1, 2][i - 39]!, jetzt)
-        : werktag(Math.min(tag, -1), jetzt);
-    const auftrag = r.z() < 0.65 ? r.eins(AUFTRAEGE) : null;
+    // Material für einen Auftrag erst, wenn der Auftrag schon lief.
+    const moeglich = AUFTRAEGE.filter(a => (a.seitTagen ?? 0) >= -abstand + 3);
+    const auftrag = moeglich.length && r.z() < 0.65 ? r.eins(moeglich) : null;
     let stand: string;
     if (abstand > 0) stand = 'erwartet';
-    else if (abstand === 0) stand = i === 41 ? 'eingegangen' : 'erwartet';
+    else if (abstand === 0) stand = heuteDa ? 'eingegangen' : 'erwartet';
     else if (abstand > -3) stand = r.eins(['eingegangen', 'geprueft']);
     else stand = r.z() < 0.07 ? 'reklamiert' : 'eingelagert';
+    // Eine Reklamation ist nach drei Wochen erledigt: Ersatz kam, eingelagert.
+    const reklamiertGewesen = stand === 'reklamiert' && abstand < -21;
+    if (reklamiertGewesen) stand = 'eingelagert';
     const menge =
       artikel.lagerort === 'L-30'
         ? r.ganz(4, 12)
@@ -324,10 +619,10 @@ function wareneingang(jetzt: number): Eintrag[] {
           : artikel.einheit.de === 'm'
             ? r.ganz(4, 30) * 6
             : r.ganz(2, 24);
-    const nr = `WE-26-${String(311 + i).padStart(4, '0')}`;
+    const nr = nummern[i]!;
     const felder: Record<string, Wert> = {
       lieferant: artikel.lieferant,
-      bestellung: `B-26-${String(520 + Math.floor(i * 0.9)).padStart(4, '0')}`,
+      bestellung: `B-${nr.slice(3, 5)}-${String(Number(nr.slice(6)) + 180).padStart(4, '0')}`,
       lieferschein: abstand <= 0 ? `LS ${r.ganz(10000, 99999)}` : null,
       artikel: artikel.nr,
       menge,
@@ -374,12 +669,37 @@ function wareneingang(jetzt: number): Eintrag[] {
     if (stand === 'eingelagert')
       verlauf.push(
         schritt(
-          -abstand * 24,
+          reklamiertGewesen ? (-abstand - 8) * 24 - 2 : -abstand * 24,
           7,
           T(`Eingelagert auf ${artikel.lagerort}`, `Stored at ${artikel.lagerort}`),
           jetzt
         )
       );
+    if (reklamiertGewesen) {
+      felder.notiz = T(
+        'Zwei Tafeln mit verbogenen Kanten, Ersatz nach acht Tagen geliefert.',
+        'Two sheets with bent edges, replacement delivered after eight days.'
+      );
+      verlauf.splice(
+        verlauf.length - 1,
+        0,
+        schritt(
+          -abstand * 24 + 1,
+          7,
+          T(
+            'Beim Lieferanten reklamiert, Foto angehängt',
+            'Complaint sent to supplier, photo attached'
+          ),
+          jetzt
+        ),
+        schritt(
+          (-abstand - 8) * 24,
+          7,
+          T('Ersatz geliefert und geprüft', 'Replacement delivered and checked'),
+          jetzt
+        )
+      );
+    }
     if (stand === 'reklamiert') {
       felder.notiz = T(
         'Kanten verbogen, zwei Tafeln unbrauchbar. Ersatz angefragt.',
@@ -407,13 +727,13 @@ function wareneingang(jetzt: number): Eintrag[] {
         am: verlauf[1]!.am,
         wer: 7,
       });
-    if (stand === 'reklamiert')
+    if (stand === 'reklamiert' || reklamiertGewesen)
       dateien.push({
         id: 'foto',
         name: `Foto-${nr}.svg`,
         art: 'bild',
         vorlage: 'foto',
-        am: verlauf[verlauf.length - 1]!.am,
+        am: (reklamiertGewesen ? verlauf[verlauf.length - 3] : verlauf[verlauf.length - 1])!.am,
         wer: 7,
       });
     liste.push({
@@ -426,6 +746,16 @@ function wareneingang(jetzt: number): Eintrag[] {
       angelegt_am: verlauf[0]!.am,
       geaendert_am: verlauf[verlauf.length - 1]!.am,
     });
+  }
+  // Jeder laufende Auftrag hat sein Material (J55): fehlt es, trägt die
+  // erste passende Lieferung ohne Auftrag nach seinem Start die Nummer.
+  for (const a of AUFTRAEGE) {
+    if (liste.some(e => e.felder.auftrag === a.nr)) continue;
+    const frei = liste.find(
+      e =>
+        !e.felder.auftrag && String(e.felder.erwartet) >= tagRelativ(-(a.seitTagen ?? 0) + 2, jetzt)
+    );
+    if (frei) frei.felder.auftrag = a.nr;
   }
   return liste.reverse();
 }
@@ -443,17 +773,29 @@ const WARTUNG_ARTEN: [string, Text, number][] = [
 function wartungsplan(jetzt: number): Eintrag[] {
   const r = zufall(7);
   const liste: Eintrag[] = [];
+  const abstaende = Array.from({ length: 40 }, (_, i) =>
+    werktag(-120 + i * 4 + ((i * 7) % 4), jetzt)
+  );
+  const nummern = seitEinfuehrung(
+    abstaende.map(a => tagRelativ(a, jetzt)),
+    'WA'
+  );
   for (let i = 0; i < 40; i += 1) {
     const maschine = MASCHINEN[i % MASCHINEN.length]!;
-    const [art, was, intervall] = r.eins(WARTUNG_ARTEN);
-    const abstand = werktag(-120 + i * 4 + r.ganz(0, 3), jetzt);
+    // Kalibriert werden Maschinen, die messen oder Maß halten; ein Kompressor nicht.
+    const gezogen = r.eins(WARTUNG_ARTEN);
+    const [art, was, intervall] =
+      gezogen[0] === 'kalibrierung' && !/^(LS|KP|SG|RB)/.test(maschine.id)
+        ? WARTUNG_ARTEN[1]!
+        : gezogen;
+    const abstand = abstaende[i]!;
     let stand: string;
     if (abstand < -6) stand = 'erledigt';
     else if (abstand < 0) stand = r.eins(['erledigt', 'geplant', 'in_arbeit']);
     else if (abstand < 3) stand = r.eins(['geplant', 'in_arbeit']);
     else stand = 'geplant';
     const extern = art === 'uvv' ? (maschine.id.startsWith('HK') ? 14 : 12) : null;
-    const nr = `WA-26-${String(150 + i).padStart(3, '0')}`;
+    const nr = nummern[i]!;
     const felder: Record<string, Wert> = {
       maschine: maschine.id,
       art,
@@ -536,6 +878,23 @@ function wartungsplan(jetzt: number): Eintrag[] {
 
 // ── Prüfprotokolle ──────────────────────────────────────────────────────────
 
+/** Welche Bauteile zu welchem Auftrag gehören, nach Wörtern im Gegenstand (J55). */
+const BAUTEILE_JE: [RegExp, number[]][] = [
+  [/wendeltreppe/i, [2, 4]],
+  [/geländer|handlauf/i, [3, 4]],
+  [/treppe/i, [0, 1, 2, 3]],
+  [/rahmen|schweißbaugruppe/i, [5]],
+  [/vordach|überdachung/i, [6, 9, 4]],
+  [/[Tt]or\b|Schiebetor/, [7, 4]],
+  [/Laserteile|Kantteil|Verkleidung/, [8]],
+  [/Bühne|Regalbühne/, [2, 9, 3]],
+];
+
+function bauteilZu(gegenstand: Text, r: { eins: <X>(l: readonly X[]) => X }): Text {
+  const treffer = BAUTEILE_JE.find(([muster]) => muster.test(gegenstand.de));
+  return BAUTEILE[r.eins(treffer ? treffer[1] : [9, 4])]!;
+}
+
 const BAUTEILE: Text[] = [
   T('Treppenwange links', 'Left stair stringer'),
   T('Treppenwange rechts', 'Right stair stringer'),
@@ -556,23 +915,53 @@ const PRUEFARTEN: [string, Text][] = [
   ['abnahme', T('Abnahme vor Ort', 'On-site acceptance')],
 ];
 
+/** Folge der Prüfungen an einem Auftrag; nach der Abnahme nur noch Nachprüfungen. */
+const FOLGE = ['sicht', 'mass', 'sicht', 'mass', 'schicht', 'sicht', 'schicht', 'abnahme'];
+
+/** Je laufendem Auftrag sieben bis acht Prüfungen: Sicht, Maß, Schicht, Abnahme. */
+const PRUEFUNGEN = 92;
+
 function pruefprotokolle(jetzt: number): Eintrag[] {
   const r = zufall(11);
   const liste: Eintrag[] = [];
-  for (let i = 0; i < 41; i += 1) {
-    const auftrag = AUFTRAEGE[i % AUFTRAEGE.length]!;
-    const [pruefart, pruefartText] = r.eins(PRUEFARTEN);
-    const abstand = werktag(-90 + Math.round(i * 2.2), jetzt);
+  // Geprüft wird erst, wenn ein Auftrag läuft: vom ältesten laufenden
+  // Auftrag an bis heute (J55).
+  const beginn = -Math.min(90, Math.max(...AUFTRAEGE.map(a => a.seitTagen ?? 90)) - 5);
+  const abstaende = Array.from({ length: PRUEFUNGEN }, (_, i) =>
+    werktag(beginn + Math.round((i * -beginn) / PRUEFUNGEN), jetzt)
+  );
+  const nummern = seitEinfuehrung(
+    abstaende.map(a => tagRelativ(a, jetzt)),
+    'PP'
+  );
+  const jeAuftrag = new Map<string, number>();
+  for (let i = 0; i < PRUEFUNGEN; i += 1) {
+    const abstand = abstaende[i]!;
+    const laufend = AUFTRAEGE.filter(a => (a.seitTagen ?? 0) >= -abstand + 3);
+    const auftrag = (laufend.length ? laufend : AUFTRAEGE.slice(0, 1))[
+      i % Math.max(1, laufend.length)
+    ]!;
+    // Je Auftrag in der Reihenfolge der Fertigung: erst Naht und Maß in der
+    // Werkstatt, dann die Schicht, zuletzt die Abnahme vor Ort (Prüfer J55).
+    const k = (jeAuftrag.get(auftrag.nr) ?? 0) + 1;
+    jeAuftrag.set(auftrag.nr, k);
+    const [pruefart, pruefartText] = PRUEFARTEN.find(
+      ([art]) => art === (FOLGE[k - 1] ?? 'sicht')
+    )!;
     const ergebnis = r.z() < 0.12 ? 'nio' : r.z() < 0.12 ? 'auflage' : 'io';
     let stand: string;
     if (abstand > -2) stand = 'offen';
     else if (ergebnis === 'nio') stand = r.z() < 0.5 ? 'nacharbeit' : 'freigegeben';
     else stand = 'freigegeben';
     const pruefer = r.z() < 0.7 ? 11 : 8;
-    const nr = `PP-26-${String(210 + i).padStart(3, '0')}`;
+    const nr = nummern[i]!;
     const felder: Record<string, Wert> = {
       auftrag: auftrag.nr,
-      bauteil: r.eins(BAUTEILE),
+      naht: `N${r.ganz(1, 12)}`,
+      schweisser: r.z() < 0.7 ? 16 : 8,
+      bewertungsgruppe: 'C',
+      wps: r.eins(['WPS-135-01', 'WPS-135-03', 'WPS-141-02']),
+      bauteil: bauteilZu(auftrag.gegenstand, r),
       pruefart,
       pruefer,
       datum: tagRelativ(abstand, jetzt),
@@ -659,7 +1048,8 @@ function pruefprotokolle(jetzt: number): Eintrag[] {
     });
   }
   // Drei warten auf die Freigabe.
-  for (const k of [38, 39, 40]) {
+  const letzte = PRUEFUNGEN - 3;
+  for (const k of [letzte, letzte + 1, letzte + 2]) {
     const e = liste[k]!;
     if (e.stand === 'freigabe') continue;
     e.stand = 'freigabe';
@@ -667,13 +1057,13 @@ function pruefprotokolle(jetzt: number): Eintrag[] {
     e.verlauf = [
       e.verlauf[0]!,
       schritt(
-        20 - (k - 38) * 6,
+        20 - (k - letzte) * 6,
         11,
         T('Geprüft und Messwerte erfasst', 'Inspected and measurements recorded'),
         jetzt
       ),
       schritt(
-        19 - (k - 38) * 6,
+        19 - (k - letzte) * 6,
         11,
         T('Zur Freigabe an Miriam Kerschner', 'Sent to Miriam Kerschner for approval'),
         jetzt
@@ -702,13 +1092,17 @@ function urlaub(jetzt: number): Eintrag[] {
   const r = zufall(5);
   const liste: Eintrag[] = [];
   const leute = PERSONEN.filter(p => p.id !== ICH_ID);
+  const nummern = seitEinfuehrung(
+    Array.from({ length: 40 }, (_, i) => tagRelativ(-80 + i * 4, jetzt)),
+    'UA'
+  );
   for (let i = 0; i < 40; i += 1) {
     const p = leute[(i * 7) % leute.length]!;
     const art = r.eins(URLAUB_ARTEN);
     const beginn =
       i >= 38 ? werktag(9 + (i - 38) * 13, jetzt) : werktag(-80 + i * 4 + r.ganz(0, 3), jetzt);
     const tage = art === 'urlaub' ? r.ganz(2, 10) : art === 'gleitzeit' ? 1 : r.ganz(1, 2);
-    const kalender = tage + Math.floor((tage - 1) / 5) * 2;
+    const ende = letzterArbeitstag(beginn, tage, jetzt);
     const vertretung =
       PERSONEN.find(x => x.abteilung === p.abteilung && x.id !== p.id && x.id !== ICH_ID)?.id ?? 5;
     // Beantragt wird immer vor dem Besuch; offen sind nur die zwei jüngsten.
@@ -716,12 +1110,12 @@ function urlaub(jetzt: number): Eintrag[] {
     let stand: string;
     if (i >= 38) stand = 'beantragt';
     else stand = r.z() < 0.92 ? 'genehmigt' : 'abgelehnt';
-    const nr = `UA-26-${String(80 + i).padStart(3, '0')}`;
+    const nr = nummern[i]!;
     const felder: Record<string, Wert> = {
       person: p.id,
       art,
       von: tagRelativ(beginn, jetzt),
-      bis: tagRelativ(beginn + kalender - 1, jetzt),
+      bis: tagRelativ(ende, jetzt),
       tage,
       vertretung,
       notiz:
@@ -776,8 +1170,10 @@ function urlaub(jetzt: number): Eintrag[] {
     const e = liste[k]!;
     e.stand = 'genehmigt';
     e.felder.art = 'urlaub';
-    e.felder.von = tagRelativ(von, jetzt);
-    e.felder.bis = tagRelativ(von + tage + 1, jetzt);
+    // Begonnen an einem Werktag, nie am Samstag (Prüfer J55).
+    const beginn = werktagVorher(von, jetzt);
+    e.felder.von = tagRelativ(beginn, jetzt);
+    e.felder.bis = tagRelativ(letzterArbeitstag(beginn, tage, jetzt), jetzt);
     e.felder.tage = tage;
     e.felder.notiz = null;
     e.verlauf = [
@@ -801,13 +1197,26 @@ function urlaub(jetzt: number): Eintrag[] {
 }
 
 export function anfangsBestand(jetzt = Date.now()): Bestand {
-  return {
+  const b: Bestand = {
     angebote: angebote(jetzt),
     wareneingang: wareneingang(jetzt),
     wartungsplan: wartungsplan(jetzt),
     pruefprotokolle: pruefprotokolle(jetzt),
     urlaub: urlaub(jetzt),
   };
+  // Der Verlauf läuft vorwärts (J55): die Arbeitszeit schiebt Nacht und
+  // Wochenende zurück, und danach stand ein Schritt mal vor seinem Vorgänger.
+  for (const liste of Object.values(b))
+    for (const e of liste) {
+      for (let i = 1; i < e.verlauf.length; i += 1) {
+        const vorher = Date.parse(e.verlauf[i - 1]!.am);
+        if (Date.parse(e.verlauf[i]!.am) <= vorher)
+          e.verlauf[i]!.am = new Date(Math.min(vorher + 17 * 60_000, jetzt)).toISOString();
+      }
+      e.angelegt_am = e.verlauf[0]?.am ?? e.angelegt_am;
+      e.geaendert_am = e.verlauf[e.verlauf.length - 1]?.am ?? e.geaendert_am;
+    }
+  return b;
 }
 
 /** Ein Text der Daten in der Sprache des Besuchers. */
