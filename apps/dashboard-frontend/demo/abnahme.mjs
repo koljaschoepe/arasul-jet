@@ -326,6 +326,13 @@ async function weg(browser, basis, sprache, breite) {
   if (start.lang !== sprache) rot(`${wo}: Sprache ${start.lang} statt ${sprache}`);
   if (start.weg) rot(`${wo}: der geführte Weg beginnt von selbst`);
   if (!(await seite.locator('#fuer-sie').count())) rot(`${wo}: „Für Sie" fehlt`);
+  // J55: zwei Diagramme über alle Apps und die Auslastung der Woche.
+  await seite
+    .getByTestId('demo-woche')
+    .waitFor({ timeout: 8000 })
+    .catch(() => rot(`${wo}: Auslastung der Woche fehlt`));
+  const diagramme = await seite.locator('.demo-diagramm .recharts-surface').count();
+  if (diagramme < 2) rot(`${wo}: ${diagramme} statt zwei Diagramme auf der Startseite`);
   await ueberlauf(seite, `${wo} Start`);
   if (sprache === 'en') await deutscheReste(seite, `${wo} Start`);
   await bild(seite, `${wo.replace(' ', '-')}-1-start`);

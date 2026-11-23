@@ -15,6 +15,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Icon, Kennzahl } from '@marken';
+import { Chart } from '@marken/diagramm';
 import {
   CalendarDays,
   ClipboardCheck,
@@ -350,6 +351,304 @@ function Oben() {
   );
 }
 
+// ── Teil 3 (J55): zwei Diagramme über alle Apps, die Woche ──────────────────
+
+const FACH: AppKennung[] = [
+  'angebote',
+  'wareneingang',
+  'wartungsplan',
+  'pruefprotokolle',
+  'urlaub',
+];
+
+/** Kurze Namen für die Achse: am Handy fielen sonst drei von fünf weg. */
+const KURZ: Record<AppKennung, [string, string]> = {
+  angebote: ['Angebote', 'Quotes'],
+  wareneingang: ['Waren', 'Goods'],
+  wartungsplan: ['Wartung', 'Service'],
+  pruefprotokolle: ['Prüfung', 'Checks'],
+  urlaub: ['Urlaub', 'Leave'],
+};
+
+/** Was in einer App offen ist, und was davon dringt (bei Ihnen oder überfällig). */
+function offenJeApp(d: Daten) {
+  const offen: Record<AppKennung, (e: Eintrag) => boolean> = {
+    angebote: e => ['entwurf', 'freigabe', 'freigegeben', 'versendet'].includes(e.stand),
+    wareneingang: e => ['erwartet', 'eingegangen', 'geprueft', 'reklamiert'].includes(e.stand),
+    wartungsplan: e => e.stand !== 'erledigt' && tage(e.felder.faellig) <= 30,
+    pruefprotokolle: e => ['offen', 'freigabe', 'nacharbeit'].includes(e.stand),
+    urlaub: e => e.stand === 'beantragt',
+  };
+  const dringend: Record<AppKennung, (e: Eintrag) => boolean> = {
+    angebote: e =>
+      e.stand === 'freigabe' || (e.stand === 'versendet' && tage(e.felder.gueltig) < 0),
+    wareneingang: e =>
+      e.stand === 'reklamiert' || (e.stand === 'erwartet' && tage(e.felder.erwartet) < 0),
+    wartungsplan: e => e.stand !== 'erledigt' && tage(e.felder.faellig) < 0,
+    pruefprotokolle: e => e.stand === 'freigabe' || e.stand === 'nacharbeit',
+    urlaub: e => e.stand === 'beantragt',
+  };
+  return FACH.map((app, x) => ({
+    x,
+    name: KURZ[app][sprache === 'en' ? 1 : 0],
+    offen: d[app].filter(offen[app]).length,
+    dringend: d[app].filter(e => offen[app](e) && dringend[app](e)).length,
+  }));
+}
+
+const ENDE: Record<AppKennung, string[]> = {
+  angebote: ['angenommen', 'abgelehnt'],
+  wareneingang: ['eingelagert'],
+  wartungsplan: ['erledigt'],
+  pruefprotokolle: ['freigegeben'],
+  urlaub: ['genehmigt', 'abgelehnt'],
+};
+
+/** Je Woche: angelegt und abgeschlossen, über alle fünf Apps, acht Wochen. */
+function bewegungJeWoche(d: Daten) {
+  const montag = new Date(`${heute()}T12:00:00`);
+  montag.setDate(montag.getDate() - ((montag.getDay() + 6) % 7));
+  const wochen = Array.from({ length: 8 }, (_, i) => {
+    const beginn = new Date(montag);
+    // Die acht abgeschlossenen Wochen vor dieser: die laufende fiele sonst ab.
+    beginn.setDate(beginn.getDate() - (8 - i) * 7);
+    return {
+      x: i,
+      beginn: beginn.getTime(),
+      name: `${t('KW', 'Wk')} ${kw(beginn)}`,
+      neu: 0,
+      fertig: 0,
+    };
+  });
+  const zaehle = (iso: string | undefined, feld: 'neu' | 'fertig') => {
+    if (!iso) return;
+    const ms = Date.parse(iso);
+    const w = wochen.find(x => ms >= x.beginn && ms < x.beginn + 7 * 86_400_000);
+    if (w) w[feld] += 1;
+  };
+  for (const app of FACH) {
+    for (const e of d[app]) {
+      zaehle(e.verlauf[0]?.am, 'neu');
+      if (ENDE[app].includes(e.stand)) zaehle(e.verlauf[e.verlauf.length - 1]?.am, 'fertig');
+    }
+  }
+  return wochen.map(({ beginn: _b, ...rest }) => rest);
+}
+
+function kw(d: Date): number {
+  const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const tag = x.getUTCDay() || 7;
+  x.setUTCDate(x.getUTCDate() + 4 - tag);
+  const jahr = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
+  return Math.ceil(((x.getTime() - jahr.getTime()) / 86_400_000 + 1) / 7);
+}
+
+function isoTag(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Die fünf Werktage dieser Woche (am Wochenende: der nächsten). */
+function woche(d: Daten) {
+  const start = new Date(`${heute()}T12:00:00`);
+  const wt = start.getDay();
+  if (wt === 6) start.setDate(start.getDate() + 2);
+  else if (wt === 0) start.setDate(start.getDate() + 1);
+  else start.setDate(start.getDate() - (wt - 1));
+  return Array.from({ length: 5 }, (_, i) => {
+    const tag = new Date(start);
+    tag.setDate(start.getDate() + i);
+    const iso = isoTag(tag);
+    const weg = d.urlaub.filter(
+      e => e.stand === 'genehmigt' && String(e.felder.von) <= iso && String(e.felder.bis) >= iso
+    );
+    return {
+      iso,
+      name: tag.toLocaleDateString(ort(), { weekday: 'short', day: '2-digit', month: '2-digit' }),
+      weg,
+      lieferungen: d.wareneingang.filter(
+        e => String(e.felder.eingang ?? e.felder.erwartet) === iso
+      ),
+      wartungen: d.wartungsplan.filter(
+        e =>
+          (e.stand === 'erledigt' ? String(e.felder.erledigt_am) : String(e.felder.faellig)) === iso
+      ),
+      pruefungen: d.pruefprotokolle.filter(e => String(e.felder.datum) === iso),
+      angebote: d.angebote.filter(e => e.stand === 'versendet' && String(e.felder.gueltig) === iso),
+    };
+  });
+}
+
+function Mitte({ d }: { d: Daten }) {
+  const offen = offenJeApp(d);
+  const bewegung = bewegungJeWoche(d);
+  const tage5 = woche(d);
+  const h = heute();
+  const zeilen: {
+    titel: string;
+    app: AppKennung;
+    wert: (x: (typeof tage5)[number]) => number;
+    text?: (x: (typeof tage5)[number]) => string;
+  }[] = [
+    {
+      titel: t('Im Haus', 'In'),
+      app: 'urlaub',
+      wert: x => FIRMA.leute - x.weg.length,
+      text: x =>
+        t(
+          `${FIRMA.leute - x.weg.length} von ${FIRMA.leute}`,
+          `${FIRMA.leute - x.weg.length} of ${FIRMA.leute}`
+        ),
+    },
+    { titel: t('Lieferungen', 'Deliveries'), app: 'wareneingang', wert: x => x.lieferungen.length },
+    { titel: t('Wartungen', 'Maintenance'), app: 'wartungsplan', wert: x => x.wartungen.length },
+    {
+      titel: t('Prüfungen', 'Inspections'),
+      app: 'pruefprotokolle',
+      wert: x => x.pruefungen.length,
+    },
+    {
+      titel: t('Angebote laufen ab', 'Quotes expire'),
+      app: 'angebote',
+      wert: x => x.angebote.length,
+    },
+  ];
+  const summe = (x: (typeof tage5)[number]) =>
+    x.lieferungen.length + x.wartungen.length + x.pruefungen.length + x.angebote.length;
+  const voll = Math.max(1, ...tage5.map(summe));
+  const kwNr = kw(new Date(`${tage5[0]!.iso}T12:00:00`));
+
+  return (
+    <>
+      <section className="demo-flaeche demo-diagramm" aria-labelledby="demo-offen">
+        <h2 id="demo-offen">{t('Offen je App', 'Open per app')}</h2>
+        <p className="demo-leise demo-satz">
+          {t(
+            'Was gerade offen ist, und was davon dringt: bei Ihnen zur Freigabe oder überfällig.',
+            'What is open right now, and what is pressing: waiting for your approval or overdue.'
+          )}
+        </p>
+        <Chart
+          data={offen}
+          series={[
+            { key: 'offen', name: t('Offen', 'Open') },
+            { key: 'dringend', name: t('Davon dringend', 'Of which pressing') },
+          ]}
+          xKey="x"
+          xTicks={offen.map(o => o.x)}
+          formatX={(i: number) => String(offen[i]?.name ?? '')}
+          art="balken"
+          height={190}
+          label={t('Offen je App', 'Open per app')}
+        />
+      </section>
+      <section className="demo-flaeche demo-diagramm" aria-labelledby="demo-bewegung">
+        <h2 id="demo-bewegung">{t('Bewegung je Woche', 'Activity per week')}</h2>
+        <p className="demo-leise demo-satz">
+          {t(
+            'Vorgänge angelegt und abgeschlossen, alle fünf Apps, die letzten acht vollen Wochen.',
+            'Records created and closed, all five apps, the last eight full weeks.'
+          )}
+        </p>
+        <Chart
+          data={bewegung}
+          series={[
+            { key: 'neu', name: t('Angelegt', 'Created') },
+            { key: 'fertig', name: t('Abgeschlossen', 'Closed') },
+          ]}
+          xKey="x"
+          xTicks={bewegung.map(b => b.x)}
+          formatX={(i: number) => String(bewegung[i]?.name ?? '')}
+          art="linie"
+          height={190}
+          label={t('Bewegung je Woche', 'Activity per week')}
+        />
+      </section>
+      <section
+        className="demo-flaeche demo-woche"
+        aria-labelledby="demo-woche"
+        data-testid="demo-woche"
+      >
+        <h2 id="demo-woche">
+          {t(`Auslastung der Woche, KW ${kwNr}`, `This week’s workload, wk ${kwNr}`)}
+        </h2>
+        <div className="demo-woche-kasten">
+          <table className="demo-woche-tabelle">
+            <thead>
+              <tr>
+                <th scope="col">
+                  <span className="demo-unsichtbar">{t('Was', 'What')}</span>
+                </th>
+                {tage5.map(x => (
+                  <th key={x.iso} scope="col" data-heute={x.iso === h ? 'ja' : undefined}>
+                    {x.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="demo-woche-last">
+                <th scope="row">{t('Termine', 'Appointments')}</th>
+                {tage5.map(x => (
+                  <td key={x.iso} data-heute={x.iso === h ? 'ja' : undefined}>
+                    <span className="demo-last" aria-hidden="true">
+                      <span style={{ height: `${Math.max(6, (summe(x) / voll) * 100)}%` }} />
+                    </span>
+                    <span className="demo-zahl">{summe(x)}</span>
+                  </td>
+                ))}
+              </tr>
+              {zeilen.map(z => (
+                <tr key={z.titel}>
+                  <th scope="row">
+                    <button type="button" onClick={() => oeffne(z.app)}>
+                      <Icon symbol={SYMBOL[z.app]} groesse="klein" />
+                      {z.titel}
+                    </button>
+                  </th>
+                  {tage5.map(x => (
+                    <td
+                      key={x.iso}
+                      data-heute={x.iso === h ? 'ja' : undefined}
+                      data-null={z.wert(x) === 0 ? 'ja' : undefined}
+                    >
+                      <span className="demo-zahl">{z.text ? z.text(x) : z.wert(x) || '–'}</span>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <ol className="demo-woche-liste">
+          {tage5.map(x => (
+            <li key={x.iso} data-heute={x.iso === h ? 'ja' : undefined}>
+              <span className="demo-woche-tag">{x.name}</span>
+              <span className="demo-leise">
+                {[
+                  t(`Termine ${summe(x)}`, `Appointments ${summe(x)}`),
+                  t(`im Haus ${FIRMA.leute - x.weg.length}`, `in ${FIRMA.leute - x.weg.length}`),
+                  ...zeilen
+                    .slice(1)
+                    .filter(z => z.wert(x) > 0)
+                    .map(z => `${z.titel} ${z.wert(x)}`),
+                ].join(' · ')}
+              </span>
+            </li>
+          ))}
+        </ol>
+        <p className="demo-leise demo-satz">
+          {tage5.some(x => x.weg.length)
+            ? t(
+                `Abwesend: ${[...new Set(tage5.flatMap(x => x.weg.map(e => name(Number(e.felder.person)))))].join(', ')}.`,
+                `Away: ${[...new Set(tage5.flatMap(x => x.weg.map(e => name(Number(e.felder.person)))))].join(', ')}.`
+              )
+            : t('Diese Woche fehlt niemand.', 'Nobody is away this week.')}
+        </p>
+      </section>
+    </>
+  );
+}
+
 // ── Teil 2: heute, zuletzt geändert ─────────────────────────────────────────
 
 interface Punkt {
@@ -420,7 +719,7 @@ function heuteListe(d: Daten): Punkt[] {
         `${name(Number(e.felder.person))} im Urlaub`,
         `${name(Number(e.felder.person))} on leave`
       ),
-      neben: `${n === 0 ? t('ab heute', 'from today') : t(`ab ${n === 1 ? 'morgen' : 'übermorgen'}`, `from ${n === 1 ? 'tomorrow' : 'the day after'}`)}, ${e.felder.tage} ${t('Tage', 'days')} · ${t('Vertretung', 'cover')} ${name(Number(e.felder.vertretung))}`,
+      neben: `${n === 0 ? t('ab heute', 'from today') : t(`ab ${n === 1 ? 'morgen' : 'übermorgen'}`, `from ${n === 1 ? 'tomorrow' : 'the day after'}`)}, ${Number(e.felder.tage) === 1 ? t('1 Tag', '1 day') : `${e.felder.tage} ${t('Tage', 'days')}`} · ${t('Vertretung', 'cover')} ${name(Number(e.felder.vertretung))}`,
       rang: n + 0.5,
     });
   }
@@ -461,6 +760,7 @@ function Unten() {
   const geaendert = zuletzt(d);
   return (
     <div className="demo-unten">
+      <Mitte d={d} />
       <section className="demo-flaeche" aria-labelledby="demo-heute">
         <h2 id="demo-heute">{t('Heute steht an', 'Today')}</h2>
         {heutePunkte.length === 0 ? (
