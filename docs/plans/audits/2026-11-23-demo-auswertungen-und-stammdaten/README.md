@@ -100,3 +100,17 @@ Stand nach Runde 6, lokaler Bau. `start-01-ganz-de.png` und
 | `de-1440-2-wartungsplan-kalender.png`, `de-1440-2-urlaub-kalender.png`                         | Kalender                                                         |
 | `de-1440-2-pruefprotokolle.png`                                                                | Prüfungen in Fertigungsfolge                                     |
 | `de-1440-2-stammdaten.png`, `de-1440-3-stammdaten-kunde.png`, `en-1440-3-stammdaten-kunde.png` | Stammdaten, Kunde mit Vorgängen                                  |
+
+## Live
+
+PR 979 gemergt am 23.11.2026, 21:27 UTC (`5309d56b`), CI Summary grün.
+Deploy auf den Orin grün (Lauf 45269854112): `dashboard-frontend` und
+`dashboard-backend` gesund, `/api/health` meldet `20261123-5309d56`, das
+Bündel trägt den neuen Satz der Startseite; 22 Container gesund, keiner
+krank.
+
+Demo von `main` von Hand an das Vercel-Projekt `arasul-demo` ausgeliefert
+(`dpl_3ak5WpsHayqMaV97nTXcVR3dRifH`). Die Abnahme gegen
+`https://arasul-demo.vercel.app`: **alle acht Läufe grün**, Deutsch und
+Englisch bei 360, 390, 768 und 1440 px. Bilder von dort:
+`live-de-1440-1-start.png`, `live-en-390-1-start.png`.
