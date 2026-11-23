@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  useSchmalesFenster,
   type Spalte,
 } from '@marken';
 import { bildAdresse } from './api';
@@ -147,6 +148,7 @@ function Auswahl({
   /** Im Blatt einer Meldung: eine Spalte, keine Filterzeile, die Beschriftung sichtbar. */
   imBlatt?: boolean;
 }) {
+  const schmal = useSchmalesFenster();
   return (
     // In der Filterzeile die Beschriftung nur für Vorlesewerkzeuge: der Wert
     // („Alle Apps“, „Offen (neu und angenommen)“) sagt es schon, und zwei
@@ -155,9 +157,14 @@ function Auswahl({
     // Grundbreite der Filterzeile gilt dort nicht: in einer Spalte wurde aus
     // `flex: 1 1 14rem` eine Höhe von 224 px, und „Grund“ rutschte unter den
     // Fuß des Blatts (Generalprobe der Schleife, 22.11.2026).
+    // Unter 900 px ohne Grenze der Breite: am Handy steht jedes Feld in
+    // einer eigenen Zeile und ist so breit wie die Karten darunter; mit
+    // 18rem endete es vorher mitten in der Zeile (J55).
     <div
       style={
-        imBlatt ? { ...spalte(1), maxWidth: '18rem' } : { flex: '1 1 14rem', maxWidth: '18rem' }
+        imBlatt
+          ? { ...spalte(1), maxWidth: '18rem' }
+          : { flex: '1 1 14rem', maxWidth: schmal ? undefined : '18rem' }
       }
     >
       <Label
