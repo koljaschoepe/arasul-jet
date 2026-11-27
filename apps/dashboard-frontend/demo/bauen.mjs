@@ -179,7 +179,7 @@ writeFileSync(
   ) + '\n'
 );
 
-if (!existsSync(path.join(ziel, 'marken/5/marken.js'))) {
+if (!existsSync(path.join(ziel, 'marken/6/marken.js'))) {
   throw new Error('Die Bibliothek fehlt in dist-demo/marken/6/.');
 }
 schritt(`Fertig: ${path.relative(process.cwd(), ziel) || ziel}`);
