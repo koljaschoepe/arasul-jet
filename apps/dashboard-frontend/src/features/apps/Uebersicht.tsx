@@ -192,7 +192,7 @@ export function Uebersicht({
 
   return (
     <div
-      className="max-w-[100rem] px-[clamp(16px,4vw,24px)] pt-[10px] pb-6"
+      className="mx-auto max-w-[70rem] px-[clamp(16px,4vw,24px)] pt-[10px] pb-24"
       data-testid="uebersicht-seite"
     >
       <StartKopf name={name} offen={offen} />
