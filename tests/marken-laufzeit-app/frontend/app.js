@@ -2,7 +2,7 @@
  * Die Probe fuer die Bibliothek zur Laufzeit: eine App ohne Bau und ohne
  * Kopie der Bibliothek.
  *
- * Alles, was hier zu sehen ist, kommt vom Geraet unter `/marken/5/`:
+ * Alles, was hier zu sehen ist, kommt vom Geraet unter `/marken/6/`:
  * Seitenleiste (zuklappbar), Tabelle (`Datenliste`) und `Freigabe`, dazu
  * React selbst. Das Paket traegt nur diese Datei und `index.html`. Nach
  * einem Update des Geraets steht unter derselben Adresse die neue Fassung,
@@ -23,7 +23,7 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from '/marken/5/marken.js';
+} from '/marken/6/marken.js';
 
 const VORGAENGE = [
   { nr: 'V-1041', gegenstand: 'Rechnung Bürobedarf', betrag: 184.2, stand: 'offen' },

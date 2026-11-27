@@ -39,16 +39,16 @@ Im Manifest steht dann nur die Hauptzahl:
 Ohne Bau:
 
 ```html
-<link rel="stylesheet" href="/marken/5/marken.css" />
+<link rel="stylesheet" href="/marken/6/marken.css" />
 <script type="module">
-  import { h, rendern, Seitenleiste, Datenliste, Freigabe } from '/marken/5/marken.js';
+  import { h, rendern, Seitenleiste, Datenliste, Freigabe } from '/marken/6/marken.js';
 </script>
 ```
 
 Mit Bau (Vite): React und die Bibliothek bleiben außerhalb des Bündels.
 
 ```js
-const MARKEN = '/marken/5/';
+const MARKEN = '/marken/6/';
 const vomGeraet = {
   react: MARKEN + 'react.js',
   'react-dom': MARKEN + 'react-dom.js',
@@ -64,7 +64,7 @@ const vomGeraet = {
 Die Typen kommen weiter aus `src/` (Alias `@marken` in der `tsconfig`),
 gebündelt wird davon nichts. Welche Fassung und Hauptzahl ein Gerät
 ausliefert, steht ohne Anmeldung in `/marken/marken.json`. Unter
-`/marken/5/` steht immer die neueste Fassung 5.x; ein Bruch hebt die
+`/marken/6/` steht immer die neueste Fassung 6.x; ein Bruch hebt die
 Hauptzahl und damit die Adresse. Der Kontrakt des Geräts nennt denselben Weg
 im Abschnitt `marken`.
 

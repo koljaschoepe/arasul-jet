@@ -152,7 +152,7 @@ Der Grund steht auf dem Bildschirm: die App läuft im Rahmen der Shell
 Erscheinungsbilder übereinander sind kein Geschmack, sondern ein Fehler.
 
 **Seit M5 ist der erste Weg der vom Gerät:** eine App lädt die Bibliothek zur
-Laufzeit unter `/marken/5/` und trägt keine Kopie (siehe
+Laufzeit unter `/marken/6/` und trägt keine Kopie (siehe
 [„Die Bibliothek zur Laufzeit“](#die-bibliothek-zur-laufzeit-m5)). Die zwei
 Wege mit Kopie gibt es weiter, und Apps, die sie gehen, laufen unverändert:
 
@@ -299,15 +299,15 @@ einer festen Adresse auf derselben Herkunft wie jede App:
 
 ```
 /marken/marken.json         welche Fassung, welche Hauptzahl, welche Adresse
-/marken/5/marken.css        Tokens, Regeln der Bausteine, Klassen der Primitive
-/marken/5/marken.js         alle drei Sätze, dazu h, rendern und die Hooks
-/marken/5/diagramm.js       Chart, Sparkline, SERIENFARBEN
-/marken/5/symbole.js        Lucide wie @marken/symbole, gezeichnet mit Icon (seit 5.9.0)
-/marken/5/react.js          react            (für eine App mit Bau)
-/marken/5/react-dom.js      react-dom
-/marken/5/react-dom-client.js  react-dom/client
-/marken/5/jsx-runtime.js    react/jsx-runtime
-/marken/5/marken.json       dasselbe wie oben, dazu jede Datei mit sha256
+/marken/6/marken.css        Tokens, Regeln der Bausteine, Klassen der Primitive
+/marken/6/marken.js         alle drei Sätze, dazu h, rendern und die Hooks
+/marken/6/diagramm.js       Chart, Sparkline, SERIENFARBEN
+/marken/6/symbole.js        Lucide wie @marken/symbole, gezeichnet mit Icon (seit 5.9.0)
+/marken/6/react.js          react            (für eine App mit Bau)
+/marken/6/react-dom.js      react-dom
+/marken/6/react-dom-client.js  react-dom/client
+/marken/6/jsx-runtime.js    react/jsx-runtime
+/marken/6/marken.json       dasselbe wie oben, dazu jede Datei mit sha256
 ```
 
 Eine App, die von dort lädt, **braucht kein Tailwind**: die Klassen, die
@@ -316,7 +316,7 @@ Primitive und Muster benutzen, erzeugt das Gerät beim eigenen Bau
 Shell) und legt sie in `marken.css`. Die Content-Security-Policy des Geräts
 bleibt, wie sie ist: alles kommt von `'self'`, nichts braucht `eval`, kein
 Import-Map, keine Inline-Skripte. **Und sie sieht nach einem Update des Geräts
-ohne Neubau aus wie das Gerät**: unter `/marken/5/` steht immer die neueste
+ohne Neubau aus wie das Gerät**: unter `/marken/6/` steht immer die neueste
 Fassung 5.x.
 
 **Im Manifest** nennt sie nur die Hauptzahl. Daran erkennt die Verwaltung,
@@ -329,7 +329,7 @@ dass es keine Kopie gibt, die veralten könnte:
 **Ohne Bau** (zwei Dateien im Paket, `index.html` und ein Skript):
 
 ```html
-<link rel="stylesheet" href="/marken/5/marken.css" />
+<link rel="stylesheet" href="/marken/6/marken.css" />
 <script type="module" src="app.js"></script>
 ```
 
@@ -344,7 +344,7 @@ import {
   SidebarTrigger,
   Datenliste,
   Freigabe,
-} from '/marken/5/marken.js';
+} from '/marken/6/marken.js';
 
 rendern(
   h(
@@ -360,7 +360,7 @@ rendern(
 );
 ```
 
-Die Adresse ist **absolut** (`/marken/5/…`), anders als die Schnittstelle der
+Die Adresse ist **absolut** (`/marken/6/…`), anders als die Schnittstelle der
 App: sie ist für jede App und jeden Stand dieselbe, auch im Teststand
 `/apps/<id>/test/`. Was die App selbst gestaltet, schreibt sie mit den Tokens
 (`style: { borderBottom: '1px solid var(--border)' }`), nicht mit
@@ -374,7 +374,7 @@ das des Geräts; ein zweites in der App bricht jeden Hook.
 
 ```js
 // vite.config.js
-const MARKEN = '/marken/5/';
+const MARKEN = '/marken/6/';
 const vomGeraet = {
   react: MARKEN + 'react.js',
   'react-dom': MARKEN + 'react-dom.js',
@@ -396,7 +396,7 @@ export default defineConfig({
 Im Code bleibt alles wie mit Kopie (`import { Button } from '@marken'`, JSX);
 die Typen liefert die Quelle aus dem Paket (`packages/marken/src/`, Alias
 `@marken` in der `tsconfig`), gebündelt wird sie nicht. In `index.html` steht
-`<link rel="stylesheet" href="/marken/5/marken.css">`, und die eigene CSS-Datei
+`<link rel="stylesheet" href="/marken/6/marken.css">`, und die eigene CSS-Datei
 der App braucht kein `@import 'tailwindcss'` mehr. Gemessen am 03.10.2026: das
 Bündel einer kleinen App mit `Button` und `Datenliste` war 1,3 kB statt
 mehrerer hundert, Hooks liefen, kein CSP-Verstoß.

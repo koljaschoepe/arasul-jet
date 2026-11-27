@@ -4,7 +4,7 @@
  * richtige) und kleine Rechnungen für Kennzahlen und Diagramme.
  *
  * Die Apps sind gebaut wie eine App aus dem Kit (`apps/werkstatt/`): React
- * und die Bibliothek kommen zur Laufzeit von `/marken/5/`, der Bau
+ * und die Bibliothek kommen zur Laufzeit von `/marken/6/`, der Bau
  * (`bauen.mjs`, esbuild) legt sie nicht ins Bündel.
  */
 import type { Eintrag, Wert } from '../bestand';

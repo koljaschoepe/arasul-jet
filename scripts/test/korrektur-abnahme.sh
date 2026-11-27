@@ -23,7 +23,7 @@
 #   NACHLESEN    Die App liest Vorschlag und Aenderung (`GET /freigaben`), die
 #                Laeufe-Ansicht der Verwaltung ebenso.
 #   BAUSTEIN     (ARASUL_BILDER=1) `korrektur-bilder.mjs`: dieselbe Freigabe in
-#                Arasul und in der App mit dem Muster von /marken/5/, Original
+#                Arasul und in der App mit dem Muster von /marken/6/, Original
 #                links, pruefen oben; in der App korrigiert und bestaetigt, danach
 #                wieder die Liste.
 #

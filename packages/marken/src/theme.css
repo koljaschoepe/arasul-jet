@@ -226,13 +226,13 @@
      Karte, Panel und jeder Stufe des Verlaufs, jeweils mit Wisch, 4,5:1 haelt
      (gemessen von `scripts/test/marken.py`, Punkt 9; am Orin fiel die erste Stufe
      am 20.11.2026 auf dem Ende des Verlaufs auf 4,2:1). */
-  --background: #f6f3ed;
+  --background: #f7f5f1;
   --foreground: #1e1b16;
-  --card: #fbf8f2;
+  --card: #ffffff;
   --card-foreground: #1e1b16;
-  --popover: #fbf8f2;
+  --popover: #ffffff;
   --popover-foreground: #1e1b16;
-  --primary: #2559b1;
+  --primary: #2560b8;
   --primary-foreground: #ffffff;
   --secondary: #efe9df;
   --secondary-foreground: #1e1b16;
@@ -244,7 +244,7 @@
   --destructive-foreground: #ffffff;
   --border: #dfd6c4;
   --input: #c9bda3;
-  --ring: #2559b1;
+  --ring: #2868c4;
 
   /* Schriftgroessen-Skala. Sie ist keine Tailwind-Skala (die steht als
      `--text-ui-*` im `@theme` darueber), sondern die Reihe fuer handgeschrie-
@@ -277,7 +277,7 @@
      nach einem Hauch Blau (Creme zu 94 %, das Blau der Website zu 6 %). Kein
      Bild, keine Koernung. `--background` bleibt die Farbe darunter: wer eine
      Flaeche deckend braucht, nimmt sie. */
-  --verlauf-grund: linear-gradient(160deg, #f6f3ed 0%, #f4f3f0 45%, #f2f3f5 100%);
+  --verlauf-grund: linear-gradient(160deg, #f7f5f1 0%, #f4f3f0 45%, #f2f3f5 100%);
 
   /* DER GRUND DES RAHMENS. Hinter der schwebenden Leiste und der Flaeche der
      Ansicht liegt ein Verlauf, den man sieht: oben links Creme, unten rechts
@@ -285,6 +285,21 @@
      als `--verlauf-grund`, weil auf ihm kein Text steht, nur Glas
      (`.glas-grund`); `marken.py` (Punkt 9) misst Text auf diesem Glas ueber
      jeder Stufe. */
+  /* Das Blau der Marke samt Verlauf: Mitte, tiefes und helles Ende. Der Verlauf
+     ist fuer grosse Schrift und Flaechen ohne Text (Schmuck, Fuellung der
+     Stufenleiste); eine Flaeche mit Text bleibt `--primary`, weil weisse
+     Schrift auf dem hellen Ende nur 3,9:1 haelt. */
+  /* `--blau` ist das Blau der Marke (#2868C4): die Flaeche der Hauptkapsel, mit
+     weisser Schrift 5,4:1. `--primary` ist dasselbe Blau eine Spur tiefer und
+     gilt als SCHRIFT: Text und Linie auf Wisch und Karte halten damit 4,5:1,
+     was #2868C4 auf dem eigenen Wisch mit 4,36:1 nicht schafft. */
+  --blau: #2868c4;
+  --blau-tief: #2454a0;
+  --blau-hell: #3482de;
+  --verlauf-blau: linear-gradient(135deg, #2454a0 0%, #3482de 100%);
+  /* Zart blau: der Squircle hinter einem App-Icon und die Wisch des Akzents. */
+  --blau-zart: #e6eefa;
+
   --rahmen-stufe-1: #c9d8f2;
   --rahmen-stufe-2: #a3bded;
   --rahmen-stufe-3: #86a9e8;
@@ -339,6 +354,8 @@
 
   /* Der Grund des Rahmens: Tiefblau mit einem Schein oben links, nach
      Anthrazit unten rechts. */
+  --blau: #6a9ae6;
+  --blau-zart: #16305a;
   --rahmen-stufe-1: #12336c;
   --rahmen-stufe-2: #0e2550;
   --rahmen-stufe-3: #2a2d34;

@@ -199,7 +199,7 @@ const Flows = z
  *   "5.2.1"   drei Zahlen: die App traegt eine KOPIE dieser Fassung. Die
  *             Verwaltung meldet sie, sobald das Geraet weiter ist.
  *   "5"       nur die Hauptzahl: die App laedt die Bibliothek ZUR LAUFZEIT
- *             vom Geraet (`/marken/5/`) und hat keine Kopie. Sie steht damit
+ *             vom Geraet (`/marken/6/`) und hat keine Kopie. Sie steht damit
  *             immer auf der Fassung des Geraets, solange die Hauptzahl
  *             dieselbe ist; die Verwaltung meldet nur eine fremde Hauptzahl.
  */

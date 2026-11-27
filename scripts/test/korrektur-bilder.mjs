@@ -5,11 +5,11 @@
  *   vorher    B sieht unter „Für Sie" die Freigabe aus der Erkennung mit „Prüfen",
  *             öffnet sie: Original links, Felder rechts, datum mit „prüfen" oben
  *             und als Eingabefeld, betrag nur zum Lesen, keine Prozentzahl.
- *             Dieselbe Freigabe in der App, mit dem Muster von /marken/5/.
+ *             Dieselbe Freigabe in der App, mit dem Muster von /marken/6/.
  *   leitung   Der Admin öffnet die Freigabe der Stufe Leitung: oben der Satz, was
  *             bisher geschah, die frühere Stufe klappt auf mit der Änderung.
  *   lauf      Die Läufe-Ansicht der Verwaltung: Vorschlag und Änderung je Feld.
- *   baustein  B korrigiert in der App (Muster von /marken/5/) datum, bestätigt,
+ *   baustein  B korrigiert in der App (Muster von /marken/6/) datum, bestätigt,
  *             und danach steht wieder die Liste da.
  *
  * Passwoerter nur aus der Umgebung. Bilder unter
@@ -163,10 +163,10 @@ if (PHASE === 'vorher') {
   await einzelansicht(b.page, 'Arasul');
   await bild(b.page, `${B}-einzeln`);
 
-  // Dieselbe Freigabe in der App: das Muster vom Gerät unter /marken/5/.
+  // Dieselbe Freigabe in der App: das Muster vom Gerät unter /marken/6/.
   await b.page.goto(`${URL}/apps/${APP}/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const k2 = karte(b.page, titel);
-  pruefe('In der App (Muster von /marken/5/) dieselbe Freigabe', await sichtbar(k2, 20000));
+  pruefe('In der App (Muster von /marken/6/) dieselbe Freigabe', await sichtbar(k2, 20000));
   const fassung = await b.page.locator('h1 + *').first().innerText().catch(() => '');
   pruefe('Die App zeigt Bibliothek 5.4', /Bibliothek 5\.4/.test(await b.page.content()), fassung);
   await bild(b.page, `${B}-app-liste`);

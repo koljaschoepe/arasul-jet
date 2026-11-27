@@ -319,4 +319,23 @@
  * unbeteiligte Durchsicht sah dunkel kaum einen Unterschied. Kein Name,
  * keine Eigenschaft aendert sich.
  */
-export const FASSUNG = '5.12.2';
+/*
+ * 6.0.0: die Hauptfassung des Klickentwurfs. Neue Hauptzahl, weil sich ihre
+ * Adresse aendert (`/marken/6/`) und der Grundton mit ihr: der Grund ist ein
+ * warmes Off-White, Karten sind weiss, das Blau der Marke steht als `--blau`
+ * in `theme.css`, dazu `--verlauf-blau` (tiefes bis helles Ende; als
+ * Schrift gilt `--primary`, eine Spur tiefer, damit Text auf Wisch 4,5:1
+ * haelt), Inter bleibt selbst gehostet. Der Hauptknopf ist eine Kapsel.
+ * Neu, alle auf reinem CSS und im Buendel: der Linien-Satz (`Linie`, Strich
+ * 1,5) und das `AppIcon` auf zartem Squircle; `Glas`, `IconKnopf` (Glaskreis
+ * oder flach, mit Hinweis), `Hauptkapsel`, `TextKnopf`; die `Glasleiste` mit
+ * Teststreifen und das `Dock` mit Plus und Zahl; die `Popup`-Kapsel mit
+ * Suchfeld und Gruppen; die `Ebene` als Blatt oder Vollbild; das `Fenster`;
+ * das `Board` mit Ziehen ueber Zeiger-Ereignisse; `Stufenleiste`, `Reiter`,
+ * `Segmente` und die `Wischzeile`. Die `Meldung` nimmt `beiRueckgaengig`
+ * (Frist 5 Sekunden). Die Karte hat Radius 12 und einen Hauch Schatten, die
+ * Listenzeile ist 48 Pixel hoch. Das Geraet liefert nur die aktuelle
+ * Hauptzahl aus: eine App nennt im Manifest die 6 und laedt von `/marken/6/`;
+ * kein Name der 5.x faellt weg.
+ */
+export const FASSUNG = '6.0.0';

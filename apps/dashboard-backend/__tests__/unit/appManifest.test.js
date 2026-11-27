@@ -93,7 +93,7 @@ describe('Schema app.json v1', () => {
 
   /**
    * Nur die Hauptzahl heisst: die App laedt die Bibliothek zur Laufzeit vom
-   * Geraet (`/marken/5/`) und traegt keine Kopie (Kontrakt 9).
+   * Geraet (`/marken/6/`) und traegt keine Kopie (Kontrakt 9).
    */
   test('nimmt die Hauptzahl allein: die Bibliothek zur Laufzeit', () => {
     expect(AppManifest.parse({ ...GUELTIG, marken: '5' }).marken).toBe('5');

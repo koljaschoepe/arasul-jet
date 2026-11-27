@@ -1,7 +1,7 @@
 /**
  * Der Bau der Werkstatt (J44, M7; bis J52 Entwickler-Cockpit): eine App „mit Bau" nach
  * `docs/features/APPS.md` (Bibliothek zur Laufzeit). React und `@marken`
- * bleiben außerhalb des Bündels und kommen vom Gerät unter `/marken/5/`;
+ * bleiben außerhalb des Bündels und kommen vom Gerät unter `/marken/6/`;
  * React gibt es damit genau einmal, das des Geräts.
  *
  * Aufruf aus dem Wurzelordner des Repos:
@@ -17,7 +17,7 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const wurzel = path.dirname(fileURLToPath(import.meta.url));
-const MARKEN = '/marken/5/';
+const MARKEN = '/marken/6/';
 const vomGeraet: Record<string, string> = {
   react: MARKEN + 'react.js',
   'react-dom': MARKEN + 'react-dom.js',

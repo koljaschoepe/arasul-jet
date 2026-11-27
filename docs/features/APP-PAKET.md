@@ -483,7 +483,7 @@ Paket zu legen. Dann nennt ihr Manifest nur die Hauptzahl:
 { "marken": "5" }
 ```
 
-und ihr Frontend lädt `/marken/5/marken.css` und `/marken/5/marken.js`. Das
+und ihr Frontend lädt `/marken/6/marken.css` und `/marken/6/marken.js`. Das
 Paket trägt keine Datei der Bibliothek. Der Kontrakt sagt es im Abschnitt
 `marken` (Adresse, Verzeichnis `/marken/marken.json`, Eingänge, Import-Weg,
 Versionsregel); den Weg für App-Entwickler mit Beispielen beschreibt

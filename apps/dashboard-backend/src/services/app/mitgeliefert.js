@@ -6,7 +6,7 @@
  * Entwickler-Cockpit (`company/plattform.md`: „Einzige mitgelieferte App").
  * Sie ist eine App im
  * Rahmen wie jede andere -- Seite unter `/apps/<id>/`, eigenes `app.json`,
- * gebaut aus der Bibliothek zur Laufzeit (`/marken/5/`) --, mit drei
+ * gebaut aus der Bibliothek zur Laufzeit (`/marken/6/`) --, mit drei
  * Unterschieden, und alle drei stehen in dieser Datei:
  *
  * 1. WOHER DIE DATEIEN KOMMEN. Nicht aus `APPS_DIR`, sondern aus dem Image

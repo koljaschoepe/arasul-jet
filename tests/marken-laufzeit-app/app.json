@@ -4,9 +4,9 @@
   "name": "Marken zur Laufzeit",
   "symbol": "palette",
   "version": "1.0.0",
-  "beschreibung": "Die Probe für die Bibliothek zur Laufzeit: Seitenleiste, Tabelle und Freigabe kommen vom Gerät unter /marken/5/, das Paket trägt keine Kopie.",
+  "beschreibung": "Die Probe für die Bibliothek zur Laufzeit: Seitenleiste, Tabelle und Freigabe kommen vom Gerät unter /marken/6/, das Paket trägt keine Kopie.",
   "frontend": {
     "verzeichnis": "frontend"
   },
-  "marken": "5"
+  "marken": "6"
 }
