@@ -722,7 +722,7 @@ async function entferneApp(appId, { dateien = true } = {}) {
  */
 async function appsFuerNutzer(benutzerId) {
   const result = await db.query(
-    `SELECT a.id, a.name, a.beschreibung, a.symbol_ersatz, f.stand AS freigegeben_bis,
+    `SELECT a.id, a.name, a.beschreibung, a.symbol_ersatz, a.angelegt_am, f.stand AS freigegeben_bis,
             l.version AS live_version, t.version AS test_version,
             l.manifest AS live_manifest, t.manifest AS test_manifest
        FROM public.app_members f
@@ -743,6 +743,8 @@ async function appsFuerNutzer(benutzerId) {
       // wenn es keinen gibt; bringt keiner eines mit, das des Administrators
       // (J51, `symbol_ersatz`). Fehlt alles, zeichnet die Shell ein Fenster.
       symbol: z.live_manifest?.symbol ?? z.test_manifest?.symbol ?? z.symbol_ersatz ?? null,
+      // Seit wann es die App auf dem Geraet gibt: daraus die Reihe „Neu“.
+      seit: z.angelegt_am ?? null,
       live:
         z.live_version && (await seiteDa(z.live_manifest))
           ? {

@@ -31,6 +31,10 @@ export interface MeineApp {
   beschreibung: string | null;
   /** Aus `app.json` (Kontrakt 8): Lucide-Name oder 1 bis 3 Großbuchstaben. */
   symbol?: string | null;
+  /** Aus `app.json`: die Abteilung im Store (J60); fehlt sie, steht die App unter „Weitere“. */
+  abteilung?: string | null;
+  /** Seit wann die App auf dem Gerät ist (ISO); daraus die Reihe „Neu“. */
+  seit?: string | null;
   live: MeinAppStand | null;
   test: MeinAppStand | null;
 }
@@ -110,6 +114,8 @@ export interface LeistenApp {
   name: string;
   symbol: string | null;
   staende: AppStand[];
+  abteilung?: string | null;
+  seit?: string | null;
 }
 
 /** Die Apps für die Leiste: eine je App, ohne Stand nichts. */
@@ -117,7 +123,16 @@ export function zuLeiste(apps: MeineApp[]): LeistenApp[] {
   return apps.flatMap(app => {
     const staende = (['live', 'test'] as const).filter(stand => app[stand]);
     return staende.length
-      ? [{ id: app.id, name: app.name, symbol: app.symbol ?? null, staende: [...staende] }]
+      ? [
+          {
+            id: app.id,
+            name: app.name,
+            symbol: app.symbol ?? null,
+            staende: [...staende],
+            abteilung: app.abteilung ?? null,
+            seit: app.seit ?? null,
+          },
+        ]
       : [];
   });
 }

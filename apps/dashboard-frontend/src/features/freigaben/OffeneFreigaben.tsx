@@ -33,7 +33,9 @@ import { ChevronDown, ChevronRight, ClipboardCheck, Send, UserRound } from '@mar
 import {
   Button,
   Freigabe,
+  Meldung,
   Select,
+  Wischzeile,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -42,6 +44,7 @@ import {
 } from '@marken';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { ersterSchrittSetzen } from '@/features/apps/ersteSchritte';
 import { useToast } from '@/contexts/ToastContext';
 import {
   useOffeneFreigaben,
@@ -330,6 +333,7 @@ function Zeile({
   istAdmin,
   imGeraet,
   ohneSatz,
+  freigeben,
 }: {
   f: OffeneFreigabe;
   ich: string;
@@ -337,10 +341,55 @@ function Zeile({
   ohneSatz: boolean;
   /** Öffnet die Freigabe in Arasul statt in der App (Rückfall). */
   imGeraet: (id: number) => void;
+  /** Gibt die Freigabe frei, mit Rückgängig; nur wo es ohne Felder geht. */
+  freigeben?: (f: OffeneFreigabe) => void;
 }) {
   const oeffne = useWorkspaceStore(s => s.oeffne);
   const app = `${f.stand === 'test' ? '(Test) ' : ''}${f.app_name || f.app_id}`;
   const stufe = stufeName(f);
+  const oeffnen = () =>
+    f.app_zeigt_freigaben
+      ? oeffne({
+          type: 'app',
+          appId: f.app_id,
+          stand: f.stand,
+          vorgang: f.id,
+          title: f.app_name || f.app_id,
+        })
+      : imGeraet(f.id);
+  if (freigeben) {
+    // Wischen: nach rechts gibt frei (5 Sekunden Rückgängig), nach links geht
+    // zur Einzelansicht, wo der Grund Pflicht ist. Der Haken in der Zeile
+    // bleibt für alle, die nicht wischen können; „Einzelheiten“ öffnet die
+    // Freigabe, ohne etwas zu entscheiden.
+    return (
+      <li className="border-b border-border last:border-b-0" data-testid={`freigabe-${f.id}`}>
+        <Wischzeile
+          kennzeichen={`freigabe-${f.id}-wisch`}
+          symbol="freigabe"
+          titel={f.titel}
+          unterzeile={
+            <>
+              <span>{`${app}${stufe ? ` · Stufe ${stufe}` : ''}`}</span>
+              {` · ${wartetSeit(f.liegt_seit ?? f.angefragt_am)}`}
+            </>
+          }
+          beiFreigeben={() => freigeben(f)}
+          beiAblehnen={oeffnen}
+          ablehnenText="Ablehnen mit Grund"
+        />
+        <button
+          type="button"
+          onClick={oeffnen}
+          className="mx-ui-3 mb-1 text-xs text-primary underline-offset-2 hover:underline"
+          data-testid={`freigabe-${f.id}-oeffnen`}
+        >
+          Einzelheiten
+        </button>
+        <Zustaendigkeit f={f} ich={ich} istAdmin={istAdmin} ohneSatz={ohneSatz} />
+      </li>
+    );
+  }
   return (
     <li className="border-b border-border last:border-b-0" data-testid={`freigabe-${f.id}`}>
       <button
@@ -384,6 +433,9 @@ export function OffeneFreigaben() {
   const toast = useToast();
   // Die Freigabe, die gerade in Arasul offen ist (Rückfall); `null` ist die Liste.
   const [gewaehlt, setGewaehlt] = useState<number | null>(null);
+  // Freigaben, die per Wisch oder Haken gegeben sind und noch fünf Sekunden
+  // zurückgenommen werden können: erst danach geht die Entscheidung ans Gerät.
+  const [wartet, setWartet] = useState<OffeneFreigabe[]>([]);
 
   /**
    * Nach dem Erfolg wird gesagt, ob der Lauf WIRKLICH weiterläuft.
@@ -431,6 +483,47 @@ export function OffeneFreigaben() {
   // zusammenfällt, stiftet nur Unruhe. Nach einem Fehler steht ebenfalls
   // nichts da — „keine Freigabe" wäre dann eine Behauptung, keine Auskunft.
   if (isLoading || isError || !data) return null;
+
+  const vorgemerkt = new Set(wartet.map(w => w.id));
+  const entferne = (id: number) => setWartet(l => l.filter(w => w.id !== id));
+  const meldungen = wartet.length > 0 && (
+    <div
+      className="fixed bottom-[calc(var(--ara-leiste-platz,88px)+8px)] left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2"
+      data-testid="freigaben-rueckgaengig"
+    >
+      {wartet.map(w => (
+        <Meldung
+          key={w.id}
+          titel={`„${w.titel}“ freigegeben`}
+          beiRueckgaengig={() => entferne(w.id)}
+          beiAblauf={() => {
+            void entscheide(
+              { id: w.id, titel: w.titel } as unknown as FreigabeEintrag,
+              'bestaetigt'
+            )
+              .then(() => ersterSchrittSetzen('freigabe'))
+              .finally(() => entferne(w.id));
+          }}
+        />
+      ))}
+    </div>
+  );
+  const sichtbar = data.filter(f => !vorgemerkt.has(f.id));
+
+  if (sichtbar.length === 0 && wartet.length > 0) {
+    return (
+      <section
+        id="fuer-sie"
+        tabIndex={-1}
+        className="mb-6 outline-none"
+        data-testid="offene-freigaben"
+      >
+        <h2 className="mb-1 text-sm font-medium text-foreground">Für Sie</h2>
+        <p className="text-sm text-muted-foreground">Keine weitere Freigabe liegt bei Ihnen.</p>
+        {meldungen}
+      </section>
+    );
+  }
 
   if (data.length === 0) {
     return (
@@ -501,7 +594,7 @@ export function OffeneFreigaben() {
         </span>
       </h2>
       <ul className="flex flex-col rounded-md border border-border" data-testid="fuer-sie">
-        {data.map(f => (
+        {sichtbar.map(f => (
           <Zeile
             key={f.id}
             f={f}
@@ -509,11 +602,17 @@ export function OffeneFreigaben() {
             istAdmin={istAdmin}
             imGeraet={setGewaehlt}
             ohneSatz={alleBeiMir}
+            freigeben={
+              !f.app_zeigt_freigaben && !(f.felder && f.felder.length > 0)
+                ? x => setWartet(l => [...l, x])
+                : undefined
+            }
           />
         ))}
       </ul>
       <BeiAnderen />
       <Eingereicht />
+      {meldungen}
     </section>
   );
 }

@@ -56,8 +56,8 @@ In ALLEM unter `src/`, ohne Ausnahme (siehe „Der Ausnahmeordner ist weg"):
    Mensch in der Durchsicht.
 9. Eine zweite Stelle fuer dieselbe Funktion in der Navigation: eine Ansicht
    (`oeffne({ type: ... })`) oeffnet die Aktivitaetsleiste, genau eine Stelle
-   (`ActivityBar`; `LeisteUnten` ist dieselbe Leiste unter 900 px, nie beide
-   zugleich). Jede weitere Datei, die eine Ansicht aufmacht oder per
+   (seit J60 `SchalenKopf`, `SchalenDock` und `Suche`: Kopf, Dock und Popup
+   sind EINE Schale, die Suche ist dieselbe Navigation als Feld). Jede weitere Datei, die eine Ansicht aufmacht oder per
    `navigate`/`Link` an eine Adresse springt, steht in NAVIGATION_AUSNAHMEN,
    mit Grund. Benannte Ausnahme: die Kacheln und Hinweise der Startseite.
 10. Ein freier Import von `lucide-react` ausserhalb der Bibliothek (Karte
@@ -531,16 +531,16 @@ def groessen_und_gewichte(wurzel: Path) -> list[str]:
 # der `oeffne({ type: 'settings' })` ruft, hat eine zweite Tuer in dieselbe
 # Ansicht gebaut, und in einem halben Jahr fuehren drei Wege dorthin, von denen
 # einer die neue Gestalt der Ansicht nicht kennt. Die Leiste steht in
-# `ActivityBar` (breit) und `LeisteUnten` (unter 900 px, nie beide zugleich);
-# beide sind EINE Stelle in zwei Formen.
+# `SchalenKopf` und `SchalenDock` (seit J60); die Suche ist dieselbe Stelle
+# als Feld.
 OEFFNE = re.compile(r"\boeffne\(\s*\{\s*type:\s*'(\w+)'")
 SPRUNG = re.compile(r'\bnavigate\(|<(?:Nav)?Link\b|href=["\']/(?:workspace)?')
 NAVIGATION_AUSNAHMEN = {
-    'features/workspace/ActivityBar.tsx': 'die Leiste, breit',
-    'features/workspace/LeisteUnten.tsx': 'dieselbe Leiste unter 900 px',
+    'features/workspace/SchalenKopf.tsx': 'die Glasleiste: Vogel und vorige Ebene',
+    'features/workspace/SchalenDock.tsx': 'das Dock: Start, Für Sie, Store, Zuletzt',
     'features/workspace/WorkspaceShell.tsx': 'spiegelt Adresse und Store ineinander',
-    # Die Befehlspalette (J51) ist die Leiste als Feld: dieselben Ziele, getippt.
-    'features/workspace/Befehlspalette.tsx': 'die Leiste als Feld, mit der Tastatur',
+    # Die Popup-Suche (J60) ist die Schale als Feld: dieselben Ziele, getippt.
+    'features/workspace/Suche.tsx': 'die Schale als Feld, mit der Tastatur',
     'features/settings/Settings.tsx': 'die Bereichswahl INNERHALB der Verwaltung',
     'features/einstellungen/Einstellungen.tsx': 'die Bereichswahl INNERHALB der Einstellungen',
     # Jede App steht einmal in der Leiste; Live und Test schaltet nur die Kapsel.
@@ -548,6 +548,7 @@ NAVIGATION_AUSNAHMEN = {
     # Die Startseite ist die benannte Ausnahme (Karte pruefung-einheit-umlaute):
     # ihre Kacheln, Hinweise und Freigaben fuehren in das, was sie zeigen.
     'features/apps/Uebersicht.tsx': 'Kacheln der Startseite',
+    'features/apps/StoreAnsicht.tsx': 'Kacheln des Stores, jede öffnet ihre App',
     'features/workspace/AdminHinweise.tsx': 'Hinweise der Startseite',
     'features/freigaben/OffeneFreigaben.tsx': 'Freigaben der Startseite',
     # Eine Fehlerseite fuehrt zurueck; sie ist kein Zugang zu einer Ansicht.

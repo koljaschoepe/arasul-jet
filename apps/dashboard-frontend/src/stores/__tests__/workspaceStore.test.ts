@@ -8,6 +8,7 @@ import {
   appPfad,
   nurFuerAdmin,
   nurFuerEntwickler,
+  istPalettenTaste,
   type Ansicht,
 } from '../workspaceStore';
 
@@ -174,9 +175,33 @@ describe('URL-Mapping (ansichtZuPfad / pfadZuAnsicht)', () => {
     });
   });
 
-  it('die alten Pfade der Modelle landen im Bereich der Verwaltung', () => {
+  it('der alte Pfad der Modelle landet im Bereich der Verwaltung, /store ist der Store (J60)', () => {
     expect(pfadZuAnsicht('/modelle')).toEqual({ type: 'verwaltung', bereich: 'modelle' });
-    expect(pfadZuAnsicht('/store')).toEqual({ type: 'verwaltung', bereich: 'modelle' });
+    expect(pfadZuAnsicht('/store')).toEqual({ type: 'store' });
+    expect(ansichtZuPfad({ type: 'store' })).toBe('/workspace/store');
+  });
+
+  it('„Zuletzt“ merkt sich die geöffneten Apps, die jüngste zuerst, ohne Doppelte', () => {
+    useWorkspaceStore.setState({ zuletzt: [] });
+    const { oeffne } = useWorkspaceStore.getState();
+    oeffne({ type: 'app', appId: 'a' });
+    oeffne({ type: 'app', appId: 'b' });
+    oeffne({ type: 'app', appId: 'a', stand: 'test' });
+    expect(useWorkspaceStore.getState().zuletzt).toEqual(['a', 'b']);
+  });
+
+  it('die Taste „/“ öffnet die Suche, aber nie in einem Eingabefeld', () => {
+    const taste = (key: string, target?: EventTarget) => ({
+      key,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: false,
+      target,
+    });
+    expect(istPalettenTaste(taste('/'))).toBe(true);
+    expect(istPalettenTaste(taste('/', document.createElement('input')))).toBe(false);
+    expect(istPalettenTaste({ ...taste('k'), metaKey: true })).toBe(true);
   });
 
   it('nurFuerAdmin nennt genau die Verwaltung', () => {

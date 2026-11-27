@@ -2,6 +2,8 @@
  * Übersicht — die Mitte, solange keine App offen ist (Phase D1).
  *
  * Mitarbeiter-Sicht zuerst: was hier steht, gilt für jeden, der sich anmeldet.
+ * Seit J60: Begrüßung, Erste Schritte, Für Sie, Zuletzt. Eine Kachel steht nur
+ * unter „Zuletzt“, also für Apps, die man geöffnet hat.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -51,10 +53,11 @@ describe('Uebersicht', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
     angemeldet({ role: 'mitarbeiter', username: 'mia' });
-    useWorkspaceStore.setState({ ansicht: { type: 'dashboard' } });
+    localStorage.clear();
+    useWorkspaceStore.setState({ ansicht: { type: 'dashboard' }, zuletzt: ['urlaub'] });
   });
 
-  it('begrüßt mit dem Namen und zeigt die freigegebenen Apps als Kacheln', async () => {
+  it('begrüßt mit dem Namen und zeigt die zuletzt geöffneten Apps als Kacheln', async () => {
     antworten();
     render(<Uebersicht />, { wrapper: huelle() });
     expect(screen.getByRole('heading', { name: 'Guten Tag, mia' })).toBeInTheDocument();
@@ -98,7 +101,28 @@ describe('Uebersicht', () => {
   it('ohne Freigabe steht dort, wie man zu einer App kommt', async () => {
     antworten({ apps: [] });
     render(<Uebersicht />, { wrapper: huelle() });
-    expect(await screen.findByText('Noch keine App für Sie')).toBeInTheDocument();
+    expect(await screen.findByText(/Noch keine App für Sie/)).toBeInTheDocument();
+  });
+
+  it('verweist auf den Store, solange noch nichts geöffnet wurde', async () => {
+    antworten();
+    useWorkspaceStore.setState({ zuletzt: [] });
+    render(<Uebersicht />, { wrapper: huelle() });
+    expect(await screen.findByTestId('zuletzt-leer')).toHaveTextContent('Im Store');
+    expect(screen.queryByTestId('uebersicht-app-urlaub')).not.toBeInTheDocument();
+  });
+
+  it('zeigt „Erste Schritte“ und lässt sie verschwinden, wenn alle vier erledigt sind', async () => {
+    antworten();
+    render(<Uebersicht />, { wrapper: huelle() });
+    const block = screen.getByTestId('erste-schritte');
+    expect(block).toHaveTextContent('Erste Schritte');
+    // „Eine App öffnen“ ist durch das Öffnen schon abgehakt (zuletzt gefüllt).
+    expect(block).toHaveTextContent('1 von 4');
+    for (const id of ['freigabe', 'rueckmeldung', 'store']) {
+      fireEvent.click(screen.getByTestId(`erster-schritt-${id}`));
+    }
+    expect(screen.queryByTestId('erste-schritte')).not.toBeInTheDocument();
   });
 
   /**
@@ -146,29 +170,6 @@ describe('Uebersicht', () => {
     fireEvent.click(await screen.findByTestId('uebersicht-app-urlaub'));
     expect(useWorkspaceStore.getState().ansicht).toMatchObject({ appId: 'urlaub', stand: 'test' });
     useWorkspaceStore.setState({ zuletztStand: {} });
-  });
-
-  // Die Kachel: Symbol, Name, eine Zeile offene Freigaben (M5, 07.10.2026).
-  it('trägt an der Kachel die offenen Freigaben aller ihrer Fassungen', async () => {
-    antworten({
-      apps: [{ ...URLAUB, test: { version: '1.3.0', pfad: '/apps/urlaub/' } }],
-    });
-    render(<Uebersicht wartend={{ 'urlaub:live': 2, 'urlaub:test': 7, andere: 5 }} />, {
-      wrapper: huelle(),
-    });
-    const zeile = await screen.findByTestId('uebersicht-app-urlaub-wartend');
-    expect(zeile).toHaveTextContent(/^9 Freigaben offen$/);
-    expect(screen.queryByTestId('offene-freigaben')).not.toBeInTheDocument();
-  });
-
-  it('sagt ohne wartende Freigabe „Keine offene Freigabe"', async () => {
-    antworten();
-    render(<Uebersicht wartend={{}} />, { wrapper: huelle() });
-    await screen.findByTestId('uebersicht-app-urlaub');
-    expect(screen.queryByTestId('uebersicht-app-urlaub-wartend')).not.toBeInTheDocument();
-    expect(screen.getByTestId('uebersicht-app-urlaub-ruhig')).toHaveTextContent(
-      'Keine offene Freigabe'
-    );
   });
 
   it('zeigt auf der Kachel weder Fassung noch Beschreibung, auch dem Administrator nicht', async () => {

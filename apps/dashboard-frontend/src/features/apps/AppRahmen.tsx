@@ -83,10 +83,9 @@ interface AppRahmenProps {
 export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
   const { data: apps, isLoading, isError } = useMeineApps();
   const { theme, transparenzReduziert } = useTheme();
-  // Die Kapsel: 8 px vom Rand, mit Umschalter rund 128 px breit, ohne 36 px,
-  // dazu 8 px Luft.
-  const meine = apps?.find(a => a.id === appId);
-  const kapselPlatz = meine?.live && meine?.test ? 144 : 52;
+  // Die Kapsel schwebt seit J60 nicht mehr über der App, sondern steht in der
+  // Glasleiste der Shell: die App muss oben rechts nichts mehr freihalten.
+  const kapselPlatz = 0;
   const istAdmin = useAuth().user?.role === 'admin';
   const rahmen = useRef<HTMLIFrameElement>(null);
 
@@ -127,7 +126,7 @@ export function AppRahmen({ appId, stand, vorgang }: AppRahmenProps) {
     try {
       const dokument = rahmen.current?.contentDocument;
       dokument?.addEventListener('keydown', ev => {
-        if (istPalettenTaste(ev)) {
+        if (istPalettenTaste({ ...ev, target: null })) {
           ev.preventDefault();
           useWorkspaceStore.getState().setzePalette(true);
         }

@@ -45,11 +45,10 @@ function systemBevorzugtDunkel(): boolean {
 }
 
 /**
- * Ohne Sitzung und ohne gesetzten Wert gilt das System: hell, solange das
- * Betriebssystem nichts anderes meldet (Migration 210 stellt die Spaltenvorgabe
- * gleich). So folgt auch die Anmeldeseite dem Dunkelmodus des Rechners.
+ * Ohne Sitzung und ohne gesetzten Wert gilt hell, unabhaengig vom Rechner
+ * (J60, Klickentwurf 7: „Hell ist immer der Standard“).
  */
-const THEME_VORGABE: ThemeWahl = 'system';
+const THEME_VORGABE: ThemeWahl = 'light';
 
 /**
  * Der alte Schluessel — nur noch, um ihn EINMAL zu uebernehmen und dann zu
@@ -128,10 +127,9 @@ export function useTheme() {
   const { user, isAuthenticated, benutzerAktualisieren } = useAuth();
   const api = useApi();
 
-  const wahl: ThemeWahl =
-    user?.theme === 'dark' || user?.theme === 'light' || user?.theme === 'system'
-      ? user.theme
-      : THEME_VORGABE;
+  // Hell ist immer der Standard (J60, Klickentwurf 7). Ein gespeichertes
+  // `system` aus der Zeit davor gilt als hell; angeboten wird es nicht mehr.
+  const wahl: ThemeWahl = user?.theme === 'dark' ? 'dark' : THEME_VORGABE;
 
   // Bei `system` folgt das Theme dem Betriebssystem, auch wenn es sich ändert,
   // solange die Seite offen ist.

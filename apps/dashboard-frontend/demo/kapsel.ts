@@ -220,7 +220,8 @@ export function kapselSetzen(sprache: Sprache, zeigen: () => void): void {
     const kapsel = [
       ...document.querySelectorAll<HTMLElement>('[data-testid="rahmen-kapsel"]'),
     ].find(k => !k.closest('[inert]') && k.offsetParent !== null);
-    if (kapsel) {
+    // Am Handy ist in der Leiste kein Platz: dort schwebt die Zeile allein.
+    if (kapsel && window.innerWidth >= 900) {
       if (zeile.parentElement !== kapsel) {
         kapsel.prepend(zeile);
         zeile.dataset.ort = 'kapsel';
@@ -231,7 +232,7 @@ export function kapselSetzen(sprache: Sprache, zeigen: () => void): void {
       zeile.dataset.ort = 'frei';
       zeile.classList.add('glas');
     }
-    platzHalten(kapsel ?? null);
+    platzHalten(kapsel && window.innerWidth >= 900 ? kapsel : null);
     const stand = `${zeile.dataset.ort}:${zeile.offsetWidth}`;
     if (stand !== zuletzt) {
       zuletzt = stand;

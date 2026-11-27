@@ -51,7 +51,14 @@ describe('zuEintraegen', () => {
 describe('zuLeiste', () => {
   it('jede App steht genau einmal, mit ihren Fassungen, Live zuerst', () => {
     expect(zuLeiste([urlaub])).toEqual([
-      { id: 'urlaub', name: 'Urlaubsantrag', symbol: null, staende: ['live', 'test'] },
+      {
+        id: 'urlaub',
+        name: 'Urlaubsantrag',
+        symbol: null,
+        staende: ['live', 'test'],
+        abteilung: null,
+        seit: null,
+      },
     ]);
   });
 

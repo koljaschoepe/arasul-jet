@@ -67,9 +67,6 @@ describe('Startseite nach Rolle', () => {
   it('zeigt dem Mitarbeiter „Für Sie" und die Zahl an der App', async () => {
     angemeldet({ role: 'mitarbeiter', username: 'mia' });
     zeigeStartseite();
-    expect(await screen.findByTestId('uebersicht-app-urlaub-wartend')).toHaveTextContent(
-      /^1 Freigabe offen$/
-    );
     expect(await screen.findByTestId('startband-freigaben')).toHaveTextContent(
       'Eine Freigabe wartet auf Sie'
     );

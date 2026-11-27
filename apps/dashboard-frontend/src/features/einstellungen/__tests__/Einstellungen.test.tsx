@@ -224,22 +224,15 @@ describe('Einstellungen, persönlich', () => {
     }
   );
 
-  it('Erscheinungsbild: System, Hell, Dunkel; wer „light" trägt, sieht Hell', async () => {
+  it('Erscheinungsbild: Hell und Dunkel; wer „light" trägt, sieht Hell', async () => {
     zeige('erscheinungsbild');
     await screen.findByRole('heading', { level: 1, name: 'Erscheinungsbild' });
     const radios = screen.getAllByRole('radio');
-    expect(radios.map(r => r.getAttribute('id'))).toEqual([
-      'theme-system',
-      'theme-light',
-      'theme-dark',
-    ]);
+    expect(radios.map(r => r.getAttribute('id'))).toEqual(['theme-light', 'theme-dark']);
     expect(screen.getByRole('radio', { name: /Hell/ })).toBeChecked();
   });
 
-  it.each([
-    ['System', 'system'],
-    ['Dunkel', 'dark'],
-  ] as const)('„%s" geht an das Gerät', async (name, wert) => {
+  it.each([['Dunkel', 'dark']] as const)('„%s" geht an das Gerät', async (name, wert) => {
     const user = userEvent.setup();
     vi.mocked(mockApi.put).mockResolvedValue({ data: { theme: wert } });
     zeige('erscheinungsbild');
@@ -250,9 +243,9 @@ describe('Einstellungen, persönlich', () => {
     expect(benutzerAktualisieren).toHaveBeenCalledWith({ theme: wert });
   });
 
-  it('wer mit „system" hereinkommt, sieht „System" angehakt', async () => {
+  it('wer noch „system" trägt (aus der Zeit davor), sieht Hell angehakt', async () => {
     mitTheme = 'system';
     zeige('erscheinungsbild');
-    expect(await screen.findByRole('radio', { name: /System/ })).toBeChecked();
+    expect(await screen.findByRole('radio', { name: /Hell/ })).toBeChecked();
   });
 });

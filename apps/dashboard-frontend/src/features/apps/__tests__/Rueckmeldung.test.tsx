@@ -77,12 +77,11 @@ describe('Rückmeldung im Rahmen', () => {
     const rahmen = await screen.findByTestId('app-rahmen-belege');
     const knopf = screen.getByTestId('rueckmeldung-knopf');
     expect(knopf).toHaveAccessibleName('Rückmeldung zu dieser Seite');
-    // In der Kapsel, die Geschwister des iframes ist, nicht im Dokument der App.
+    // In der Kapsel, die Geschwister des iframes ist (ohne Glasleiste, wie in
+    // diesem Test), nicht im Dokument der App.
     const kapsel = screen.getByTestId('rahmen-kapsel');
     expect(kapsel).toContainElement(knopf);
     expect(kapsel.parentElement).toBe(rahmen.parentElement);
-    expect(kapsel.className).toMatch(/glas/);
-    expect(kapsel.className).toMatch(/absolute/);
   });
 
   it('die Kapsel schaltet zwischen Live und Test, wo es beide gibt', async () => {
@@ -92,17 +91,16 @@ describe('Rückmeldung im Rahmen', () => {
       zuletztStand: {},
     });
     render(<AppRahmen appId="belege" stand="live" />, { wrapper: huelle() });
-    const live = await screen.findByTestId('kapsel-stand-live');
-    expect(live).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByTestId('ansicht-test-rand')).not.toBeInTheDocument();
-    await nutzer.click(screen.getByTestId('kapsel-stand-test'));
+    const live = await screen.findByRole('radio', { name: 'Live' });
+    expect(live).toBeChecked();
+    await nutzer.click(screen.getByRole('radio', { name: 'Test' }));
     expect(useWorkspaceStore.getState().ansicht).toMatchObject({ appId: 'belege', stand: 'test' });
   });
 
-  it('in der Testfassung ist Test gedrückt, und die App erfährt den Platz der Kapsel', async () => {
+  it('in der Testfassung ist Test gewählt, und die App muss oben rechts nichts freihalten', async () => {
     render(<AppRahmen appId="belege" stand="test" />, { wrapper: huelle() });
     await screen.findByTestId('app-rahmen-belege');
-    expect(screen.getByTestId('kapsel-stand-test')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: 'Test' })).toBeChecked();
     const rahmen = screen.getByTestId('app-rahmen-belege') as HTMLIFrameElement;
     // jsdom lädt die Adresse nicht: das Dokument bekommt sein `html` von Hand.
     const dokument = rahmen.contentDocument!;
@@ -110,7 +108,7 @@ describe('Rückmeldung im Rahmen', () => {
     fireEvent.load(rahmen);
     expect(
       rahmen.contentDocument?.documentElement.style.getPropertyValue('--ara-kapsel-platz')
-    ).toBe('144px');
+    ).toBe('0px');
   });
 
   it('ohne Teststand gibt es keinen Umschalter, nur das Icon', async () => {
@@ -120,7 +118,7 @@ describe('Rückmeldung im Rahmen', () => {
     render(<AppRahmen appId="belege" stand="live" />, { wrapper: huelle() });
     await screen.findByTestId('app-rahmen-belege');
     expect(screen.getByTestId('rueckmeldung-knopf')).toBeInTheDocument();
-    expect(screen.queryByTestId('kapsel-stand-live')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Live' })).not.toBeInTheDocument();
   });
 
   it('Text ist Pflicht; abgesendet wird mit App, Stand, Seite und Foto, danach nur die Bestätigung', async () => {

@@ -16,9 +16,10 @@ import WorkspaceShell from '../WorkspaceShell';
 import { angemeldet } from '@/__tests__/helpers/authMock';
 
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
-vi.mock('../ActivityBar', () => ({ ActivityBar: () => <nav data-testid="mock-leiste" /> }));
+vi.mock('../SchalenKopf', () => ({ SchalenKopf: () => <header data-testid="mock-leiste" /> }));
+vi.mock('../SchalenDock', () => ({ SchalenDock: () => <nav data-testid="mock-dock" /> }));
 vi.mock('../AnsichtInhalt', () => ({ AnsichtInhalt: () => <div data-testid="mock-ansicht" /> }));
-vi.mock('../Befehlspalette', () => ({ Befehlspalette: () => null }));
+vi.mock('../Suche', () => ({ Suche: () => null }));
 
 function LocationProbe() {
   const location = useLocation();
@@ -63,26 +64,11 @@ describe('WorkspaceShell', () => {
     expect(screen.getByTestId('mock-ansicht')).toBeInTheDocument();
     expect(shell.querySelector('footer')).toBeNull();
     expect(screen.queryByTestId('statusbar')).not.toBeInTheDocument();
-    expect(shell.querySelector('header')).toBeNull();
     expect(shell.querySelector('[data-panel]')).toBeNull();
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
-    // Die Ansicht ist eine deckende, abgerundete Fläche auf dem Verlauf.
-    expect(screen.getByTestId('workspace-ansicht')).toHaveClass('bg-background', 'rounded-2xl');
-    expect(shell.className).toContain('--verlauf-rahmen');
-  });
-
-  it('die Testfassung einer App trägt den blauen Rand und das Wort Test', async () => {
-    renderShell('/workspace/app/urlaub/test');
-    await landetAuf('/workspace/app/urlaub/test');
-    expect(screen.getByTestId('workspace-ansicht')).toHaveClass('border-primary');
-    expect(screen.getByTestId('ansicht-test-wort')).toHaveTextContent('Test');
-  });
-
-  it('die Livefassung trägt keinen Testrand', async () => {
-    renderShell('/workspace/app/urlaub');
-    await landetAuf('/workspace/app/urlaub');
-    expect(screen.getByTestId('workspace-ansicht')).not.toHaveClass('border-primary');
-    expect(screen.queryByTestId('ansicht-test-wort')).not.toBeInTheDocument();
+    // J60: oben die Glasleiste, unten das Dock, dazwischen die Fläche.
+    expect(screen.getByTestId('mock-dock')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-ansicht')).toHaveClass('flex-1');
   });
 
   it('ohne Deep-Link landet der Workspace auf der Startseite', async () => {
