@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import type { KeyboardEvent, ReactNode } from 'react';
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 import { useFokusfalle } from './fokusfalle';
 import { AppIcon, Linie } from './Linien';
 import type { LinienName } from './Linien';
@@ -119,6 +119,8 @@ export interface PopupEintragProps {
   symbol?: LinienName;
   /** Eine App: das Symbol steht auf dem Squircle des App-Icons. */
   app?: boolean;
+  /** Ein eigenes Bild statt des Symbols (etwa das Symbol einer App), 32 px auf dem Squircle. */
+  bild?: ReactNode;
   titel: string;
   unterzeile?: string;
   /** Das Tastenkuerzel rechts, etwa „⌘N“. */
@@ -129,6 +131,7 @@ export interface PopupEintragProps {
 export function PopupEintrag({
   symbol,
   app,
+  bild,
   titel,
   unterzeile,
   kuerzel,
@@ -136,7 +139,18 @@ export function PopupEintrag({
 }: PopupEintragProps) {
   return (
     <button type="button" className="ara-popup__eintrag" onClick={onWaehlen}>
-      {symbol &&
+      {bild ? (
+        <span
+          className="ara-appicon"
+          style={{ '--ara-appicon': '32px' } as CSSProperties}
+          data-groesse={32}
+          aria-hidden="true"
+        >
+          {bild}
+        </span>
+      ) : null}
+      {!bild &&
+        symbol &&
         (app ? <AppIcon symbol={symbol} groesse={32} /> : <Linie name={symbol} groesse={20} />)}
       <span className="ara-popup__text">
         <span className="ara-popup__titel">{titel}</span>

@@ -1,3 +1,4 @@
+import { AppSymbol } from '@/components/AppSymbol';
 import { Popup, PopupEintrag, PopupGruppe } from '@marken';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { standFuerKlick, useMeineApps, zuLeiste, type LeistenApp } from '@/features/apps/meineApps';
@@ -57,8 +58,7 @@ export function NeuAuswahl() {
           {oben.map(a => (
             <PopupEintrag
               key={a.id}
-              app
-              symbol="angebote"
+              bild={<AppSymbol symbol={a.symbol} klasse="size-4" />}
               titel={a.name}
               onWaehlen={() => geh(a)}
             />
@@ -70,8 +70,7 @@ export function NeuAuswahl() {
           {weitere.map(a => (
             <PopupEintrag
               key={a.id}
-              app
-              symbol="angebote"
+              bild={<AppSymbol symbol={a.symbol} klasse="size-4" />}
               titel={a.name}
               onWaehlen={() => geh(a)}
             />
