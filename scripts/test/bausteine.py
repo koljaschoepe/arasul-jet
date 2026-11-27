@@ -539,6 +539,7 @@ NAVIGATION_AUSNAHMEN = {
     'features/workspace/SchalenKopf.tsx': 'die Glasleiste: Vogel und vorige Ebene',
     'features/workspace/SchalenDock.tsx': 'das Dock: Start, Für Sie, Store, Zuletzt',
     'features/workspace/WorkspaceShell.tsx': 'spiegelt Adresse und Store ineinander',
+    'features/workspace/NeuAuswahl.tsx': 'Plus im Dock: Neu, dieselben Ziele wie die Leiste',
     # Die Popup-Suche (J60) ist die Schale als Feld: dieselben Ziele, getippt.
     'features/workspace/Suche.tsx': 'die Schale als Feld, mit der Tastatur',
     'features/settings/Settings.tsx': 'die Bereichswahl INNERHALB der Verwaltung',

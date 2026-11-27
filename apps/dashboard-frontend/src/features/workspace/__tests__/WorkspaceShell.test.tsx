@@ -20,6 +20,7 @@ vi.mock('../SchalenKopf', () => ({ SchalenKopf: () => <header data-testid="mock-
 vi.mock('../SchalenDock', () => ({ SchalenDock: () => <nav data-testid="mock-dock" /> }));
 vi.mock('../AnsichtInhalt', () => ({ AnsichtInhalt: () => <div data-testid="mock-ansicht" /> }));
 vi.mock('../Suche', () => ({ Suche: () => null }));
+vi.mock('../NeuAuswahl', () => ({ NeuAuswahl: () => null }));
 
 function LocationProbe() {
   const location = useLocation();

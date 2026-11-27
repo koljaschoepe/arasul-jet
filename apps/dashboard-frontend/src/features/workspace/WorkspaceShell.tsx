@@ -15,6 +15,7 @@ import { AnsichtInhalt } from './AnsichtInhalt';
 import { SchalenKopf } from './SchalenKopf';
 import { SchalenDock } from './SchalenDock';
 import { Suche } from './Suche';
+import { NeuAuswahl } from './NeuAuswahl';
 import { useWeicherWechsel } from '@/hooks/useWeicherWechsel';
 
 /** Was die Shell von außen braucht: das Abmelden, und sonst nichts. */
@@ -152,6 +153,7 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
       </main>
       <SchalenDock />
       <Suche onLogout={onLogout} />
+      <NeuAuswahl />
     </div>
   );
 }

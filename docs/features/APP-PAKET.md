@@ -521,14 +521,15 @@ Der **Änderungstext** steht seit dem 04.10.2026 am Teststand und im Dialog
 läuft seit dem 04.10.2026 (`ausloeser`, unten), die Anzeige des Symbols kommt
 mit einer späteren Karte.
 
-| Wo                  | Feld             | Form                                                                                          |
-| ------------------- | ---------------- | --------------------------------------------------------------------------------------------- |
-| `app.json`          | `symbol`         | Lucide-Name (`file-text`) oder Kürzel (`BE`), siehe [APPS.md](APPS.md#das-manifest-fassung-1) |
-| Flow-Kopf           | `arten`          | Liste aus `autonom`, `ergebnis_bestaetigen`; mindestens eine, keine doppelt                   |
-| Flow-Kopf           | `ausloeser`      | Liste von Objekten mit `typ`: `hand`, `zeitplan`, `ereignis`; höchstens 5                     |
-| Flow-Kopf           | `stufen`         | Liste benannter Freigabestufen; höchstens 5                                                   |
-| Schritt             | `faehigkeiten`   | Objekt: `text`, `bild`, `werkzeuge` (je Wahrheitswert), `mindestkontext` (Tokens)             |
-| Deploy, neben Paket | `aenderungstext` | Text, 1 bis 1000 Zeichen                                                                      |
+| Wo                  | Feld             | Form                                                                                                                                               |
+| ------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app.json`          | `symbol`         | Lucide-Name (`file-text`) oder Kürzel (`BE`), siehe [APPS.md](APPS.md#das-manifest-fassung-1)                                                      |
+| `app.json`          | `abteilung`      | Freiwillig, seit Kontrakt 15 (J60): kurzer Name (höchstens 40 Zeichen), unter dem der Store die App gruppiert; ohne Feld steht sie unter „Weitere“ |
+| Flow-Kopf           | `arten`          | Liste aus `autonom`, `ergebnis_bestaetigen`; mindestens eine, keine doppelt                                                                        |
+| Flow-Kopf           | `ausloeser`      | Liste von Objekten mit `typ`: `hand`, `zeitplan`, `ereignis`; höchstens 5                                                                          |
+| Flow-Kopf           | `stufen`         | Liste benannter Freigabestufen; höchstens 5                                                                                                        |
+| Schritt             | `faehigkeiten`   | Objekt: `text`, `bild`, `werkzeuge` (je Wahrheitswert), `mindestkontext` (Tokens)                                                                  |
+| Deploy, neben Paket | `aenderungstext` | Text, 1 bis 1000 Zeichen                                                                                                                           |
 
 ```yaml
 ---

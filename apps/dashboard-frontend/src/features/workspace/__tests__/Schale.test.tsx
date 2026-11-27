@@ -8,6 +8,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { SchalenKopf } from '../SchalenKopf';
 import { SchalenDock } from '../SchalenDock';
 import { Suche } from '../Suche';
+import { NeuAuswahl } from '../NeuAuswahl';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 vi.mock('@/contexts/AuthContext', () => import('@/__tests__/helpers/authMock'));
@@ -24,9 +25,18 @@ const APPS = [
     id: 'urlaub',
     name: 'Urlaubsantrag',
     beschreibung: null,
+    seit: '2026-01-01T00:00:00Z',
     live: { version: '1.0.0', pfad: '/apps/urlaub/' },
     test: null,
   },
+  ...['a', 'b', 'c'].map((k, i) => ({
+    id: `app-${k}`,
+    name: `App ${k.toUpperCase()}`,
+    beschreibung: null,
+    seit: `2026-06-0${i + 1}T00:00:00Z`,
+    live: { version: '1.0.0', pfad: `/apps/app-${k}/` },
+    test: null,
+  })),
 ];
 
 function huelle(kinder: React.ReactNode) {
@@ -47,6 +57,7 @@ beforeEach(() => {
   useWorkspaceStore.setState({
     ansicht: { type: 'dashboard' },
     paletteOffen: false,
+    neuOffen: false,
     leistenSlot: null,
   });
 });
@@ -95,6 +106,31 @@ describe('Dock', () => {
     }
     expect(await within(dock).findByText('2')).toBeInTheDocument();
     expect(screen.getByTestId('dock-start')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('Plus öffnet „Neu“, nicht die Suche: oben die drei jüngsten Apps, darunter die weiteren', async () => {
+    huelle(
+      <>
+        <SchalenDock />
+        <NeuAuswahl />
+      </>
+    );
+    fireEvent.click(screen.getByTestId('dock-plus'));
+    expect(useWorkspaceStore.getState().paletteOffen).toBe(false);
+    const popup = await screen.findByTestId('neu-popup');
+    const oben = await within(popup).findByText('Zuletzt angelegt');
+    const reihe = oben.closest('section,div,ul') ?? popup;
+    expect(reihe).toBeTruthy();
+    const titel = within(popup)
+      .getAllByRole('button')
+      .map(b => b.textContent ?? '');
+    expect(titel.findIndex(t => t.includes('App C'))).toBeLessThan(
+      titel.findIndex(t => t.includes('Urlaubsantrag'))
+    );
+    expect(within(popup).getByText('Weitere')).toBeInTheDocument();
+    fireEvent.click(within(popup).getByText('App C'));
+    expect(useWorkspaceStore.getState().ansicht).toMatchObject({ type: 'app', appId: 'app-c' });
+    expect(useWorkspaceStore.getState().neuOffen).toBe(false);
   });
 
   it('Store öffnet den Store und markiert ihn', () => {

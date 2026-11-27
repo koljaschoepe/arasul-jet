@@ -142,45 +142,19 @@ function websiteLink(t: (typeof TEXTE)[Sprache]): HTMLAnchorElement {
 }
 
 /**
- * Setzt die Zeile und hält sie an ihrem Platz: in der sichtbaren Kapsel einer
- * App, sonst schwebend. `zeigen` beginnt den geführten Weg.
+ * Setzt den Eintrag „Demo“ ins Dock und das schwebende Glas-X (J60). `zeigen`
+ * beginnt den geführten Weg.
  */
 export function kapselSetzen(sprache: Sprache, zeigen: () => void): void {
   const t = TEXTE[sprache];
   document.body.dataset.demo = 'an';
 
-  const zeile = document.createElement('div');
-  zeile.className = 'demo-kapsel';
-  zeile.dataset.demoNichtUebersetzen = '';
-  zeile.dataset.testid = 'demo-kapsel';
-  zeile.setAttribute('role', 'region');
-  zeile.setAttribute('aria-label', t.menue);
-
-  // Breit: alles in der Zeile.
-  const breit = document.createElement('div');
-  breit.className = 'demo-kapsel-breit';
-  const marke = document.createElement('span');
-  marke.className = 'demo-kapsel-marke';
-  marke.title = t.satz;
-  marke.innerHTML = `<span class="demo-punkt" aria-hidden="true"></span>${t.demo}`;
-  breit.append(
-    marke,
-    knopf(t.zeigen, () => zeigen(), 'demo-zeigen'),
-    zuruecksetzKnopf(t),
-    sprachWahl(sprache, t),
-    websiteLink(t)
-  );
-
-  // Schmal: ein Knopf „Demo", dahinter das Menü.
-  const schmal = document.createElement('div');
-  schmal.className = 'demo-kapsel-schmal';
-  const auf = knopf(t.demo, () => menueSchalten(), 'demo-kapsel-auf');
-  auf.innerHTML = `<span class="demo-punkt" aria-hidden="true"></span>${t.demo}`;
-  auf.setAttribute('aria-expanded', 'false');
-  auf.setAttribute('aria-haspopup', 'true');
+  // Das Menü: dieselben Punkte, aufgeklappt aus dem Eintrag „Demo“ im Dock.
   const menue = document.createElement('div');
   menue.className = 'demo-menue glas';
   menue.hidden = true;
+  menue.dataset.demoNichtUebersetzen = '';
+  menue.dataset.testid = 'demo-menue';
   const satz = document.createElement('p');
   satz.textContent = t.satz;
   menue.append(
@@ -193,118 +167,72 @@ export function kapselSetzen(sprache: Sprache, zeigen: () => void): void {
     sprachWahl(sprache, t),
     websiteLink(t)
   );
-  schmal.append(auf);
+  let dockKnopf: HTMLButtonElement | null = null;
   function menueSchalten(offen = menue.hidden) {
     menue.hidden = !offen;
-    auf.setAttribute('aria-expanded', String(offen));
-    if (offen) {
-      const r = auf.getBoundingClientRect();
-      menue.style.top = `${r.bottom + 8}px`;
-      menue.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+    dockKnopf?.setAttribute('aria-expanded', String(offen));
+    if (offen && dockKnopf) {
+      const r = dockKnopf.getBoundingClientRect();
+      menue.style.bottom = `${window.innerHeight - r.top + 12}px`;
+      menue.style.left = `${Math.max(8, Math.min(r.left + r.width / 2 - 150, window.innerWidth - 308))}px`;
     }
   }
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !menue.hidden) menueSchalten(false);
   });
   document.addEventListener('pointerdown', e => {
-    if (!menue.hidden && !menue.contains(e.target as Node) && !auf.contains(e.target as Node)) {
+    if (
+      !menue.hidden &&
+      !menue.contains(e.target as Node) &&
+      !(dockKnopf && dockKnopf.contains(e.target as Node))
+    ) {
       menueSchalten(false);
     }
   });
-
-  zeile.append(breit, schmal);
   document.body.append(menue);
 
-  let zuletzt = '';
-  const platzieren = () => {
-    const kapsel = [
-      ...document.querySelectorAll<HTMLElement>('[data-testid="rahmen-kapsel"]'),
-    ].find(k => !k.closest('[inert]') && k.offsetParent !== null);
-    // Am Handy ist in der Leiste kein Platz: dort schwebt die Zeile allein.
-    if (kapsel && window.innerWidth >= 900) {
-      if (zeile.parentElement !== kapsel) {
-        kapsel.prepend(zeile);
-        zeile.dataset.ort = 'kapsel';
-        zeile.classList.remove('glas');
-      }
-    } else {
-      if (zeile.parentElement !== document.body) document.body.append(zeile);
-      zeile.dataset.ort = 'frei';
-      zeile.classList.add('glas');
-    }
-    platzHalten(kapsel && window.innerWidth >= 900 ? kapsel : null);
-    const stand = `${zeile.dataset.ort}:${zeile.offsetWidth}`;
-    if (stand !== zuletzt) {
-      zuletzt = stand;
-      if (!menue.hidden) menueSchalten(true);
-    }
-  };
-
-  /**
-   * Der Platz, den der Seitenkopf rechts freihält. Schwebt die Zeile allein,
-   * nennt die Demo ihn der Shell; sitzt sie in der Kapsel einer App, legt sie
-   * ihre Breite auf den Wert, den der Rahmen der App genannt hat.
-   */
-  function platzHalten(kapsel: HTMLElement | null) {
-    const breite = Math.ceil(zeile.offsetWidth) + 24;
-    const wurzel = document.documentElement;
-    if (!kapsel) {
-      wurzel.style.setProperty('--ara-kapsel-platz', `${breite}px`);
-      return;
-    }
-    wurzel.style.removeProperty('--ara-kapsel-platz');
-    const rahmen = kapsel.parentElement?.querySelector('iframe');
-    const doc = (() => {
-      try {
-        return rahmen?.contentDocument ?? null;
-      } catch {
-        return null;
-      }
-    })();
-    if (!doc?.documentElement) return;
-    const html = doc.documentElement;
-    const jetzt = parseFloat(html.style.getPropertyValue('--ara-kapsel-platz')) || 0;
-    const gesetzt = Number(html.dataset.demoPlatz ?? NaN);
-    // Hat der Rahmen den Wert neu gesetzt, ist er die neue Grundlage.
-    const grund = jetzt === gesetzt ? Number(html.dataset.demoGrund ?? jetzt) : jetzt;
-    const ziel = grund + zeile.offsetWidth + 12;
-    if (jetzt !== ziel) {
-      html.dataset.demoGrund = String(grund);
-      html.dataset.demoPlatz = String(ziel);
-      html.style.setProperty('--ara-kapsel-platz', `${ziel}px`);
-      // Der Seitenkopf misst beim Ändern der Größe nach.
-      rahmen?.contentWindow?.dispatchEvent(new Event('resize'));
-    }
-  }
-
-  let geplant = false;
-  const spaeter = () => {
-    if (geplant) return;
-    geplant = true;
-    requestAnimationFrame(() => {
-      geplant = false;
-      platzieren();
-    });
-  };
-  new MutationObserver(spaeter).observe(document.body, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['inert', 'class', 'style'],
-  });
-  window.addEventListener('resize', spaeter);
-  // Ein App-Rahmen setzt seinen Platz beim Laden: gleich danach messen, und
-  // in kurzen Abständen, falls er ihn später noch einmal setzt (Theme).
+  // Das Glas-X: zurück zur Website. Escape tut dasselbe, wenn nichts anderes offen ist.
+  const x = document.createElement('a');
+  x.href = 'https://www.arasul.de';
+  x.className = 'demo-x glas';
+  x.dataset.testid = 'demo-x';
+  x.dataset.demoNichtUebersetzen = '';
+  x.dataset.trefferSelbst = '';
+  x.setAttribute('aria-label', t.website);
+  x.title = t.website;
+  x.innerHTML =
+    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  document.body.append(x);
+  // Im Erfassen, damit ein Popup oder der Weg, den dieselbe Taste gleich
+  // schließt, noch im Dokument steht, wenn hier geprüft wird.
   document.addEventListener(
-    'load',
+    'keydown',
     e => {
-      if (e.target instanceof HTMLIFrameElement) {
-        window.setTimeout(platzieren, 0);
-        window.setTimeout(platzieren, 120);
-      }
+      if (e.key !== 'Escape' || e.defaultPrevented || !menue.hidden) return;
+      if (document.querySelector('[role="dialog"], [data-state="open"], [data-testid="demo-weg"]'))
+        return;
+      window.location.assign('https://www.arasul.de');
     },
     true
   );
-  window.setInterval(platzieren, 500);
-  platzieren();
+
+  // Der Eintrag „Demo“ im Dock der Shell. Das Dock gehört React; der Eintrag
+  // hängt hinten daran und kommt wieder, wenn das Dock neu gebaut wird.
+  const dockSetzen = () => {
+    const dock = document.querySelector<HTMLElement>('[data-testid="schale-dock"]');
+    if (!dock || dock.querySelector('[data-testid="dock-demo"]')) return;
+    const k = document.createElement('button');
+    k.type = 'button';
+    k.className = 'ara-dock__eintrag';
+    k.dataset.testid = 'dock-demo';
+    k.dataset.demoNichtUebersetzen = '';
+    k.setAttribute('aria-haspopup', 'true');
+    k.setAttribute('aria-expanded', 'false');
+    k.innerHTML = `<span class="demo-punkt" aria-hidden="true"></span><span class="ara-dock__wort">${t.demo}</span>`;
+    k.addEventListener('click', () => menueSchalten());
+    dock.append(k);
+    dockKnopf = k;
+  };
+  new MutationObserver(dockSetzen).observe(document.body, { childList: true, subtree: true });
+  dockSetzen();
 }
