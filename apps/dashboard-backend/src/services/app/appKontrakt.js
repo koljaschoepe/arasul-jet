@@ -63,7 +63,13 @@ const originalDienst = require('../flows/original');
  * mitgeht. Das ist die einzige Stelle, an der diese Zahl ueberhaupt eine
  * Bedeutung bekommt.
  */
-const KONTRAKT_VERSION = 14;
+const KONTRAKT_VERSION = 15;
+
+/*
+ * Fassung 15 (J60, M7, 27.11.2026): `abteilung` im Manifest, FREIWILLIG. Der
+ * Store des Geraets gruppiert die Apps danach; ohne das Feld steht eine App
+ * unter „Weitere“. Jedes Paket von Fassung 14 rollt unveraendert aus.
+ */
 
 /*
  * Fassung 2 (Phase C6, 27.08.2026): `flows` im Manifest ist keine Liste von
@@ -384,6 +390,7 @@ const MANIFEST_REGELN = Object.freeze([
   'AUSGELIEFERT wird das Feld von der APP, unter `GET agent` an ihrer Schnittstelle, samt `id`, `name` und Version. Das Gerät hält keine zweite Kopie bereit: es nimmt das Feld an und gibt es nicht aus.',
   '`verbindungen` ist die Liste der Hostnamen, zu denen die App von sich aus ins Internet will (seit Kontrakt 7, freiwillig). Nur Namen, kleingeschrieben, ohne Schema, Port, Pfad, Platzhalter oder IP-Adresse; höchstens 20, keiner doppelt. Das Feld ist die FREIGABE: der Ausgangs-Proxy des Geräts lässt für diese App genau diese Namen durch und weist jeden anderen ab; der Administrator sieht je App, was eingetragen ist, was genutzt und was abgewiesen wurde -- siehe `netz`.',
   '`symbol` ist das Bild der App in der Aktivitätsleiste (seit Kontrakt 8): ein Name aus dem Lucide-Satz (klein, mit Bindestrichen, z. B. `file-text`) ODER ein Kürzel aus 1 bis 3 Großbuchstaben oder Ziffern (z. B. `BE`). Seit dem 21.11.2026 gehört es zum App-Standard: beim Ausrollen weist das Gerät ein Paket ohne `symbol` ab (Code `symbol-fehlt`). Laufende Apps bleiben unberührt; für sie wählt der Administrator in der Verwaltung ein Symbol, das gilt, bis die App eines mitbringt. Das Gerät prüft die Form, nicht den Satz: kennt die Shell den Namen nicht, zeigt sie ein neutrales Fenster.',
+  '`abteilung` ist die Abteilung, unter der die App im Store steht (seit Kontrakt 15, freiwillig): ein kurzer Name, höchstens 40 Zeichen, z. B. `Vertrieb`. Der Store gruppiert danach; ohne das Feld steht die App unter „Weitere“. Das Gerät ändert den Wert nicht, es liest ihn nur.',
   '`zeigt_freigaben` erklärt, dass die App ihre Freigaben selbst zeigt (seit Kontrakt 12, freiwillig): sie liest `?freigabe=<nummer>` aus ihrer Adresse und zeigt die Ansicht der Freigabe. Dann öffnet ein Klick in „Für Sie" die App beim Vorgang (Tieflink). Ohne das Feld, oder mit `false`, gilt „zeigt nicht selbst": das Gerät öffnet die Freigabe in Arasul, mit demselben Baustein und denselben Regeln. Wo sie gezeigt wird, ändert nicht, wer entscheiden darf: siehe `freigaben`.',
   'Eine App mit `backend` bekommt je Stand eine eigene DATENBANK (seit Kontrakt 5). Sie steht im Manifest nicht: das Gerät legt sie an, nennt ihre Adresse in `umgebung.datenbank` und wirft sie mit der App wieder weg. Der Teststand hat seine eigene; ein Probelauf fasst die Daten des Livestandes nicht an. Was bleibt und was nicht, steht unter `daten`.',
 ]);

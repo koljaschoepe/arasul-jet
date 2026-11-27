@@ -7,16 +7,6 @@ body[data-demo] {
   background: var(--verlauf-rahmen, var(--background));
 }
 
-.demo-kapsel {
-  display: flex;
-  align-items: center;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  color: var(--foreground);
-  white-space: nowrap;
-}
-.demo-kapsel button,
-.demo-kapsel a,
 .demo-menue button,
 .demo-menue a {
   font: inherit;
@@ -24,61 +14,13 @@ body[data-demo] {
   cursor: pointer;
   position: relative;
 }
-
-/* Schwebend, wo es keine Kapsel gibt. */
-.demo-kapsel[data-ort='frei'] {
-  position: fixed;
-  bottom: 28px;
-  right: 16px;
-  z-index: 40;
-  height: 32px;
-  padding: 0 4px;
-  border-radius: 999px;
-  border: 1px solid;
+.demo-menue button:focus-visible,
+.demo-menue a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
 }
-.demo-kapsel[data-ort='frei'].glas {
-  box-shadow: var(--glas-schatten-klein);
-}
-@media (max-width: 899px) {
-  .demo-kapsel[data-ort='frei'] {
-    bottom: 96px;
-    right: 16px;
-  }
-}
-
-/* In der Kapsel: ein Trenner zu Live, Test und Rückmeldung. */
-.demo-kapsel[data-ort='kapsel']::after {
-  content: '';
-  width: 1px;
-  height: 16px;
-  margin: 0 4px 0 6px;
-  background: var(--border);
-}
-
-.demo-kapsel-breit {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-.demo-kapsel-schmal {
-  display: none;
-}
-@media (max-width: 1179px) {
-  .demo-kapsel-breit {
-    display: none;
-  }
-  .demo-kapsel-schmal {
-    display: flex;
-  }
-}
-
-.demo-kapsel-marke {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px 0 6px;
-  color: var(--muted-foreground);
-  cursor: help;
+.demo-menue button[data-frage] {
+  color: var(--destructive);
 }
 .demo-punkt {
   display: inline-block;
@@ -87,41 +29,31 @@ body[data-demo] {
   border-radius: 50%;
   background: var(--primary);
 }
+.ara-dock__eintrag > .demo-punkt {
+  position: absolute;
+  top: 8px;
+  right: 14px;
+}
 
-.demo-kapsel-breit > button,
-.demo-kapsel-breit > a,
-.demo-kapsel-auf {
-  height: 24px;
+/* Das Glas-X: schwebt oben rechts unter der Leiste, 44 px Trefferfläche. */
+.demo-x {
+  position: fixed;
+  z-index: 45;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 8px;
-  border: 0;
+  justify-content: center;
   border-radius: 999px;
-  background: transparent;
-  text-decoration: none;
-  color: var(--muted-foreground);
-  transition:
-    background-color 120ms ease-out,
-    color 120ms ease-out;
-}
-.demo-kapsel-breit > button:hover,
-.demo-kapsel-breit > a:hover,
-.demo-kapsel-auf:hover,
-.demo-kapsel-auf[aria-expanded='true'] {
-  background: var(--accent);
+  border: 1px solid;
   color: var(--foreground);
+  box-shadow: var(--glas-schatten-klein);
 }
-.demo-kapsel-breit > button[data-frage],
-.demo-menue button[data-frage] {
-  color: var(--destructive);
-}
-.demo-kapsel button:focus-visible,
-.demo-kapsel a:focus-visible,
-.demo-menue button:focus-visible,
-.demo-menue a:focus-visible {
+.demo-x:focus-visible {
   outline: 2px solid var(--ring);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
 .demo-sprache {
@@ -147,20 +79,6 @@ body[data-demo] {
   background: var(--card);
   color: var(--foreground);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 12%, transparent);
-}
-
-/* Trefferfläche bei grobem Zeiger, das Sichtbare bleibt klein. */
-@media (pointer: coarse) {
-  .demo-kapsel button::before,
-  .demo-kapsel a::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 50%;
-    min-height: 44px;
-    transform: translateY(-50%);
-  }
 }
 
 /* Das Menü: Glas (`.glas` des Produkts), Radius 12 px. */
@@ -362,5 +280,24 @@ body[data-demo] {
   }
   .demo-weg-rahmen {
     transition: none;
+  }
+}
+
+/* Sechs Einträge sind bei 360 px zu breit: der Eintrag „Demo“ wird schmal. */
+@media (max-width: 420px) {
+  .ara-dock:has([data-testid='dock-demo']) .ara-dock__eintrag {
+    min-width: 44px;
+    padding: 0 4px;
+  }
+  .ara-dock:has([data-testid='dock-demo']) {
+    gap: 0;
+    padding: 4px;
+  }
+}
+
+/* Schmal sitzt das Dock fast randlos: das Glas-X schwebt darüber. */
+@media (max-width: 700px) {
+  .demo-x {
+    bottom: calc(96px + env(safe-area-inset-bottom));
   }
 }

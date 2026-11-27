@@ -400,6 +400,17 @@ const AppSymbol = z
   )
   .refine(v => v.length <= 50, 'symbol ist zu lang (höchstens 50 Zeichen)');
 
+/** Die Abteilung einer App im Store (J60, Kontrakt 15): ein kurzer Name, z. B. „Vertrieb". */
+const Abteilung = z
+  .string({ error: 'abteilung muss ein Text sein' })
+  .trim()
+  .min(1, 'abteilung darf nicht leer sein')
+  .max(40, 'abteilung ist zu lang (höchstens 40 Zeichen)')
+  .refine(
+    v => ![...v].some(c => c.charCodeAt(0) < 32),
+    'abteilung darf keine Steuerzeichen enthalten'
+  );
+
 /**
  * Der Aenderungstext beim Ausrollen (M5, Kontrakt 8): ein paar Saetze, was in
  * dieser Version neu ist. Er gehoert NICHT ins Manifest -- er gehoert zu einem
@@ -474,6 +485,10 @@ const AppManifest = z
     verbindungen: Verbindungen.optional(),
     // Das Bild der App in der Aktivitaetsleiste (M5, Kontrakt 8). FREIWILLIG.
     symbol: AppSymbol.optional(),
+    // Die Abteilung, unter der die App im Store steht (J60, Kontrakt 15).
+    // FREIWILLIG: ohne das Feld steht die App unter „Weitere". Der Bauende
+    // kennt die Abteilung, das Geraet liest sie nur.
+    abteilung: Abteilung.optional(),
     // Zeigt die App ihre Freigaben selbst (M5, Kontrakt 12)? FREIWILLIG, und
     // ohne das Feld gilt: nein. Dann oeffnet ein Klick in „Für Sie" die
     // Freigabe im Geraet selbst (Baustein `Freigabe`); mit `true` bekommt die

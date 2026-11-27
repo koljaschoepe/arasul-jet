@@ -743,6 +743,9 @@ async function appsFuerNutzer(benutzerId) {
       // wenn es keinen gibt; bringt keiner eines mit, das des Administrators
       // (J51, `symbol_ersatz`). Fehlt alles, zeichnet die Shell ein Fenster.
       symbol: z.live_manifest?.symbol ?? z.test_manifest?.symbol ?? z.symbol_ersatz ?? null,
+      // Die Abteilung im Store (J60, Kontrakt 15): Livestand vor Test; ohne
+      // sie steht die App unter „Weitere“.
+      abteilung: z.live_manifest?.abteilung ?? z.test_manifest?.abteilung ?? null,
       // Seit wann es die App auf dem Geraet gibt: daraus die Reihe „Neu“.
       seit: z.angelegt_am ?? null,
       live:

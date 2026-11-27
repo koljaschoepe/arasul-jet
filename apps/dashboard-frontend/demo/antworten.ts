@@ -78,6 +78,16 @@ function profil(z: DemoZustand, sprache: Sprache) {
   };
 }
 
+/** Abteilung im Store und Alter in Tagen (Kontrakt 15, J60); die Werkstatt hat keine. */
+const STORE: Record<string, { abteilung: string; tage: number }> = {
+  angebote: { abteilung: 'Vertrieb', tage: 240 },
+  wareneingang: { abteilung: 'Einkauf', tage: 200 },
+  wartungsplan: { abteilung: 'Produktion', tage: 180 },
+  pruefprotokolle: { abteilung: 'Produktion', tage: 120 },
+  urlaub: { abteilung: 'Verwaltung', tage: 9 },
+  stammdaten: { abteilung: 'Verwaltung', tage: 4 },
+};
+
 /** `GET /api/apps/meine`: die fünf Fach-Apps, Test samt, und die Werkstatt. */
 function meineApps(z: DemoZustand, sprache: Sprache) {
   const apps = z.apps.map(a => ({
@@ -85,6 +95,8 @@ function meineApps(z: DemoZustand, sprache: Sprache) {
     name: a.name[sprache],
     beschreibung: a.beschreibung[sprache],
     symbol: a.symbol,
+    abteilung: STORE[a.id]?.abteilung ?? null,
+    seit: new Date(Date.now() - (STORE[a.id]?.tage ?? 365) * 86_400_000).toISOString(),
     zeigt_freigaben: a.id !== 'stammdaten' && Boolean(FREIGABE_STAND[a.id]),
     live: { version: a.live.version, pfad: `/apps/${a.id}/`, api: `/apps/${a.id}/api/` },
     test: a.test
@@ -101,6 +113,8 @@ function meineApps(z: DemoZustand, sprache: Sprache) {
           ? 'Your feedback with its status. With the right to do so: all feedback, test and live versions, the step to live.'
           : 'Ihre Rückmeldungen mit Stand. Mit dem Recht dazu: alle Meldungen, die Fassungen in Test und Live, der Schritt nach Live.',
       symbol: 'hammer',
+      abteilung: null,
+      seit: new Date(Date.now() - 400 * 86_400_000).toISOString(),
       mitgeliefert: true,
       live: { version: '2.0.0', pfad: `/apps/${WERKSTATT}/`, api: null },
       test: null,

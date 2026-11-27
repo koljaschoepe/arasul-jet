@@ -441,7 +441,13 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // aendert sich. Eine App, die `/marken/5/` laedt, findet dort nichts mehr
     // und meldet die Verwaltung; die Vorlage des Kits zieht nach. Die Zahl
     // bleibt bei 14, die Entscheidung ueber eine 15 liegt bei Kolja.
-    expect(abdruck).toBe('e7e961a4e58e32ca5ef3f129e788db1aec98280322b9ec15ba4ad16126a596cb');
+    //
+    // 27.11.2026 (M7, J60, Entscheidung der Hauptsitzung im Auftrag Koljas):
+    // Kontrakt 15, `abteilung` im Manifest, freiwillig. Der Store gruppiert
+    // danach, ohne das Feld steht eine App unter „Weitere“. Ein Kit, das nur
+    // bis 14 zaehlt, meldet „Geraet ist neuer“; die Kit-Seite ist eine
+    // Folgekarte fuer ara-kit.
+    expect(abdruck).toBe('d815d204233e4019b56d107438cf2698767bca742053e02b397a74286214a3f9');
   });
 
   /**

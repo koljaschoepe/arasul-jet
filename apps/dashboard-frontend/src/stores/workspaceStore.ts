@@ -278,6 +278,9 @@ export interface WorkspaceState {
    */
   paletteOffen: boolean;
   setzePalette: (offen: boolean) => void;
+  /** Die Auswahl „Neu“ (Plus im Dock, J60): offen oder nicht. */
+  neuOffen: boolean;
+  setzeNeu: (offen: boolean) => void;
   /**
    * Die Apps, die zuletzt offen waren, die jüngste zuerst, höchstens
    * `ZULETZT_MAX`. Nur im Speicher: „Zuletzt“ der Startseite und des Docks.
@@ -323,6 +326,8 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   zuletztStand: {},
   paletteOffen: false,
   setzePalette: offen => set({ paletteOffen: offen }),
+  neuOffen: false,
+  setzeNeu: offen => set({ neuOffen: offen }),
   zuletzt: zuletztLesen(),
   leistenSlot: null,
   setzeLeistenSlot: el => set({ leistenSlot: el }),

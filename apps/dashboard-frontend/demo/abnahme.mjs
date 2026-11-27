@@ -517,12 +517,8 @@ async function weg(browser, basis, sprache, breite) {
   // Der geführte Weg: nur auf Wunsch, Escape schließt
   await geheZu(seite, '/workspace');
   await seite.getByTestId('demo-uebersicht').waitFor();
-  const breitZeile = await seite.locator('.demo-zeigen').isVisible();
-  if (breitZeile) await seite.locator('.demo-zeigen').click();
-  else {
-    await seite.locator('.demo-kapsel-auf').click();
-    await seite.locator('.demo-menue button').first().click();
-  }
+  await seite.getByTestId('dock-demo').click();
+  await seite.locator('.demo-menue button').first().click();
   await seite.locator('[data-testid="demo-weg"]').waitFor();
   await warte(500);
   await bild(seite, `${wo.replace(' ', '-')}-6-weg`);
@@ -539,18 +535,10 @@ async function weg(browser, basis, sprache, breite) {
 
   // Zurücksetzen stellt den Anfang her (ein Klick fragt, der zweite setzt zurück)
   await geheZu(seite, '/workspace');
-  const knopf = breitZeile
-    ? seite.locator('.demo-kapsel-breit button', { hasText: /zurücksetzen|reset/i })
-    : null;
-  if (knopf) {
-    await knopf.click();
-    await knopf.click();
-  } else {
-    await seite.locator('.demo-kapsel-auf').click();
-    const k = seite.locator('.demo-menue button', { hasText: /zurücksetzen|reset/i });
-    await k.click();
-    await k.click();
-  }
+  await seite.getByTestId('dock-demo').click();
+  const k = seite.locator('.demo-menue button', { hasText: /zurücksetzen|reset/i });
+  await k.click();
+  await k.click();
   await seite.waitForURL(/\/workspace$/);
   await seite.getByTestId('demo-uebersicht').waitFor();
   const nachher = await seite.evaluate(async () => {

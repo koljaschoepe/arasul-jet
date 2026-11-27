@@ -17,13 +17,13 @@ function springeZu(id: string) {
  * Das Dock der App (J60, `gestaltung.md`, Fassung vom 27.11.2026): Glaspille
  * mittig unten mit gleitender Markierung. Start, Für Sie (die Zahl der
  * Freigaben, die bei mir liegen, ohne Zahl keine Marke), Plus mittig, Store,
- * Zuletzt. „Für Sie“ und „Zuletzt“ sind Stellen auf der Startseite, keine
+ * Zuletzt. Plus öffnet „Neu“ (`NeuAuswahl`). „Für Sie“ und „Zuletzt“ sind Stellen auf der Startseite, keine
  * eigenen Ansichten: sie öffnen sie und rollen dorthin.
  */
 export function SchalenDock() {
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const oeffne = useWorkspaceStore(s => s.oeffne);
-  const setzePalette = useWorkspaceStore(s => s.setzePalette);
+  const setzeNeu = useWorkspaceStore(s => s.setzeNeu);
   const { data } = useOffeneFreigaben();
 
   const aufStart = (id?: string) => {
@@ -53,7 +53,7 @@ export function SchalenDock() {
             symbol="plus"
             beschriftung="Neu"
             plus
-            onKlick={() => setzePalette(true)}
+            onKlick={() => setzeNeu(true)}
             kennzeichen="dock-plus"
           />
           <DockEintrag
