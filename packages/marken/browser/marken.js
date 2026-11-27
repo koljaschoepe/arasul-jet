@@ -8844,7 +8844,7 @@ function M1({ beschriftung: f = "Hauptnavigation", kennzeichen: o, children: _ }
       } : null;
       j((R) => R?.x === p?.x && R?.b === p?.b ? R : p);
     };
-    if (M(), typeof ResizeObserver > "u" || !z.current) return;
+    if (M(), document.fonts?.ready.then(M), typeof ResizeObserver > "u" || !z.current) return;
     const U = new ResizeObserver(M);
     return U.observe(z.current), () => U.disconnect();
   });
@@ -9279,7 +9279,7 @@ function hv(f) {
         "--ara-marke-b": U
       });
     };
-    if (s(), typeof ResizeObserver > "u" || !o.current) return;
+    if (s(), document.fonts?.ready.then(s), typeof ResizeObserver > "u" || !o.current) return;
     const j = new ResizeObserver(s);
     return j.observe(o.current), () => j.disconnect();
   }, [f]), {
