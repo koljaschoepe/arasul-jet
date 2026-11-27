@@ -292,7 +292,7 @@ export interface WorkspaceState {
   setzeLeistenSlot: (el: HTMLElement | null) => void;
 }
 
-export const ZULETZT_MAX = 6;
+const ZULETZT_MAX = 6;
 const ZULETZT_SCHLUESSEL = 'arasul-zuletzt';
 
 /**
