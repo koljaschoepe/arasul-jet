@@ -156,7 +156,7 @@ Einzelheiten der Wege: [`docs/api/API_REFERENCE.md`](../api/API_REFERENCE.md#rü
 
 Eine App im Rahmen wie jede andere, nur dass sie mit Arasul kommt: Adresse
 `/apps/werkstatt/`, Symbol Hammer in der Aktivitätsleiste, gebaut aus der
-Bibliothek zur Laufzeit (`/marken/5/`), am Handy mit der Leiste als Blatt.
+Bibliothek zur Laufzeit (`/marken/6/`), am Handy mit der Leiste als Blatt.
 **Sie steht jeder aktiven Person offen**, ohne Freigabe und ohne Kennzeichen.
 Die alte Adresse `/apps/entwickler-cockpit/…` zieht mit 301 hierher um, samt
 Rest und Abfrage und vor der Anmeldung (`routes/appAusliefern.js`).

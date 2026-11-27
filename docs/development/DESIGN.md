@@ -212,7 +212,7 @@ eines, das direkt als Komponente steht. `scripts/test/bausteine.py` (Regel 10)
 meldet jeden freien Import von `lucide-react` außerhalb von
 `packages/marken/`; die Werkstatt (bis J52 Entwickler-Cockpit) lädt die
 Bibliothek zur Laufzeit und bindet seit 5.9.0 `@marken/symbole` an
-`/marken/5/symbole.js`, einen eigenen Eingang der Laufzeit; `LUCIDE_RATSCHE`
+`/marken/6/symbole.js`, einen eigenen Eingang der Laufzeit; `LUCIDE_RATSCHE`
 ist damit leer und bleibt es.
 
 ## Maße
@@ -498,6 +498,42 @@ Schutz, sondern eine Sackgasse. Umgekehrt darf nichts, was jeder braucht, hinter
 einer Admin-Seite liegen — das Abmelden lag bis D1 in den Einstellungen und
 sitzt seit der Karte glas-rahmen-und-leiste im Konto unten in der
 Aktivitätsleiste, am Handy unter „Mehr“.
+
+## Hauptfassung 6 (J59, M7): die Bausteine des Klickentwurfs
+
+Seit dem 27.11.2026 trägt `packages/marken/` die Hauptfassung 6.0.0. Neue
+Hauptzahl, weil die Adresse zur Laufzeit `/marken/6/` heißt; kein Name der 5.x
+fällt weg. Quelle der Gestalt: `company/gestaltung.md`, Abschnitt „Fassung vom
+27.11.2026“ im Überordner.
+
+**Tokens.** Grund `--background` #F7F5F1, Karten weiß, Tinte, Blau der Marke
+`--blau` #2868C4 mit `--verlauf-blau` (#2454A0 bis #3482DE, nur für große Schrift
+und Flächen ohne Text, weil Weiß auf dem hellen Ende nur 3,9:1 hält). Als
+Schrift gilt `--primary` (#2560B8), eine Spur tiefer: #2868C4 hält auf dem
+eigenen 10-%-Wisch nur 4,36:1, `marken.py` Punkt 9 verlangt 4,5:1.
+
+**Neue Bausteine** (reines CSS, Klassen `ara-*`, im Bündel, also auch ohne Bau):
+
+| Baustein                                      | Zweck                                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `Linie`, `AppIcon`                            | Linien-Satz (Strich 1,5, höchstens drei Striche, 16/20/24 px); App-Icon blau auf zartem Squircle |
+| `Glas`                                        | schwebende Fläche, deckend ohne Unschärfe, bei „Transparenz reduzieren“ und mehr Kontrast        |
+| `IconKnopf`, `Hauptkapsel`, `TextKnopf`       | Glaskreis oder flach mit Hinweis; die eine Wort-Aktion je Ansicht; leiser Textknopf; alle 44 px  |
+| `Glasleiste`, `Dock`/`DockEintrag`            | Kopfleiste mit Teststreifen; Pille mit gleitender Marke, Plus in der Mitte, blaue Zahl           |
+| `Popup`, `PopupGruppe`, `PopupEintrag`        | Glaskapsel im oberen Drittel mit Suchfeld und Gruppen, Pfeiltasten, Escape                       |
+| `Ebene`                                       | Blatt (rechts am Rechner, von unten mit Griff unter 900 px) und Vollbild mit schwebendem X       |
+| `Fenster`                                     | schlankes Fenster mit dünner Glasleiste, feste Höhe                                              |
+| `Board`                                       | Stufen und Karten, Ziehen über Zeiger-Ereignisse (Maus nach 4 px, Finger nach 400 ms), Alt+Pfeil |
+| `Stufenleiste`, `Reiter`, `Segmente`          | Stand eines Datensatzes; Reiter und Segmentschalter mit gleitender Marke und Pfeiltasten         |
+| `Wischzeile`, `Meldung` mit `beiRueckgaengig` | Wischen frei/ab (Schwelle 40 %), Knopf bleibt; Rückgängig 5 s mit abzählendem Streifen           |
+
+`Karte` hat Radius 12 und einen Hauch Schatten, `ListenEintrag` ist 48 px hoch,
+der Hauptknopf `Knopf art="haupt"` eine Kapsel. Die Muster `Blatt` (mit Tailwind)
+und die neue `Ebene` (ohne) sind zwei Höhen derselben Form.
+
+**Schaustück:** `/entwickler/bausteine`, Gruppe am Ende (`SchaustueckeFassung6.tsx`),
+hell und dunkel; Popup, Blatt und Vollbild öffnen in eigener Bühne.
+Verhalten prüft `packages/marken/src/__tests__/Fassung6.test.tsx`.
 
 ## Gemeinsame Linie (5.12.0, J53)
 

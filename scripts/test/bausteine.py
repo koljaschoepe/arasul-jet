@@ -585,7 +585,7 @@ LUCIDE_ORDNER = ['apps/dashboard-frontend/src', 'apps/dashboard-frontend/demo', 
 # Dateien, die Lucide noch selbst holen duerfen, und warum. Die Ratsche: wer
 # eine umstellt, nimmt sie hier heraus; eine neue kommt nicht dazu.
 # Leer seit J50 (Bibliothek 5.9.0): das Cockpit bindet `@marken/symbole` an
-# `/marken/5/symbole.js` und zeichnet mit `Icon`.
+# `/marken/6/symbole.js` und zeichnet mit `Icon`.
 LUCIDE_RATSCHE: dict[str, str] = {}
 
 

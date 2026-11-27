@@ -8,7 +8,7 @@
  *   1. das echte Frontend mit dem Eingang `demo/index.html` (Vite);
  *   2. der Service Worker mit den gespielten Antworten (`demo/dienst.ts`,
  *      esbuild als IIFE nach `/demo-dienst.js`);
- *   3. die Bibliothek zur Laufzeit unter `/marken/5/`, wie das Gerät sie
+ *   3. die Bibliothek zur Laufzeit unter `/marken/6/`, wie das Gerät sie
  *      ausliefert (`packages/marken/laufzeit.config.mjs`);
  *   4. die Werkstatt unter `/apps/werkstatt/`;
  *   5. die fünf Fach-Apps unter `/apps/<id>/` und `/apps/<id>/test/`, gebaut
@@ -45,7 +45,7 @@ await esbuild({
   legalComments: 'none',
 });
 
-schritt('Bibliothek zur Laufzeit (/marken/5/)');
+schritt('Bibliothek zur Laufzeit (/marken/6/)');
 process.env.MARKEN_LAUFZEIT_ZIEL = path.join(ziel, 'marken');
 await build({
   configFile: path.join(repo, 'packages/marken/laufzeit.config.mjs'),
@@ -62,8 +62,8 @@ cpSync(path.join(werkstatt, 'dist/frontend'), path.join(ziel, 'apps/werkstatt'),
 
 schritt('Fach-Apps (wie eine App aus dem Kit, Bibliothek vom Gerät)');
 // React und `@marken` bleiben außerhalb des Bündels und kommen zur Laufzeit
-// von `/marken/5/`, wie bei der Werkstatt (`apps/werkstatt/vite.config.ts`).
-const MARKEN = '/marken/5/';
+// von `/marken/6/`, wie bei der Werkstatt (`apps/werkstatt/vite.config.ts`).
+const MARKEN = '/marken/6/';
 const vomGeraet = {
   react: MARKEN + 'react.js',
   'react-dom': MARKEN + 'react-dom.js',
@@ -117,7 +117,7 @@ for (const id of FACH_APPS) {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${id}</title>
-    <link rel="stylesheet" href="/marken/5/marken.css" />
+    <link rel="stylesheet" href="/marken/6/marken.css" />
     <link rel="stylesheet" href="/demo-apps/app.css" />
   </head>
   <body class="ara-seite">
@@ -179,7 +179,7 @@ writeFileSync(
   ) + '\n'
 );
 
-if (!existsSync(path.join(ziel, 'marken/5/marken.js'))) {
-  throw new Error('Die Bibliothek fehlt in dist-demo/marken/5/.');
+if (!existsSync(path.join(ziel, 'marken/6/marken.js'))) {
+  throw new Error('Die Bibliothek fehlt in dist-demo/marken/6/.');
 }
 schritt(`Fertig: ${path.relative(process.cwd(), ziel) || ziel}`);

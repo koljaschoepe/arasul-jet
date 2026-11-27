@@ -1,6 +1,6 @@
 /**
  * Die Seite der Probe „Korrekturfelder": die Freigaben dieser App, gezeigt mit
- * dem Muster `Freigabe`, das das Geraet unter `/marken/5/` ausliefert.
+ * dem Muster `Freigabe`, das das Geraet unter `/marken/6/` ausliefert.
  *
  * Gelesen und entschieden wird mit der Sitzung dessen, der die App offen hat
  * (gleiche Herkunft, Cookie), ueber dieselben Wege wie in Arasul:
@@ -10,7 +10,7 @@
  *
  * Kein JSX: ohne Bau gibt es keinen Uebersetzer, also `h(...)`.
  */
-import { h, rendern, useEffect, useState, FASSUNG, Freigabe, Kopf } from '/marken/5/marken.js';
+import { h, rendern, useEffect, useState, FASSUNG, Freigabe, Kopf } from '/marken/6/marken.js';
 
 /** Die Kennung dieser App aus der Adresse (`/apps/<id>/` oder `/apps/<id>/test/`). */
 const APP = (/^\/apps\/([^/]+)\//.exec(window.location.pathname) || [])[1] || '';

@@ -57,7 +57,7 @@ CMD ["npx", "jest", "--passWithNoTests", "--maxWorkers=2"]
 # ============================================================================
 # werkstatt: die Werkstatt (J44, M7; bis J52 Entwickler-Cockpit), die mitgelieferte App.
 # Gebaut aus `apps/werkstatt/` gegen die Bibliothek zur Laufzeit
-# (React und `@marken` kommen am Geraet von `/marken/5/`); das Backend liefert
+# (React und `@marken` kommen am Geraet von `/marken/6/`); das Backend liefert
 # es unter `/apps/werkstatt/` aus (`services/app/mitgeliefert.js`).
 # Die ersten Schritte stehen WORTGLEICH wie im Builder des Frontends
 # (`apps/dashboard-frontend/Dockerfile`): BuildKit teilt dann die Schicht mit

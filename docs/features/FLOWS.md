@@ -675,7 +675,7 @@ Prüfendes zuerst (`approvals.felder`, Migration 197), und das Original als
 Adresse der App (`/apps/<id>/api/belege/4711.png`, im Teststand
 `/apps/<id>/test/…`). Die **Ansicht der Freigabe** ist das Muster `Freigabe`
 aus `packages/marken` (ab 5.4.0), in Arasul unter „Für Sie" und in jeder App,
-die die Bibliothek von `/marken/5/` lädt:
+die die Bibliothek von `/marken/6/` lädt:
 
 - in der Liste statt „Bestätigen" der Knopf **„Prüfen"**: wer bestätigt, soll
   die Felder gesehen haben;

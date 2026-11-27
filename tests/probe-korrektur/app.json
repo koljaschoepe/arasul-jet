@@ -4,7 +4,7 @@
   "name": "Probe: Korrektur",
   "symbol": "pencil",
   "version": "1.0.0",
-  "beschreibung": "Messgeraet fuer scripts/test/korrektur-abnahme.sh: ein erkennender Flow mit aenderbarem Feld, Original und zwei Stufen; die Freigabe kommt als Muster vom Geraet unter /marken/5/ (M5).",
+  "beschreibung": "Messgeraet fuer scripts/test/korrektur-abnahme.sh: ein erkennender Flow mit aenderbarem Feld, Original und zwei Stufen; die Freigabe kommt als Muster vom Geraet unter /marken/6/ (M5).",
   "frontend": {
     "verzeichnis": "frontend"
   },
@@ -29,5 +29,5 @@
   "flows": {
     "verzeichnis": "flows"
   },
-  "marken": "5"
+  "marken": "6"
 }

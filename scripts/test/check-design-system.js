@@ -46,6 +46,8 @@ const ALLOWED_COLORS = [
   // Die Farben der Marke (5.7.0): Creme, Panel hell, Tinte, Linie, Navy, Blau.
   '#f6f3ed', '#fbf8f2', '#efe9df', '#1e1b16', '#6b6250', '#dfd6c4',
   '#0a1628', '#0e1e38', '#11233f', '#2559b1', '#2e6fd6', '#6a9ae6', '#f26d6d',
+  // Hauptfassung 6: warmer Grund, Blau der Marke, Verlauf, zartes Blau.
+  '#f7f5f1', '#2868c4', '#2560b8', '#2454a0', '#3482de', '#e6eefa', '#16305a',
 ];
 
 // --- Thresholds (ratchet — never increase) -----------------------------------
@@ -158,8 +160,8 @@ function checkIndexCSS() {
   // der Marke: Creme als Grund, Navy im Dunkeln. Das Blau ist hell eine Stufe
   // dunkler als das der Website, damit es als Text auf Creme 4,5:1 haelt,
   // dunkel eine helle Stufe mit Navy als Schrift (`marken.py`, Punkt 9).
-  if (!lower.includes('--primary: #2559b1')) errors.push('Primary (Hell) nicht #2559B1');
-  if (!lower.includes('--background: #f6f3ed')) errors.push('Background (Hell) nicht #F6F3ED');
+  if (!lower.includes('--primary: #2560b8')) errors.push('Primary (Hell) nicht #2560B8');
+  if (!lower.includes('--background: #f7f5f1')) errors.push('Background (Hell) nicht #F7F5F1');
   if (!lower.includes('--primary: #6a9ae6')) errors.push('Primary (Dunkel) nicht #6A9AE6');
   if (!lower.includes('--background: #0a1628')) errors.push('Background (Dunkel) nicht #0A1628');
   if (!lower.includes('--text-primary')) errors.push('--text-primary Variable fehlt');

@@ -434,7 +434,14 @@ describe('Der Fingerabdruck des Kontraktes', () => {
     // Melder Stand und Grund in der Werkstatt sieht. Kein Weg, kein Feld,
     // kein Bereich aendert sich; das Kit baut die ausgenommene App nie. Die
     // Zahl bleibt bei 14.
-    expect(abdruck).toBe('ae3f00b786ea6264c3a615914a72745d43a6f354b1f42d9064b5846b1d12765e');
+    //
+    // 27.11.2026 (M7, J59, Auftrag bibliothek-hauptfassung-6): die Bibliothek
+    // ist in Hauptfassung 6, die Adresse heisst `/marken/6/`, und die Saetze
+    // des Abschnitts `marken` nennen sie so. Kein Weg, kein Feld, kein Bereich
+    // aendert sich. Eine App, die `/marken/5/` laedt, findet dort nichts mehr
+    // und meldet die Verwaltung; die Vorlage des Kits zieht nach. Die Zahl
+    // bleibt bei 14, die Entscheidung ueber eine 15 liegt bei Kolja.
+    expect(abdruck).toBe('e7e961a4e58e32ca5ef3f129e788db1aec98280322b9ec15ba4ad16126a596cb');
   });
 
   /**

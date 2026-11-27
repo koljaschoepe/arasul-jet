@@ -136,6 +136,7 @@ import {
 import { Schaustueck, Zustand } from './Schaustueck';
 import { SchaustueckeH4 } from './SchaustueckeH4';
 import { SchaustueckeMuster } from './SchaustueckeMuster';
+import { SchaustueckeFassung6 } from './SchaustueckeFassung6';
 
 const KNOPF_ARTEN = [
   'default',
@@ -675,6 +676,7 @@ function Schauseite() {
 
       <SchaustueckeH4 />
       <SchaustueckeMuster />
+      <SchaustueckeFassung6 />
     </div>
   );
 }
