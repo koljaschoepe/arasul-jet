@@ -125,7 +125,10 @@ describe('Glasleiste und Dock', () => {
       </Dock>
     );
     expect(screen.getByRole('button', { name: 'Für Sie, 3 offen' })).toHaveTextContent('3');
-    expect(screen.getByRole('button', { name: 'Zuletzt' })).toHaveTextContent('');
+    expect(screen.getByRole('button', { name: 'Start' })).toHaveTextContent('Start');
+    expect(
+      screen.getByRole('button', { name: 'Zuletzt' }).querySelector('.ara-dock__zahl')
+    ).toBeNull();
     expect(screen.getByRole('button', { name: 'Start' })).toHaveAttribute('aria-current', 'page');
   });
 });

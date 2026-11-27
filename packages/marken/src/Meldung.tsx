@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { TextKnopf } from './Glas';
+import { IconKnopf } from './Glas';
+import { Linie } from './Linien';
 
 /** Was fuer eine Meldung es ist. Die Farbe folgt daraus, nicht umgekehrt. */
 export type MeldungsArt = 'hinweis' | 'erfolg' | 'warnung' | 'fehler';
@@ -53,20 +54,25 @@ export function Meldung({
 
   return (
     <div
-      className="ara-meldung"
+      className={mitFrist ? 'ara-glas ara-meldung' : 'ara-meldung'}
+      data-form={mitFrist ? 'kapsel' : undefined}
       data-art={art}
       data-rueckgaengig={mitFrist ? 'true' : undefined}
       data-testid={kennzeichen}
       role={art === 'fehler' ? 'alert' : 'status'}
     >
+      {mitFrist && <Linie name="haken" groesse={20} />}
       <div className="ara-meldung__text">
         {titel && <p className="ara-meldung__titel">{titel}</p>}
         {children}
       </div>
       {beiRueckgaengig && (
-        <TextKnopf hinweis="Die Handlung zurücknehmen" onKlick={beiRueckgaengig}>
-          Rückgängig
-        </TextKnopf>
+        <IconKnopf
+          symbol="rueckgaengig"
+          hinweis="Rückgängig"
+          art="flach"
+          onKlick={beiRueckgaengig}
+        />
       )}
       {mitFrist && (
         <span

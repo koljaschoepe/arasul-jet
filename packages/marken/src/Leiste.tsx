@@ -117,13 +117,13 @@ export function DockEintrag({
       type="button"
       className="ara-dock__eintrag"
       data-plus={plus ? 'true' : undefined}
-      data-hinweis={beschriftung}
       aria-label={zahl ? `${beschriftung}, ${zahl} offen` : beschriftung}
       aria-current={aktiv ? 'page' : undefined}
       onClick={onKlick}
       data-testid={kennzeichen}
     >
       <Linie name={symbol} groesse={plus ? 24 : 20} />
+      {!plus && <span className="ara-dock__wort">{beschriftung}</span>}
       {zahl ? <span className="ara-dock__zahl">{zahl > 99 ? '99+' : zahl}</span> : null}
     </button>
   );

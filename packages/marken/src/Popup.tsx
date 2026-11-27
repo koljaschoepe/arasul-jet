@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useFokusfalle } from './fokusfalle';
-import { Linie } from './Linien';
+import { AppIcon, Linie } from './Linien';
 import type { LinienName } from './Linien';
 
 /**
@@ -90,6 +90,7 @@ export function Popup({
               aria-label={suche.platzhalter ?? 'Suchen'}
               onChange={e => suche.onAendern(e.target.value)}
             />
+            <kbd className="ara-popup__kuerzel">esc</kbd>
           </label>
         )}
         <div className="ara-popup__inhalt">
@@ -116,6 +117,8 @@ export function PopupGruppe({ titel, children }: PopupGruppeProps) {
 
 export interface PopupEintragProps {
   symbol?: LinienName;
+  /** Eine App: das Symbol steht auf dem Squircle des App-Icons. */
+  app?: boolean;
   titel: string;
   unterzeile?: string;
   /** Das Tastenkuerzel rechts, etwa „⌘N“. */
@@ -123,10 +126,18 @@ export interface PopupEintragProps {
   onWaehlen: () => void;
 }
 
-export function PopupEintrag({ symbol, titel, unterzeile, kuerzel, onWaehlen }: PopupEintragProps) {
+export function PopupEintrag({
+  symbol,
+  app,
+  titel,
+  unterzeile,
+  kuerzel,
+  onWaehlen,
+}: PopupEintragProps) {
   return (
     <button type="button" className="ara-popup__eintrag" onClick={onWaehlen}>
-      {symbol && <Linie name={symbol} groesse={20} />}
+      {symbol &&
+        (app ? <AppIcon symbol={symbol} groesse={32} /> : <Linie name={symbol} groesse={20} />)}
       <span className="ara-popup__text">
         <span className="ara-popup__titel">{titel}</span>
         {unterzeile && <span className="ara-popup__unterzeile">{unterzeile}</span>}

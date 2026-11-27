@@ -190,8 +190,8 @@ export function Board({
                     if (!jungerZug.current) beiOeffnen?.(karte);
                   }}
                 >
-                  <span className="ara-board__nummer">{karte.nummer}</span>
                   <span className="ara-board__titel">{karte.titel}</span>
+                  <span className="ara-board__nummer">{karte.nummer}</span>
                   {karte.etikett && <span className="ara-board__etikett">{karte.etikett}</span>}
                 </button>
               ))}

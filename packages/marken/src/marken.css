@@ -1227,8 +1227,7 @@ button.ara-karte:focus-visible {
 .ara-reiter__knopf:focus-visible,
 .ara-segmente__knopf:focus-visible,
 .ara-stufen__knopf:focus-visible,
-.ara-board__karte:focus-visible,
-.ara-popup__suche input:focus-visible {
+.ara-board__karte:focus-visible {
   outline: 2px solid var(--ara-akzent);
   outline-offset: 2px;
 }
@@ -1292,6 +1291,7 @@ button.ara-karte:focus-visible {
    Durchgehend, oben, 56 px. Im Test ein 2 px breiter blauer Streifen unten. */
 .ara-leiste {
   position: relative;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1355,11 +1355,13 @@ button.ara-karte:focus-visible {
 .ara-dock__eintrag {
   position: relative;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 48px;
-  height: 44px;
-  padding: 0 10px;
+  gap: 2px;
+  min-width: 56px;
+  height: 52px;
+  padding: 0 8px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -1373,6 +1375,7 @@ button.ara-karte:focus-visible {
 .ara-dock__eintrag[data-plus='true'] {
   width: 44px;
   min-width: 44px;
+  height: 44px;
   padding: 0;
   background-color: var(--ara-blau);
   color: var(--ara-akzent-text);
@@ -1380,10 +1383,15 @@ button.ara-karte:focus-visible {
 .ara-dock__eintrag:hover:not([data-plus='true']) {
   color: var(--ara-text);
 }
+.ara-dock__wort {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14px;
+}
 .ara-dock__zahl {
   position: absolute;
   top: 2px;
-  right: 2px;
+  right: 8px;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
@@ -1440,8 +1448,9 @@ button.ara-karte:focus-visible {
   font-family: inherit;
   font-size: 16px;
 }
-.ara-popup__suche input:focus-visible {
+.ara-popup .ara-popup__suche input:focus-visible {
   outline: none;
+  box-shadow: none;
 }
 .ara-popup__suche input::placeholder {
   color: var(--ara-text-leise);
@@ -1643,6 +1652,7 @@ button.ara-karte:focus-visible {
   min-height: 52px;
   padding: 0 8px 0 12px;
   border-width: 0 0 1px;
+  border-bottom-color: var(--ara-kante);
   border-radius: 0;
   box-shadow: none;
 }
@@ -1799,8 +1809,15 @@ button.ara-karte:focus-visible {
   }
 }
 
-/* --- Stufenleiste ---------------------------------------------------------------- */
+/* --- Stufenleiste ----------------------------------------------------------------
+   Kleine Balken in einer Reihe, der Name der aktuellen Stufe steht daneben in
+   Blau. Die Namen der anderen sind nur fuer Vorlesewerkzeuge da. */
 .ara-stufen {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ara-stufen__reihe {
   display: flex;
   gap: 4px;
   margin: 0;
@@ -1808,30 +1825,27 @@ button.ara-karte:focus-visible {
   list-style: none;
 }
 .ara-stufen__stufe {
-  flex: 1;
-  min-width: 0;
+  flex: none;
 }
 .ara-stufen__knopf {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
+  align-items: center;
+  min-width: 32px;
   min-height: 44px;
-  justify-content: center;
   padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
-  text-align: left;
 }
 button.ara-stufen__knopf {
   cursor: pointer;
 }
 .ara-stufen__balken {
+  width: 28px;
   height: 4px;
   border-radius: 999px;
-  background-color: var(--ara-kante);
+  background-color: color-mix(in srgb, var(--ara-text) 16%, transparent);
 }
 .ara-stufen__stufe[data-zustand='erreicht'] .ara-stufen__balken,
 .ara-stufen__stufe[data-zustand='jetzt'] .ara-stufen__balken {
@@ -1839,14 +1853,16 @@ button.ara-stufen__knopf {
   background-color: var(--ara-blau);
 }
 .ara-stufen__name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
-  color: var(--ara-text-leise);
-  font-size: 12px;
-  text-overflow: ellipsis;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
-.ara-stufen__stufe[data-zustand='jetzt'] .ara-stufen__name {
-  color: var(--ara-text);
+.ara-stufen__jetzt {
+  color: var(--ara-akzent);
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -2044,4 +2060,27 @@ button.ara-stufen__knopf {
   .ara-meldung__frist {
     animation: none;
   }
+}
+
+/* Ein Hinweis am rechten Rand schliesst rechts ab, statt abgeschnitten zu werden. */
+.ara-ebene__x [data-hinweis]::after,
+.ara-ebene__kopf [data-hinweis]::after,
+.ara-leiste__rechts [data-hinweis]:last-child::after,
+.ara-fenster__werkzeuge [data-hinweis]:last-child::after {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+
+/* Die Meldung mit Rueckgaengig ist eine Glaskapsel: Haken, Satz, runder Pfeil. */
+.ara-meldung[data-rueckgaengig='true'] {
+  gap: 12px;
+  padding: 4px 4px 4px 16px;
+  border-left-width: 1px;
+  border-radius: 999px;
+  min-height: 52px;
+  padding-bottom: 4px;
+}
+.ara-meldung[data-rueckgaengig='true'] > .ara-linie {
+  color: var(--ara-akzent);
 }

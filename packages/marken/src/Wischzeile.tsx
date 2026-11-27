@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
 import { IconKnopf } from './Glas';
+import { AppIcon } from './Linien';
+import type { LinienName } from './Linien';
 
 /**
  * Die Wischzeile: eine Zeile, die man wegwischt. Nach rechts gibt sie frei,
@@ -13,6 +15,8 @@ import { IconKnopf } from './Glas';
  * steht in der `Meldung`.
  */
 export interface WischzeileProps {
+  /** Das App-Icon links. */
+  symbol?: LinienName;
   titel: ReactNode;
   unterzeile?: ReactNode;
   beiFreigeben: () => void;
@@ -26,6 +30,7 @@ export interface WischzeileProps {
 }
 
 export function Wischzeile({
+  symbol,
   titel,
   unterzeile,
   beiFreigeben,
@@ -96,6 +101,7 @@ export function Wischzeile({
         onPointerUp={hoch}
         onPointerCancel={hoch}
       >
+        {symbol && <AppIcon symbol={symbol} groesse={32} />}
         <div className="ara-wisch__text">
           <span className="ara-wisch__titel">{titel}</span>
           {unterzeile && <span className="ara-wisch__unterzeile">{unterzeile}</span>}
