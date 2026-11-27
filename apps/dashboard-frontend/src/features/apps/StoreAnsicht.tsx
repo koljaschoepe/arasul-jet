@@ -66,13 +66,30 @@ function AppKarte({ app }: { app: LeistenApp }) {
   );
 }
 
-function Reihe({ titel, apps, kennung }: { titel: string; apps: LeistenApp[]; kennung: string }) {
+function Reihe({
+  titel,
+  apps,
+  kennung,
+  liste,
+}: {
+  titel: string;
+  apps: LeistenApp[];
+  kennung: string;
+  /** Eine Abteilung steht als Liste, eine Zeile je App; „Neu“ als Reihe von Karten. */
+  liste?: boolean;
+}) {
   return (
     <section aria-labelledby={kennung} className="mb-8" data-testid={kennung}>
       <h2 id={kennung} className="mb-2 text-sm font-medium text-foreground">
         {titel}
       </h2>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-ui-2">
+      <div
+        className={
+          liste
+            ? 'grid grid-cols-1 gap-ui-2'
+            : 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),280px))] gap-ui-2'
+        }
+      >
         {apps.map(a => (
           <AppKarte key={`${kennung}-${a.id}`} app={a} />
         ))}
@@ -90,7 +107,7 @@ export function StoreAnsicht() {
 
   return (
     <div
-      className="max-w-[100rem] px-[clamp(16px,4vw,24px)] pt-[10px] pb-6"
+      className="mx-auto max-w-[70rem] px-[clamp(16px,4vw,24px)] pt-[10px] pb-24"
       data-testid="store-seite"
     >
       <Kopf titel="Store" beschreibung="Alle Apps Ihres Geräts, nach Abteilung." />
@@ -110,6 +127,7 @@ export function StoreAnsicht() {
               key={abteilung}
               titel={abteilung}
               apps={liste}
+              liste
               kennung={`store-abt-${abteilung}`}
             />
           ))}

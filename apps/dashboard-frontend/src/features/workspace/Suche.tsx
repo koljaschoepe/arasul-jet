@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Popup, PopupEintrag, PopupGruppe } from '@marken';
+import { AppSymbol } from '@/components/AppSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
 import { istPalettenTaste, useWorkspaceStore, type Ansicht } from '@/stores/workspaceStore';
@@ -129,8 +130,7 @@ export function Suche({ onLogout }: { onLogout: () => Promise<void> | void }) {
           {apps_.map(e => (
             <PopupEintrag
               key={e.id}
-              app
-              symbol="angebote"
+              bild={<AppSymbol symbol={e.symbol} klasse="size-4" />}
               titel={e.name}
               onWaehlen={() =>
                 geh({
