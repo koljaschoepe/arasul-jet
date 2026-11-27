@@ -115,14 +115,20 @@ function PopupBeispiel({ offen, zu }: { offen: boolean; zu: () => void }) {
       {apps.length > 0 && (
         <PopupGruppe titel="Apps">
           {apps.map(a => (
-            <PopupEintrag key={a} symbol="angebote" titel={a} onWaehlen={zu} />
+            <PopupEintrag key={a} app symbol="angebote" titel={a} unterzeile="App" onWaehlen={zu} />
           ))}
         </PopupGruppe>
       )}
       {befehle.length > 0 && (
         <PopupGruppe titel="Befehle">
           {befehle.map(b => (
-            <PopupEintrag key={b} symbol="plus" titel={b} kuerzel="⌘N" onWaehlen={zu} />
+            <PopupEintrag
+              key={b}
+              symbol={b === 'Abmelden' ? 'schliessen' : 'plus'}
+              titel={b}
+              kuerzel={b === 'Abmelden' ? undefined : '⌘N'}
+              onWaehlen={zu}
+            />
           ))}
         </PopupGruppe>
       )}
@@ -142,6 +148,7 @@ function WischBeispiel() {
       {zeilen.map(z => (
         <Wischzeile
           key={z}
+          symbol="kalender"
           titel={z}
           unterzeile="Wartet auf Sie"
           beiFreigeben={() => weg(z)}
@@ -261,13 +268,15 @@ export function SchaustueckeFassung6() {
         <Grund>
           <div className="flex flex-wrap gap-ui-3">
             <Glas form="karte">
-              <p className="p-ui-4">Karte</p>
+              <div className="p-ui-4">Karte</div>
             </Glas>
             <Glas form="kapsel">
-              <p className="px-ui-4 py-ui-2">Kapsel</p>
+              <div className="px-ui-4 py-ui-2">Kapsel</div>
             </Glas>
             <Glas form="kreis">
-              <p className="flex size-11 items-center justify-center">Ø</p>
+              <div className="flex size-11 items-center justify-center">
+                <Linie name="plus" />
+              </div>
             </Glas>
           </div>
         </Grund>
@@ -324,8 +333,15 @@ export function SchaustueckeFassung6() {
                 links={<IconKnopf symbol="idee" hinweis="Vogel" art="flach" />}
                 rechts={
                   <>
-                    <IconKnopf symbol="live" hinweis="Live" art="flach" aktiv />
-                    <IconKnopf symbol="test" hinweis="Test" art="flach" />
+                    <Segmente
+                      beschriftung="Stand"
+                      wert="live"
+                      onWaehlen={() => undefined}
+                      eintraege={[
+                        { id: 'live', titel: 'Live' },
+                        { id: 'test', titel: 'Test' },
+                      ]}
+                    />
                     <IconKnopf symbol="rueckmeldung" hinweis="Rückmeldung" art="flach" />
                     <IconKnopf symbol="suche" hinweis="Suchen" art="flach" />
                   </>
@@ -467,11 +483,17 @@ export function SchaustueckeFassung6() {
         <div className="flex w-full max-w-md flex-col gap-ui-3">
           <Liste beschriftung="Zuletzt">
             <ListenEintrag
+              symbol={<AppIcon symbol="kalender" groesse={32} />}
               titel="Urlaubsantrag Anna K."
-              unterzeile="vor 2 Stunden"
+              unterzeile="Urlaub · U-2026-014"
               hinweis="Offen"
             />
-            <ListenEintrag titel="Hallendach Süd" hinweis="A-101" aktiv />
+            <ListenEintrag
+              symbol={<AppIcon symbol="angebote" groesse={32} />}
+              titel="Hallendach Süd"
+              unterzeile="Angebote · A-2026-101"
+              hinweis="Offen"
+            />
           </Liste>
           <Karte titel="Angebote" hinweis="12 offen">
             Zwei warten auf Freigabe.
@@ -480,8 +502,8 @@ export function SchaustueckeFassung6() {
       </Schaustueck>
 
       <Schaustueck
-        name="MeldungRueckgaengig"
-        satz="Meldung mit Rückgängig: der Streifen zählt die fünf Sekunden ab."
+        name="Meldung"
+        satz="Meldung mit Rückgängig als Glaskapsel: Haken, Satz, runder Pfeil; fünf Sekunden Frist."
       >
         <div className="w-full max-w-md">
           <Meldung art="erfolg" beiRueckgaengig={() => undefined} frist={600000}>

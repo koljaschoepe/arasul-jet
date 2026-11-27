@@ -21,35 +21,43 @@ export function Stufenleiste({
   beschriftung = 'Stufe',
 }: StufenleisteProps) {
   return (
-    <ol className="ara-stufen" aria-label={beschriftung}>
-      {stufen.map((name, i) => {
-        const zustand = i < aktuell ? 'erreicht' : i === aktuell ? 'jetzt' : 'offen';
-        const inhalt = (
-          <>
-            <span className="ara-stufen__balken" aria-hidden="true" />
-            <span className="ara-stufen__name">{name}</span>
-          </>
-        );
-        return (
-          <li key={name} className="ara-stufen__stufe" data-zustand={zustand}>
-            {onWaehlen ? (
-              <button
-                type="button"
-                className="ara-stufen__knopf"
-                aria-current={i === aktuell ? 'step' : undefined}
-                onClick={() => onWaehlen(i)}
-              >
-                {inhalt}
-              </button>
-            ) : (
-              <span className="ara-stufen__knopf" aria-current={i === aktuell ? 'step' : undefined}>
-                {inhalt}
-              </span>
-            )}
-          </li>
-        );
-      })}
-    </ol>
+    <div className="ara-stufen">
+      <ol className="ara-stufen__reihe" aria-label={beschriftung}>
+        {stufen.map((name, i) => {
+          const zustand = i < aktuell ? 'erreicht' : i === aktuell ? 'jetzt' : 'offen';
+          const inhalt = (
+            <>
+              <span className="ara-stufen__balken" aria-hidden="true" />
+              <span className="ara-stufen__name">{name}</span>
+            </>
+          );
+          return (
+            <li key={name} className="ara-stufen__stufe" data-zustand={zustand}>
+              {onWaehlen ? (
+                <button
+                  type="button"
+                  className="ara-stufen__knopf"
+                  aria-current={i === aktuell ? 'step' : undefined}
+                  onClick={() => onWaehlen(i)}
+                >
+                  {inhalt}
+                </button>
+              ) : (
+                <span
+                  className="ara-stufen__knopf"
+                  aria-current={i === aktuell ? 'step' : undefined}
+                >
+                  {inhalt}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <span className="ara-stufen__jetzt" aria-hidden="true">
+        {stufen[aktuell]}
+      </span>
+    </div>
   );
 }
 

@@ -10,7 +10,7 @@
  *      Baustein, der beim Rendern wirft, hinterlaesst auf einem Bild einen
  *      Fleck, der wie Abstand aussieht -- gezaehlt faellt er auf.
  *   2. IST DIE FLAECHE DIE DES THEMES. `--background` ist im Hellen
- *      `#F6F3ED` und im Dunklen `#0A1628`. Zwei Bilder, die gleich aussehen,
+ *      `#F7F5F1` und im Dunklen `#0A1628`. Zwei Bilder, die gleich aussehen,
  *      sind der haeufigste stille Fehlschlag eines Theme-Umbaus (H1), und bei
  *      einer Bibliothek, deren Bausteine heute niemand benutzt, faellt es
  *      sonst gar nicht auf.
@@ -116,7 +116,7 @@ const BREITEN = [
  * die den erwarteten Wert aus der geprueften Datei liest, prueft nichts.
  */
 const THEMES = [
-  { name: 'hell', wert: 'light', attribut: null, flaeche: 'rgb(246, 243, 237)' },
+  { name: 'hell', wert: 'light', attribut: null, flaeche: 'rgb(247, 245, 241)' },
   { name: 'dunkel', wert: 'dark', attribut: 'dark', flaeche: 'rgb(10, 22, 40)' },
 ];
 
