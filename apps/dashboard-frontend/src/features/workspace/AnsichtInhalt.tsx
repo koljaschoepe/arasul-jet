@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Uebersicht } from '@/features/apps/Uebersicht';
 import { AppRahmen } from '@/features/apps/AppRahmen';
 import { AdminHinweise } from './AdminHinweise';
+import { StoreAnsicht } from '@/features/apps/StoreAnsicht';
 import { OffeneFreigaben } from '@/features/freigaben/OffeneFreigaben';
 import { useOffeneFreigaben } from '@/hooks/useOffeneFreigaben';
 import { lazyMitVorladen, lazyNachladen } from '@/utils/lazyNachladen';
@@ -99,6 +100,8 @@ export function AnsichtWeiche({ ansicht }: { ansicht: Ansicht }) {
           <Meldung art="warnung" titel="Diese Adresse zeigt auf keine App." />
         </div>
       );
+    case 'store':
+      return <StoreAnsicht />;
     case 'settings':
       return <Einstellungen />;
     case 'verwaltung':
@@ -261,7 +264,8 @@ export function AnsichtInhalt() {
             'h-full min-h-0 overflow-auto',
             // Die Startseite rollt hier selbst; am Handy hält sie unten den
             // Platz der schwebenden Leiste frei.
-            ansicht.type === 'dashboard' && 'pb-(--ara-leiste-platz,0px)'
+            (ansicht.type === 'dashboard' || ansicht.type === 'store') &&
+              'pb-(--ara-leiste-platz,0px)'
           )}
         >
           <ComponentErrorBoundary componentName={`Ansicht ${titel}`}>

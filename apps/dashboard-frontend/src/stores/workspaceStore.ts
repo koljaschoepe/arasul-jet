@@ -20,7 +20,7 @@ import { create } from 'zustand';
  * alles Gerätebezogene und gehört dem Administrator; `terminal` gehört der
  * Rolle Entwickler (Karte terminal-im-frontend, M5).
  */
-export type AnsichtTyp = 'dashboard' | 'app' | 'settings' | 'verwaltung' | 'terminal';
+export type AnsichtTyp = 'dashboard' | 'app' | 'settings' | 'verwaltung' | 'terminal' | 'store';
 
 /** Der Stand einer App: der Livestand für alle, der Teststand für Tester. */
 export type AppStand = 'live' | 'test';
@@ -60,6 +60,7 @@ const TITEL: Record<AnsichtTyp, string> = {
   settings: 'Einstellungen',
   verwaltung: 'Verwaltung',
   terminal: 'Terminal',
+  store: 'Store',
 };
 
 /** Was über der Ansicht im Browser-Tab steht. */
@@ -189,11 +190,15 @@ export function pfadZuAnsicht(subPath: string, search = ''): Ansicht | null {
     }
     case 'terminal':
       return { type: 'terminal' };
+    case 'store':
+      // Bis Plan 023 B7 hieß so der Pfad der Modelle; der Store des Klickentwurfs
+      // (J60) ist heute die Ansicht der Apps nach Abteilung. Die Modelle haben
+      // `modelle`.
+      return { type: 'store' };
     // Die Modelle waren bis M5 eine eigene Ansicht der Aktivitätsleiste, davor
     // (bis Plan 023 B7) hieß ihr Pfad /workspace/store. Beide Lesezeichen
     // landen im Bereich der Verwaltung.
     case 'modelle':
-    case 'store':
       return { type: 'verwaltung', bereich: 'modelle' };
     default:
       return null;
@@ -226,9 +231,22 @@ export function nurFuerEntwickler(typ: AnsichtTyp): boolean {
  * Eine Stelle, weil die Shell und der Rahmen einer App sie beide abfragen.
  */
 export function istPalettenTaste(
-  ev: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>
+  ev: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'> & {
+    target?: EventTarget | null;
+  }
 ): boolean {
-  return (ev.metaKey || ev.ctrlKey) && !ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === 'k';
+  if ((ev.metaKey || ev.ctrlKey) && !ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === 'k') {
+    return true;
+  }
+  // „/" öffnet die Suche, aber nie mitten in einem Feld: dort ist es ein Zeichen.
+  if (ev.key === '/' && !ev.metaKey && !ev.ctrlKey && !ev.altKey) {
+    const ziel = ev.target as HTMLElement | null | undefined;
+    const tippt =
+      !!ziel &&
+      (ziel.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(ziel.tagName ?? ''));
+    return !tippt;
+  }
+  return false;
 }
 
 function gleich(a: Ansicht, b: Ansicht): boolean {
@@ -260,6 +278,44 @@ export interface WorkspaceState {
    */
   paletteOffen: boolean;
   setzePalette: (offen: boolean) => void;
+  /**
+   * Die Apps, die zuletzt offen waren, die jüngste zuerst, höchstens
+   * `ZULETZT_MAX`. Nur im Speicher: „Zuletzt“ der Startseite und des Docks.
+   */
+  zuletzt: string[];
+  /**
+   * Die rechte Hälfte der Glasleiste: dort steht, was zur offenen App gehört
+   * (Live und Test, Rückmeldung). Der Rahmen der App schiebt es per Portal
+   * hinein, die Leiste gehört der Shell.
+   */
+  leistenSlot: HTMLElement | null;
+  setzeLeistenSlot: (el: HTMLElement | null) => void;
+}
+
+const ZULETZT_MAX = 6;
+const ZULETZT_SCHLUESSEL = 'arasul-zuletzt';
+
+/**
+ * „Zuletzt“ überlebt das Neuladen, je Browser (kein Gerätezustand, keine
+ * Person am Gerät: eine Bequemlichkeit, keine Quelle der Wahrheit).
+ */
+function zuletztLesen(): string[] {
+  try {
+    const roh = JSON.parse(localStorage.getItem(ZULETZT_SCHLUESSEL) ?? '[]');
+    return Array.isArray(roh)
+      ? roh.filter((x): x is string => typeof x === 'string').slice(0, ZULETZT_MAX)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function zuletztSchreiben(liste: string[]): void {
+  try {
+    localStorage.setItem(ZULETZT_SCHLUESSEL, JSON.stringify(liste));
+  } catch {
+    /* ohne Speicher gibt es nur „Zuletzt“ dieser Sitzung */
+  }
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
@@ -267,6 +323,9 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   zuletztStand: {},
   paletteOffen: false,
   setzePalette: offen => set({ paletteOffen: offen }),
+  zuletzt: zuletztLesen(),
+  leistenSlot: null,
+  setzeLeistenSlot: el => set({ leistenSlot: el }),
 
   oeffne: a => {
     const jetzt = get().ansicht;
@@ -275,11 +334,18 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
     if (gleich(neu, jetzt)) return;
     const zuletzt = get().zuletztStand;
     const stand = neu.stand ?? 'live';
-    set(
-      neu.type === 'app' && neu.appId && zuletzt[neu.appId] !== stand
-        ? { ansicht: neu, zuletztStand: { ...zuletzt, [neu.appId]: stand } }
-        : { ansicht: neu }
-    );
+    if (neu.type === 'app' && neu.appId) {
+      const appId = neu.appId;
+      const liste = [appId, ...get().zuletzt.filter(id => id !== appId)].slice(0, ZULETZT_MAX);
+      zuletztSchreiben(liste);
+      set({
+        ansicht: neu,
+        zuletztStand: zuletzt[appId] !== stand ? { ...zuletzt, [appId]: stand } : zuletzt,
+        zuletzt: liste,
+      });
+    } else {
+      set({ ansicht: neu });
+    }
   },
 
   setzeAppTitel: (appId, stand, title) =>

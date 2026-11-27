@@ -28,7 +28,7 @@ body[data-demo] {
 /* Schwebend, wo es keine Kapsel gibt. */
 .demo-kapsel[data-ort='frei'] {
   position: fixed;
-  top: 16px;
+  bottom: 28px;
   right: 16px;
   z-index: 40;
   height: 32px;
@@ -41,7 +41,7 @@ body[data-demo] {
 }
 @media (max-width: 899px) {
   .demo-kapsel[data-ort='frei'] {
-    top: 16px;
+    bottom: 96px;
     right: 16px;
   }
 }

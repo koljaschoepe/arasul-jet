@@ -11,7 +11,7 @@
  * „Abmelden" steht nicht hier, sondern im Konto unten in der Leiste, am Handy
  * unter „Mehr" (Karte glas-rahmen-und-leiste): eine Stelle je Funktion.
  */
-import { Laptop, Layers, LogOut, Monitor, Moon, Palette, Sun } from '@marken/symbole';
+import { Laptop, Layers, LogOut, Moon, Palette, Sun } from '@marken/symbole';
 import { useState } from 'react';
 import {
   Blatt,
@@ -46,14 +46,13 @@ const THEME_WAHLEN: ReadonlyArray<{
   satz: string;
   icon: typeof Sun;
 }> = [
-  { wert: 'system', label: 'System', satz: 'Folgt Ihrem Rechner', icon: Monitor },
   { wert: 'light', label: 'Hell', satz: 'Helle Flächen, dunkle Schrift', icon: Sun },
   { wert: 'dark', label: 'Dunkel', satz: 'Dunkle Flächen, ruhig am Abend', icon: Moon },
 ];
 
 /**
  * Erscheinungsbild (J51, Rest der dritten Karte: die Seite wirkte karg). Zwei
- * Gruppen wie in der Verwaltung: das Farbschema als drei Karten zum Antippen,
+ * Gruppen wie in der Verwaltung: das Farbschema als zwei Karten zum Antippen,
  * darunter das Glas mit einem Satz, was der Schalter tut.
  */
 function Erscheinungsbild() {
@@ -77,7 +76,7 @@ function Erscheinungsbild() {
               void setTheme(wert as ThemeWahl).catch(() => {});
             }}
             aria-label="Farbschema"
-            className="grid grid-cols-1 gap-2 sm:max-w-[600px] sm:grid-cols-3"
+            className="grid grid-cols-1 gap-2 sm:max-w-[600px] sm:grid-cols-2"
             data-testid="erscheinungsbild"
           >
             {THEME_WAHLEN.map(({ wert, label, satz, icon: Icon }) => (

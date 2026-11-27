@@ -12,10 +12,10 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { bereichAusAdresse } from '@/features/settings/sections';
 import { AnsichtInhalt } from './AnsichtInhalt';
-import { cn, useSchmalesFenster } from '@marken';
-import { ActivityBar } from './ActivityBar';
+import { SchalenKopf } from './SchalenKopf';
+import { SchalenDock } from './SchalenDock';
+import { Suche } from './Suche';
 import { useWeicherWechsel } from '@/hooks/useWeicherWechsel';
-import { Befehlspalette } from './Befehlspalette';
 
 /** Was die Shell von außen braucht: das Abmelden, und sonst nichts. */
 export interface ShellHandgriffe {
@@ -58,20 +58,11 @@ function ausDerAdresse(pathname: string, search: string): Ansicht | null {
 }
 
 /**
- * Der Rahmen (Karte glas-rahmen-und-leiste, 20.11.2026, `gestaltung.md`,
- * Rahmen):
- *
- *   Verlauf des Rahmens (`--verlauf-rahmen`), darauf mit 8 px Abstand
- *   Leiste aus Glas · Fläche der Ansicht (deckend, Radius 18 px seit J53)
- *
- * Es gibt keine Kopfleiste, keine Tab-Leiste, keine rechte Spalte, keine
- * zweite Seitenleiste und seit dieser Karte auch keine Statuszeile mehr: das
- * Konto steht unten in der Leiste, Datum und Uhrzeit zeigt Arasul nicht, eine
- * Störung erscheint als Meldung. Über einer App schwebt oben rechts die
- * Kapsel (`features/apps/Kapsel.tsx`).
- *
- * Unter 900 px schwebt dieselbe Leiste unten (`LeisteUnten`), die Fläche
- * darüber; „Abmelden" steht dort unter „Mehr".
+ * Die Schale (J60, `gestaltung.md`, Fassung vom 27.11.2026): oben die
+ * durchgehende Glasleiste (`SchalenKopf`), darunter die Fläche der Ansicht,
+ * unten mittig das schwebende Dock (`SchalenDock`), und über allem die
+ * Popup-Suche (`Suche`). Keine Aktivitätsleiste, keine Tab-Leiste, keine
+ * Spalten, keine Statuszeile. Hell ist der Standard (`useTheme`).
  *
  * Die Ansicht wird in der URL gespiegelt (/workspace/...), in beide
  * Richtungen; gespeichert wird sonst nichts.
@@ -84,9 +75,7 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
   const istEntwickler = user?.entwickler === true;
   const ansicht = useWorkspaceStore(s => s.ansicht);
   const oeffne = useWorkspaceStore(s => s.oeffne);
-  const schmal = useSchmalesFenster();
-  // Die Testfassung einer App trägt einen blauen Rand und oben in der Mitte,
-  // innen an der Kante, das Wort Test (`gestaltung.md`, Kapsel).
+  // Die Testfassung einer App trägt den blauen Streifen der Glasleiste.
   const testfassung = ansicht.type === 'app' && ansicht.stand === 'test';
 
   // Der Pfad, auf dem Adresse und Store zuletzt übereinstimmten. Store → URL
@@ -143,49 +132,26 @@ export default function WorkspaceShell({ onLogout }: ShellHandgriffe) {
     navigate(pfad);
   }, [ansicht]);
 
-  // Am Handy schwebt die Leiste ÜBER der Fläche (J50): Inhalt rollt unter das
-  // Glas, und was unten steht, hält ihren Platz frei. Die Shell nennt ihn
-  // als `--ara-leiste-platz` (Leiste 56 px, 8 px Luft, dazu der sichere Rand
-  // unten); Bereichsrahmen, Startseite und der Rahmen einer App lesen ihn.
+  // Das Dock schwebt ÜBER der Fläche: was unten steht, hält seinen Platz frei.
+  // Die Shell nennt ihn als `--ara-leiste-platz` (Dock 56 px, Luft, sicherer
+  // Rand); Startseite, Store, Bereichsrahmen und der Rahmen einer App lesen ihn.
   return (
     <div
-      className={cn(
-        'relative flex h-dvh w-screen gap-[8px] overflow-hidden bg-background bg-[image:var(--verlauf-rahmen)] p-[8px] text-foreground',
-        schmal &&
-          'pb-[max(8px,env(safe-area-inset-bottom))] [--ara-leiste-platz:calc(64px+env(safe-area-inset-bottom))]'
-      )}
+      className="relative flex h-dvh w-screen flex-col overflow-hidden bg-background text-foreground [--ara-leiste-platz:calc(88px+env(safe-area-inset-bottom))]"
       data-testid="workspace-shell"
     >
-      {schmal ? (
-        <div className="absolute inset-x-[8px] bottom-[max(8px,env(safe-area-inset-bottom))] z-40">
-          <ActivityBar onLogout={onLogout} />
+      <SchalenKopf />
+      <main
+        className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+        data-testid="workspace-ansicht"
+        data-testfassung={testfassung || undefined}
+      >
+        <div ref={wechsel} className="h-full w-full">
+          <AnsichtInhalt />
         </div>
-      ) : (
-        <ActivityBar onLogout={onLogout} />
-      )}
-      <div className="relative flex min-h-0 min-w-0 flex-1">
-        <main
-          className={cn(
-            'relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl border bg-background shadow-[var(--schatten-flaeche)]',
-            testfassung ? 'border-2 border-primary' : 'border-border'
-          )}
-          data-testid="workspace-ansicht"
-          data-testfassung={testfassung || undefined}
-        >
-          <div ref={wechsel} className="h-full w-full">
-            <AnsichtInhalt />
-          </div>
-        </main>
-        {testfassung && (
-          <span
-            className="pointer-events-none absolute top-[6px] left-1/2 z-30 h-[18px] -translate-x-1/2 rounded-full bg-primary px-[10px] text-xs leading-[18px] font-medium text-primary-foreground shadow-sm"
-            data-testid="ansicht-test-wort"
-          >
-            Test
-          </span>
-        )}
-      </div>
-      <Befehlspalette />
+      </main>
+      <SchalenDock />
+      <Suche onLogout={onLogout} />
     </div>
   );
 }

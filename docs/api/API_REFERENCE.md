@@ -499,7 +499,7 @@ Bindestrich, höchstens 64 Zeichen, beginnend mit Buchstabe oder Ziffer.
 
 Freigegeben wird an jeden Benutzer, auch an einen Administrator: die Rolle sagt,
 wer verwaltet, nicht wer arbeitet. Alle drei Wege sind Admin-Wege. Was der
-Mitarbeiter selbst davon sieht, steht unter `GET /api/apps/meine`. Jede App dort trägt `symbol` (aus `app.json`, Kontrakt 8: Lucide-Name oder 1 bis 3 Großbuchstaben, sonst `null`).
+Mitarbeiter selbst davon sieht, steht unter `GET /api/apps/meine`. Jede App dort trägt `symbol` (aus `app.json`, Kontrakt 8: Lucide-Name oder 1 bis 3 Großbuchstaben, sonst `null`), `seit` (wann die App aufs Gerät kam, daraus die Reihe „Neu“ im Store).
 
 | Method | Endpoint                            | Description                                                                                                                                                         |
 | ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

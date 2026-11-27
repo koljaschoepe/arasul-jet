@@ -55,6 +55,7 @@ export function useAuth() {
     logout: vi.fn().mockResolvedValue(undefined),
     checkAuth: vi.fn().mockResolvedValue(aktuell !== null),
     setLoadingComplete: vi.fn(),
+    benutzerAktualisieren: vi.fn(),
   };
 }
 
