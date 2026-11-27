@@ -112,6 +112,8 @@ function useMarke(aktiv: string) {
       );
     };
     messen();
+    // Nach dem Laden der Schrift sind die Knoepfe breiter als zuvor.
+    void document.fonts?.ready.then(messen);
     if (typeof ResizeObserver === 'undefined' || !wurzel.current) return undefined;
     const beobachter = new ResizeObserver(messen);
     beobachter.observe(wurzel.current);

@@ -115,7 +115,7 @@ function PopupBeispiel({ offen, zu }: { offen: boolean; zu: () => void }) {
       {apps.length > 0 && (
         <PopupGruppe titel="Apps">
           {apps.map(a => (
-            <PopupEintrag key={a} app symbol="angebote" titel={a} unterzeile="App" onWaehlen={zu} />
+            <PopupEintrag key={a} app symbol="angebote" titel={a} onWaehlen={zu} />
           ))}
         </PopupGruppe>
       )}
@@ -124,7 +124,7 @@ function PopupBeispiel({ offen, zu }: { offen: boolean; zu: () => void }) {
           {befehle.map(b => (
             <PopupEintrag
               key={b}
-              symbol={b === 'Abmelden' ? 'schliessen' : 'plus'}
+              symbol={b === 'Abmelden' ? 'personen' : 'plus'}
               titel={b}
               kuerzel={b === 'Abmelden' ? undefined : '⌘N'}
               onWaehlen={zu}

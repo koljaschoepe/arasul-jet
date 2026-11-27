@@ -67,6 +67,7 @@ export function Dock({ beschriftung = 'Hauptnavigation', kennzeichen, children }
       setMarke(alt => (alt?.x === neu?.x && alt?.b === neu?.b ? alt : neu));
     };
     messen();
+    void document.fonts?.ready.then(messen);
     if (typeof ResizeObserver === 'undefined' || !wurzel.current) return undefined;
     const beobachter = new ResizeObserver(messen);
     beobachter.observe(wurzel.current);
